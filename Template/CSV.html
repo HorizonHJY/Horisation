@@ -1,0 +1,74 @@
+<!-- Frontend/Template/Home.html -->
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>CSV 预览工具</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='Basic_style.css') }}">
+</head>
+<body>
+  <div class="wrap">
+    <h1>CSV 预览 / CSV Preview</h1>
+
+    <form id="upload-form">
+      <input type="file" name="file" id="file" accept=".csv">
+      <button type="submit">上传并分析</button>
+    </form>
+
+    <div id="result" class="card" style="display:none;">
+      <h2>概要信息</h2>
+      <pre id="summary"></pre>
+
+      <h2>前 10 行预览</h2>
+      <div id="preview"></div>
+    </div>
+  </div>
+
+  <script>
+    const $ = (s) => document.querySelector(s);
+
+    function renderTable(preview) {
+      if (!preview || !preview.columns || !preview.rows) return '';
+      const cols = preview.columns;
+      const rows = preview.rows;
+
+      const thead = `<thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead>`;
+      const tbody = `<tbody>${
+        rows.map(r =>
+          `<tr>${cols.map(c=>`<td>${(r[c] ?? '')}</td>`).join('')}</tr>`
+        ).join('')
+      }</tbody>`;
+
+      return `<table class="table">${thead}${tbody}</table>`;
+    }
+
+    $('#upload-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const file = $('#file').files[0];
+      if (!file) {
+        alert('请选择 CSV 文件');
+        return;
+      }
+
+      const fd = new FormData();
+      fd.append('file', file);
+
+      try {
+        const resp = await fetch('/api/upload', { method: 'POST', body: fd });
+        const data = await resp.json();
+        if (!data.ok) throw new Error(data.error || 'unknown');
+
+        // 概要
+        $('#summary').textContent = JSON.stringify(data.summary, null, 2);
+        // 预览表格
+        $('#preview').innerHTML = renderTable(data.preview);
+
+        $('#result').style.display = 'block';
+      } catch (err) {
+        console.error(err);
+        alert('上传或解析失败：' + err.message);
+      }
+    });
+  </script>
+</body>
+</html>
