@@ -23,7 +23,9 @@ def _allowed(filename: str) -> bool:
 def home():
     # 这里仍然只写文件名即可
     return render_template('Home.html')
-
+@app.route('/csv')
+def csv():
+    return render_template('CSV.html')
 @app.post('/api/upload')
 def api_upload():
     """接收CSV文件，返回预览与概要信息"""
