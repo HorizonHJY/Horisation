@@ -1,165 +1,63 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Horsation - 工作台</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <!-- 你的全局样式 -->
-  <link rel="stylesheet" href="{{ url_for('static', filename='Basic_style.css') }}">
-</head>
-<body>
-  <!-- 侧边导航栏 -->
-  <div class="sidebar">
-    <div class="logo">
-      <h1><i class="fas fa-horse-head"></i> <span>Horsation</span></h1>
-    </div>
+{% extends "horbase.html" %}
+{% block title %}Horsation - 工作台{% endblock %}
 
-    <div class="nav-section">
-      <div class="nav-title">Main Function</div>
-      <a href="{{ url_for('home') }}" class="nav-item active">
-        <i class="fas fa-home"></i>
-        <span>Home</span>
-      </a>
-      <a href="#" class="nav-item">
-        <i class="fas fa-chart-bar"></i>
-        <span>Data Analysis</span>
-      </a>
-      <a href="#" class="nav-item">
-        <i class="fas fa-database"></i>
-        <span>Data Handling</span>
-      </a>
-    </div>
-
-    <div class="nav-section">
-      <div class="nav-title">Toolkit</div>
-      <!-- 这里改成指向 /csv -->
-      <a href="{{ url_for('csv') }}" class="nav-item" id="nav-yyf">
-        <i class="fas fa-file-csv"></i>
-        <span>YYF CSV</span>
-      </a>
-      <a href="#" class="nav-item">
-        <i class="fas fa-table"></i>
-        <span>File handling</span>
-      </a>
-      <a href="#" class="nav-item">
-        <i class="fas fa-chart-line"></i>
-        <span>Data Visualization</span>
-      </a>
-    </div>
-
-    <div class="nav-section">
-      <div class="nav-title">其他</div>
-      <a href="#" class="nav-item">
-        <i class="fas fa-cog"></i>
-        <span>Settings</span>
-      </a>
-      <a href="#" class="nav-item">
-        <i class="fas fa-question-circle"></i>
-        <span>Help</span>
-      </a>
-    </div>
+{% block content %}
+  <div class="dashboard-header">
+    <h2>欢迎回来，Horizon！Welcome back 👋</h2>
+    <p>这是你的统一工作台：管理 CSV、做可视化和轻量分析。
+       This is your unified workspace for CSV handling, visualization, and quick analytics.</p>
   </div>
 
-  <!-- 主内容区域：欢迎页 -->
-  <div class="main-content">
-    <div class="topbar">
-      <div class="search-bar">
-        <i class="fas fa-search"></i>
-        <input type="text" placeholder="搜索... Search...">
+  <div class="welcome-image" style="margin-bottom:30px; text-align:center;">
+    <img src="{{ url_for('static', filename='pic/img.png') }}"
+         alt="Welcome Image"
+         style="max-width:30%; border-radius:12px; box-shadow:0 5px 15px rgba(0,0,0,0.1);" />
+  </div>
+
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">开始使用 / Get Started</h3>
+        <div class="card-icon csv-icon"><i class="fas fa-rocket"></i></div>
       </div>
-      <div class="user-profile">
-        <div class="notifications"><i class="fas fa-bell"></i></div>
-        <div class="user-avatar">HY</div>
+      <div class="card-content">
+        <p>查看示例与指南，了解如何在 Horsation 中完成数据工作流。
+           See samples & tips to complete your data workflows in Horsation.</p>
+      </div>
+      <div class="card-footer">
+        <button class="btn btn-outline" id="btn-docs">了解更多</button>
+        <a class="btn btn-primary" href="{{ url_for('csv') }}">打开 YYF CSV</a>
       </div>
     </div>
 
-    <div class="content">
-      <!-- 欢迎头部 / Welcome Header -->
-      <div class="dashboard-header">
-        <h2>欢迎回来，Horizon！Welcome back 👋</h2>
-        <p>这是你的统一工作台：管理 CSV、做可视化和轻量分析。
-           This is your unified workspace for CSV handling, visualization, and quick analytics.</p>
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">最近任务 / Recent Tasks</h3>
+        <div class="card-icon csv-icon"><i class="fas fa-clock"></i></div>
       </div>
-      <div class="welcome-image" style="margin-bottom:30px; text-align:center;">
-        <img src="{{ url_for('static', filename='pic/img.png') }}"
-             alt="Welcome Image"
-             style="max-width:60%; border-radius:12px; box-shadow:0 5px 15px rgba(0,0,0,0.1);" />
+      <div class="card-content">
+        <p>稍后我们可以接入最近打开的文件与任务列表。
+           We can later wire recent files and tasks here.</p>
       </div>
+      <div class="card-footer">
+        <button class="btn btn-outline">占位 / Placeholder</button>
+        <button class="btn btn-primary" disabled>即将上线</button>
+      </div>
+    </div>
 
-
-      <div class="card-grid">
-        <div class="card">
-          <div class="card-header">
-            <h3 class="card-title">开始使用 / Get Started</h3>
-            <div class="card-icon csv-icon"><i class="fas fa-rocket"></i></div>
-          </div>
-          <div class="card-content">
-            <p>查看示例与指南，了解如何在 Horsation 中完成数据工作流。
-               See samples & tips to complete your data workflows in Horsation.</p>
-          </div>
-          <div class="card-footer">
-            <button class="btn btn-outline" id="btn-docs">了解更多</button>
-            <a class="btn btn-primary" href="{{ url_for('csv') }}">打开 YYF CSV</a>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="card-header">
-            <h3 class="card-title">最近任务 / Recent Tasks</h3>
-            <div class="card-icon csv-icon"><i class="fas fa-clock"></i></div>
-          </div>
-          <div class="card-content">
-            <p>稍后我们可以接入最近打开的文件与任务列表。
-               We can later wire recent files and tasks here.</p>
-          </div>
-          <div class="card-footer">
-            <button class="btn btn-outline">占位 / Placeholder</button>
-            <button class="btn btn-primary" disabled>即将上线</button>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="card-header">
-            <h3 class="card-title">可视化 / Visualization</h3>
-            <div class="card-icon csv-icon"><i class="fas fa-chart-pie"></i></div>
-          </div>
-          <div class="card-content">
-            <p>一键生成基础图表：柱状图、折线图、饼图。
-               One-click basic charts: bar, line, pie.</p>
-          </div>
-          <div class="card-footer">
-            <button class="btn btn-outline">了解更多</button>
-            <button class="btn btn-primary" disabled>即将上线</button>
-          </div>
-        </div>
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">可视化 / Visualization</h3>
+        <div class="card-icon csv-icon"><i class="fas fa-chart-pie"></i></div>
+      </div>
+      <div class="card-content">
+        <p>一键生成基础图表：柱状图、折线图、饼图。
+           One-click basic charts: bar, line, pie.</p>
+      </div>
+      <div class="card-footer">
+        <button class="btn btn-outline">了解更多</button>
+        <button class="btn btn-primary" disabled>即将上线</button>
       </div>
     </div>
   </div>
-
-  <script>
-    // 如果 href 是 "#" 才阻止默认；真正的链接不要阻止
-    document.addEventListener('DOMContentLoaded', function () {
-      const navItems = document.querySelectorAll('.nav-item');
-      navItems.forEach(item => {
-        item.addEventListener('click', function (e) {
-          const href = this.getAttribute('href') || '#';
-          if (href === '#') {
-            e.preventDefault();
-          }
-          navItems.forEach(i => i.classList.remove('active'));
-          this.classList.add('active');
-        });
-      });
-
-      // 根据当前路径，高亮对应导航
-      const path = window.location.pathname;
-      if (path.startsWith('/csv')) {
-        document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-        const yyf = document.getElementById('nav-yyf');
-        if (yyf) yyf.classList.add('active');
-      }
-    });
-  </script>
-</body>
-</html>
+{% endblock %}

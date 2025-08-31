@@ -19,13 +19,17 @@ ALLOWED_EXT = {'.csv'}
 def _allowed(filename: str) -> bool:
     return os.path.splitext(filename)[1].lower() in ALLOWED_EXT
 
-@app.get('/')
+@app.route('/')
 def home():
-    # 这里仍然只写文件名即可
-    return render_template('Home.html')
+    return render_template('Home.html', active_page='home')
+
 @app.route('/csv')
 def csv():
-    return render_template('CSV.html')
+    return render_template('CSV.html', active_page='csv')
+@app.route('/hormemo')
+def hormemo():
+    return render_template('Hormemo.html', active_page='hormemo')
+
 @app.post('/api/upload')
 def api_upload():
     """接收CSV文件，返回预览与概要信息"""

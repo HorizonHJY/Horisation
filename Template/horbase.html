@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{% block title %}Horsation{% endblock %}</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='Basic_style.css') }}">
+</head>
+<body>
+  <!-- Sidebar (所有页面共用) -->
+  <div class="sidebar">
+    <div class="logo">
+      <h1><i class="fas fa-horse-head"></i> <span>Horsation</span></h1>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">Main Function</div>
+      <a href="{{ url_for('home') }}" class="nav-item active">
+        <i class="fas fa-home"></i>
+        <span>Home</span>
+      </a>
+      <a href="#" class="nav-item">
+        <i class="fas fa-chart-bar"></i>
+        <span>Data Analysis</span>
+      </a>
+      <a href="#" class="nav-item">
+        <i class="fas fa-table"></i>
+        <span>Hormemo</span>
+      </a>
+      <a href="#" class="nav-item">
+        <i class="fas fa-database"></i>
+        <span>Data Handling</span>
+      </a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">Toolkit</div>
+      <!-- 这里改成指向 /csv -->
+      <a href="{{ url_for('csv') }}" class="nav-item" id="nav-yyf">
+        <i class="fas fa-file-csv"></i>
+        <span>YYF CSV</span>
+      </a>
+      <a href="#" class="nav-item">
+        <i class="fas fa-chart-line"></i>
+        <span>Data Visualization</span>
+      </a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">其他</div>
+      <a href="#" class="nav-item">
+        <i class="fas fa-cog"></i>
+        <span>Settings</span>
+      </a>
+      <a href="#" class="nav-item">
+        <i class="fas fa-question-circle"></i>
+        <span>Help</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- 主体内容区域 -->
+  <div class="main-content">
+    <div class="topbar">
+      <div class="search-bar">
+        <i class="fas fa-search"></i><input type="text" placeholder="搜索...">
+      </div>
+      <div class="user-profile">
+        <div class="notifications"><i class="fas fa-bell"></i></div>
+        <div class="user-avatar">HY</div>
+      </div>
+    </div>
+
+    <div class="content">
+      {% block content %}
+      <!-- 每个页面的独有内容放这里 -->
+      {% endblock %}
+    </div>
+  </div>
+</body>
+</html>
