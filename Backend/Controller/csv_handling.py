@@ -1,6 +1,7 @@
 # Backend/Controller/csv_handling.py
 from io import BytesIO
 import pandas as pd
+import numpy as np
 
 def _to_df(binary: bytes) -> pd.DataFrame:
     """
@@ -42,3 +43,72 @@ def summarize_csv(binary: bytes):
         'na_ratio': na_ratio
     }
     return summary
+
+#Data cleaning
+def clean_csv(binary: bytes,
+              subset: list[str] | None = None,
+              keep: str = 'first',
+              strip_cell_space: bool = True,
+              dedupe_columns: bool = True
+              ) -> pd.DataFrame :
+    df = _to_df(binary)
+
+    #列名大写
+    new_cols = []
+    seen = {}
+    for c in df.columns:
+        name = str(c).strip().upper()  # 转字符串 + 去空格 + 大写
+        if dedupe_columns:
+            k = seen.get(name, 0)
+            if k > 0:
+                name = f"{name}_{k}"
+            seen[name] = k + 1
+        new_cols.append(name)
+    df.columns = new_cols
+
+    #去除首尾空格
+    if strip_cell_space:
+        obj_cols = df.select_dtypes(include=["object"]).columns
+        for c in obj_cols:
+            df[c] = df[c].apply(lambda x: x.strip() if isinstance(x, str) else x)
+
+    #去重
+    df = df.drop_duplicates(subset = subset, keep = keep).reset_index(drop=True)
+
+    return df
+
+#DataFrame merge
+def concat_dfs(dfs: list[pd.DataFrame],
+                uppercase_cols: bool = True,
+                alias: dict[str, str] | None = None) -> pd.DataFrame:
+    """
+    纵向合并多个 DataFrame：列取并集，缺失列自动补 NaN
+
+    Args:
+        dfs: 要合并的 DataFrame 列表
+        uppercase_cols: 是否把列名统一成大写（避免 id vs ID）
+        alias: 列名同义映射，如 {'user_id':'ID', 'uid':'ID'}
+    """
+    normed = []
+    for df in dfs:
+        df = df.copy()
+        if alias:
+            df.rename(columns = alias, inplace = True)
+        if uppercase_cols:
+            df.columns = [str(c).strip().upper() for c in df.columns]
+        normed.append(df)
+
+    result = pd.concat(normed, axis = 0, ignore_index = True, sort = False)
+    return result
+
+
+#DataFrame Exporting
+def export_csv(df: pd.DataFrame, filename: str = 'output.csv') -> None:
+    return df.to_csv(filename, index = False, encoding = 'utf-8')
+
+def export_excel(df: pd.DataFrame, filename: str = 'output.xlsx') -> None:
+    return df.to_excel(filename, index = False, engine = 'openpyxl')
+
+def export_json(df: pd.DataFrame, filename: str = 'output.json') -> None:
+    return df.to_json(filename, orient = 'records', force_ascii = False)
+
