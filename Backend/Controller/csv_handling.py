@@ -1,4 +1,3 @@
-# Backend/Controller/csv_handling.py
 from io import BytesIO
 import pandas as pd
 import numpy as np
@@ -103,12 +102,30 @@ def concat_dfs(dfs: list[pd.DataFrame],
 
 
 #DataFrame Exporting
-def export_csv(df: pd.DataFrame, filename: str = 'output.csv') -> None:
-    return df.to_csv(filename, index = False, encoding = 'utf-8')
+def export_data(df: pd.DataFrame, filename: str = 'output.csv', file_format: str = None) -> None:
+    """
+    通用导出函数：支持 CSV, Excel, JSON
+    :param df: 需要导出的 DataFrame
+    :param filename: 文件名，默认 output.csv
+    :param file_format: 文件格式，可选 'csv', 'excel', 'json'，默认根据文件扩展名判断
+    """
+    # 如果没有指定格式，则从文件名扩展名推断
+    if file_format is None:
+        if filename.lower().endswith('.csv'):
+            file_format = 'csv'
+        elif filename.lower().endswith(('.xls', '.xlsx')):
+            file_format = 'excel'
+        elif filename.lower().endswith('.json'):
+            file_format = 'json'
+        else:
+            raise ValueError("无法识别文件格式，请指定 file_format 参数 ('csv', 'excel', 'json')")
 
-def export_excel(df: pd.DataFrame, filename: str = 'output.xlsx') -> None:
-    return df.to_excel(filename, index = False, engine = 'openpyxl')
-
-def export_json(df: pd.DataFrame, filename: str = 'output.json') -> None:
-    return df.to_json(filename, orient = 'records', force_ascii = False)
-
+    # 根据不同格式导出
+    if file_format == 'csv':
+        df.to_csv(filename, index=False, encoding='utf-8')
+    elif file_format == 'excel':
+        df.to_excel(filename, index=False, engine='openpyxl')
+    elif file_format == 'json':
+        df.to_json(filename, orient='records', force_ascii=False)
+    else:
+        raise ValueError("不支持的文件格式: {}".format(file_format))

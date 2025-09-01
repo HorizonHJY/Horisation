@@ -28,7 +28,7 @@ def csv():
     return render_template('CSV.html', active_page='csv')
 @app.route('/hormemo')
 def hormemo():
-    return render_template('Hormemo.html', active_page='hormemo')
+    return render_template('hormemo.html', active_page='hormemo')
 
 @app.post('/api/upload')
 def api_upload():

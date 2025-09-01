@@ -1,0 +1,143 @@
+{% extends "horbase.html" %}
+
+{% block title %}Hormemo - Horsation{% endblock %}
+
+{% block extra_head %}
+{# base 里已引入 FontAwesome 就不必重复；没有的话可自行加 #}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/hormemo.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="app-container">
+  <header class="app-header">
+    <div class="app-title">
+      <i class="fas fa-clipboard-list"></i>
+      <h1>Hormemo</h1>
+    </div>
+    <div class="app-controls">
+      <button class="btn btn-primary" id="btn-refresh">
+        <i class="fas fa-sync-alt"></i> 刷新
+      </button>
+      <button class="btn btn-primary" id="btn-settings">
+        <i class="fas fa-cog"></i> 设置
+      </button>
+    </div>
+  </header>
+
+  <div class="app-content">
+    <div class="stats-container" id="stats">
+      <div class="stat-card total-tasks">
+        <div class="stat-icon"><i class="fas fa-tasks"></i></div>
+        <div class="stat-number" id="stat-total">5</div>
+        <div class="stat-label">总任务</div>
+      </div>
+      <div class="stat-card completed-tasks">
+        <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+        <div class="stat-number" id="stat-done">2</div>
+        <div class="stat-label">已完成</div>
+      </div>
+      <div class="stat-card pending-tasks">
+        <div class="stat-icon"><i class="fas fa-clock"></i></div>
+        <div class="stat-number" id="stat-pending">3</div>
+        <div class="stat-label">待完成</div>
+      </div>
+    </div>
+
+    <div class="memo-input-container">
+      <div class="input-header">
+        <i class="fas fa-plus-circle"></i><span>添加新任务</span>
+      </div>
+      <div class="memo-input">
+        <input type="text" id="new-task" placeholder="输入任务内容...">
+        <button class="btn-add" id="btn-add"><i class="fas fa-plus"></i> 添加任务</button>
+      </div>
+    </div>
+
+    <div class="tasks-container">
+      <div class="tasks-header"><i class="fas fa-list-check"></i><span>任务列表</span></div>
+      <div class="filter-options">
+        <button class="filter-btn active" data-filter="all">所有</button>
+        <button class="filter-btn" data-filter="active">进行中</button>
+        <button class="filter-btn" data-filter="done">已完成</button>
+      </div>
+
+      <ul id="task-list" class="task-list">
+        <li class="task-item">
+          <div class="task-content">
+            <div class="task-checkbox checked"><i class="fas fa-check"></i></div>
+            <div class="task-text completed">完成项目提案文档</div>
+            <span class="task-priority priority-high">高优先级</span>
+          </div>
+          <div class="task-actions">
+            <button class="btn-action btn-edit"><i class="fas fa-edit"></i></button>
+            <button class="btn-action btn-delete"><i class="fas fa-trash"></i></button>
+          </div>
+        </li>
+
+        <li class="task-item completed">
+          <div class="task-content">
+            <div class="task-checkbox checked"><i class="fas fa-check"></i></div>
+            <div class="task-text completed">团队周会</div>
+            <span class="task-priority priority-medium">中优先级</span>
+          </div>
+          <div class="task-actions">
+            <button class="btn-action btn-edit"><i class="fas fa-edit"></i></button>
+            <button class="btn-action btn-delete"><i class="fas fa-trash"></i></button>
+          </div>
+        </li>
+
+        <li class="task-item">
+          <div class="task-content">
+            <div class="task-checkbox"></div>
+            <div class="task-text">准备客户演示材料</div>
+            <span class="task-priority priority-high">高优先级</span>
+          </div>
+          <div class="task-actions">
+            <button class="btn-action btn-edit"><i class="fas fa-edit"></i></button>
+            <button class="btn-action btn-delete"><i class="fas fa-trash"></i></button>
+          </div>
+        </li>
+
+        <li class="task-item">
+          <div class="task-content">
+            <div class="task-checkbox"></div>
+            <div class="task-text">阅读行业报告</div>
+            <span class="task-priority priority-low">低优先级</span>
+          </div>
+          <div class="task-actions">
+            <button class="btn-action btn-edit"><i class="fas fa-edit"></i></button>
+            <button class="btn-action btn-delete"><i class="fas fa-trash"></i></button>
+          </div>
+        </li>
+
+        <li class="task-item high-priority">
+          <div class="task-content">
+            <div class="task-checkbox"></div>
+            <div class="task-text">修复生产环境紧急问题</div>
+            <span class="task-priority priority-high">高优先级</span>
+          </div>
+          <div class="task-actions">
+            <button class="btn-action btn-edit"><i class="fas fa-edit"></i></button>
+            <button class="btn-action btn-delete"><i class="fas fa-trash"></i></button>
+          </div>
+        </li>
+      </ul>
+
+      <div id="empty-state" class="empty-state" style="display:none;">
+        <i class="fas fa-clipboard-list"></i>
+        <p>还没有任务，添加一个吧！</p>
+        <button class="btn-add" id="btn-add-first"><i class="fas fa-plus"></i> 添加第一个任务</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 通知 -->
+<div class="notification success" id="toast">
+  <i class="fas fa-check-circle"></i><span>任务已成功添加！</span>
+</div>
+{% endblock %}
+
+{% block body_scripts %}
+<script src="{{ url_for('static', filename='js/hormemo.js') }}"></script>
+{% endblock %}
