@@ -1,49 +1,35 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>YYF CSV</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="{{ url_for('static', filename='Basic_style.css') }}">
-</head>
-<body>
-  <div class="sidebar">
-    <div class="logo">
-      <h1><i class="fas fa-horse-head"></i> <span>Horsation</span></h1>
+{% extends "horbase.html" %}
+
+{% block title %}Hormemo - Horsation{% endblock %}
+
+{% block extra_head %}
+{# 如果 horbase 已引入 FontAwesome，这里就不要重复引入 #}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/hormemo.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="content">
+  <div class="dashboard-header">
+    <h2>YYF CSV 工作区 / Workspace</h2>
+    <p>在这里上传、预览并进行基本转换。
+       Upload, preview, and basic transforms here.</p>
+  </div>
+  <!-- 你后续的 CSV 面板放这里 -->
+  <div class="csv-panel">
+    <div class="panel-header">
+      <h3 class="panel-title">上传 CSV 文件</h3>
+      <button class="btn btn-primary"><i class="fas fa-plus"></i> 新建 CSV</button>
     </div>
-    <div class="nav-section">
-      <div class="nav-title">Toolkit</div>
-      <a href="{{ url_for('home') }}" class="nav-item"><i class="fas fa-home"></i><span>Home</span></a>
-      <a href="{{ url_for('csv') }}" class="nav-item active"><i class="fas fa-file-csv"></i><span>YYF CSV</span></a>
+    <div class="upload-area">
+      <div class="upload-icon"><i class="fas fa-cloud-upload-alt"></i></div>
+      <h4>拖放文件到此处或点击上传</h4>
+      <p>支持 CSV 格式，最大 100MB</p>
     </div>
   </div>
+</div>
 
-  <div class="main-content">
-    <div class="topbar">
-      <div class="search-bar"><i class="fas fa-search"></i><input placeholder="搜索 CSV..."/></div>
-      <div class="user-profile"><div class="notifications"><i class="fas fa-bell"></i></div><div class="user-avatar">HY</div></div>
-    </div>
+{% endblock %}
 
-    <div class="content">
-      <div class="dashboard-header">
-        <h2>YYF CSV 工作区 / Workspace</h2>
-        <p>在这里上传、预览并进行基本转换。
-           Upload, preview, and basic transforms here.</p>
-      </div>
-      <!-- 你后续的 CSV 面板放这里 -->
-      <div class="csv-panel">
-        <div class="panel-header">
-          <h3 class="panel-title">上传 CSV 文件</h3>
-          <button class="btn btn-primary"><i class="fas fa-plus"></i> 新建 CSV</button>
-        </div>
-        <div class="upload-area">
-          <div class="upload-icon"><i class="fas fa-cloud-upload-alt"></i></div>
-          <h4>拖放文件到此处或点击上传</h4>
-          <p>支持 CSV 格式，最大 100MB</p>
-        </div>
-      </div>
-    </div>
-  </div>
-</body>
-</html>
+{% block body_scripts %}
+<script src="{{ url_for('static', filename='js/hormemo.js') }}"></script>
+{% endblock %}

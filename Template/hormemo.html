@@ -3,7 +3,7 @@
 {% block title %}Hormemo - Horsation{% endblock %}
 
 {% block extra_head %}
-{# base 里已引入 FontAwesome 就不必重复；没有的话可自行加 #}
+{# 如果 horbase 已引入 FontAwesome，这里就不要重复引入 #}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/hormemo.css') }}">
 {% endblock %}
 
@@ -132,7 +132,6 @@
   </div>
 </div>
 
-<!-- 通知 -->
 <div class="notification success" id="toast">
   <i class="fas fa-check-circle"></i><span>任务已成功添加！</span>
 </div>
