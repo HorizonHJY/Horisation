@@ -38,18 +38,27 @@ def simulate_price(S0, vol_annual, days, seed=None, basis=252):
 
 
 
-def gbm_simulation(S0, vol_annual, T, n_paths=10000, seed=42):
-    np.random.seed(seed)
-    Z = np.random.normal(size=n_paths)
+def simulate_price(S0, vol_annual, T, seed=None, basis=252):
+    """
+    模拟到期价格（单次GBM路径）
+    """
+    if seed is not None:
+        np.random.seed(seed)
+    Z = np.random.normal()
     ST = S0 * np.exp(-0.5 * vol_annual**2 * T + vol_annual * np.sqrt(T) * Z)
     return ST
 
-# 示例：取第2行数据
-S0 = 432
-vol = 0.1855
-T = 0.13
+# 读取Excel
+df = pd.read_excel("PFE_Results.xlsx", sheet_name="PFE Results")
 
-paths = gbm_simulation(S0, vol, T)
-p95 = np.percentile(paths, 95)
-print("P95 Price:", p95)
+# 取需要的列，注意列名要和Excel里一致
+df["GBM Price"] = df.apply(
+    lambda row: simulate_price(
+        row["Contract Price (USD/MT)"],     # 当前价格
+        row["Ann Volatility (%)"] / 100.0,  # 波动率转小数
+        row["Time to Expiry"]               # 年数
+    ),
+    axis=1
+)
 
+print(df[["Contract Price (USD/MT)", "Ann Volatility (%)", "Time to Expiry", "GBM Price"]])
