@@ -33,5 +33,23 @@ def simulate_price(S0, vol_annual, days, seed=None, basis=252):
 
 
 # 示例
-price = simulate_price(S0=100, vol_annual=0.3, days=21, seed=42)
-print(price)
+# price = simulate_price(S0=100, vol_annual=0.3, days=21, seed=42)
+# print(price)
+
+
+
+def gbm_simulation(S0, vol_annual, T, n_paths=10000, seed=42):
+    np.random.seed(seed)
+    Z = np.random.normal(size=n_paths)
+    ST = S0 * np.exp(-0.5 * vol_annual**2 * T + vol_annual * np.sqrt(T) * Z)
+    return ST
+
+# 示例：取第2行数据
+S0 = 432
+vol = 0.1855
+T = 0.13
+
+paths = gbm_simulation(S0, vol, T)
+p95 = np.percentile(paths, 95)
+print("P95 Price:", p95)
+
