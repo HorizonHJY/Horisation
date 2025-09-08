@@ -1,74 +1,97 @@
-<!-- Frontend/Template/Home.html -->
-<!doctype html>
-<html lang="zh-CN">
-<head>
-  <meta charset="utf-8">
-  <title>CSV 预览工具</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='Basic_style.css') }}">
-</head>
-<body>
-  <div class="wrap">
-    <h1>CSV 预览 / CSV Preview</h1>
+{# Template/CSV.html #}
+{% extends "Home.html" %}
 
-    <form id="upload-form">
-      <input type="file" name="file" id="file" accept=".csv">
-      <button type="submit">上传并分析</button>
-    </form>
+{% block title %}Hormemo - CSV Workspace{% endblock %}
 
-    <div id="result" class="card" style="display:none;">
-      <h2>概要信息</h2>
-      <pre id="summary"></pre>
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/hormemo.css') }}">
+<style>
+  .csv-panel { margin-top: 1rem; }
+  .upload-area { border: 2px dashed #e5e7eb; padding: 2rem; text-align: center; border-radius: 12px; }
+  .upload-area.dragover { background: #f8fafc; }
+  .chips { display:flex; flex-wrap:wrap; gap:.5rem; margin:.75rem 0; }
+  .chip { padding:.25rem .5rem; border-radius:999px; border:1px solid #e5e7eb; font-size:.85rem; }
+  .controls { display:flex; gap:.75rem; align-items:center; margin:.75rem 0; flex-wrap: wrap; }
+  .advanced-controls { background: #f9fafb; padding: 1rem; border-radius: 8px; margin: 1rem 0; }
+  .table-wrap { overflow:auto; max-height: 520px; border:1px solid #eee; border-radius:10px; }
+  table.preview { border-collapse: collapse; width:100%; }
+  table.preview th, table.preview td { border:1px solid #eee; padding:.5rem; font-size:.9rem; }
+  .muted { color:#6b7280; }
+  .error { color: #ef4444; }
+</style>
+{% endblock %}
 
-      <h2>前 10 行预览</h2>
-      <div id="preview"></div>
-    </div>
+{% block content %}
+<div class="content">
+  <div class="dashboard-header">
+    <h2>CSV 工作区 / Workspace</h2>
+    <p>上传 → 预览前 N 行 / Upload → preview first N rows without loading whole file.</p>
   </div>
 
-  <script>
-    const $ = (s) => document.querySelector(s);
+  <div class="csv-panel">
+    <div class="panel-header" style="display:flex; gap:.75rem; align-items:center;">
+      <h3 class="panel-title" style="margin:0;">上传 CSV / Excel</h3>
+      <button id="btnChoose" class="btn btn-primary"><i class="fas fa-folder-open"></i> 选择文件</button>
+      <input id="fileInput" type="file" accept=".csv,.xls,.xlsx" hidden>
+      <span id="fileName" class="muted"></span>
+    </div>
 
-    function renderTable(preview) {
-      if (!preview || !preview.columns || !preview.rows) return '';
-      const cols = preview.columns;
-      const rows = preview.rows;
+    <div id="dropzone" class="upload-area" style="margin-top:.5rem;">
+      <div class="upload-icon"><i class="fas fa-cloud-upload-alt" style="font-size:2rem;"></i></div>
+      <h4>拖放到此处或点击上方按钮 / Drag & drop here or click button</h4>
+      <p class="muted">支持 CSV / Excel（.xls/.xlsx），≤100MB</p>
+      <p class="error" id="excelWarning" style="display:none;">
+        注意：处理 Excel 文件需要额外依赖。如果遇到错误，请安装: pip install openpyxl xlrd
+      </p>
+    </div>
 
-      const thead = `<thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead>`;
-      const tbody = `<tbody>${
-        rows.map(r =>
-          `<tr>${cols.map(c=>`<td>${(r[c] ?? '')}</td>`).join('')}</tr>`
-        ).join('')
-      }</tbody>`;
+    <div class="advanced-controls">
+      <h4>高级选项 / Advanced Options</h4>
+      <div class="controls">
+        <label for="encodingSelect">编码 / Encoding:</label>
+        <select id="encodingSelect" style="width:8rem;">
+          <option value="">自动检测</option>
+          <option value="utf-8">UTF-8</option>
+          <option value="utf-8-sig">UTF-8 BOM</option>
+          <option value="gbk">GBK</option>
+          <option value="gb2312">GB2312</option>
+          <option value="big5">Big5</option>
+        </select>
 
-      return `<table class="table">${thead}${tbody}</table>`;
+        <label for="separatorInput">分隔符 / Separator:</label>
+        <input id="separatorInput" type="text" value="," placeholder="例如: , 或 ;" style="width:4rem;">
+
+        <label for="rowsN">预览行数 / Rows:</label>
+        <input id="rowsN" type="number" min="1" max="2000" value="5" style="width:6rem;">
+      </div>
+    </div>
+
+    <div class="controls">
+      <button id="btnPreview" class="btn btn-secondary"><i class="fas fa-eye"></i> 预览 Preview</button>
+      <button id="btnSummary" class="btn"><i class="fas fa-list"></i> 概要 Summary</button>
+      <span id="status" class="muted"></span>
+    </div>
+
+    <div id="columnsArea" class="chips"></div>
+    <div class="table-wrap"><table id="previewTable" class="preview"></table></div>
+
+    <div id="summaryBox" class="muted" style="margin-top:.75rem;"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block body_scripts %}
+<script src="{{ url_for('static', filename='js/horcsv.js') }}"></script>
+<script>
+  // 显示 Excel 依赖警告
+  document.getElementById('fileInput').addEventListener('change', function() {
+    const file = this.files[0];
+    const excelWarning = document.getElementById('excelWarning');
+    if (file && (file.name.endsWith('.xls') || file.name.endsWith('.xlsx'))) {
+      excelWarning.style.display = 'block';
+    } else {
+      excelWarning.style.display = 'none';
     }
-
-    $('#upload-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const file = $('#file').files[0];
-      if (!file) {
-        alert('请选择 CSV 文件');
-        return;
-      }
-
-      const fd = new FormData();
-      fd.append('file', file);
-
-      try {
-        const resp = await fetch('/api/upload', { method: 'POST', body: fd });
-        const data = await resp.json();
-        if (!data.ok) throw new Error(data.error || 'unknown');
-
-        // 概要
-        $('#summary').textContent = JSON.stringify(data.summary, null, 2);
-        // 预览表格
-        $('#preview').innerHTML = renderTable(data.preview);
-
-        $('#result').style.display = 'block';
-      } catch (err) {
-        console.error(err);
-        alert('上传或解析失败：' + err.message);
-      }
-    });
-  </script>
-</body>
-</html>
+  });
+</script>
+{% endblock %}
