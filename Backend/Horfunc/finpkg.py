@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 
 def simulate_price(S0, vol_annual, days, seed=None, basis=252):
