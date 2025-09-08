@@ -3,7 +3,7 @@ from flask import Blueprint, request, jsonify
 from io import BytesIO
 import pandas as pd
 import numpy as np
-import os
+import os,openpyxl
 import re
 
 bp = Blueprint("csv_api", __name__)
@@ -50,7 +50,6 @@ def _read_csv_with_fallback(binary: bytes, nrows: int | None = None,
     if sep is not None:
         base_kwargs["sep"] = sep
 
-    # 若用户显式给了 encoding，优先使用（不做回退）
     if encoding:
         bio = BytesIO(binary)
         return pd.read_csv(bio, encoding=encoding, **base_kwargs)
@@ -58,7 +57,6 @@ def _read_csv_with_fallback(binary: bytes, nrows: int | None = None,
     utf8_tries = [("utf-8", _USE_PYARROW), ("utf-8-sig", _USE_PYARROW)]
     local_fallbacks = ["gbk", "gb2312", "big5", "shift_jis", "cp1252", "latin1"]
 
-    # 1) UTF-8 家族
     for enc, use_pa in utf8_tries:
         try:
             bio = BytesIO(binary)
@@ -69,7 +67,6 @@ def _read_csv_with_fallback(binary: bytes, nrows: int | None = None,
         except Exception:
             pass
 
-    # 2) 本地常见编码
     for enc in local_fallbacks:
         try:
             bio = BytesIO(binary)
