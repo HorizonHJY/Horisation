@@ -1,4 +1,3 @@
-# Backend/Controller/csv_handling.py
 from io import BytesIO
 import pandas as pd
 import numpy as np
@@ -78,85 +77,39 @@ def clean_csv(binary: bytes,
     return df
 
 #DataFrame merge
-def dataframe_merge(df_list: list[pd.DataFrame],
-                   how: str = 'inner',
-                   on: str | list[str] | None = None,
-                   left_on: str | list[str] | None = None,
-                   right_on: str | list[str] | None = None,
-                   suffixes: tuple = ('_x', '_y')) -> pd.DataFrame:
+def concat_dfs(dfs: list[pd.DataFrame],
+                uppercase_cols: bool = True,
+                alias: dict[str, str] | None = None) -> pd.DataFrame:
     """
-    合并多个DataFrame（简化版）
+    纵向合并多个 DataFrame：列取并集，缺失列自动补 NaN
 
     Args:
-        df_list: 要合并的DataFrame列表（假定至少有一个）
-        how: 合并方式 ('inner'交集, 'outer'并集, 'left', 'right')
-        on: 用于合并的列名（当所有DataFrame都有相同列名时使用）
-        left_on: 左侧DataFrame的合并列
-        right_on: 右侧DataFrame的合并列
-        suffixes: 重复列名的后缀
-
-    Returns:
-        合并后的DataFrame
+        dfs: 要合并的 DataFrame 列表
+        uppercase_cols: 是否把列名统一成大写（避免 id vs ID）
+        alias: 列名同义映射，如 {'user_id':'ID', 'uid':'ID'}
     """
-    result_df = df_list[0]
+    normed = []
+    for df in dfs:
+        df = df.copy()
+        if alias:
+            df.rename(columns = alias, inplace = True)
+        if uppercase_cols:
+            df.columns = [str(c).strip().upper() for c in df.columns]
+        normed.append(df)
 
-    for i, next_df in enumerate(df_list[1:], 1):
-        if on is not None and (left_on is not None or right_on is not None):
-            raise ValueError("不能同时指定'on'和'left_on/right_on'参数")
-
-        if on is not None:
-            result_df = result_df.merge(next_df, how = how, on = on, suffixes = suffixes)
-        elif left_on is not None and right_on is not None:
-            result_df = result_df.merge(next_df, how = how, left_on = left_on,
-                                        right_on = right_on, suffixes = suffixes)
-        else:
-            # 自动推断合并列（公共列交集）
-            common_cols = list(set(result_df.columns) & set(next_df.columns))
-            if not common_cols:
-                raise ValueError(f"DataFrame {i} 和 {i+1} 没有共同的列名用于合并")
-
-            result_df = result_df.merge(next_df, how = how, on = common_cols, suffixes = suffixes)
-
-    return result_df
+    result = pd.concat(normed, axis = 0, ignore_index = True, sort = False)
+    return result
 
 
 #DataFrame Exporting
+#export as csv
 def export_csv(df: pd.DataFrame, filename: str = 'output.csv') -> None:
     return df.to_csv(filename, index = False, encoding = 'utf-8')
 
 def export_excel(df: pd.DataFrame, filename: str = 'output.xlsx') -> None:
-    return df.to_excel(filename, index = False)
+    return df.to_excel(filename, index = False, engine = 'openpyxl')
 
 def export_json(df: pd.DataFrame, filename: str = 'output.json') -> None:
     return df.to_json(filename, orient = 'records', force_ascii = False)
-
-
-
-#随机生成csv数据文件
-def generate_demo_csv(filename: str = "demo.csv", rows: int = 20):
-    # 随机数据
-    data = {
-        "id": range(1, rows + 1),
-        "name": [f"User{i}" for i in range(1, rows + 1)],
-        "age": np.random.randint(18, 60, size=rows),   # 18~59岁
-        "city": np.random.choice(
-            ["New York", "Los Angeles", "Chicago", "Houston", "San Francisco"],
-            size=rows
-        )
-    }
-
-    df = pd.DataFrame(data)
-    df.to_csv(filename, index=False, encoding="utf-8")
-    print(f"✅ 已生成 {filename}，包含 {rows} 行数据")
-
-#生成demo数据
-generate_demo_csv("demo2.csv", rows=30)
-
-#测试clean
-#转换为二进制
-#with open("demo.csv", "rb") as f:
-#    binary = f.read()
-#df_clean = clean_csv(binary)
-#export_csv(df_clean, "demo_clean.csv")
 
 
