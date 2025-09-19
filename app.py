@@ -29,7 +29,9 @@ def csv():
 @app.route('/hormemo')
 def hormemo():
     return render_template('hormemo.html', active_page='hormemo')
-
+@app.route('/limit')
+def limit():
+    return render_template('limit.html', active_page='limit')
 @app.post('/api/upload')
 def api_upload():
     """接收CSV文件，返回预览与概要信息"""
