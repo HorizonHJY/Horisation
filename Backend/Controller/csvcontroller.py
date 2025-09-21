@@ -86,6 +86,7 @@ def _to_df(binary: bytes, nrows: int | None = None, sep: str | None = None,
     将二进制数据读成 DataFrame。
     - 若 filename 指向 .xls/.xlsx，使用 read_excel
     - 否则按 CSV 处理并做编码回退
+    - Excel 文件如果存在多级表头，会自动展平成单级列名
     """
     name = (filename or "").lower()
 
@@ -111,6 +112,9 @@ def _to_df(binary: bytes, nrows: int | None = None, sep: str | None = None,
                 df = pd.read_excel(bio)
             except Exception:
                 raise e
+        # Excel 展平多级表头
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = ["_".join([str(x) for x in col if x]) for col in df.columns.values]
 
     # CSV 文件处理
     else:
