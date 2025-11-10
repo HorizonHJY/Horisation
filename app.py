@@ -5,7 +5,7 @@ CSV/Excel 数据分析与金融建模 Web 应用
 """
 
 import os
-from flask import Flask, render_template, session, redirect, url_for, g
+from flask import Flask, render_template, session, redirect, url_for, g, request
 from functools import wraps
 
 # 导入 Blueprint
@@ -127,6 +127,14 @@ def csv():
         return redirect(url_for('home'))
     return render_template('CSV.html', active_page='csv')
 
+@app.route('/csv/diff')
+@login_required
+def csv_diff():
+    """CSV 差异对比工作区"""
+    if not user_manager.check_sector_access(g.current_user['username'], 'general'):
+        return redirect(url_for('home'))
+    return render_template('CSV_diff.html', active_page='csv_diff')
+
 @app.route('/hormemo')
 @login_required
 def hormemo():
@@ -161,6 +169,9 @@ def request_entity_too_large(error):
 @app.errorhandler(404)
 def not_found(error):
     """404 错误处理"""
+    if request.path.startswith('/api/'):
+        from flask import jsonify
+        return jsonify({'ok': False, 'error': f'API route not found: {request.path}'}), 404
     return render_template('Home.html', active_page='home'), 404
 
 
@@ -179,4 +190,4 @@ if __name__ == '__main__':
     print("CSV Workspace: http://localhost:5000/csv")
     print("=" * 60 + "\n")
 
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=5001)

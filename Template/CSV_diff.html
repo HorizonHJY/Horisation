@@ -1,0 +1,654 @@
+{% extends "Home.html" %}
+
+{% block title %}Horisation - 差异对比{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/hormemo.css') }}">
+<style>
+  .csv-workspace {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    margin: 2rem 0 3rem;
+  }
+
+  .workspace-header {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 1.75rem 2rem;
+    border-radius: 18px;
+    border: 1px solid rgba(37, 99, 235, 0.18);
+    background: linear-gradient(115deg, rgba(37, 99, 235, 0.08), rgba(14, 165, 233, 0.08));
+  }
+
+  .workspace-meta {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+  }
+
+  .workspace-icon {
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 16px;
+    display: grid;
+    place-items: center;
+    background: rgba(37, 99, 235, 0.18);
+    color: #1d4ed8;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+  }
+
+  .workspace-meta h1 {
+    margin: 0;
+    font-size: 1.7rem;
+    font-weight: 600;
+    color: #0f172a;
+  }
+
+  .workspace-meta p {
+    margin: 0.35rem 0 0;
+    color: #475569;
+    font-size: 0.96rem;
+  }
+
+  .card {
+    background: #fff;
+    border-radius: 18px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 24px 60px -34px rgba(15, 23, 42, 0.35);
+    padding: 1.9rem 1.9rem 2.2rem;
+  }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+  }
+
+  .card-title-group {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .card-icon {
+    width: 3rem;
+    height: 3rem;
+    border-radius: 14px;
+    display: grid;
+    place-items: center;
+    font-size: 1.4rem;
+    background: #eff6ff;
+    color: #1d4ed8;
+    box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.18);
+  }
+
+  .card-title {
+    margin: 0;
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: #111827;
+  }
+
+  .card-subtitle {
+    margin: 0.3rem 0 0;
+    color: #64748b;
+    font-size: 0.92rem;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.65rem 1.35rem;
+    border-radius: 999px;
+    border: none;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .btn-primary {
+    background: #2563eb;
+    color: #fff;
+    box-shadow: 0 18px 40px -24px rgba(37, 99, 235, 0.9);
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 20px 46px -26px rgba(37, 99, 235, 0.95);
+  }
+
+  .btn-outline {
+    background: #fff;
+    color: #1f2937;
+    border: 1px solid #d1d5db;
+  }
+
+  .btn-outline:hover {
+    background: #f3f4f6;
+  }
+
+  .diff-panels {
+    display: grid;
+    gap: 1.5rem;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  }
+
+  .diff-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    padding: 1.5rem;
+    border-radius: 18px;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.1);
+  }
+
+  .diff-panel.upload-panel {
+    background: #fff;
+  }
+
+  .panel-heading {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  .panel-heading h3 {
+    margin: 0;
+    font-size: 1.12rem;
+    font-weight: 600;
+    color: #0f172a;
+  }
+
+  .panel-heading p {
+    margin: 0;
+    color: #64748b;
+    font-size: 0.9rem;
+  }
+
+  .control-item label {
+    display: block;
+    font-weight: 600;
+    color: #1f2937;
+    font-size: 0.9rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .control-item input[type="text"],
+  .control-item select,
+  .control-item textarea {
+    width: 100%;
+    padding: 0.65rem 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 12px;
+    font-size: 0.95rem;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    background: #fff;
+  }
+
+  .control-item textarea {
+    min-height: 120px;
+    resize: vertical;
+  }
+
+  .mapping-item .mapping-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .mapping-item .mapping-label label {
+    margin: 0;
+  }
+
+  .mapping-actions {
+    display: inline-flex;
+    gap: 0.5rem;
+  }
+
+  .mapping-actions button {
+    background: none;
+    border: none;
+    color: #2563eb;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+
+  .mapping-actions button:hover {
+    background: rgba(37, 99, 235, 0.12);
+    color: #1d4ed8;
+  }
+
+  .mapping-actions button:disabled {
+    color: #94a3b8;
+    cursor: not-allowed;
+    background: transparent;
+  }
+
+  .mapping-checkboxes {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .mapping-columns {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+
+  .mapping-column {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 1rem;
+    box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .mapping-column-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    color: #475569;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .mapping-column-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #1f2937;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  .mapping-column-count {
+    font-size: 0.78rem;
+    color: #94a3b8;
+  }
+
+  .mapping-checkbox-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+  }
+
+  .mapping-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.55rem 0.6rem;
+    border-radius: 12px;
+    border: 1px solid transparent;
+    background: #f8fafc;
+    color: #334155;
+    font-size: 0.92rem;
+    transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+  }
+
+  .mapping-checkbox input[type="checkbox"] {
+    width: 1.1rem;
+    height: 1.1rem;
+    accent-color: #2563eb;
+  }
+
+  .mapping-checkbox.checked {
+    background: #eef2ff;
+    border-color: rgba(99, 102, 241, 0.35);
+    color: #1d4ed8;
+    font-weight: 600;
+  }
+
+  .mapping-checkbox:not(.disabled):hover {
+    border-color: rgba(99, 102, 241, 0.35);
+    background: #eef2ff;
+  }
+
+  .mapping-checkbox.disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background: #f1f5f9;
+  }
+
+  .mapping-checkbox.disabled:hover {
+    border-color: transparent;
+    background: #f1f5f9;
+  }
+
+  .mapping-placeholder {
+    padding: 0.85rem 1rem;
+    border-radius: 12px;
+    background: #eef2ff;
+    color: #4338ca;
+    font-size: 0.9rem;
+  }
+
+  .mapping-placeholder.error {
+    background: #fee2e2;
+    color: #b91c1c;
+  }
+
+  .mapping-placeholder.warning {
+    background: #fef3c7;
+    color: #92400e;
+  }
+
+  .mapping-placeholder.subtle {
+    background: #f1f5f9;
+    color: #475569;
+  }
+
+  .control-item input:focus,
+  .control-item select:focus,
+  .control-item textarea:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    outline: none;
+  }
+
+  .helper-text {
+    margin-top: 0.45rem;
+    color: #6b7280;
+    font-size: 0.85rem;
+  }
+
+  .hidden-file-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
+  }
+
+  .upload-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    flex-wrap: wrap;
+  }
+
+  .upload-dropzone {
+    border: 2px dashed rgba(37, 99, 235, 0.35);
+    border-radius: 20px;
+    padding: 2.25rem 1.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+    background: rgba(37, 99, 235, 0.05);
+    color: #1e293b;
+  }
+
+  .upload-dropzone .dropzone-icon {
+    width: 3rem;
+    height: 3rem;
+    margin: 0 auto 1rem;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: rgba(37, 99, 235, 0.15);
+    color: #1d4ed8;
+    font-size: 1.4rem;
+  }
+
+  .upload-dropzone strong {
+    display: block;
+    font-size: 1.02rem;
+    margin-bottom: 0.35rem;
+  }
+
+  .upload-dropzone span {
+    display: block;
+    font-size: 0.9rem;
+    color: #475569;
+    line-height: 1.6;
+  }
+
+  .upload-dropzone em {
+    display: block;
+    margin-top: 0.6rem;
+    font-size: 0.82rem;
+    color: #94a3b8;
+  }
+
+  .upload-dropzone:hover {
+    border-color: rgba(37, 99, 235, 0.65);
+    background: rgba(37, 99, 235, 0.1);
+  }
+
+  .upload-dropzone.active {
+    border-color: #2563eb;
+    background: rgba(37, 99, 235, 0.16);
+    transform: translateY(-1px);
+  }
+
+  .file-pill {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 0.55rem;
+    margin: 0;
+    padding: 0.55rem 0.95rem;
+    border-radius: 999px;
+    background: rgba(37, 99, 235, 0.15);
+    color: #1d4ed8;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+
+  .file-pill::before {
+    content: '📄';
+  }
+
+  .settings-grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+
+  .mapping-item {
+    grid-column: 1 / -1;
+  }
+
+  .diff-actions {
+    margin-top: 1.75rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.85rem;
+  }
+
+  .status-area,
+  .diff-status {
+    margin-top: 1rem;
+    min-height: 1.5rem;
+  }
+
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 0.85rem;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 500;
+  }
+
+  .status-info { background: #f3f4f6; color: #374151; }
+  .status-success { background: #dcfce7; color: #166534; }
+  .status-error { background: #fee2e2; color: #b91c1c; }
+
+  .created-files {
+    margin-top: 0.9rem;
+    padding-left: 1.1rem;
+    color: #1f2937;
+    font-size: 0.88rem;
+  }
+
+  .created-files li {
+    margin: 0.25rem 0;
+  }
+
+  @media (max-width: 640px) {
+    .workspace-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .card-header {
+      align-items: flex-start;
+    }
+
+    .btn {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="csv-workspace">
+  <header class="workspace-header">
+    <div class="workspace-meta">
+      <div class="workspace-icon"><span>DIFF</span></div>
+      <div>
+        <h1>差异对比工作区</h1>
+        <p>上传两个文件并配置字段映射，生成差异高亮或对比报告。</p>
+      </div>
+    </div>
+  </header>
+
+  <section class="card diff-card">
+    <div class="card-header">
+      <div class="card-title-group">
+        <div class="card-icon">🆚</div>
+        <div>
+          <h2 class="card-title">差异对比</h2>
+          <p class="card-subtitle">上传两个文件并提供映射配置，生成差异高亮或对比报告。</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="diff-panels">
+      <div class="diff-panel upload-panel">
+        <div class="panel-heading">
+          <h3>文件一</h3>
+          <p>支持通过选择按钮或拖拽上传 CSV / Excel 文件。</p>
+        </div>
+        <div class="upload-actions">
+          <button id="diffFile1Button" class="btn btn-outline" type="button">选择文件</button>
+          <div id="diffFile1Name" class="file-pill"><span></span></div>
+        </div>
+        <input id="diffFile1Input" class="hidden-file-input" type="file" accept=".csv,.xls,.xlsx">
+        <div id="diffFile1Dropzone" class="upload-dropzone">
+          <div class="dropzone-icon">⬆️</div>
+          <strong>拖放文件到此处或点击选择</strong>
+          <span>支持 CSV / Excel (.csv / .xls / .xlsx)，单个文件最大 100MB</span>
+          <em>拖拽即刻上传，或点击上方按钮手动选择</em>
+        </div>
+      </div>
+
+      <div class="diff-panel upload-panel">
+        <div class="panel-heading">
+          <h3>文件二</h3>
+          <p>支持通过选择按钮或拖拽上传 CSV / Excel 文件。</p>
+        </div>
+        <div class="upload-actions">
+          <button id="diffFile2Button" class="btn btn-outline" type="button">选择文件</button>
+          <div id="diffFile2Name" class="file-pill"><span></span></div>
+        </div>
+        <input id="diffFile2Input" class="hidden-file-input" type="file" accept=".csv,.xls,.xlsx">
+        <div id="diffFile2Dropzone" class="upload-dropzone">
+          <div class="dropzone-icon">⬆️</div>
+          <strong>拖放文件到此处或点击选择</strong>
+          <span>支持 CSV / Excel (.csv / .xls / .xlsx)，单个文件最大 100MB</span>
+          <em>拖拽即刻上传，或点击上方按钮手动选择</em>
+        </div>
+      </div>
+
+      <div class="diff-panel settings-panel">
+        <div class="panel-heading">
+          <h3>差异与合并条件</h3>
+          <p>设置两个文件的编码、分隔符以及公共 Key。</p>
+        </div>
+        <div class="settings-grid">
+          <div class="control-item">
+            <label for="diffEncoding1">文件一编码</label>
+            <select id="diffEncoding1">
+              <option value="">自动检测</option>
+              <option value="utf-8">UTF-8</option>
+              <option value="gbk">GBK</option>
+              <option value="latin-1">Latin-1</option>
+            </select>
+          </div>
+          <div class="control-item">
+            <label for="diffEncoding2">文件二编码</label>
+            <select id="diffEncoding2">
+              <option value="">自动检测</option>
+              <option value="utf-8">UTF-8</option>
+              <option value="gbk">GBK</option>
+              <option value="latin-1">Latin-1</option>
+            </select>
+          </div>
+          <div class="control-item">
+            <label for="diffSeparator1">文件一分隔符</label>
+            <input id="diffSeparator1" type="text" maxlength="4" placeholder=",">
+          </div>
+          <div class="control-item">
+            <label for="diffSeparator2">文件二分隔符</label>
+            <input id="diffSeparator2" type="text" maxlength="4" placeholder=",">
+          </div>
+          <div class="control-item">
+            <label for="diffPrimaryKey">公共 Key</label>
+            <input id="diffPrimaryKey" type="text" placeholder="例如：ID 或 user_id">
+            <p class="helper-text">用于匹配两个文件记录的唯一键，可输入多个字段以逗号分隔。</p>
+          </div>
+          <div class="control-item mapping-item">
+            <div class="mapping-label">
+              <label>比较数值列</label>
+              <div class="mapping-actions">
+                <button id="diffSelectAllColumns" type="button">全选</button>
+                <button id="diffClearColumns" type="button">清空</button>
+              </div>
+            </div>
+            <div id="diffMappingContainer" class="mapping-checkboxes">
+              <div class="mapping-placeholder subtle">请先上传两个文件以加载数值列。</div>
+            </div>
+            <p class="helper-text">系统会自动检测两个文件共有的数值列，请勾选需要比较的列。</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="diff-actions">
+      <button id="btnDiffHighlight" class="btn btn-primary" type="button">生成高亮文件</button>
+      <button id="btnDiffReport" class="btn btn-outline" type="button">生成差异报告</button>
+    </div>
+
+    <div id="diffStatus" class="diff-status"></div>
+    <ul id="diffCreatedFiles" class="created-files"></ul>
+  </section>
+</div>
+
+<script src="{{ url_for('static', filename='js/horcsv.js') }}"></script>
+{% endblock %}

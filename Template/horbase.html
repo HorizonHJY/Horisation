@@ -38,7 +38,10 @@
     <div class="nav-section">
       <div class="nav-title">Toolkit</div>
       <a href="{{ url_for('csv') }}" class="nav-item {% if active_page=='csv' %}active{% endif %}" id="nav-yyf">
-        <i class="fas fa-file-csv"></i><span>YYF CSV</span>
+        <i class="fas fa-file-csv"></i><span>CSV_CLEAN</span>
+      </a>
+      <a href="{{ url_for('csv_diff') }}" class="nav-item {% if active_page=='csv_diff' %}active{% endif %}">
+        <i class="fas fa-code-branch"></i><span>CSV_DIFF</span>
       </a>
       <a href="#" class="nav-item">
         <i class="fas fa-chart-line"></i><span>Data Visualization</span>

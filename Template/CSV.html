@@ -6,313 +6,717 @@
 {% block extra_head %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/hormemo.css') }}">
 <style>
-  .csv-workspace { margin-top: 1rem; display: grid; gap: 1.5rem; }
-
-  /* 上传区域 */
-  .upload-section { background: #fff; border-radius: 12px; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-  .upload-area {
-    border: 2px dashed #d1d5db;
-    padding: 2.5rem;
-    text-align: center;
-    border-radius: 12px;
-    transition: all 0.3s;
-    background: #f9fafb;
+  .csv-workspace {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    margin: 2rem 0 3rem;
   }
-  .upload-area.dragover { background: #eff6ff; border-color: #3b82f6; }
-  .upload-area:hover { border-color: #9ca3af; }
-  .upload-icon { font-size: 3rem; color: #6b7280; margin-bottom: 1rem; }
 
-  /* 控制面板 */
-  .control-panel {
-    background: #fff;
-    border-radius: 12px;
-    padding: 1.5rem;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  .workspace-header {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 1.75rem 2rem;
+    border-radius: 18px;
+    border: 1px solid rgba(37, 99, 235, 0.18);
+    background: linear-gradient(115deg, rgba(37, 99, 235, 0.08), rgba(14, 165, 233, 0.08));
   }
-  .control-grid {
+
+  .workspace-meta {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+  }
+
+  .workspace-icon {
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 16px;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1rem;
-    margin-bottom: 1rem;
+    place-items: center;
+    background: rgba(37, 99, 235, 0.18);
+    color: #1d4ed8;
+    font-weight: 700;
+    letter-spacing: 0.08em;
   }
+
+  .workspace-meta h1 {
+    margin: 0;
+    font-size: 1.7rem;
+    font-weight: 600;
+    color: #0f172a;
+  }
+
+  .workspace-meta p {
+    margin: 0.35rem 0 0;
+    color: #475569;
+    font-size: 0.96rem;
+  }
+
+  .card {
+    background: #fff;
+    border-radius: 18px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 24px 60px -34px rgba(15, 23, 42, 0.35);
+    padding: 1.9rem 1.9rem 2.2rem;
+  }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+  }
+
+  .card-title-group {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .card-icon {
+    width: 3rem;
+    height: 3rem;
+    border-radius: 14px;
+    display: grid;
+    place-items: center;
+    font-size: 1.4rem;
+    background: #eff6ff;
+    color: #1d4ed8;
+    box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.18);
+  }
+
+  .card-title {
+    margin: 0;
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: #111827;
+  }
+
+  .card-subtitle {
+    margin: 0.3rem 0 0;
+    color: #64748b;
+    font-size: 0.92rem;
+  }
+
+  .upload-dropzone {
+    position: relative;
+    border: 2px dashed rgba(37, 99, 235, 0.3);
+    border-radius: 18px;
+    background: #f8fbff;
+    min-height: 230px;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    padding: 2.75rem 1.5rem;
+    cursor: pointer;
+    transition: border-color 0.25s ease, background 0.25s ease, transform 0.2s ease;
+  }
+
+  .upload-dropzone:hover,
+  .upload-dropzone.active {
+    border-color: #2563eb;
+    background: rgba(37, 99, 235, 0.1);
+    transform: translateY(-1px);
+  }
+
+  .upload-dropzone:focus-visible {
+    outline: 3px solid rgba(37, 99, 235, 0.45);
+    outline-offset: 4px;
+  }
+
+  .dropzone-inner {
+    max-width: 420px;
+  }
+
+  .dropzone-icon {
+    width: 4rem;
+    height: 4rem;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    margin: 0 auto 1.1rem;
+    background: rgba(37, 99, 235, 0.12);
+    color: #2563eb;
+    font-size: 1.6rem;
+  }
+
+  .dropzone-title {
+    font-size: 1.08rem;
+    font-weight: 600;
+    color: #0f172a;
+    margin-bottom: 0.45rem;
+  }
+
+  .dropzone-hint {
+    margin: 0;
+    color: #475569;
+    font-size: 0.94rem;
+  }
+
+  .dropzone-limit {
+    margin: 0.5rem 0 0;
+    color: #94a3b8;
+    font-size: 0.85rem;
+  }
+
+  .file-pill {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 0.55rem;
+    margin: 1.15rem 0 0;
+    padding: 0.55rem 0.95rem;
+    border-radius: 999px;
+    background: rgba(37, 99, 235, 0.18);
+    color: #1d4ed8;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+
+  .upload-dropzone .file-pill {
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .control-item .file-pill {
+    margin-top: 0.75rem;
+  }
+
+  .option-fields {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    margin-bottom: 1.75rem;
+  }
+
   .control-item label {
     display: block;
-    font-weight: 500;
-    margin-bottom: 0.25rem;
-    color: #374151;
-    font-size: 0.875rem;
-  }
-  .control-item input, .control-item select {
-    width: 100%;
-    padding: 0.5rem;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
-    font-size: 0.875rem;
+    font-weight: 600;
+    color: #1f2937;
+    font-size: 0.9rem;
   }
 
-  /* 按钮组 */
-  .action-buttons {
-    display: flex;
-    gap: 0.75rem;
-    flex-wrap: wrap;
-    margin-top: 1rem;
+  .control-item input[type="text"],
+  .control-item input[type="number"],
+  .control-item select,
+  .control-item textarea {
+    margin-top: 0.55rem;
+    width: 100%;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    padding: 0.65rem 0.75rem;
+    font-size: 0.9rem;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    background: #fff;
   }
+
+  .control-item textarea {
+    min-height: 160px;
+    resize: vertical;
+    font-family: "SFMono-Regular", "Menlo", "Consolas", "Liberation Mono", monospace;
+    line-height: 1.5;
+  }
+
+  .control-item input:focus,
+  .control-item select:focus,
+  .control-item textarea:focus {
+    border-color: #2563eb;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+  }
+
+  .helper-text {
+    font-size: 0.78rem;
+    color: #6b7280;
+    margin-top: 0.45rem;
+  }
+
+  .option-checkboxes {
+    display: grid;
+    gap: 0.9rem;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  }
+
+  .checkbox-group {
+    padding: 0.85rem 1rem;
+    border-radius: 14px;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    transition: border-color 0.2s ease, background 0.2s ease;
+  }
+
+  .checkbox-group:hover {
+    border-color: rgba(37, 99, 235, 0.6);
+    background: #f1f5ff;
+  }
+
+  .checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin: 0;
+  }
+
+  .checkbox-label input {
+    width: 1.1rem;
+    height: 1.1rem;
+    accent-color: #2563eb;
+  }
+
+  .card-actions {
+    margin-top: 1.75rem;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.85rem;
+  }
+
   .btn {
-    padding: 0.625rem 1.25rem;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 0.875rem;
-    font-weight: 500;
-    transition: all 0.2s;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 0.5rem;
-  }
-  .btn-primary { background: #3b82f6; color: white; }
-  .btn-primary:hover { background: #2563eb; transform: translateY(-1px); }
-  .btn-secondary { background: #10b981; color: white; }
-  .btn-secondary:hover { background: #059669; transform: translateY(-1px); }
-  .btn-outline { background: white; color: #6b7280; border: 1px solid #d1d5db; }
-  .btn-outline:hover { background: #f3f4f6; }
-
-  /* 结果展示区 */
-  .result-section { background: #fff; border-radius: 12px; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-  .result-tabs {
-    display: flex;
-    gap: 0.5rem;
-    border-bottom: 2px solid #e5e7eb;
-    margin-bottom: 1rem;
-  }
-  .tab {
-    padding: 0.75rem 1.25rem;
-    background: none;
+    padding: 0.75rem 1.55rem;
+    border-radius: 12px;
     border: none;
-    cursor: pointer;
-    font-weight: 500;
-    color: #6b7280;
-    border-bottom: 2px solid transparent;
-    margin-bottom: -2px;
-    transition: all 0.2s;
-  }
-  .tab.active {
-    color: #3b82f6;
-    border-bottom-color: #3b82f6;
-  }
-  .tab:hover { color: #3b82f6; }
-
-  .tab-content { display: none; }
-  .tab-content.active { display: block; }
-
-  /* 列标签 */
-  .column-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin: 1rem 0;
-  }
-  .chip {
-    padding: 0.375rem 0.75rem;
-    border-radius: 999px;
-    background: #eff6ff;
-    color: #1e40af;
-    font-size: 0.875rem;
-    font-weight: 500;
-  }
-  .chip.numeric { background: #d1fae5; color: #065f46; }
-  .chip.date { background: #fef3c7; color: #92400e; }
-
-  /* 表格 */
-  .table-container {
-    overflow: auto;
-    max-height: 500px;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-  }
-  table.data-table {
-    border-collapse: collapse;
-    width: 100%;
-    font-size: 0.875rem;
-  }
-  table.data-table th {
-    background: #f9fafb;
-    border: 1px solid #e5e7eb;
-    padding: 0.75rem;
+    font-size: 0.92rem;
     font-weight: 600;
-    text-align: left;
-    position: sticky;
-    top: 0;
-    z-index: 1;
+    cursor: pointer;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
   }
-  table.data-table td {
-    border: 1px solid #e5e7eb;
-    padding: 0.75rem;
-  }
-  table.data-table tr:hover { background: #f9fafb; }
 
-  /* 状态提示 */
+  .btn:focus-visible {
+    outline: 3px solid rgba(37, 99, 235, 0.4);
+    outline-offset: 2px;
+  }
+
+  .btn-primary {
+    background: #2563eb;
+    color: #fff;
+    box-shadow: 0 18px 40px -24px rgba(37, 99, 235, 0.9);
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 20px 46px -26px rgba(37, 99, 235, 0.95);
+  }
+
+  .btn-success {
+    background: #16a34a;
+    color: #fff;
+    box-shadow: 0 18px 40px -26px rgba(22, 163, 74, 0.85);
+  }
+
+  .btn-success:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 20px 48px -28px rgba(22, 163, 74, 0.9);
+  }
+
+  .btn-outline {
+    background: #fff;
+    color: #1f2937;
+    border: 1px solid #d1d5db;
+  }
+
+  .btn-outline:hover {
+    background: #f3f4f6;
+  }
+
+  .status-area,
+  .diff-status {
+    margin-top: 1rem;
+    min-height: 1.5rem;
+  }
+
   .status-badge {
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    border-radius: 8px;
-    font-size: 0.875rem;
+    gap: 0.4rem;
+    padding: 0.5rem 0.85rem;
+    border-radius: 999px;
+    font-size: 0.82rem;
     font-weight: 500;
   }
-  .status-success { background: #d1fae5; color: #065f46; }
-  .status-error { background: #fee2e2; color: #991b1b; }
-  .status-info { background: #dbeafe; color: #1e40af; }
+
+  .status-info { background: #f3f4f6; color: #374151; }
+  .status-success { background: #dcfce7; color: #166534; }
+  .status-error { background: #fee2e2; color: #b91c1c; }
+
+  .download-card {
+    margin-top: 1.25rem;
+    display: none;
+    align-items: center;
+    gap: 0.8rem;
+    padding: 1rem 1.2rem;
+    border-radius: 12px;
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+  }
+
+  .download-card a {
+    color: #2563eb;
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .results-card {
+    display: none;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .results-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .results-tabs {
+    display: inline-flex;
+    align-items: center;
+    background: #f1f5f9;
+    padding: 0.35rem;
+    border-radius: 999px;
+    gap: 0.35rem;
+  }
+
+  .result-tab {
+    border: none;
+    background: transparent;
+    color: #475569;
+    font-weight: 600;
+    padding: 0.45rem 1.05rem;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.18s ease, color 0.18s ease;
+  }
+
+  .result-tab:hover,
+  .result-tab:focus-visible {
+    background: rgba(37, 99, 235, 0.12);
+    color: #1d4ed8;
+    outline: none;
+  }
+
+  .result-tab.active {
+    background: #fff;
+    color: #1d4ed8;
+    box-shadow: 0 8px 16px -10px rgba(37, 99, 235, 0.45);
+  }
+
+  .tab-panel {
+    display: none;
+  }
+
+  .tab-panel.active {
+    display: block;
+  }
+
+  .column-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.4rem 0.75rem;
+    border-radius: 999px;
+    background: #e0f2fe;
+    color: #1d4ed8;
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
+  .chip.numeric {
+    background: #dcfce7;
+    color: #166534;
+  }
+
+  .chip.date {
+    background: #fef3c7;
+    color: #92400e;
+  }
+
+  .table-container {
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    overflow: hidden;
+    overflow-x: auto;
+    max-height: 420px;
+  }
+
+  table.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+  }
+
+  table.data-table thead {
+    background: #f8fafc;
+  }
+
+  table.data-table th,
+  table.data-table td {
+    border: 1px solid #e2e8f0;
+    padding: 0.65rem 0.75rem;
+    text-align: left;
+    color: #0f172a;
+  }
+
+  table.data-table tr:nth-child(even) {
+    background: #f9fafb;
+  }
 
   .summary-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 1rem;
-    margin: 1rem 0;
-  }
-  .summary-card {
-    background: #f9fafb;
-    padding: 1rem;
-    border-radius: 8px;
-  }
-  .summary-value {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: #111827;
-  }
-  .summary-label {
-    font-size: 0.875rem;
-    color: #6b7280;
-    margin-top: 0.25rem;
+    margin-bottom: 1.25rem;
   }
 
-  .muted { color: #6b7280; }
-  .error-text { color: #dc2626; }
+  .summary-card {
+    border-radius: 14px;
+    border: 1px solid #e2e8f0;
+    padding: 1rem 1.2rem;
+    background: #f8fafc;
+  }
+
+  .summary-value {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .summary-label {
+    margin-top: 0.3rem;
+    color: #64748b;
+    font-size: 0.85rem;
+  }
+
+  .summary-details {
+    line-height: 1.6;
+    color: #334155;
+    font-size: 0.88rem;
+  }
+
+  .summary-details strong {
+    color: #1e293b;
+    font-weight: 600;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 2.5rem 1rem;
+    border-radius: 14px;
+    border: 1px dashed #cbd5f5;
+    color: #64748b;
+    background: #f8fafc;
+  }
+
+  @media (max-width: 640px) {
+    .workspace-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .card-header {
+      align-items: flex-start;
+    }
+
+    .card-actions {
+      width: 100%;
+    }
+
+    .btn {
+      width: 100%;
+      justify-content: center;
+    }
+  }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="content">
-  <div class="dashboard-header">
-    <h2><i class="fas fa-file-csv"></i> CSV 工作区</h2>
-    <p>上传 CSV/Excel 文件，预览数据，执行清洗操作</p>
-  </div>
-
-  <div class="csv-workspace">
-    <!-- 上传区域 -->
-    <div class="upload-section">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-        <h3 style="margin: 0;"><i class="fas fa-cloud-upload"></i> 文件上传</h3>
-        <button id="btnChoose" class="btn btn-primary">
-          <i class="fas fa-folder-open"></i> 选择文件
-        </button>
-        <input id="fileInput" type="file" accept=".csv,.xls,.xlsx" hidden>
+<div class="csv-workspace">
+  <header class="workspace-header">
+    <div class="workspace-meta">
+      <div class="workspace-icon"><span>CSV</span></div>
+      <div>
+        <h1>CSV 工作区</h1>
+        <p>上传 CSV/Excel 文件，预览结果并执行常见的数据清洗操作。</p>
       </div>
+    </div>
+  </header>
 
-      <div id="dropzone" class="upload-area">
-        <div class="upload-icon"><i class="fas fa-cloud-upload-alt"></i></div>
-        <h4 style="margin: 0.5rem 0;">拖放文件到此处或点击选择</h4>
-        <p class="muted">支持 CSV / Excel（.xls/.xlsx），最大 100MB</p>
-        <div id="fileName" class="status-badge status-info" style="display: none; margin-top: 1rem;"></div>
+  <section class="card upload-card">
+    <div class="card-header">
+      <div class="card-title-group">
+        <div class="card-icon">📁</div>
+        <div>
+          <h2 class="card-title">文件上传</h2>
+          <p class="card-subtitle">拖放或点击上传文件，支持 CSV / Excel 格式。</p>
+        </div>
+      </div>
+      <button id="btnChoose" class="btn btn-primary" type="button">选择文件</button>
+    </div>
+    <div id="uploadDropzone" class="upload-dropzone" role="button" tabindex="0">
+      <div class="dropzone-inner">
+        <div class="dropzone-icon">⬆️</div>
+        <p class="dropzone-title">拖放文件到此处或点击选择</p>
+        <p class="dropzone-hint">支持 CSV / Excel (.csv / .xls / .xlsx)，单个文件最大 100MB</p>
+        <p class="dropzone-limit">拖拽即可快速上传，或点击上方按钮手动选择</p>
+        <div id="fileName" class="file-pill" aria-live="polite"><span></span></div>
+      </div>
+    </div>
+    <input id="fileInput" type="file" accept=".csv,.xls,.xlsx" hidden>
+  </section>
+
+  <section class="card options-card">
+    <div class="card-header">
+      <div class="card-title-group">
+        <div class="card-icon">⚙️</div>
+        <div>
+          <h2 class="card-title">选项配置</h2>
+          <p class="card-subtitle">配置解析参数并选择需要执行的清洗步骤。</p>
+        </div>
       </div>
     </div>
 
-    <!-- 控制面板 -->
-    <div class="control-panel">
-      <h3><i class="fas fa-sliders-h"></i> 选项配置</h3>
-      <div class="control-grid">
-        <div class="control-item">
-          <label for="encodingSelect">编码 / Encoding</label>
-          <select id="encodingSelect">
-            <option value="">自动检测</option>
-            <option value="utf-8">UTF-8</option>
-            <option value="utf-8-sig">UTF-8 BOM</option>
-            <option value="gbk">GBK</option>
-            <option value="gb2312">GB2312</option>
-            <option value="big5">Big5</option>
-          </select>
-        </div>
-
-        <div class="control-item">
-          <label for="separatorInput">分隔符 / Separator</label>
-          <input id="separatorInput" type="text" value="," placeholder=", 或 ;">
-        </div>
-
-        <div class="control-item">
-          <label for="rowsN">预览行数</label>
-          <input id="rowsN" type="number" min="1" max="2000" value="10">
-        </div>
-
-        <div class="control-item">
-          <label for="caseSelect">列名大小写</label>
-          <select id="caseSelect">
-            <option value="upper">大写 (UPPER)</option>
-            <option value="lower">小写 (lower)</option>
-            <option value="title">标题 (Title)</option>
-          </select>
-        </div>
+    <div class="option-fields">
+      <div class="control-item">
+        <label for="encodingSelect">编码 / Encoding</label>
+        <select id="encodingSelect">
+          <option value="auto" selected>自动检测</option>
+          <option value="utf-8">UTF-8</option>
+          <option value="utf-8-bom">UTF-8 BOM</option>
+          <option value="gbk">GBK</option>
+          <option value="gb2312">GB2312</option>
+          <option value="big5">Big5</option>
+        </select>
       </div>
-
-      <div class="action-buttons">
-        <button id="btnPreview" class="btn btn-primary">
-          <i class="fas fa-eye"></i> 预览数据
-        </button>
-        <button id="btnSummary" class="btn btn-secondary">
-          <i class="fas fa-chart-bar"></i> 数据概要
-        </button>
-        <button id="btnClean" class="btn btn-outline">
-          <i class="fas fa-broom"></i> 清洗数据
-        </button>
+      <div class="control-item">
+        <label for="separatorInput">分隔符 / Separator</label>
+        <input id="separatorInput" type="text" value="," maxlength="4" placeholder=",">
+        <p class="helper-text">留空时默认使用逗号作为分隔符。</p>
       </div>
-
-      <div id="statusMessage" style="margin-top: 1rem;"></div>
-    </div>
-
-    <!-- 结果展示区 -->
-    <div class="result-section" id="resultSection" style="display: none;">
-      <div class="result-tabs">
-        <button class="tab active" data-tab="preview">
-          <i class="fas fa-table"></i> 数据预览
-        </button>
-        <button class="tab" data-tab="summary">
-          <i class="fas fa-info-circle"></i> 统计信息
-        </button>
+      <div class="control-item">
+        <label for="previewRowsInput">预览行数</label>
+        <input id="previewRowsInput" type="number" min="1" value="10">
+        <p class="helper-text">控制数据预览时展示的行数（可选）。</p>
       </div>
-
-      <!-- 预览标签页 -->
-      <div id="tabPreview" class="tab-content active">
-        <div id="columnsArea" class="column-chips"></div>
-        <div class="table-container">
-          <table id="previewTable" class="data-table"></table>
-        </div>
-      </div>
-
-      <!-- 概要标签页 -->
-      <div id="tabSummary" class="tab-content">
-        <div class="summary-grid" id="summaryCards"></div>
-        <div id="summaryDetails" style="margin-top: 1rem;"></div>
+      <div class="control-item">
+        <label for="caseSelect">列名大小写</label>
+        <select id="caseSelect">
+          <option value="upper">全部大写</option>
+          <option value="lower">全部小写</option>
+          <option value="title">单词首字母大写</option>
+        </select>
       </div>
     </div>
-  </div>
+
+    <div class="option-checkboxes">
+      <div class="checkbox-group">
+        <label class="checkbox-label"><input id="cleanColumnsCheckbox" type="checkbox" checked> 列名标准化</label>
+        <p class="helper-text">统一列名大小写并移除特殊字符。</p>
+      </div>
+      <div class="checkbox-group">
+        <label class="checkbox-label"><input id="stripSpecialCheckbox" type="checkbox" checked> 移除特殊字符</label>
+        <p class="helper-text">在列名中移除符号和多余空白。</p>
+      </div>
+      <div class="checkbox-group">
+        <label class="checkbox-label"><input id="cleanCellsCheckbox" type="checkbox" checked> 清洗单元格</label>
+        <p class="helper-text">去除首尾空格并规范空值。</p>
+      </div>
+      <div class="checkbox-group">
+        <label class="checkbox-label"><input id="removeDuplicatesCheckbox" type="checkbox" checked> 去除重复行</label>
+        <p class="helper-text">基于所有列去除完全重复的记录。</p>
+      </div>
+      <div class="checkbox-group">
+        <label class="checkbox-label"><input id="normalizeStringsCheckbox" type="checkbox" checked> 字符串清洗</label>
+        <p class="helper-text">统一字符串列为大写、移除空白、替换空格。</p>
+      </div>
+      <div class="checkbox-group">
+        <label class="checkbox-label"><input id="roundDecimalsCheckbox" type="checkbox" checked> 小数四舍五入</label>
+        <p class="helper-text">对数值列执行指定精度的四舍五入。</p>
+      </div>
+      <div class="checkbox-group">
+        <label class="checkbox-label"><input id="scaleNumericCheckbox" type="checkbox"> 数值缩放 / 平移</label>
+        <p class="helper-text">用于统一不同单位的数值范围。</p>
+      </div>
+      <div class="checkbox-group">
+        <label class="checkbox-label"><input id="formatPercentCheckbox" type="checkbox"> 百分比格式化</label>
+        <p class="helper-text">识别并标准化百分比字段。</p>
+      </div>
+      <div class="checkbox-group">
+        <label class="checkbox-label"><input id="formatDatesCheckbox" type="checkbox" checked> 日期格式化</label>
+        <p class="helper-text">解析常见日期格式并输出统一格式。</p>
+      </div>
+      <div class="checkbox-group">
+        <label class="checkbox-label"><input id="fillMissingCheckbox" type="checkbox" checked> 缺失值填充</label>
+        <p class="helper-text">对缺失数据执行自定义的填充策略。</p>
+      </div>
+      <div class="checkbox-group">
+        <label class="checkbox-label"><input id="handleOutliersCheckbox" type="checkbox"> 异常值处理</label>
+        <p class="helper-text">通过截断或替换来缓解异常值。</p>
+      </div>
+    </div>
+
+    <div class="card-actions">
+      <button class="btn btn-primary" type="button" id="btnPreview">预览数据</button>
+      <button class="btn btn-outline" type="button" id="btnSummary">生成概要</button>
+      <button id="btnClean" class="btn btn-success" type="button">执行清洗</button>
+      <button class="btn btn-outline" type="button" id="btnResetOptions">清除选项</button>
+    </div>
+
+    <div id="statusMessage" class="status-area"></div>
+
+    <div id="cleanDownload" class="download-card">
+      <span>清洗完成，可下载处理后的文件：</span>
+      <a id="cleanDownloadLink" href="#" download>下载清洗后的文件</a>
+    </div>
+  </section>
+
+  <section class="card results-card" id="resultSection">
+    <div class="results-header">
+      <div class="card-title-group">
+        <div class="card-icon">📊</div>
+        <div>
+          <h2 class="card-title">分析结果</h2>
+          <p class="card-subtitle">查看数据预览与概要统计，辅助后续清洗与导出。</p>
+        </div>
+      </div>
+      <div class="results-tabs" role="tablist">
+        <button id="tabButtonPreview" class="result-tab active" type="button" data-tab="preview" aria-selected="true">数据预览</button>
+        <button id="tabButtonSummary" class="result-tab" type="button" data-tab="summary" aria-selected="false">概要统计</button>
+      </div>
+    </div>
+
+    <div id="tabPreview" class="tab-panel active" role="tabpanel" aria-labelledby="tabButtonPreview">
+      <div id="columnsArea" class="column-chips"></div>
+      <div class="table-container">
+        <table id="previewTable" class="data-table"></table>
+      </div>
+      <div id="previewEmpty" class="empty-state" style="display: none;">暂未获取预览数据，请先上传并点击“预览数据”。</div>
+    </div>
+    <div id="tabSummary" class="tab-panel" role="tabpanel" aria-labelledby="tabButtonSummary">
+      <div id="summaryCards" class="summary-grid"></div>
+      <div id="summaryDetails" class="summary-details"></div>
+      <div id="summaryEmpty" class="empty-state" style="display: none;">暂未生成概要统计，请先点击“生成概要”。</div>
+    </div>
+
+  </section>
+
 </div>
-{% endblock %}
 
-{% block body_scripts %}
 <script src="{{ url_for('static', filename='js/horcsv.js') }}"></script>
-<script>
-  // Tab切换功能
-  document.querySelectorAll('.tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      const tabName = tab.dataset.tab;
-
-      // 更新tab状态
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      tab.classList.add('active');
-
-      // 更新内容区
-      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-      document.getElementById(`tab${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`).classList.add('active');
-    });
-  });
-</script>
 {% endblock %}

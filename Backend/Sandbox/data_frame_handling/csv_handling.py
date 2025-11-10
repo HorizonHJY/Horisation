@@ -28,7 +28,6 @@ def detect_separator(binary: bytes, encodings=('utf-8', 'utf-8-sig', 'latin1', '
     print("[DEBUG] 自动检测失败，使用默认分隔符 ',' 和编码 'utf-8'")
     return ',', 'utf-8'
 
-
 def _to_df(binary: bytes, encoding: str = 'utf-8') -> pd.DataFrame:
     """
     将二进制 CSV 读成 DataFrame。
@@ -66,7 +65,6 @@ def read_csv_preview(binary: bytes, n: int = 5, encoding: str = 'utf-8') -> Dict
         'columns': list(head.columns),
         'rows': head.to_dict(orient='records')
     }
-
 
 def summarize_csv(binary: bytes, encoding: str = 'utf-8') -> Dict:
     """

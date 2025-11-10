@@ -8,6 +8,9 @@ from typing import Optional, Tuple, Dict, List
 import pandas as pd
 import numpy as np
 import re
+from openpyxl import load_workbook
+from openpyxl.styles import PatternFill
+
 
 # 依赖检查
 _USE_PYARROW = False
@@ -281,6 +284,154 @@ class CSVProcessor:
                 dtypes[col] = 'text'
 
         return dtypes
+
+    def diff_highlight(self,df1: pd.DataFrame, df2: pd.DataFrame, mapping: list[dict]) -> None:
+        for m in mapping:
+            suffix1 = m.get('suffix1', '')
+            suffix2 = m.get('suffix2', '')
+            out_file = m.get('out_file', '')
+
+            label1 = suffix1 or 'File1'
+            label2 = suffix2 or 'File2'
+
+            selected_columns = m.get('columns') or []
+            if selected_columns:
+                target_cols: list[str] = []
+                missing = []
+                for col in selected_columns:
+                    if col in df1.columns and col in df2.columns:
+                        if col not in target_cols:
+                            target_cols.append(col)
+                    else:
+                        missing.append(col)
+                if missing:
+                    raise ValueError(f"columns not found in both files: {', '.join(missing)}")
+            else:
+                target_cols = [col for col in df1.columns if col in df2.columns]
+
+            if not target_cols:
+                raise ValueError('no comparable columns available for diff highlight')
+
+            # 对齐列，确保两个数据框的列集合一致并保持原有顺序
+            all_cols: list[str] = list(df1.columns)
+            for col in df2.columns:
+                if col not in all_cols:
+                    all_cols.append(col)
+
+            df1_aligned = df1.reindex(columns=all_cols)
+            df2_aligned = df2.reindex(columns=all_cols)
+
+            df1_block = df1_aligned.copy()
+            df1_block.insert(0, 'Source', label1)
+
+            df2_block = df2_aligned.copy()
+            df2_block.insert(0, 'Source', label2)
+
+            combined = pd.concat([df1_block, df2_block], ignore_index=True)
+            combined.to_excel(out_file, index=False)
+
+            wb = load_workbook(out_file)
+            ws = wb.active
+
+            fill_up = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
+            fill_down = PatternFill(start_color="00FF00", end_color="00FF00", fill_type="solid")
+
+            common_cols = [col for col in df1.columns if col in df2.columns]
+            start_row_df2 = len(df1) + 2  # Excel 行号，从第二行开始写数据
+
+            for col in common_cols:
+                col_idx = all_cols.index(col) + 2  # 加 2 是因为 Excel 从 1 开始且前一列是 Source
+                for i in range(len(df2)):
+                    row_idx = start_row_df2 + i
+
+                    if i < len(df1):
+                        val1 = df1.iloc[i][col]
+                    else:
+                        val1 = np.nan
+
+                    val2 = df2.iloc[i][col]
+
+                    if pd.notna(val2) and (pd.isna(val1) or val1 != val2):
+                        cell = ws.cell(row=row_idx, column=col_idx)
+
+                        fill = fill_up
+                        try:
+                            num1 = float(val1)
+                            num2 = float(val2)
+                            if not np.isnan(num1) and not np.isnan(num2) and num2 <= num1:
+                                fill = fill_down
+                        except (TypeError, ValueError):
+                            if pd.notna(val1) and str(val2) <= str(val1):
+                                fill = fill_down
+
+                        cell.fill = fill
+
+            wb.save(out_file)
+
+    def write_diff_report(self,df1: pd.DataFrame, df2: pd.DataFrame, mapping: list[dict]) -> None:
+        for m in mapping:
+            sheet_suffix1 = m.get('sheet_suffix1', '_1')
+            sheet_suffix2 = m.get('sheet_suffix2', '_2')
+            out_file = m.get('out_file', '')
+
+            with pd.ExcelWriter(out_file, engine="openpyxl") as writer:
+                df1.to_excel(writer, sheet_name=f"DataFrame_{sheet_suffix1}", index=False)
+                df2.to_excel(writer, sheet_name=f"DataFrame_{sheet_suffix2}", index=False)
+
+            wb = load_workbook(out_file)
+            ws2 = wb[f"DataFrame_{sheet_suffix2}"]
+
+            fill_up = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
+            fill_down = PatternFill(start_color="00FF00", end_color="00FF00", fill_type="solid")
+
+            diffs = []
+            selected_columns = m.get('columns') or []
+            if selected_columns:
+                target_cols: list[str] = []
+                missing = []
+                for col in selected_columns:
+                    if col in df1.columns and col in df2.columns:
+                        if col not in target_cols:
+                            target_cols.append(col)
+                    else:
+                        missing.append(col)
+                if missing:
+                    raise ValueError(f"columns not found in both files: {', '.join(missing)}")
+            else:
+                target_cols = [col for col in df1.columns if col in df2.columns]
+
+            if not target_cols:
+                raise ValueError('no comparable columns available for diff report')
+
+            for col in target_cols:
+                col_idx = df2.columns.get_loc(col) + 1
+                for r in range(len(df1)):
+                    val1 = df1.iloc[r][col]
+                    val2 = df2.iloc[r][col]
+
+                    if pd.notna(val1) and pd.notna(val2) and val1 != val2:
+                        row_idx = r + 2
+                        if val2 > val1:
+                            ws2.cell(row=row_idx, column=col_idx).fill = fill_up
+                            change = "Up"
+                        else:
+                            ws2.cell(row=row_idx, column=col_idx).fill = fill_down
+                            change = "Down"
+
+                        diffs.append({
+                            "Row": row_idx,
+                            "Column": col,
+                            f"Old{sheet_suffix1}": val1,
+                            f"New{sheet_suffix2}": val2,
+                            "Change": change
+                        })
+
+            wb.save(out_file)
+
+            if diffs:
+                df_diff = pd.DataFrame(diffs)
+                with pd.ExcelWriter(out_file, engine="openpyxl", mode="a") as writer:
+                    df_diff.to_excel(writer, sheet_name="Diff Summary", index=False)
 
 
 # 全局处理器实例
