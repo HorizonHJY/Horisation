@@ -178,15 +178,6 @@
 
       <div class="info-item">
         <div class="info-label">
-          <i class="fas fa-clock"></i> 最后登录
-        </div>
-        <div class="info-value" id="last-login">
-          <!-- 将通过JavaScript加载 -->
-        </div>
-      </div>
-
-      <div class="info-item">
-        <div class="info-label">
           <i class="fas fa-shield-alt"></i> 权限级别
         </div>
         <div class="info-value">
@@ -309,12 +300,6 @@
           document.getElementById('created-at').textContent = formatDate(user.created_at);
         }
 
-        // 格式化最后登录时间
-        if (user.last_login) {
-          document.getElementById('last-login').textContent = formatDate(user.last_login);
-        } else {
-          document.getElementById('last-login').textContent = '从未登录';
-        }
       }
     } catch (error) {
       console.error('Load user details error:', error);

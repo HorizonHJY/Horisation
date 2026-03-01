@@ -139,16 +139,6 @@ def notes():
     """私人笔记页面"""
     return render_template('notes/notes.html', active_page='notes')
 
-@app.route('/limit')
-@login_required
-def limit():
-    """限额跟踪页面"""
-    # 检查用户是否有权限访问
-    if not user_manager.check_sector_access(g.current_user['username'], 'general'):
-        return redirect(url_for('home'))
-    return render_template('limit.html', active_page='limit')
-
-
 # ==================== 错误处理 ====================
 
 @app.errorhandler(413)

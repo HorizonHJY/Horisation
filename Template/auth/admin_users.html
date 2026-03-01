@@ -149,10 +149,7 @@
     color: #dc3545;
   }
 
-  .last-login {
-    font-size: 0.8rem;
-    color: #999;
-  }
+
 </style>
 {% endblock %}
 
@@ -396,9 +393,6 @@
             <div class="user-details">
               <h5>${user.display_name}</h5>
               <p>@${user.username} ${user.email ? '• ' + user.email : ''}</p>
-              <div class="last-login">
-                ${user.last_login ? '最后登录: ' + formatDate(user.last_login) : '从未登录'}
-              </div>
             </div>
           </div>
           <div class="d-flex align-items-center gap-3">

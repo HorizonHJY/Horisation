@@ -99,7 +99,6 @@ class UserManager:
                 'email': 'horizon@horisation.com',
                 'display_name': 'Horizon Administrator',
                 'created_at': datetime.now().isoformat(),
-                'last_login': None,
                 'is_active': True,
                 'memos': []  # 备忘录数据
             }
@@ -115,7 +114,6 @@ class UserManager:
                 'email': 'fanfan0315@horisation.com',
                 'display_name': 'Fanfan0315',
                 'created_at': datetime.now().isoformat(),
-                'last_login': None,
                 'is_active': True,
                 'memos': []  # 备忘录数据
             }
@@ -171,7 +169,6 @@ class UserManager:
             'email': email,
             'display_name': display_name or username,
             'created_at': datetime.now().isoformat(),
-            'last_login': None,
             'is_active': True,
             'memos': []  # 备忘录数据
         }
@@ -194,12 +191,6 @@ class UserManager:
             return False, None
 
         if user.get('password') == password or user.get('password_hash') and password in ['horizon', 'yyf']:
-            # 兼容旧格式和新格式 - 简单明文密码验证
-            # 更新最后登录时间
-            user['last_login'] = datetime.now().isoformat()
-            users[username] = user
-            self._save_users(users)
-
             return True, {
                 'username': user['username'],
                 'role': user['role'],
@@ -338,7 +329,6 @@ class UserManager:
             'display_name': user['display_name'],
             'email': user['email'],
             'created_at': user['created_at'],
-            'last_login': user['last_login'],
             'is_active': user['is_active'],
             'role_info': self.USER_ROLES[user['role']]
         }
@@ -355,7 +345,6 @@ class UserManager:
                 'display_name': user['display_name'],
                 'email': user['email'],
                 'created_at': user['created_at'],
-                'last_login': user['last_login'],
                 'is_active': user['is_active'],
                 'role_info': self.USER_ROLES[user['role']]
             })
