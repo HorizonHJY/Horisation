@@ -378,10 +378,11 @@ class UserManager:
         """停用用户（管理员功能）"""
         users = self._load_users()
 
-        if username not in users:
+        key, _ = self._find_user(users, username)
+        if key is None:
             return False, "User not found"
 
-        users[username]['is_active'] = False
+        users[key]['is_active'] = False
         self._save_users(users)
 
         return True, f"User {username} deactivated"
@@ -390,10 +391,11 @@ class UserManager:
         """激活用户（管理员功能）"""
         users = self._load_users()
 
-        if username not in users:
+        key, _ = self._find_user(users, username)
+        if key is None:
             return False, "User not found"
 
-        users[username]['is_active'] = True
+        users[key]['is_active'] = True
         self._save_users(users)
 
         return True, f"User {username} activated"

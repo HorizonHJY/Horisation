@@ -29,10 +29,9 @@ def list_memos():
 
         # 获取用户备忘录
         users = user_manager._load_users()
-        if username not in users:
+        key, user = user_manager._find_user(users, username)
+        if key is None:
             return jsonify({'ok': False, 'error': 'User not found'}), 404
-
-        user = users[username]
         memos = user.get('memos', [])
 
         # 过滤条件
@@ -80,10 +79,9 @@ def create_memo():
 
         # 获取用户数据
         users = user_manager._load_users()
-        if username not in users:
+        key, user = user_manager._find_user(users, username)
+        if key is None:
             return jsonify({'ok': False, 'error': 'User not found'}), 404
-
-        user = users[username]
         if 'memos' not in user:
             user['memos'] = []
 
@@ -124,10 +122,9 @@ def get_memo(memo_id):
         username = request.current_user['username']
 
         users = user_manager._load_users()
-        if username not in users:
+        key, user = user_manager._find_user(users, username)
+        if key is None:
             return jsonify({'ok': False, 'error': 'User not found'}), 404
-
-        user = users[username]
         memos = user.get('memos', [])
 
         memo = next((memo for memo in memos if memo['id'] == memo_id), None)
@@ -154,10 +151,9 @@ def update_memo(memo_id):
             return jsonify({'ok': False, 'error': 'Invalid JSON data'}), 400
 
         users = user_manager._load_users()
-        if username not in users:
+        key, user = user_manager._find_user(users, username)
+        if key is None:
             return jsonify({'ok': False, 'error': 'User not found'}), 404
-
-        user = users[username]
         memos = user.get('memos', [])
 
         memo = next((memo for memo in memos if memo['id'] == memo_id), None)
@@ -198,10 +194,9 @@ def delete_memo(memo_id):
         username = request.current_user['username']
 
         users = user_manager._load_users()
-        if username not in users:
+        key, user = user_manager._find_user(users, username)
+        if key is None:
             return jsonify({'ok': False, 'error': 'User not found'}), 404
-
-        user = users[username]
         memos = user.get('memos', [])
 
         memo_index = next((i for i, memo in enumerate(memos) if memo['id'] == memo_id), None)
@@ -227,10 +222,9 @@ def get_memo_statistics():
         username = request.current_user['username']
 
         users = user_manager._load_users()
-        if username not in users:
+        key, user = user_manager._find_user(users, username)
+        if key is None:
             return jsonify({'ok': False, 'error': 'User not found'}), 404
-
-        user = users[username]
         memos = user.get('memos', [])
 
         # 统计信息
@@ -273,10 +267,9 @@ def complete_memo(memo_id):
         username = request.current_user['username']
 
         users = user_manager._load_users()
-        if username not in users:
+        key, user = user_manager._find_user(users, username)
+        if key is None:
             return jsonify({'ok': False, 'error': 'User not found'}), 404
-
-        user = users[username]
         memos = user.get('memos', [])
 
         memo = next((memo for memo in memos if memo['id'] == memo_id), None)

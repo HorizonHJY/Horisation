@@ -1,0 +1,130 @@
+/* ── Layout ──────────────────────────────────────────────────── */
+:root {
+  --sidebar-w: 240px;
+  --topbar-h: 60px;
+  --bg: #f4f6f9;
+  --sidebar-bg: #1e2a3a;
+  --sidebar-hover: #2d3f56;
+  --sidebar-active: #3a7bd5;
+  --accent: #3a7bd5;
+}
+
+body { background: var(--bg); font-family: 'Segoe UI', sans-serif; margin: 0; }
+
+/* Sidebar */
+.sidebar {
+  position: fixed; top: 0; left: 0;
+  width: var(--sidebar-w); height: 100vh;
+  background: var(--sidebar-bg); color: #fff;
+  display: flex; flex-direction: column;
+  overflow-y: auto; z-index: 100;
+}
+.sidebar .logo {
+  padding: 20px 16px 12px;
+  font-size: 1.2rem; font-weight: 700;
+  border-bottom: 1px solid rgba(255,255,255,.1);
+}
+.sidebar .logo i { color: var(--accent); margin-right: 8px; }
+.nav-section { padding: 12px 0 4px; }
+.nav-title {
+  padding: 4px 16px; font-size: .7rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .08em; color: #8899aa;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 16px; color: #ccd9e8; text-decoration: none;
+  transition: background .15s, color .15s; border-radius: 6px; margin: 1px 8px;
+}
+.nav-item:hover  { background: var(--sidebar-hover); color: #fff; }
+.nav-item.active { background: var(--sidebar-active); color: #fff; }
+.nav-item i { width: 18px; text-align: center; font-size: .95rem; }
+
+/* Topbar */
+.topbar {
+  position: fixed; top: 0; left: var(--sidebar-w);
+  right: 0; height: var(--topbar-h);
+  background: #fff; border-bottom: 1px solid #e0e6ef;
+  display: flex; align-items: center; justify-content: flex-end;
+  padding: 0 24px; z-index: 99;
+}
+.user-avatar {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: var(--accent); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: .95rem; cursor: pointer;
+}
+.user-name { font-weight: 500; font-size: .9rem; color: #333; margin-right: 10px; }
+
+/* Main content */
+.main-content {
+  margin-left: var(--sidebar-w);
+  padding-top: var(--topbar-h);
+  min-height: 100vh;
+}
+.page-content { padding: 28px 32px; }
+
+/* Cards */
+.card { border: none; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+.card-header { background: #fff; border-bottom: 1px solid #f0f4f8; font-weight: 600; }
+
+/* Stat cards */
+.stat-card {
+  background: #fff; border-radius: 12px;
+  padding: 20px 24px; text-align: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,.06);
+}
+.stat-card .stat-number { font-size: 2rem; font-weight: 700; color: var(--accent); }
+.stat-card .stat-label  { color: #888; font-size: .85rem; margin-top: 4px; }
+
+/* Badges */
+.role-badge {
+  display: inline-block; padding: 2px 10px; border-radius: 12px;
+  font-size: .75rem; font-weight: 600;
+}
+.role-horizon      { background: #fde8e8; color: #c0392b; }
+.role-horizonadmin { background: #fef3e2; color: #e67e22; }
+.role-vip1         { background: #e8f4fd; color: #2980b9; }
+.role-vip2         { background: #eaf5ea; color: #27ae60; }
+.role-vip3         { background: #f3eafd; color: #8e44ad; }
+.role-user         { background: #f0f0f0; color: #555; }
+
+/* Under development page */
+.under-dev-page {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  min-height: calc(100vh - var(--topbar-h));
+  text-align: center; padding: 40px;
+}
+.under-dev-icon { font-size: 5rem; color: var(--accent); margin-bottom: 24px; }
+
+/* Gomoku board */
+.gomoku-board {
+  display: inline-grid;
+  gap: 0;
+  background: #d4a256;
+  border: 3px solid #8b6914;
+  border-radius: 4px;
+  padding: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+.gomoku-cell {
+  width: 36px; height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  position: relative;
+}
+.gomoku-cell::before,
+.gomoku-cell::after {
+  content: ''; position: absolute; background: #6b4c11;
+}
+.gomoku-cell::before { width: 100%; height: 1px; top: 50%; }
+.gomoku-cell::after  { height: 100%; width: 1px; left: 50%; }
+.gomoku-stone {
+  width: 28px; height: 28px; border-radius: 50%;
+  position: relative; z-index: 1;
+  box-shadow: 2px 2px 4px rgba(0,0,0,.4);
+  transition: transform .1s;
+}
+.gomoku-stone.black { background: radial-gradient(circle at 35% 35%, #666, #000); }
+.gomoku-stone.white { background: radial-gradient(circle at 35% 35%, #fff, #ccc); }
+.gomoku-stone.win   { box-shadow: 0 0 0 3px #f59e0b, 2px 2px 4px rgba(0,0,0,.4); }
