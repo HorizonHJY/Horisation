@@ -190,7 +190,7 @@ class UserManager:
         if not user.get('is_active', True):
             return False, None
 
-        if user.get('password') == password or user.get('password_hash') and password in ['horizon', 'yyf']:
+        if user.get('password') == password:
             return True, {
                 'username': user['username'],
                 'role': user['role'],

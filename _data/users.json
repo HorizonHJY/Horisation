@@ -9,12 +9,22 @@
     "is_active": true,
     "memos": []
   },
+    "Zwy": {
+    "username": "Zwy",
+    "password": "Zwy",
+    "role": "vip1",
+    "email": "horizon@horisation.com",
+    "display_name": "小张",
+    "created_at": "2025-10-12T16:51:56.646191",
+    "is_active": true,
+    "memos": []
+  },
   "Jay": {
     "username": "Jay",
     "password": "Jay",
-    "role": "horizon",
+    "role": "vip1",
     "email": "horizon@horisation.com",
-    "display_name": "Horizon Administrator",
+    "display_name": "刘一手",
     "created_at": "2025-10-12T16:51:56.646191",
     "is_active": true,
     "memos": []
@@ -22,9 +32,9 @@
   "sammy": {
     "username": "Sammy",
     "password": "Sammy",
-    "role": "horizon",
+    "role": "vip1",
     "email": "horizon@horisation.com",
-    "display_name": "Horizon Administrator",
+    "display_name": "Sammy",
     "created_at": "2025-10-12T16:51:56.646191",
     "is_active": true,
     "memos": []
@@ -32,9 +42,9 @@
   "Kabi": {
     "username": "kabi",
     "password": "kabi",
-    "role": "horizon",
+    "role": "vip1",
     "email": "horizon@horisation.com",
-    "display_name": "Horizon Administrator",
+    "display_name": "卡比大王",
     "created_at": "2025-10-12T16:51:56.646191",
     "is_active": true,
     "memos": []
