@@ -29,9 +29,9 @@
     "is_active": true,
     "memos": []
   },
-  "sammy": {
-    "username": "Sammy",
-    "password": "Sammy",
+  "Sammy": {
+    "username": "sammy",
+    "password": "sammy",
     "role": "vip1",
     "email": "horizon@horisation.com",
     "display_name": "Sammy",

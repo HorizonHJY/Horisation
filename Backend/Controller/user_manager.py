@@ -124,6 +124,13 @@ class UserManager:
         if 'horizon' in users or 'fanfan0315' in users:
             self._save_users(users)
 
+    def _find_user(self, users: Dict, username: str) -> Tuple[Optional[str], Optional[Dict]]:
+        """按 username 字段查找用户，返回 (key, user_dict)"""
+        for key, user in users.items():
+            if user.get('username') == username:
+                return key, user
+        return None, None
+
     def _load_users(self) -> Dict:
         """加载用户数据"""
         try:
@@ -158,7 +165,8 @@ class UserManager:
 
         users = self._load_users()
 
-        if username in users:
+        key, _ = self._find_user(users, username)
+        if key is not None:
             return False, "Username already exists"
 
         # 创建用户数据
@@ -182,10 +190,9 @@ class UserManager:
         """用户认证"""
         users = self._load_users()
 
-        if username not in users:
+        _, user = self._find_user(users, username)
+        if user is None:
             return False, None
-
-        user = users[username]
 
         if not user.get('is_active', True):
             return False, None
@@ -239,8 +246,8 @@ class UserManager:
         users = self._load_users()
         username = session['username']
 
-        if username in users:
-            user = users[username]
+        _, user = self._find_user(users, username)
+        if user is not None:
             return {
                 'username': user['username'],
                 'role': user['role'],
@@ -283,10 +290,10 @@ class UserManager:
         """检查用户权限"""
         users = self._load_users()
 
-        if username not in users:
+        _, user = self._find_user(users, username)
+        if user is None:
             return False
 
-        user = users[username]
         role = user['role']
 
         if role not in self.USER_ROLES:
@@ -298,10 +305,10 @@ class UserManager:
         """检查用户sector访问权限"""
         users = self._load_users()
 
-        if username not in users:
+        _, user = self._find_user(users, username)
+        if user is None:
             return False
 
-        user = users[username]
         role = user['role']
 
         if role not in self.USER_ROLES:
@@ -319,10 +326,10 @@ class UserManager:
         """获取用户信息"""
         users = self._load_users()
 
-        if username not in users:
+        _, user = self._find_user(users, username)
+        if user is None:
             return None
 
-        user = users[username]
         return {
             'username': user['username'],
             'role': user['role'],
@@ -358,10 +365,11 @@ class UserManager:
 
         users = self._load_users()
 
-        if username not in users:
+        key, _ = self._find_user(users, username)
+        if key is None:
             return False, "User not found"
 
-        users[username]['role'] = new_role
+        users[key]['role'] = new_role
         self._save_users(users)
 
         return True, f"User {username} role updated to {new_role}"
