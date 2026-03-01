@@ -1,10 +1,384 @@
 {% extends "horbase.html" %}
 
-{% block title %}Hormemo - Horsation{% endblock %}
+{% block title %}Hormemo - Horisation{% endblock %}
 
 {% block extra_head %}
-{# 如果 horbase 已引入 FontAwesome，这里就不要重复引入 #}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/hormemo.css') }}">
+<style>
+.app-container {
+    padding: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.app-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid #eee;
+}
+
+.app-title {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.app-title h1 {
+    margin: 0;
+    color: #333;
+    font-size: 2rem;
+}
+
+.app-controls {
+    display: flex;
+    gap: 1rem;
+}
+
+.stats-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.stat-icon {
+    font-size: 2rem;
+    color: #007bff;
+}
+
+.stat-number {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #333;
+}
+
+.stat-label {
+    font-size: 0.9rem;
+    color: #666;
+    margin-top: 0.25rem;
+}
+
+.memo-input-container {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    margin-bottom: 2rem;
+}
+
+.input-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    font-weight: 600;
+    color: #333;
+}
+
+.memo-input {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.memo-input input {
+    flex: 1;
+    padding: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 1rem;
+}
+
+.memo-input select {
+    padding: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+}
+
+.btn-add {
+    background: #007bff;
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.btn-add:hover {
+    background: #0056b3;
+}
+
+.tasks-container {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.tasks-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    font-weight: 600;
+    color: #333;
+}
+
+.filter-options {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.filter-btn {
+    padding: 0.5rem 1rem;
+    border: 1px solid #ddd;
+    background: white;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.filter-btn.active {
+    background: #007bff;
+    color: white;
+    border-color: #007bff;
+}
+
+.task-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.task-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    border: 1px solid #eee;
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+    transition: all 0.3s ease;
+}
+
+.task-item:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.task-content {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex: 1;
+}
+
+.task-checkbox {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #ddd;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.task-checkbox.checked {
+    background: #28a745;
+    border-color: #28a745;
+    color: white;
+}
+
+.task-text {
+    flex: 1;
+    font-size: 1rem;
+}
+
+.task-text.completed {
+    text-decoration: line-through;
+    color: #666;
+}
+
+.task-priority {
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.priority-high { background: #dc3545; color: white; }
+.priority-normal { background: #ffc107; color: #333; }
+.priority-low { background: #28a745; color: white; }
+
+.task-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.btn-action {
+    background: none;
+    border: none;
+    padding: 0.5rem;
+    border-radius: 4px;
+    cursor: pointer;
+    color: #666;
+    transition: all 0.3s ease;
+}
+
+.btn-action:hover {
+    background: #f8f9fa;
+    color: #333;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: #666;
+}
+
+.empty-state i {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    color: #ddd;
+}
+
+.notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 1rem 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 1000;
+    transform: translateX(400px);
+    transition: transform 0.3s ease;
+}
+
+.notification.show {
+    transform: translateX(0);
+}
+
+.notification.success {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.notification.error {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.loading {
+    text-align: center;
+    padding: 2rem;
+    color: #666;
+}
+
+/* 模态框样式 */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    z-index: 1000;
+}
+
+.modal-content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    padding: 2rem;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 500px;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #eee;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #666;
+}
+
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 1rem;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid #eee;
+}
+
+.btn {
+    padding: 0.5rem 1rem;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-primary {
+    background: #007bff;
+    color: white;
+    border-color: #007bff;
+}
+
+.btn-primary:hover {
+    background: #0056b3;
+}
+</style>
 {% endblock %}
 
 {% block content %}
@@ -12,131 +386,578 @@
   <header class="app-header">
     <div class="app-title">
       <i class="fas fa-clipboard-list"></i>
-      <h1>Hormemo</h1>
+      <h1>Hormemo - {{ current_user.display_name }}的备忘录</h1>
     </div>
     <div class="app-controls">
-      <button class="btn btn-primary" id="btn-refresh">
+      <button class="btn btn-primary" id="btn-refresh" onclick="loadMemos()">
         <i class="fas fa-sync-alt"></i> 刷新
       </button>
-      <button class="btn btn-primary" id="btn-settings">
-        <i class="fas fa-cog"></i> 设置
+      <button class="btn btn-primary" onclick="showStatistics()">
+        <i class="fas fa-chart-bar"></i> 统计
       </button>
     </div>
   </header>
 
   <div class="app-content">
+    <!-- 加载状态 -->
+    <div class="loading" id="loading" style="display: none;">
+      <i class="fas fa-spinner fa-spin"></i> 加载中...
+    </div>
+
+    <!-- 统计卡片 -->
     <div class="stats-container" id="stats">
-      <div class="stat-card total-tasks">
+      <div class="stat-card">
         <div class="stat-icon"><i class="fas fa-tasks"></i></div>
-        <div class="stat-number" id="stat-total">5</div>
-        <div class="stat-label">总任务</div>
+        <div class="stat-info">
+          <div class="stat-number" id="stat-total">0</div>
+          <div class="stat-label">总备忘录</div>
+        </div>
       </div>
-      <div class="stat-card completed-tasks">
+      <div class="stat-card">
         <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
-        <div class="stat-number" id="stat-done">2</div>
-        <div class="stat-label">已完成</div>
+        <div class="stat-info">
+          <div class="stat-number" id="stat-completed">0</div>
+          <div class="stat-label">已完成</div>
+        </div>
       </div>
-      <div class="stat-card pending-tasks">
+      <div class="stat-card">
         <div class="stat-icon"><i class="fas fa-clock"></i></div>
-        <div class="stat-number" id="stat-pending">3</div>
-        <div class="stat-label">待完成</div>
+        <div class="stat-info">
+          <div class="stat-number" id="stat-active">0</div>
+          <div class="stat-label">进行中</div>
+        </div>
       </div>
     </div>
 
+    <!-- 添加新备忘录 -->
     <div class="memo-input-container">
       <div class="input-header">
-        <i class="fas fa-plus-circle"></i><span>添加新任务</span>
+        <i class="fas fa-plus-circle"></i><span>添加新备忘录</span>
       </div>
       <div class="memo-input">
-        <input type="text" id="new-task" placeholder="输入任务内容...">
-        <button class="btn-add" id="btn-add"><i class="fas fa-plus"></i> 添加任务</button>
+        <input type="text" id="new-memo-content" placeholder="输入备忘录内容..." maxlength="500">
+        <select id="new-memo-type">
+          <option value="general">一般</option>
+          <option value="todo">待办</option>
+          <option value="reminder">提醒</option>
+          <option value="idea">想法</option>
+        </select>
+        <select id="new-memo-priority">
+          <option value="normal">普通</option>
+          <option value="high">高优先级</option>
+          <option value="low">低优先级</option>
+        </select>
+        <button class="btn-add" id="btn-add-memo">
+          <i class="fas fa-plus"></i> 添加
+        </button>
       </div>
     </div>
 
+    <!-- 备忘录列表 -->
     <div class="tasks-container">
-      <div class="tasks-header"><i class="fas fa-list-check"></i><span>任务列表</span></div>
+      <div class="tasks-header"><i class="fas fa-list-check"></i><span>我的备忘录</span></div>
       <div class="filter-options">
         <button class="filter-btn active" data-filter="all">所有</button>
         <button class="filter-btn" data-filter="active">进行中</button>
-        <button class="filter-btn" data-filter="done">已完成</button>
+        <button class="filter-btn" data-filter="completed">已完成</button>
+        <button class="filter-btn" data-filter="todo">待办</button>
+        <button class="filter-btn" data-filter="reminder">提醒</button>
       </div>
 
-      <ul id="task-list" class="task-list">
-        <li class="task-item">
-          <div class="task-content">
-            <div class="task-checkbox checked"><i class="fas fa-check"></i></div>
-            <div class="task-text completed">完成项目提案文档</div>
-            <span class="task-priority priority-high">高优先级</span>
-          </div>
-          <div class="task-actions">
-            <button class="btn-action btn-edit"><i class="fas fa-edit"></i></button>
-            <button class="btn-action btn-delete"><i class="fas fa-trash"></i></button>
-          </div>
-        </li>
-
-        <li class="task-item completed">
-          <div class="task-content">
-            <div class="task-checkbox checked"><i class="fas fa-check"></i></div>
-            <div class="task-text completed">团队周会</div>
-            <span class="task-priority priority-medium">中优先级</span>
-          </div>
-          <div class="task-actions">
-            <button class="btn-action btn-edit"><i class="fas fa-edit"></i></button>
-            <button class="btn-action btn-delete"><i class="fas fa-trash"></i></button>
-          </div>
-        </li>
-
-        <li class="task-item">
-          <div class="task-content">
-            <div class="task-checkbox"></div>
-            <div class="task-text">准备客户演示材料</div>
-            <span class="task-priority priority-high">高优先级</span>
-          </div>
-          <div class="task-actions">
-            <button class="btn-action btn-edit"><i class="fas fa-edit"></i></button>
-            <button class="btn-action btn-delete"><i class="fas fa-trash"></i></button>
-          </div>
-        </li>
-
-        <li class="task-item">
-          <div class="task-content">
-            <div class="task-checkbox"></div>
-            <div class="task-text">阅读行业报告</div>
-            <span class="task-priority priority-low">低优先级</span>
-          </div>
-          <div class="task-actions">
-            <button class="btn-action btn-edit"><i class="fas fa-edit"></i></button>
-            <button class="btn-action btn-delete"><i class="fas fa-trash"></i></button>
-          </div>
-        </li>
-
-        <li class="task-item high-priority">
-          <div class="task-content">
-            <div class="task-checkbox"></div>
-            <div class="task-text">修复生产环境紧急问题</div>
-            <span class="task-priority priority-high">高优先级</span>
-          </div>
-          <div class="task-actions">
-            <button class="btn-action btn-edit"><i class="fas fa-edit"></i></button>
-            <button class="btn-action btn-delete"><i class="fas fa-trash"></i></button>
-          </div>
-        </li>
+      <ul id="memo-list" class="task-list">
+        <!-- 备忘录项目将通过JavaScript动态加载 -->
       </ul>
 
-      <div id="empty-state" class="empty-state" style="display:none;">
+      <div id="empty-state" class="empty-state" style="display: none;">
         <i class="fas fa-clipboard-list"></i>
-        <p>还没有任务，添加一个吧！</p>
-        <button class="btn-add" id="btn-add-first"><i class="fas fa-plus"></i> 添加第一个任务</button>
+        <h3>还没有备忘录</h3>
+        <p>添加您的第一个备忘录来开始组织您的任务</p>
+        <button class="btn-add" onclick="focusNewMemo()">
+          <i class="fas fa-plus"></i> 添加第一个备忘录
+        </button>
       </div>
     </div>
   </div>
 </div>
 
-<div class="notification success" id="toast">
-  <i class="fas fa-check-circle"></i><span>任务已成功添加！</span>
+<!-- 编辑备忘录模态框 -->
+<div class="modal" id="edit-memo-modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>编辑备忘录</h3>
+      <button class="modal-close" onclick="closeEditModal()">&times;</button>
+    </div>
+    <form id="edit-memo-form">
+      <div class="form-group">
+        <label for="edit-content">内容</label>
+        <textarea id="edit-content" name="content" rows="3" maxlength="500"></textarea>
+      </div>
+      <div class="form-group">
+        <label for="edit-type">类型</label>
+        <select id="edit-type" name="type">
+          <option value="general">一般</option>
+          <option value="todo">待办</option>
+          <option value="reminder">提醒</option>
+          <option value="idea">想法</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="edit-priority">优先级</label>
+        <select id="edit-priority" name="priority">
+          <option value="low">低优先级</option>
+          <option value="normal">普通</option>
+          <option value="high">高优先级</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="edit-status">状态</label>
+        <select id="edit-status" name="status">
+          <option value="active">进行中</option>
+          <option value="completed">已完成</option>
+        </select>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="closeEditModal()">取消</button>
+        <button type="submit" class="btn btn-primary">保存更改</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 通知消息 -->
+<div class="notification" id="notification">
+  <span id="notification-text"></span>
 </div>
 {% endblock %}
 
 {% block body_scripts %}
-<script src="{{ url_for('static', filename='js/hormemo.js') }}"></script>
+<script>
+// 全局变量
+let memos = [];
+let currentFilter = 'all';
+let currentEditingMemoId = null;
+
+// 页面加载完成后初始化
+document.addEventListener('DOMContentLoaded', function() {
+    loadMemos();
+    loadStatistics();
+    setupEventListeners();
+});
+
+// 设置事件监听器
+function setupEventListeners() {
+    // 添加备忘录
+    document.getElementById('btn-add-memo').addEventListener('click', addMemo);
+    document.getElementById('new-memo-content').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            addMemo();
+        }
+    });
+
+    // 过滤器按钮
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const filter = this.getAttribute('data-filter');
+            setFilter(filter);
+        });
+    });
+
+    // 编辑表单提交
+    document.getElementById('edit-memo-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        saveMemoEdit();
+    });
+
+    // 模态框外部点击关闭
+    document.getElementById('edit-memo-modal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeEditModal();
+        }
+    });
+}
+
+// 加载备忘录列表
+async function loadMemos() {
+    try {
+        showLoading(true);
+
+        const params = new URLSearchParams();
+        if (currentFilter !== 'all') {
+            if (currentFilter === 'active' || currentFilter === 'completed') {
+                params.append('status', currentFilter);
+            } else {
+                params.append('type', currentFilter);
+            }
+        }
+
+        const response = await fetch(`/api/memos/?${params}`);
+        const data = await response.json();
+
+        if (data.ok) {
+            memos = data.memos;
+            renderMemos();
+            updateEmptyState();
+        } else {
+            showNotification('加载备忘录失败: ' + data.error, 'error');
+        }
+    } catch (error) {
+        console.error('Load memos error:', error);
+        showNotification('加载备忘录失败', 'error');
+    } finally {
+        showLoading(false);
+    }
+}
+
+// 加载统计信息
+async function loadStatistics() {
+    try {
+        const response = await fetch('/api/memos/statistics');
+        const data = await response.json();
+
+        if (data.ok) {
+            const stats = data.statistics;
+            document.getElementById('stat-total').textContent = stats.total_memos;
+            document.getElementById('stat-completed').textContent = stats.status_stats.completed || 0;
+            document.getElementById('stat-active').textContent = stats.status_stats.active || 0;
+        }
+    } catch (error) {
+        console.error('Load statistics error:', error);
+    }
+}
+
+// 渲染备忘录列表
+function renderMemos() {
+    const memoList = document.getElementById('memo-list');
+
+    if (memos.length === 0) {
+        memoList.innerHTML = '';
+        return;
+    }
+
+    memoList.innerHTML = memos.map(memo => `
+        <li class="task-item ${memo.status === 'completed' ? 'completed' : ''}">
+            <div class="task-content">
+                <div class="task-checkbox ${memo.status === 'completed' ? 'checked' : ''}"
+                     onclick="toggleMemoStatus('${memo.id}')">
+                    ${memo.status === 'completed' ? '<i class="fas fa-check"></i>' : ''}
+                </div>
+                <div class="task-text ${memo.status === 'completed' ? 'completed' : ''}">${escapeHtml(memo.content)}</div>
+                <span class="task-priority priority-${memo.priority}">${getPriorityText(memo.priority)}</span>
+                <span class="badge badge-${memo.type}">${getTypeText(memo.type)}</span>
+            </div>
+            <div class="task-actions">
+                <button class="btn-action btn-edit" onclick="editMemo('${memo.id}')" title="编辑">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="btn-action btn-delete" onclick="deleteMemo('${memo.id}')" title="删除">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+            <div class="task-meta">
+                <small class="text-muted">${formatDate(memo.created_at)}</small>
+            </div>
+        </li>
+    `).join('');
+}
+
+// 添加新备忘录
+async function addMemo() {
+    const content = document.getElementById('new-memo-content').value.trim();
+    const type = document.getElementById('new-memo-type').value;
+    const priority = document.getElementById('new-memo-priority').value;
+
+    if (!content) {
+        showNotification('请输入备忘录内容', 'error');
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/memos/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                content: content,
+                type: type,
+                priority: priority
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.ok) {
+            // 清空输入框
+            document.getElementById('new-memo-content').value = '';
+            document.getElementById('new-memo-type').value = 'general';
+            document.getElementById('new-memo-priority').value = 'normal';
+
+            // 重新加载数据
+            await loadMemos();
+            await loadStatistics();
+
+            showNotification('备忘录添加成功', 'success');
+        } else {
+            showNotification('添加失败: ' + data.error, 'error');
+        }
+    } catch (error) {
+        console.error('Add memo error:', error);
+        showNotification('添加失败', 'error');
+    }
+}
+
+// 切换备忘录状态
+async function toggleMemoStatus(memoId) {
+    const memo = memos.find(m => m.id === memoId);
+    if (!memo) return;
+
+    const newStatus = memo.status === 'completed' ? 'active' : 'completed';
+
+    try {
+        const response = await fetch(`/api/memos/${memoId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                status: newStatus
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.ok) {
+            await loadMemos();
+            await loadStatistics();
+            showNotification(newStatus === 'completed' ? '已标记为完成' : '已标记为进行中', 'success');
+        } else {
+            showNotification('状态更新失败: ' + data.error, 'error');
+        }
+    } catch (error) {
+        console.error('Toggle status error:', error);
+        showNotification('状态更新失败', 'error');
+    }
+}
+
+// 编辑备忘录
+async function editMemo(memoId) {
+    const memo = memos.find(m => m.id === memoId);
+    if (!memo) return;
+
+    currentEditingMemoId = memoId;
+
+    // 填充编辑表单
+    document.getElementById('edit-content').value = memo.content;
+    document.getElementById('edit-type').value = memo.type;
+    document.getElementById('edit-priority').value = memo.priority;
+    document.getElementById('edit-status').value = memo.status;
+
+    // 显示模态框
+    document.getElementById('edit-memo-modal').style.display = 'block';
+}
+
+// 保存编辑
+async function saveMemoEdit() {
+    if (!currentEditingMemoId) return;
+
+    const content = document.getElementById('edit-content').value.trim();
+    const type = document.getElementById('edit-type').value;
+    const priority = document.getElementById('edit-priority').value;
+    const status = document.getElementById('edit-status').value;
+
+    if (!content) {
+        showNotification('请输入备忘录内容', 'error');
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/memos/${currentEditingMemoId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                content: content,
+                type: type,
+                priority: priority,
+                status: status
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.ok) {
+            closeEditModal();
+            await loadMemos();
+            await loadStatistics();
+            showNotification('备忘录更新成功', 'success');
+        } else {
+            showNotification('更新失败: ' + data.error, 'error');
+        }
+    } catch (error) {
+        console.error('Save edit error:', error);
+        showNotification('更新失败', 'error');
+    }
+}
+
+// 删除备忘录
+async function deleteMemo(memoId) {
+    if (!confirm('确定要删除这个备忘录吗？')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/memos/${memoId}`, {
+            method: 'DELETE'
+        });
+
+        const data = await response.json();
+
+        if (data.ok) {
+            await loadMemos();
+            await loadStatistics();
+            showNotification('备忘录删除成功', 'success');
+        } else {
+            showNotification('删除失败: ' + data.error, 'error');
+        }
+    } catch (error) {
+        console.error('Delete memo error:', error);
+        showNotification('删除失败', 'error');
+    }
+}
+
+// 设置过滤器
+function setFilter(filter) {
+    currentFilter = filter;
+
+    // 更新按钮状态
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    document.querySelector(`[data-filter="${filter}"]`).classList.add('active');
+
+    // 重新加载备忘录
+    loadMemos();
+}
+
+// 关闭编辑模态框
+function closeEditModal() {
+    document.getElementById('edit-memo-modal').style.display = 'none';
+    currentEditingMemoId = null;
+}
+
+// 显示统计信息
+async function showStatistics() {
+    try {
+        const response = await fetch('/api/memos/statistics');
+        const data = await response.json();
+
+        if (data.ok) {
+            const stats = data.statistics;
+            let message = `统计信息：\n总备忘录: ${stats.total_memos}\n`;
+
+            if (stats.status_stats) {
+                message += `进行中: ${stats.status_stats.active || 0}\n`;
+                message += `已完成: ${stats.status_stats.completed || 0}\n`;
+            }
+
+            if (stats.priority_stats) {
+                message += `\n按优先级:\n`;
+                Object.entries(stats.priority_stats).forEach(([priority, count]) => {
+                    message += `${getPriorityText(priority)}: ${count}\n`;
+                });
+            }
+
+            alert(message);
+        }
+    } catch (error) {
+        console.error('Show statistics error:', error);
+        showNotification('获取统计信息失败', 'error');
+    }
+}
+
+// 聚焦到新备忘录输入框
+function focusNewMemo() {
+    document.getElementById('new-memo-content').focus();
+}
+
+// 显示/隐藏加载状态
+function showLoading(show) {
+    document.getElementById('loading').style.display = show ? 'block' : 'none';
+}
+
+// 更新空状态显示
+function updateEmptyState() {
+    const emptyState = document.getElementById('empty-state');
+    const memoList = document.getElementById('memo-list');
+
+    if (memos.length === 0) {
+        emptyState.style.display = 'block';
+        memoList.style.display = 'none';
+    } else {
+        emptyState.style.display = 'none';
+        memoList.style.display = 'block';
+    }
+}
+
+// 显示通知
+function showNotification(message, type = 'success') {
+    const notification = document.getElementById('notification');
+    const notificationText = document.getElementById('notification-text');
+
+    notificationText.textContent = message;
+    notification.className = `notification ${type}`;
+    notification.classList.add('show');
+
+    setTimeout(() => {
+        notification.classList.remove('show');
+    }, 3000);
+}
+
+// 工具函数
+function escapeHtml(unsafe) {
+    return unsafe
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+function getPriorityText(priority) {
+    const priorityMap = {
+        'low': '低优先级',
+        'normal': '普通',
+        'high': '高优先级'
+    };
+    return priorityMap[priority] || priority;
+}
+
+function getTypeText(type) {
+    const typeMap = {
+        'general': '一般',
+        'todo': '待办',
+        'reminder': '提醒',
+        'idea': '想法'
+    };
+    return typeMap[type] || type;
+}
+
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) {
+        return '今天';
+    } else if (diffDays === 1) {
+        return '昨天';
+    } else if (diffDays < 7) {
+        return `${diffDays}天前`;
+    } else {
+        return date.toLocaleDateString('zh-CN');
+    }
+}
+</script>
 {% endblock %}

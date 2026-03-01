@@ -1,0 +1,26 @@
+{% extends "horbase.html" %}
+
+{% block title %}Hormemo - Horsation{% endblock %}
+
+{% block extra_head %}
+
+{% endblock %}
+
+{% block content %}
+<div class="content d-flex justify-content-center align-items-center vh-100">
+  <div class="container text-center p-4 bg-white rounded shadow" style="max-width: 400px;">
+    <h4 class="mb-4">Select a Date</h4>
+    <div class="mb-3">
+      <label for="dateInput" class="form-label">📅 Date:</label>
+      <input type="date" class="form-control" id="dateInput">
+    </div>
+    <button class="btn btn-success w-100" onclick="runController()">▶ Run</button>
+    <div id="result" class="mt-3 text-muted"></div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block body_scripts %}
+<script src="{{ url_for('static', filename='js/hormemo.js') }}"></script>
+{% endblock %}

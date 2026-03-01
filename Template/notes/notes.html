@@ -1,0 +1,937 @@
+{% extends "horbase.html" %}
+{% block title %}私人笔记 - Horsation{% endblock %}
+
+{% block extra_head %}
+<style>
+  .notes-container {
+    display: grid;
+    grid-template-columns: 250px 1fr 350px;
+    gap: 20px;
+    height: calc(100vh - 150px);
+  }
+
+  .sidebar {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    overflow-y: auto;
+  }
+
+  .main-content {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    overflow-y: auto;
+  }
+
+  .note-editor {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    overflow-y: auto;
+    display: none;
+  }
+
+  .category-item {
+    padding: 8px 12px;
+    margin: 4px 0;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .category-item:hover {
+    background: #f8f9fa;
+  }
+
+  .category-item.active {
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    color: white;
+  }
+
+  .category-count {
+    font-size: 0.8rem;
+    background: rgba(255,255,255,0.2);
+    padding: 2px 6px;
+    border-radius: 10px;
+  }
+
+  .note-item {
+    padding: 12px;
+    margin: 8px 0;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border-left: 4px solid transparent;
+  }
+
+  .note-item:hover {
+    background: #f8f9fa;
+    border-left-color: #667eea;
+  }
+
+  .note-item.active {
+    background: #e9f2ff;
+    border-left-color: #667eea;
+  }
+
+  .note-title {
+    font-weight: 600;
+    margin-bottom: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .note-preview {
+    font-size: 0.85rem;
+    color: #666;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .note-meta {
+    font-size: 0.75rem;
+    color: #999;
+    margin-top: 4px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .editor-header {
+    display: flex;
+    justify-content: between;
+    align-items: center;
+    margin-bottom: 20px;
+    gap: 10px;
+  }
+
+  .editor-title {
+    flex: 1;
+    border: none;
+    font-size: 1.5rem;
+    font-weight: 600;
+    padding: 10px;
+    border-radius: 8px;
+    background: #f8f9fa;
+  }
+
+  .editor-content {
+    width: 100%;
+    height: 400px;
+    border: none;
+    padding: 15px;
+    border-radius: 8px;
+    background: #f8f9fa;
+    resize: vertical;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1.6;
+  }
+
+  .editor-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+  }
+
+  .toolbar-left {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .toolbar-right {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .search-box {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 20px;
+    padding: 8px 15px;
+    width: 100%;
+    margin-bottom: 15px;
+  }
+
+  .stats-card {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+  }
+
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+
+  .tag {
+    display: inline-block;
+    background: #e9ecef;
+    color: #495057;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    margin: 2px;
+  }
+
+  .tag-input {
+    background: transparent;
+    border: none;
+    outline: none;
+    flex: 1;
+    margin-left: 5px;
+  }
+
+  .tags-container {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    background: #f8f9fa;
+    border-radius: 20px;
+    padding: 5px 10px;
+    margin-bottom: 10px;
+  }
+
+  .favorite-btn {
+    color: #ffc107;
+  }
+
+  .archive-btn {
+    color: #6c757d;
+  }
+
+  .word-count {
+    font-size: 0.8rem;
+    color: #999;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: #666;
+  }
+
+  .empty-state i {
+    font-size: 3rem;
+    margin-bottom: 20px;
+    color: #ddd;
+  }
+
+  @media (max-width: 768px) {
+    .notes-container {
+      grid-template-columns: 1fr;
+      height: auto;
+    }
+
+    .sidebar, .note-editor {
+      display: none;
+    }
+
+    .sidebar.show, .note-editor.show {
+      display: block;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header mb-4">
+  <h2><i class="fas fa-sticky-note"></i> 私人笔记</h2>
+  <p class="text-muted">记录您的想法、日记和重要笔记</p>
+</div>
+
+<div class="notes-container">
+  <!-- 左侧边栏 -->
+  <div class="sidebar" id="sidebar">
+    <!-- 统计信息 -->
+    <div class="stats-card">
+      <h6><i class="fas fa-chart-bar"></i> 统计</h6>
+      <div class="stat-row">
+        <span>总笔记:</span>
+        <span id="total-notes">0</span>
+      </div>
+      <div class="stat-row">
+        <span>总字数:</span>
+        <span id="total-words">0</span>
+      </div>
+      <div class="stat-row">
+        <span>收藏:</span>
+        <span id="favorite-notes">0</span>
+      </div>
+    </div>
+
+    <!-- 快速操作 -->
+    <div class="d-grid gap-2 mb-3">
+      <button class="btn btn-primary btn-sm" onclick="newNote()">
+        <i class="fas fa-plus"></i> 新建笔记
+      </button>
+    </div>
+
+    <!-- 分类列表 -->
+    <div class="mb-3">
+      <h6><i class="fas fa-folder"></i> 分类</h6>
+      <div id="categories-list">
+        <!-- 分类将在这里动态生成 -->
+      </div>
+      <button class="btn btn-link btn-sm p-0 mt-2" onclick="addCategory()">
+        <i class="fas fa-plus"></i> 添加分类
+      </button>
+    </div>
+
+    <!-- 快速过滤 -->
+    <div class="mb-3">
+      <h6><i class="fas fa-filter"></i> 快速过滤</h6>
+      <div class="category-item" onclick="filterNotes('favorites')">
+        <span><i class="fas fa-star"></i> 收藏</span>
+      </div>
+      <div class="category-item" onclick="filterNotes('recent')">
+        <span><i class="fas fa-clock"></i> 最近</span>
+      </div>
+      <div class="category-item" onclick="filterNotes('archived')">
+        <span><i class="fas fa-archive"></i> 归档</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 主内容区 -->
+  <div class="main-content" id="main-content">
+    <!-- 搜索框 -->
+    <input type="text"
+           class="search-box"
+           id="search-input"
+           placeholder="搜索笔记...">
+
+    <!-- 笔记列表 -->
+    <div id="notes-list">
+      <!-- 笔记项将在这里动态生成 -->
+    </div>
+
+    <!-- 空状态 -->
+    <div id="empty-state" class="empty-state" style="display: none;">
+      <i class="fas fa-sticky-note"></i>
+      <h5>还没有笔记</h5>
+      <p>点击"新建笔记"开始记录您的想法</p>
+      <button class="btn btn-primary" onclick="newNote()">
+        <i class="fas fa-plus"></i> 创建第一篇笔记
+      </button>
+    </div>
+  </div>
+
+  <!-- 笔记编辑器 -->
+  <div class="note-editor" id="note-editor">
+    <!-- 编辑器工具栏 -->
+    <div class="editor-toolbar">
+      <div class="toolbar-left">
+        <select class="form-select form-select-sm" id="note-category" style="width: auto;">
+          <!-- 分类选项将动态生成 -->
+        </select>
+      </div>
+      <div class="toolbar-right">
+        <button class="btn btn-sm btn-outline-warning favorite-btn" id="favorite-btn" onclick="toggleFavorite()">
+          <i class="fas fa-star"></i>
+        </button>
+        <button class="btn btn-sm btn-outline-secondary archive-btn" id="archive-btn" onclick="toggleArchive()">
+          <i class="fas fa-archive"></i>
+        </button>
+        <button class="btn btn-sm btn-outline-danger" onclick="deleteNote()">
+          <i class="fas fa-trash"></i>
+        </button>
+        <button class="btn btn-sm btn-secondary" onclick="closeEditor()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- 标题输入 -->
+    <input type="text"
+           class="editor-title"
+           id="note-title"
+           placeholder="输入笔记标题...">
+
+    <!-- 标签输入 -->
+    <div class="tags-container" id="tags-container">
+      <input type="text"
+             class="tag-input"
+             id="tag-input"
+             placeholder="添加标签...">
+    </div>
+
+    <!-- 内容编辑 -->
+    <textarea class="editor-content"
+              id="note-content"
+              placeholder="开始写下您的想法..."></textarea>
+
+    <!-- 底部信息 -->
+    <div class="d-flex justify-content-between align-items-center mt-3">
+      <div class="word-count" id="word-count">0 字</div>
+      <div class="text-muted" id="last-saved"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block body_scripts %}
+<script>
+(() => {
+  let currentNoteId = null;
+  let notes = [];
+  let categories = [];
+  let currentFilter = 'all';
+  let autoSaveTimer = null;
+
+  // 初始化
+  document.addEventListener('DOMContentLoaded', () => {
+    loadNotes();
+    loadStatistics();
+    setupEventListeners();
+  });
+
+  // 设置事件监听器
+  function setupEventListeners() {
+    // 搜索
+    document.getElementById('search-input').addEventListener('input', debounce(searchNotes, 300));
+
+    // 编辑器事件
+    document.getElementById('note-title').addEventListener('input', () => {
+      autoSave();
+      updateWordCount();
+    });
+
+    document.getElementById('note-content').addEventListener('input', () => {
+      autoSave();
+      updateWordCount();
+    });
+
+    document.getElementById('note-category').addEventListener('change', autoSave);
+
+    // 标签输入
+    document.getElementById('tag-input').addEventListener('keydown', handleTagInput);
+  }
+
+  // 加载笔记列表
+  async function loadNotes() {
+    try {
+      const params = new URLSearchParams();
+      if (currentFilter !== 'all') {
+        if (currentFilter === 'favorites') {
+          params.append('is_favorite', 'true');
+        } else if (currentFilter === 'archived') {
+          params.append('is_archived', 'true');
+        } else if (currentFilter !== 'recent') {
+          params.append('category', currentFilter);
+        }
+      }
+
+      const response = await fetch(`/api/notes/?${params}`);
+      const data = await response.json();
+
+      if (data.ok) {
+        notes = data.notes;
+        categories = data.categories;
+        renderNotes();
+        renderCategories();
+        updateCategorySelect();
+
+        if (notes.length === 0) {
+          showEmptyState();
+        } else {
+          hideEmptyState();
+        }
+      } else {
+        showAlert(data.error, 'danger');
+      }
+    } catch (error) {
+      console.error('Load notes error:', error);
+      showAlert('加载笔记失败', 'danger');
+    }
+  }
+
+  // 加载统计信息
+  async function loadStatistics() {
+    try {
+      const response = await fetch('/api/notes/statistics');
+      const data = await response.json();
+
+      if (data.ok) {
+        const stats = data.statistics;
+        document.getElementById('total-notes').textContent = stats.total_notes;
+        document.getElementById('total-words').textContent = stats.total_words;
+        document.getElementById('favorite-notes').textContent = stats.favorites_count;
+      }
+    } catch (error) {
+      console.error('Load statistics error:', error);
+    }
+  }
+
+  // 渲染笔记列表
+  function renderNotes() {
+    const container = document.getElementById('notes-list');
+
+    if (notes.length === 0) {
+      container.innerHTML = '';
+      return;
+    }
+
+    container.innerHTML = notes.map(note => `
+      <div class="note-item ${note.id === currentNoteId ? 'active' : ''}"
+           onclick="selectNote('${note.id}')">
+        <div class="note-title">
+          ${note.is_favorite ? '<i class="fas fa-star text-warning"></i> ' : ''}
+          ${note.title}
+        </div>
+        <div class="note-preview">${note.content.substring(0, 100)}...</div>
+        <div class="note-meta">
+          <span>${note.category}</span>
+          <span>${formatDate(note.updated_at)}</span>
+        </div>
+        ${note.tags.length > 0 ? `
+          <div class="mt-2">
+            ${note.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
+          </div>
+        ` : ''}
+      </div>
+    `).join('');
+  }
+
+  // 渲染分类列表
+  function renderCategories() {
+    const container = document.getElementById('categories-list');
+
+    container.innerHTML = categories.map(category => {
+      const count = notes.filter(note => note.category === category).length;
+      return `
+        <div class="category-item ${currentFilter === category ? 'active' : ''}"
+             onclick="filterNotes('${category}')">
+          <span><i class="fas fa-folder"></i> ${category}</span>
+          <span class="category-count">${count}</span>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // 更新分类选择器
+  function updateCategorySelect() {
+    const select = document.getElementById('note-category');
+    select.innerHTML = categories.map(category =>
+      `<option value="${category}">${category}</option>`
+    ).join('');
+  }
+
+  // 过滤笔记
+  window.filterNotes = function(filter) {
+    currentFilter = filter;
+    loadNotes();
+
+    // 更新分类样式
+    document.querySelectorAll('.category-item').forEach(item => {
+      item.classList.remove('active');
+    });
+  };
+
+  // 搜索笔记
+  function searchNotes() {
+    const query = document.getElementById('search-input').value;
+    // 实现搜索逻辑...
+  }
+
+  // 新建笔记
+  window.newNote = async function() {
+    try {
+      const response = await fetch('/api/notes/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: '无标题笔记',
+          content: '',
+          category: categories[0] || '日记'
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.ok) {
+        await loadNotes();
+        selectNote(data.note_id);
+        showAlert('新笔记创建成功', 'success');
+      } else {
+        showAlert(data.error, 'danger');
+      }
+    } catch (error) {
+      console.error('Create note error:', error);
+      showAlert('创建笔记失败', 'danger');
+    }
+  };
+
+  // 选择笔记
+  window.selectNote = async function(noteId) {
+    try {
+      const response = await fetch(`/api/notes/${noteId}`);
+      const data = await response.json();
+
+      if (data.ok) {
+        const note = data.note;
+        currentNoteId = noteId;
+
+        // 填充编辑器
+        document.getElementById('note-title').value = note.title;
+        document.getElementById('note-content').value = note.content;
+        document.getElementById('note-category').value = note.category;
+
+        // 更新按钮状态
+        updateFavoriteButton(note.is_favorite);
+        updateArchiveButton(note.is_archived);
+
+        // 显示标签
+        renderTags(note.tags);
+
+        // 显示编辑器
+        document.getElementById('note-editor').style.display = 'block';
+
+        // 更新列表样式
+        document.querySelectorAll('.note-item').forEach(item => {
+          item.classList.remove('active');
+        });
+        document.querySelector(`.note-item[onclick="selectNote('${noteId}')"]`)?.classList.add('active');
+
+        updateWordCount();
+      } else {
+        showAlert(data.error, 'danger');
+      }
+    } catch (error) {
+      console.error('Select note error:', error);
+      showAlert('加载笔记失败', 'danger');
+    }
+  };
+
+  // 自动保存
+  function autoSave() {
+    if (!currentNoteId) return;
+
+    clearTimeout(autoSaveTimer);
+    autoSaveTimer = setTimeout(async () => {
+      await saveNote();
+    }, 1000);
+  }
+
+  // 保存笔记
+  async function saveNote() {
+    if (!currentNoteId) return;
+
+    try {
+      const title = document.getElementById('note-title').value;
+      const content = document.getElementById('note-content').value;
+      const category = document.getElementById('note-category').value;
+      const tags = getCurrentTags();
+
+      const response = await fetch(`/api/notes/${currentNoteId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title,
+          content,
+          category,
+          tags
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.ok) {
+        document.getElementById('last-saved').textContent = '已保存 ' + new Date().toLocaleTimeString();
+        await loadNotes();
+        await loadStatistics();
+      }
+    } catch (error) {
+      console.error('Save note error:', error);
+    }
+  }
+
+  // 切换收藏
+  window.toggleFavorite = async function() {
+    if (!currentNoteId) return;
+
+    try {
+      const response = await fetch(`/api/notes/${currentNoteId}/favorite`, {
+        method: 'POST'
+      });
+
+      const data = await response.json();
+
+      if (data.ok) {
+        updateFavoriteButton(data.is_favorite);
+        await loadNotes();
+        showAlert(data.is_favorite ? '已添加到收藏' : '已取消收藏', 'success');
+      } else {
+        showAlert(data.error, 'danger');
+      }
+    } catch (error) {
+      console.error('Toggle favorite error:', error);
+      showAlert('操作失败', 'danger');
+    }
+  };
+
+  // 切换归档
+  window.toggleArchive = async function() {
+    if (!currentNoteId) return;
+
+    try {
+      const response = await fetch(`/api/notes/${currentNoteId}/archive`, {
+        method: 'POST'
+      });
+
+      const data = await response.json();
+
+      if (data.ok) {
+        updateArchiveButton(data.is_archived);
+        await loadNotes();
+        showAlert(data.is_archived ? '已归档' : '已取消归档', 'success');
+      } else {
+        showAlert(data.error, 'danger');
+      }
+    } catch (error) {
+      console.error('Toggle archive error:', error);
+      showAlert('操作失败', 'danger');
+    }
+  };
+
+  // 删除笔记
+  window.deleteNote = async function() {
+    if (!currentNoteId) return;
+
+    if (!confirm('确定要删除这篇笔记吗？')) return;
+
+    try {
+      const response = await fetch(`/api/notes/${currentNoteId}`, {
+        method: 'DELETE'
+      });
+
+      const data = await response.json();
+
+      if (data.ok) {
+        closeEditor();
+        await loadNotes();
+        await loadStatistics();
+        showAlert('笔记已删除', 'success');
+      } else {
+        showAlert(data.error, 'danger');
+      }
+    } catch (error) {
+      console.error('Delete note error:', error);
+      showAlert('删除失败', 'danger');
+    }
+  };
+
+  // 关闭编辑器
+  window.closeEditor = function() {
+    document.getElementById('note-editor').style.display = 'none';
+    currentNoteId = null;
+
+    // 清除选中状态
+    document.querySelectorAll('.note-item').forEach(item => {
+      item.classList.remove('active');
+    });
+  };
+
+  // 添加分类
+  window.addCategory = async function() {
+    const category = prompt('请输入新分类名称:');
+    if (!category) return;
+
+    try {
+      const response = await fetch('/api/notes/categories', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ category })
+      });
+
+      const data = await response.json();
+
+      if (data.ok) {
+        await loadNotes();
+        showAlert('分类添加成功', 'success');
+      } else {
+        showAlert(data.error, 'danger');
+      }
+    } catch (error) {
+      console.error('Add category error:', error);
+      showAlert('添加分类失败', 'danger');
+    }
+  };
+
+  // 处理标签输入
+  function handleTagInput(e) {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      const tagInput = e.target;
+      const tag = tagInput.value.trim();
+
+      if (tag) {
+        addTag(tag);
+        tagInput.value = '';
+      }
+    }
+  }
+
+  // 添加标签
+  function addTag(tag) {
+    const tagsContainer = document.getElementById('tags-container');
+    const tagInput = document.getElementById('tag-input');
+
+    const tagElement = document.createElement('span');
+    tagElement.className = 'tag';
+    tagElement.innerHTML = `
+      ${tag}
+      <i class="fas fa-times ms-1" onclick="removeTag(this)"></i>
+    `;
+
+    tagsContainer.insertBefore(tagElement, tagInput);
+    autoSave();
+  }
+
+  // 移除标签
+  window.removeTag = function(element) {
+    element.parentElement.remove();
+    autoSave();
+  };
+
+  // 获取当前标签
+  function getCurrentTags() {
+    const tags = [];
+    document.querySelectorAll('#tags-container .tag').forEach(tagElement => {
+      const text = tagElement.textContent.trim();
+      if (text) {
+        tags.push(text);
+      }
+    });
+    return tags;
+  }
+
+  // 渲染标签
+  function renderTags(tags) {
+    const tagsContainer = document.getElementById('tags-container');
+    const tagInput = document.getElementById('tag-input');
+
+    // 清除现有标签
+    tagsContainer.querySelectorAll('.tag').forEach(tag => tag.remove());
+
+    // 添加标签
+    tags.forEach(tag => {
+      const tagElement = document.createElement('span');
+      tagElement.className = 'tag';
+      tagElement.innerHTML = `
+        ${tag}
+        <i class="fas fa-times ms-1" onclick="removeTag(this)"></i>
+      `;
+      tagsContainer.insertBefore(tagElement, tagInput);
+    });
+  }
+
+  // 更新收藏按钮
+  function updateFavoriteButton(isFavorite) {
+    const btn = document.getElementById('favorite-btn');
+    if (isFavorite) {
+      btn.classList.remove('btn-outline-warning');
+      btn.classList.add('btn-warning');
+    } else {
+      btn.classList.remove('btn-warning');
+      btn.classList.add('btn-outline-warning');
+    }
+  }
+
+  // 更新归档按钮
+  function updateArchiveButton(isArchived) {
+    const btn = document.getElementById('archive-btn');
+    if (isArchived) {
+      btn.classList.remove('btn-outline-secondary');
+      btn.classList.add('btn-secondary');
+    } else {
+      btn.classList.remove('btn-secondary');
+      btn.classList.add('btn-outline-secondary');
+    }
+  }
+
+  // 更新字数统计
+  function updateWordCount() {
+    const content = document.getElementById('note-content').value;
+    const wordCount = content.length;
+    document.getElementById('word-count').textContent = wordCount + ' 字';
+  }
+
+  // 显示空状态
+  function showEmptyState() {
+    document.getElementById('empty-state').style.display = 'block';
+    document.getElementById('notes-list').style.display = 'none';
+  }
+
+  // 隐藏空状态
+  function hideEmptyState() {
+    document.getElementById('empty-state').style.display = 'none';
+    document.getElementById('notes-list').style.display = 'block';
+  }
+
+  // 工具函数
+  function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+      const later = () => {
+        clearTimeout(timeout);
+        func(...args);
+      };
+      clearTimeout(timeout);
+      timeout = setTimeout(later, wait);
+    };
+  }
+
+  function formatDate(dateString) {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diff = now - date;
+
+    if (diff < 60000) return '刚刚';
+    if (diff < 3600000) return Math.floor(diff / 60000) + '分钟前';
+    if (diff < 86400000) return Math.floor(diff / 3600000) + '小时前';
+    if (diff < 604800000) return Math.floor(diff / 86400000) + '天前';
+
+    return date.toLocaleDateString('zh-CN');
+  }
+
+  function showAlert(message, type = 'info') {
+    // 创建临时消息显示
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; max-width: 300px;';
+    alertDiv.innerHTML = `
+      ${message}
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+
+    document.body.appendChild(alertDiv);
+
+    // 3秒后自动消失
+    setTimeout(() => {
+      if (alertDiv.parentNode) {
+        alertDiv.remove();
+      }
+    }, 3000);
+  }
+})();
+</script>
+{% endblock %}

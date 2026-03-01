@@ -1,0 +1,437 @@
+{% extends "horbase.html" %}
+{% block title %}个人资料 - Horsation{% endblock %}
+
+{% block extra_head %}
+<style>
+  .profile-container {
+    max-width: 800px;
+    margin: 0 auto;
+  }
+
+  .profile-card {
+    background: white;
+    border-radius: 12px;
+    padding: 30px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  }
+
+  .profile-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 30px;
+  }
+
+  .profile-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 2rem;
+    font-weight: bold;
+    margin-right: 20px;
+  }
+
+  .profile-info h3 {
+    margin: 0;
+    color: #333;
+  }
+
+  .profile-info p {
+    margin: 5px 0 0 0;
+    color: #666;
+  }
+
+  .role-badge {
+    display: inline-block;
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 15px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    margin-top: 5px;
+  }
+
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+  }
+
+  .info-item {
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+  }
+
+  .info-label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 5px;
+  }
+
+  .info-value {
+    color: #6c757d;
+  }
+
+  .permissions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-top: 20px;
+  }
+
+  .permission-item {
+    background: #e9f7ef;
+    padding: 10px 15px;
+    border-radius: 8px;
+    text-align: center;
+    border-left: 4px solid #28a745;
+  }
+
+  .sectors-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .sector-tag {
+    background: #fff3cd;
+    color: #856404;
+    padding: 4px 12px;
+    border-radius: 15px;
+    font-size: 0.8rem;
+    border: 1px solid #ffeaa7;
+  }
+
+  .stats-section {
+    margin-top: 30px;
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+  }
+
+  .stat-card {
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    color: white;
+    padding: 20px;
+    border-radius: 8px;
+    text-align: center;
+  }
+
+  .stat-number {
+    font-size: 1.8rem;
+    font-weight: bold;
+    margin-bottom: 5px;
+  }
+
+  .stat-label {
+    font-size: 0.9rem;
+    opacity: 0.9;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="profile-container">
+  <!-- 个人信息卡片 -->
+  <div class="profile-card">
+    <div class="profile-header">
+      <div class="profile-avatar">
+        {{ current_user.display_name[0].upper() }}
+      </div>
+      <div class="profile-info">
+        <h3>{{ current_user.display_name }}</h3>
+        <p>@{{ current_user.username }}</p>
+        <span class="role-badge">{{ current_user.role_info.name }}</span>
+      </div>
+    </div>
+
+    <div class="info-grid">
+      <div class="info-item">
+        <div class="info-label">
+          <i class="fas fa-envelope"></i> 邮箱地址
+        </div>
+        <div class="info-value">
+          {{ current_user.email or '未设置' }}
+        </div>
+      </div>
+
+      <div class="info-item">
+        <div class="info-label">
+          <i class="fas fa-calendar-alt"></i> 账户创建时间
+        </div>
+        <div class="info-value" id="created-at">
+          <!-- 将通过JavaScript加载 -->
+        </div>
+      </div>
+
+      <div class="info-item">
+        <div class="info-label">
+          <i class="fas fa-clock"></i> 最后登录
+        </div>
+        <div class="info-value" id="last-login">
+          <!-- 将通过JavaScript加载 -->
+        </div>
+      </div>
+
+      <div class="info-item">
+        <div class="info-label">
+          <i class="fas fa-shield-alt"></i> 权限级别
+        </div>
+        <div class="info-value">
+          Level {{ current_user.role_info.level }}
+        </div>
+      </div>
+    </div>
+
+    <!-- 权限信息 -->
+    <div class="permissions-section">
+      <h5><i class="fas fa-key"></i> 权限详情</h5>
+      <div class="permissions-grid">
+        {% for permission in current_user.role_info.permissions %}
+        <div class="permission-item">
+          <i class="fas fa-check"></i> {{ permission.upper() }}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Sector访问权限 -->
+    <div class="sectors-section mt-4">
+      <h5><i class="fas fa-layer-group"></i> Sector访问权限</h5>
+      <div class="sectors-list">
+        {% for sector in current_user.role_info.sectors %}
+        <span class="sector-tag">{{ sector.upper() }}</span>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- 使用统计 -->
+  <div class="profile-card">
+    <div class="stats-section">
+      <h5><i class="fas fa-chart-bar"></i> 使用统计</h5>
+      <div class="stats-grid" id="stats-grid">
+        <!-- 统计数据将通过JavaScript加载 -->
+      </div>
+    </div>
+  </div>
+
+  <!-- 操作按钮 -->
+  <div class="profile-card">
+    <h5><i class="fas fa-cog"></i> 账户操作</h5>
+    <div class="d-flex gap-3 mt-3">
+      <button class="btn btn-outline-primary" onclick="changePassword()">
+        <i class="fas fa-lock"></i> 修改密码
+      </button>
+      <button class="btn btn-outline-secondary" onclick="exportData()">
+        <i class="fas fa-download"></i> 导出数据
+      </button>
+      <button class="btn btn-outline-danger" onclick="logout()">
+        <i class="fas fa-sign-out-alt"></i> 退出登录
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- 修改密码模态框 -->
+<div class="modal fade" id="changePasswordModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          <i class="fas fa-lock"></i> 修改密码
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="change-password-form">
+          <div class="mb-3">
+            <label for="current-password" class="form-label">当前密码</label>
+            <input type="password" class="form-control" id="current-password" required>
+          </div>
+          <div class="mb-3">
+            <label for="new-password" class="form-label">新密码</label>
+            <input type="password" class="form-control" id="new-password" required minlength="6">
+          </div>
+          <div class="mb-3">
+            <label for="confirm-password" class="form-label">确认新密码</label>
+            <input type="password" class="form-control" id="confirm-password" required>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+        <button type="button" class="btn btn-primary" id="save-password-btn">保存更改</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block body_scripts %}
+<script>
+(() => {
+  // 初始化
+  document.addEventListener('DOMContentLoaded', () => {
+    loadUserDetails();
+    loadStatistics();
+    setupEventListeners();
+  });
+
+  // 设置事件监听器
+  function setupEventListeners() {
+    document.getElementById('save-password-btn').addEventListener('click', changePasswordSubmit);
+  }
+
+  // 加载用户详细信息
+  async function loadUserDetails() {
+    try {
+      const response = await fetch('/api/auth/profile');
+      const data = await response.json();
+
+      if (data.ok) {
+        const user = data.user;
+
+        // 格式化创建时间
+        if (user.created_at) {
+          document.getElementById('created-at').textContent = formatDate(user.created_at);
+        }
+
+        // 格式化最后登录时间
+        if (user.last_login) {
+          document.getElementById('last-login').textContent = formatDate(user.last_login);
+        } else {
+          document.getElementById('last-login').textContent = '从未登录';
+        }
+      }
+    } catch (error) {
+      console.error('Load user details error:', error);
+    }
+  }
+
+  // 加载统计信息
+  async function loadStatistics() {
+    try {
+      // 加载笔记统计
+      const notesResponse = await fetch('/api/notes/statistics');
+      if (notesResponse.ok) {
+        const notesData = await notesResponse.json();
+        if (notesData.ok) {
+          addStatCard('笔记数量', notesData.statistics.total_notes, 'fas fa-sticky-note');
+          addStatCard('总字数', notesData.statistics.total_words, 'fas fa-font');
+          addStatCard('收藏笔记', notesData.statistics.favorites_count, 'fas fa-star');
+        }
+      }
+
+      // 加载备忘录统计
+      const memosResponse = await fetch('/api/memos/statistics');
+      if (memosResponse.ok) {
+        const memosData = await memosResponse.json();
+        if (memosData.ok) {
+          addStatCard('备忘录', memosData.statistics.total_memos, 'fas fa-clipboard-list');
+        }
+      }
+    } catch (error) {
+      console.error('Load statistics error:', error);
+    }
+  }
+
+  // 添加统计卡片
+  function addStatCard(label, value, icon) {
+    const statsGrid = document.getElementById('stats-grid');
+    const statCard = document.createElement('div');
+    statCard.className = 'stat-card';
+    statCard.innerHTML = `
+      <div class="stat-number">${value}</div>
+      <div class="stat-label">
+        <i class="${icon}"></i> ${label}
+      </div>
+    `;
+    statsGrid.appendChild(statCard);
+  }
+
+  // 修改密码
+  window.changePassword = function() {
+    new bootstrap.Modal(document.getElementById('changePasswordModal')).show();
+  };
+
+  // 提交密码修改
+  async function changePasswordSubmit() {
+    const currentPassword = document.getElementById('current-password').value;
+    const newPassword = document.getElementById('new-password').value;
+    const confirmPassword = document.getElementById('confirm-password').value;
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      showAlert('请填写所有字段', 'warning');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      showAlert('新密码和确认密码不匹配', 'warning');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      showAlert('新密码至少需要6位字符', 'warning');
+      return;
+    }
+
+    try {
+      // 这里需要实现密码修改API
+      showAlert('密码修改功能正在开发中', 'info');
+    } catch (error) {
+      console.error('Change password error:', error);
+      showAlert('修改密码失败', 'danger');
+    }
+  }
+
+  // 导出数据
+  window.exportData = function() {
+    showAlert('数据导出功能正在开发中', 'info');
+  };
+
+  // 格式化日期
+  function formatDate(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }
+
+  // 显示消息
+  function showAlert(message, type = 'info') {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; max-width: 300px;';
+    alertDiv.innerHTML = `
+      ${message}
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+
+    document.body.appendChild(alertDiv);
+
+    setTimeout(() => {
+      if (alertDiv.parentNode) {
+        alertDiv.remove();
+      }
+    }, 3000);
+  }
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,24 @@
+{
+  "horizon": {
+    "username": "horizon",
+    "password": "horizon",
+    "role": "horizon",
+    "email": "horizon@horisation.com",
+    "display_name": "Horizon Administrator",
+    "created_at": "2025-10-12T16:51:56.646191",
+    "last_login": "2025-10-12T17:40:33.569385",
+    "is_active": true,
+    "memos": []
+  },
+  "fanfan0315": {
+    "username": "fanfan0315",
+    "password": "yyf",
+    "role": "vip1",
+    "email": "fanfan0315@horisation.com",
+    "display_name": "Fanfan0315",
+    "created_at": "2025-10-12T16:55:55.511697",
+    "last_login": "2025-10-12T17:47:27.421811",
+    "is_active": true,
+    "memos": []
+  }
+}

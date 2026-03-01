@@ -1,81 +1,298 @@
 {# Template/CSV.html #}
 {% extends "Home.html" %}
 
-{% block title %}Hormemo - CSV Workspace{% endblock %}
+{% block title %}Horisation - CSV Workspace{% endblock %}
 
 {% block extra_head %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/hormemo.css') }}">
 <style>
-  .csv-panel { margin-top: 1rem; }
-  .upload-area { border: 2px dashed #e5e7eb; padding: 2rem; text-align: center; border-radius: 12px; }
-  .upload-area.dragover { background: #f8fafc; }
-  .chips { display:flex; flex-wrap:wrap; gap:.5rem; margin:.75rem 0; }
-  .chip { padding:.25rem .5rem; border-radius:999px; border:1px solid #e5e7eb; font-size:.85rem; }
-  .controls { display:flex; gap:.75rem; align-items:center; margin:.75rem 0; flex-wrap: wrap; }
-  .advanced-controls { background: #f9fafb; padding: 1rem; border-radius: 8px; margin: 1rem 0; }
-  .table-wrap { overflow:auto; max-height: 520px; border:1px solid #eee; border-radius:10px; }
-  table.preview { border-collapse: collapse; width:100%; }
-  table.preview th, table.preview td { border:1px solid #eee; padding:.5rem; font-size:.9rem; }
-  .muted { color:#6b7280; }
-  .error { color: #ef4444; }
+  .csv-workspace { margin-top: 1rem; display: grid; gap: 1.5rem; }
+
+  /* 上传区域 */
+  .upload-section { background: #fff; border-radius: 12px; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+  .upload-area {
+    border: 2px dashed #d1d5db;
+    padding: 2.5rem;
+    text-align: center;
+    border-radius: 12px;
+    transition: all 0.3s;
+    background: #f9fafb;
+  }
+  .upload-area.dragover { background: #eff6ff; border-color: #3b82f6; }
+  .upload-area:hover { border-color: #9ca3af; }
+  .upload-icon { font-size: 3rem; color: #6b7280; margin-bottom: 1rem; }
+
+  /* 控制面板 */
+  .control-panel {
+    background: #fff;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+  .control-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+  .control-item label {
+    display: block;
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+    color: #374151;
+    font-size: 0.875rem;
+  }
+  .control-item input, .control-item select {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 0.875rem;
+  }
+
+  /* 按钮组 */
+  .action-buttons {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-top: 1rem;
+  }
+  .btn {
+    padding: 0.625rem 1.25rem;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .btn-primary { background: #3b82f6; color: white; }
+  .btn-primary:hover { background: #2563eb; transform: translateY(-1px); }
+  .btn-secondary { background: #10b981; color: white; }
+  .btn-secondary:hover { background: #059669; transform: translateY(-1px); }
+  .btn-outline { background: white; color: #6b7280; border: 1px solid #d1d5db; }
+  .btn-outline:hover { background: #f3f4f6; }
+
+  /* 结果展示区 */
+  .result-section { background: #fff; border-radius: 12px; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+  .result-tabs {
+    display: flex;
+    gap: 0.5rem;
+    border-bottom: 2px solid #e5e7eb;
+    margin-bottom: 1rem;
+  }
+  .tab {
+    padding: 0.75rem 1.25rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-weight: 500;
+    color: #6b7280;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    transition: all 0.2s;
+  }
+  .tab.active {
+    color: #3b82f6;
+    border-bottom-color: #3b82f6;
+  }
+  .tab:hover { color: #3b82f6; }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* 列标签 */
+  .column-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 1rem 0;
+  }
+  .chip {
+    padding: 0.375rem 0.75rem;
+    border-radius: 999px;
+    background: #eff6ff;
+    color: #1e40af;
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+  .chip.numeric { background: #d1fae5; color: #065f46; }
+  .chip.date { background: #fef3c7; color: #92400e; }
+
+  /* 表格 */
+  .table-container {
+    overflow: auto;
+    max-height: 500px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+  }
+  table.data-table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.875rem;
+  }
+  table.data-table th {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    padding: 0.75rem;
+    font-weight: 600;
+    text-align: left;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+  table.data-table td {
+    border: 1px solid #e5e7eb;
+    padding: 0.75rem;
+  }
+  table.data-table tr:hover { background: #f9fafb; }
+
+  /* 状态提示 */
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+  .status-success { background: #d1fae5; color: #065f46; }
+  .status-error { background: #fee2e2; color: #991b1b; }
+  .status-info { background: #dbeafe; color: #1e40af; }
+
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin: 1rem 0;
+  }
+  .summary-card {
+    background: #f9fafb;
+    padding: 1rem;
+    border-radius: 8px;
+  }
+  .summary-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #111827;
+  }
+  .summary-label {
+    font-size: 0.875rem;
+    color: #6b7280;
+    margin-top: 0.25rem;
+  }
+
+  .muted { color: #6b7280; }
+  .error-text { color: #dc2626; }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="content">
   <div class="dashboard-header">
-    <h2>CSV 工作区 / Workspace</h2>
-    <p>上传 → 预览前 N 行 / Upload → preview first N rows without loading whole file.</p>
+    <h2><i class="fas fa-file-csv"></i> CSV 工作区</h2>
+    <p>上传 CSV/Excel 文件，预览数据，执行清洗操作</p>
   </div>
 
-  <div class="csv-panel">
-    <div class="panel-header" style="display:flex; gap:.75rem; align-items:center;">
-      <h3 class="panel-title" style="margin:0;">上传 CSV / Excel</h3>
-      <button id="btnChoose" class="btn btn-primary"><i class="fas fa-folder-open"></i> 选择文件</button>
-      <input id="fileInput" type="file" accept=".csv,.xls,.xlsx" hidden>
-      <span id="fileName" class="muted"></span>
-    </div>
+  <div class="csv-workspace">
+    <!-- 上传区域 -->
+    <div class="upload-section">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h3 style="margin: 0;"><i class="fas fa-cloud-upload"></i> 文件上传</h3>
+        <button id="btnChoose" class="btn btn-primary">
+          <i class="fas fa-folder-open"></i> 选择文件
+        </button>
+        <input id="fileInput" type="file" accept=".csv,.xls,.xlsx" hidden>
+      </div>
 
-    <div id="dropzone" class="upload-area" style="margin-top:.5rem;">
-      <div class="upload-icon"><i class="fas fa-cloud-upload-alt" style="font-size:2rem;"></i></div>
-      <h4>拖放到此处或点击上方按钮 / Drag & drop here or click button</h4>
-      <p class="muted">支持 CSV / Excel（.xls/.xlsx），≤100MB</p>
-      <p class="error" id="excelWarning" style="display:none;">
-        注意：处理 Excel 文件需要额外依赖。如果遇到错误，请安装: pip install openpyxl xlrd
-      </p>
-    </div>
-
-    <div class="advanced-controls">
-      <h4>高级选项 / Advanced Options</h4>
-      <div class="controls">
-        <label for="encodingSelect">编码 / Encoding:</label>
-        <select id="encodingSelect" style="width:8rem;">
-          <option value="">自动检测</option>
-          <option value="utf-8">UTF-8</option>
-          <option value="utf-8-sig">UTF-8 BOM</option>
-          <option value="gbk">GBK</option>
-          <option value="gb2312">GB2312</option>
-          <option value="big5">Big5</option>
-        </select>
-
-        <label for="separatorInput">分隔符 / Separator:</label>
-        <input id="separatorInput" type="text" value="," placeholder="例如: , 或 ;" style="width:4rem;">
-
-        <label for="rowsN">预览行数 / Rows:</label>
-        <input id="rowsN" type="number" min="1" max="2000" value="5" style="width:6rem;">
+      <div id="dropzone" class="upload-area">
+        <div class="upload-icon"><i class="fas fa-cloud-upload-alt"></i></div>
+        <h4 style="margin: 0.5rem 0;">拖放文件到此处或点击选择</h4>
+        <p class="muted">支持 CSV / Excel（.xls/.xlsx），最大 100MB</p>
+        <div id="fileName" class="status-badge status-info" style="display: none; margin-top: 1rem;"></div>
       </div>
     </div>
 
-    <div class="controls">
-      <button id="btnPreview" class="btn btn-secondary"><i class="fas fa-eye"></i> 预览 Preview</button>
-      <button id="btnSummary" class="btn"><i class="fas fa-list"></i> 概要 Summary</button>
-      <span id="status" class="muted"></span>
+    <!-- 控制面板 -->
+    <div class="control-panel">
+      <h3><i class="fas fa-sliders-h"></i> 选项配置</h3>
+      <div class="control-grid">
+        <div class="control-item">
+          <label for="encodingSelect">编码 / Encoding</label>
+          <select id="encodingSelect">
+            <option value="">自动检测</option>
+            <option value="utf-8">UTF-8</option>
+            <option value="utf-8-sig">UTF-8 BOM</option>
+            <option value="gbk">GBK</option>
+            <option value="gb2312">GB2312</option>
+            <option value="big5">Big5</option>
+          </select>
+        </div>
+
+        <div class="control-item">
+          <label for="separatorInput">分隔符 / Separator</label>
+          <input id="separatorInput" type="text" value="," placeholder=", 或 ;">
+        </div>
+
+        <div class="control-item">
+          <label for="rowsN">预览行数</label>
+          <input id="rowsN" type="number" min="1" max="2000" value="10">
+        </div>
+
+        <div class="control-item">
+          <label for="caseSelect">列名大小写</label>
+          <select id="caseSelect">
+            <option value="upper">大写 (UPPER)</option>
+            <option value="lower">小写 (lower)</option>
+            <option value="title">标题 (Title)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="action-buttons">
+        <button id="btnPreview" class="btn btn-primary">
+          <i class="fas fa-eye"></i> 预览数据
+        </button>
+        <button id="btnSummary" class="btn btn-secondary">
+          <i class="fas fa-chart-bar"></i> 数据概要
+        </button>
+        <button id="btnClean" class="btn btn-outline">
+          <i class="fas fa-broom"></i> 清洗数据
+        </button>
+      </div>
+
+      <div id="statusMessage" style="margin-top: 1rem;"></div>
     </div>
 
-    <div id="columnsArea" class="chips"></div>
-    <div class="table-wrap"><table id="previewTable" class="preview"></table></div>
+    <!-- 结果展示区 -->
+    <div class="result-section" id="resultSection" style="display: none;">
+      <div class="result-tabs">
+        <button class="tab active" data-tab="preview">
+          <i class="fas fa-table"></i> 数据预览
+        </button>
+        <button class="tab" data-tab="summary">
+          <i class="fas fa-info-circle"></i> 统计信息
+        </button>
+      </div>
 
-    <div id="summaryBox" class="muted" style="margin-top:.75rem;"></div>
+      <!-- 预览标签页 -->
+      <div id="tabPreview" class="tab-content active">
+        <div id="columnsArea" class="column-chips"></div>
+        <div class="table-container">
+          <table id="previewTable" class="data-table"></table>
+        </div>
+      </div>
+
+      <!-- 概要标签页 -->
+      <div id="tabSummary" class="tab-content">
+        <div class="summary-grid" id="summaryCards"></div>
+        <div id="summaryDetails" style="margin-top: 1rem;"></div>
+      </div>
+    </div>
   </div>
 </div>
 {% endblock %}
@@ -83,15 +300,19 @@
 {% block body_scripts %}
 <script src="{{ url_for('static', filename='js/horcsv.js') }}"></script>
 <script>
-  // 显示 Excel 依赖警告
-  document.getElementById('fileInput').addEventListener('change', function() {
-    const file = this.files[0];
-    const excelWarning = document.getElementById('excelWarning');
-    if (file && (file.name.endsWith('.xls') || file.name.endsWith('.xlsx'))) {
-      excelWarning.style.display = 'block';
-    } else {
-      excelWarning.style.display = 'none';
-    }
+  // Tab切换功能
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      const tabName = tab.dataset.tab;
+
+      // 更新tab状态
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+
+      // 更新内容区
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      document.getElementById(`tab${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`).classList.add('active');
+    });
   });
 </script>
 {% endblock %}
