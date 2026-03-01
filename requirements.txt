@@ -1,0 +1,7 @@
+flask>=3.0.0
+pandas>=2.0.0
+numpy>=1.26.0
+openpyxl>=3.1.0
+xlrd>=2.0.1
+pyarrow>=14.0.0
+gunicorn>=21.0.0
