@@ -7,6 +7,7 @@ API-only backend. All UI is served by the React SPA (frontend/dist/).
 import os
 from flask import Flask, g, session, send_from_directory, jsonify
 from functools import wraps
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 # Import Blueprints
 from Backend.Controller.csvcontroller import bp as csv_bp
@@ -23,9 +24,15 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # Flask app
 app = Flask(__name__, static_folder=None)
-app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024   # 100 MB
-app.config['UPLOAD_FOLDER']      = UPLOAD_DIR
-app.config['SECRET_KEY']         = 'horisation-secret-key-2024'
+app.config['MAX_CONTENT_LENGTH']    = 100 * 1024 * 1024   # 100 MB
+app.config['UPLOAD_FOLDER']         = UPLOAD_DIR
+app.config['SECRET_KEY']            = 'horisation-secret-key-2024'
+app.config['SESSION_COOKIE_SECURE']   = True   # HTTPS only
+app.config['SESSION_COOKIE_HTTPONLY'] = True   # no JS access
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # needed for Cloudflare proxy
+
+# Trust one layer of reverse proxy (Nginx / Cloudflare)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
 # Register API blueprints
 app.register_blueprint(csv_bp)
