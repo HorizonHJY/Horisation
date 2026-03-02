@@ -2,39 +2,28 @@ import React from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../App'
 
-const NAV_PUBLIC = [
-  {
-    section: 'Main',
-    items: [
-      { to: '/home',    icon: 'fa-home',          label: 'Home' },
-      { to: '/hormemo', icon: 'fa-clipboard-list', label: 'Hormemo' },
-    ]
-  },
-  {
-    section: 'Community',
-    items: [
-      { to: '/market',   icon: 'fa-store',    label: 'Market' },
-      { to: '/feedback', icon: 'fa-comments', label: 'Message Board' },
-    ]
-  },
-  {
-    section: 'For Fun',
-    items: [
-      { to: '/fun/gomoku', icon: 'fa-chess-board', label: 'Gomoku' },
-    ]
-  },
+const NAV_MAIN = [
+  { to: '/home', icon: 'fa-home', label: 'Home' },
 ]
 
-const NAV_HORIZON_ONLY = [
-  {
-    section: 'Toolkit',
-    items: [
-      { to: '/csv',               icon: 'fa-file-csv',   label: 'CSV Workspace' },
-      { to: '/under-development', icon: 'fa-chart-bar',  label: 'Data Analysis' },
-      { to: '/under-development', icon: 'fa-database',   label: 'Data Handling' },
-      { to: '/under-development', icon: 'fa-chart-line', label: 'Data Visualisation' },
-    ]
-  },
+const NAV_COMMUNITY = [
+  { to: '/market',   icon: 'fa-store',    label: 'Market' },
+  { to: '/feedback', icon: 'fa-comments', label: 'Message Board' },
+]
+
+const NAV_FUN = [
+  { to: '/fun/gomoku', icon: 'fa-chess-board', label: 'Gomoku' },
+]
+
+const NAV_TOOLKIT_BASE = [
+  { to: '/hormemo', icon: 'fa-clipboard-list', label: 'Hormemo' },
+]
+
+const NAV_TOOLKIT_HORIZON = [
+  { to: '/csv',               icon: 'fa-file-csv',   label: 'CSV Workspace' },
+  { to: '/under-development', icon: 'fa-chart-bar',  label: 'Data Analysis' },
+  { to: '/under-development', icon: 'fa-database',   label: 'Data Handling' },
+  { to: '/under-development', icon: 'fa-chart-line', label: 'Data Visualisation' },
 ]
 
 export default function Sidebar({ isOpen, onClose }) {
@@ -43,7 +32,13 @@ export default function Sidebar({ isOpen, onClose }) {
 
   const isAdmin   = user?.role_info?.permissions?.includes('admin')
   const isHorizon = user?.role === 'horizon'
-  const nav       = isHorizon ? [...NAV_PUBLIC, ...NAV_HORIZON_ONLY] : NAV_PUBLIC
+
+  const nav = [
+    { section: 'Main',      items: NAV_MAIN },
+    { section: 'Community', items: NAV_COMMUNITY },
+    { section: 'For Fun',   items: NAV_FUN },
+    { section: 'Toolkit',   items: isHorizon ? [...NAV_TOOLKIT_BASE, ...NAV_TOOLKIT_HORIZON] : NAV_TOOLKIT_BASE },
+  ]
 
   function handleLogout() {
     logout()

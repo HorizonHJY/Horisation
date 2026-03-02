@@ -167,8 +167,8 @@ Horisation/
 - **Desktop**: Fixed sidebar (240px) + fixed topbar; main content offset accordingly
 - **Mobile (< 768px)**: Sidebar hidden off-screen; hamburger button (`☰`) in topbar opens a slide-in drawer with a dark overlay backdrop. Navigating to any page auto-closes the drawer.
 - Sidebar navigation is role-gated:
-  - All users: Main, Community, For Fun
-  - `horizon` only: Toolkit (CSV Workspace, Data tools)
+  - All users: Main (Home), Community, For Fun, Toolkit (Hormemo)
+  - `horizon` additionally sees: Toolkit → CSV Workspace, Data Analysis, Data Handling, Data Visualisation
   - Users with `admin` permission: Admin section
 
 ---

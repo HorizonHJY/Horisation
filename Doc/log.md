@@ -42,7 +42,7 @@
 - Sidebar: Log Out button fixed to bottom
 - Logo: replaced Font Awesome horse-head icon with `logol.avif`
 - Logo file placed in `frontend/public/` for Vite static serving
-- Navigation restructured: Toolkit section (CSV, Data Analysis, Data Handling, Data Visualisation) now **horizon-only**; other roles only see Main, Community, For Fun
+- Navigation restructured: Hormemo moved from Main to **Toolkit** section (visible to all roles); CSV Workspace and Data tools remain Toolkit but **horizon-only**
 - User avatars now displayed in Message Board (fallback to initials if no avatar set)
 
 ### Mobile Sidebar (响应式侧边栏)

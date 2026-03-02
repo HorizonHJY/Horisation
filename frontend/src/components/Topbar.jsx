@@ -27,9 +27,18 @@ export default function Topbar({ onMenuClick }) {
           style={{ cursor: 'pointer' }}
         >
           <span className="user-name">{user.display_name}</span>
-          <div className="user-avatar">
-            {user.display_name?.[0]?.toUpperCase()}
-          </div>
+          {user.avatar_url ? (
+            <img
+              src={user.avatar_url}
+              alt={user.display_name}
+              className="user-avatar"
+              style={{ objectFit: 'cover' }}
+            />
+          ) : (
+            <div className="user-avatar">
+              {user.display_name?.[0]?.toUpperCase()}
+            </div>
+          )}
         </div>
         <ul className="dropdown-menu dropdown-menu-end">
           <li><h6 className="dropdown-header">{user.role_info?.name}</h6></li>
