@@ -62,6 +62,26 @@ def upload_image(file_obj, original_filename: str) -> tuple[str, str]:
     return r2_key, public_url
 
 
+def upload_avatar(file_obj, username: str, original_filename: str) -> tuple[str, str]:
+    """
+    Upload a user avatar to R2.
+    Key: avatars/<username>.<ext>  (overwrites previous avatar automatically)
+    Returns (r2_key, public_url).
+    """
+    cfg = _load_config()
+    ext = os.path.splitext(original_filename)[1].lower()
+    r2_key = f"avatars/{username}{ext}"
+    content_type = 'image/jpeg' if ext in ('.jpg', '.jpeg') else 'image/png'
+    _get_client().upload_fileobj(
+        file_obj,
+        cfg['bucket_name'],
+        r2_key,
+        ExtraArgs={'ContentType': content_type},
+    )
+    public_url = f"{cfg['public_url'].rstrip('/')}/{r2_key}"
+    return r2_key, public_url
+
+
 def delete_image(r2_key: str) -> bool:
     """Delete an object from R2 by its key. Returns True on success."""
     try:

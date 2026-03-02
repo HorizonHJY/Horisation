@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import { useAuth } from '../App'
 import { api } from '../api'
 
@@ -10,11 +10,14 @@ const ROLE_COLORS = {
 export default function Profile() {
   const { user, login } = useAuth()
 
-  const [nameForm, setNameForm]   = useState({ display_name: user?.display_name ?? '' })
-  const [passForm, setPassForm]   = useState({ current_password: '', new_password: '', confirm: '' })
+  const [nameForm, setNameForm] = useState({ display_name: user?.display_name ?? '', email: user?.email ?? '' })
+  const [passForm, setPassForm] = useState({ current_password: '', new_password: '', confirm: '' })
   const [savingName, setSavingName] = useState(false)
   const [savingPass, setSavingPass] = useState(false)
-  const [msg, setMsg]             = useState(null)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [avatarPreview, setAvatarPreview] = useState(null)
+  const [msg, setMsg] = useState(null)
+  const fileRef = useRef()
 
   if (!user) return null
 
@@ -23,21 +26,25 @@ export default function Profile() {
     setTimeout(() => setMsg(null), 3000)
   }
 
+  // ── Display name + email ───────────────────────────────────────────
   const saveName = async (e) => {
     e.preventDefault()
     if (!nameForm.display_name.trim()) return flash('Display name cannot be empty.', 'danger')
     setSavingName(true)
-    const d = await api.put('/api/auth/profile', { display_name: nameForm.display_name.trim() })
+    const d = await api.put('/api/auth/profile', {
+      display_name: nameForm.display_name.trim(),
+      email:        nameForm.email.trim(),
+    })
     setSavingName(false)
     if (d.ok) {
-      flash('Display name updated.')
-      // Update AuthContext so topbar/sidebar reflect the change immediately
-      login({ ...user, display_name: nameForm.display_name.trim() })
+      flash('Profile updated.')
+      login({ ...user, display_name: nameForm.display_name.trim(), email: nameForm.email.trim() })
     } else {
       flash(d.error, 'danger')
     }
   }
 
+  // ── Password ───────────────────────────────────────────────────────
   const savePassword = async (e) => {
     e.preventDefault()
     if (passForm.new_password !== passForm.confirm)
@@ -58,30 +65,87 @@ export default function Profile() {
     }
   }
 
+  // ── Avatar ─────────────────────────────────────────────────────────
+  const onAvatarPick = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    setAvatarPreview(URL.createObjectURL(file))
+  }
+
+  const uploadAvatar = async () => {
+    const file = fileRef.current?.files[0]
+    if (!file) return
+    setUploadingAvatar(true)
+    const fd = new FormData()
+    fd.append('avatar', file)
+    const d = await api.upload('/api/auth/avatar', fd)
+    setUploadingAvatar(false)
+    if (d.ok) {
+      flash('Avatar updated.')
+      login({ ...user, avatar_url: d.avatar_url })
+      setAvatarPreview(null)
+      fileRef.current.value = ''
+    } else {
+      flash(d.error, 'danger')
+    }
+  }
+
+  const currentAvatar = avatarPreview ?? user.avatar_url
+
   return (
     <>
       <h4 className="fw-bold mb-4">My Profile</h4>
 
-      {msg && (
-        <div className={`alert alert-${msg.type} py-2`}>{msg.text}</div>
-      )}
+      {msg && <div className={`alert alert-${msg.type} py-2`}>{msg.text}</div>}
 
       <div className="row g-4">
         {/* Avatar card */}
         <div className="col-12 col-md-4">
           <div className="card text-center p-4">
-            <div
-              className="rounded-circle mx-auto mb-3 d-flex align-items-center justify-content-center"
-              style={{ width: 80, height: 80, background: '#3a7bd5', color: '#fff', fontSize: '2rem', fontWeight: 700 }}
-            >
-              {user.display_name?.[0]?.toUpperCase()}
-            </div>
+            {/* Avatar display */}
+            {currentAvatar ? (
+              <img
+                src={currentAvatar}
+                alt="avatar"
+                className="rounded-circle mx-auto mb-3"
+                style={{ width: 80, height: 80, objectFit: 'cover' }}
+              />
+            ) : (
+              <div
+                className="rounded-circle mx-auto mb-3 d-flex align-items-center justify-content-center"
+                style={{ width: 80, height: 80, background: '#3a7bd5', color: '#fff', fontSize: '2rem', fontWeight: 700 }}
+              >
+                {user.display_name?.[0]?.toUpperCase()}
+              </div>
+            )}
+
             <h5 className="fw-bold mb-1">{user.display_name}</h5>
             <span className={`role-badge ${ROLE_COLORS[user.role] ?? 'role-user'}`}>
               {user.role_info?.name ?? user.role}
             </span>
-            <div className="mt-3 text-muted small">
-              Permission level: {user.role_info?.level}
+            <div className="mt-3 text-muted small">Permission level: {user.role_info?.level}</div>
+
+            {/* Avatar upload */}
+            <div className="mt-3 d-flex flex-column gap-2">
+              <input
+                ref={fileRef}
+                type="file"
+                accept=".jpg,.jpeg,.png"
+                className="form-control form-control-sm"
+                onChange={onAvatarPick}
+              />
+              {avatarPreview && (
+                <button
+                  className="btn btn-sm btn-primary"
+                  onClick={uploadAvatar}
+                  disabled={uploadingAvatar}
+                >
+                  {uploadingAvatar
+                    ? <span className="spinner-border spinner-border-sm" />
+                    : 'Upload Avatar'}
+                </button>
+              )}
+              <div className="text-muted" style={{ fontSize: '0.75rem' }}>JPEG/PNG, max 2MB</div>
             </div>
           </div>
         </div>
@@ -89,21 +153,47 @@ export default function Profile() {
         {/* Right column */}
         <div className="col-12 col-md-8 d-flex flex-column gap-4">
 
-          {/* Account details */}
+          {/* Account details + edit name/email */}
           <div className="card p-4">
             <h6 className="fw-semibold mb-3 text-muted text-uppercase" style={{ fontSize: '.75rem', letterSpacing: '.08em' }}>
               Account Details
             </h6>
-            {[
-              ['Username', user.username],
-              ['Email',    user.email || '—'],
-              ['Role',     user.role],
-            ].map(([label, value]) => (
-              <div key={label} className="d-flex justify-content-between py-2 border-bottom">
-                <span className="text-muted">{label}</span>
-                <span className="fw-semibold">{value}</span>
+            <div className="d-flex justify-content-between py-2 border-bottom">
+              <span className="text-muted">Username</span>
+              <span className="fw-semibold">{user.username}</span>
+            </div>
+            <div className="d-flex justify-content-between py-2 border-bottom">
+              <span className="text-muted">Role</span>
+              <span className="fw-semibold">{user.role}</span>
+            </div>
+
+            <form onSubmit={saveName} className="mt-3 d-flex flex-column gap-3">
+              <div>
+                <label className="form-label fw-medium">Display Name</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  value={nameForm.display_name}
+                  onChange={e => setNameForm(f => ({ ...f, display_name: e.target.value }))}
+                  required
+                />
               </div>
-            ))}
+              <div>
+                <label className="form-label fw-medium">Email</label>
+                <input
+                  type="email"
+                  className="form-control"
+                  value={nameForm.email}
+                  onChange={e => setNameForm(f => ({ ...f, email: e.target.value }))}
+                  placeholder="email@example.com"
+                />
+              </div>
+              <button className="btn btn-primary align-self-start" disabled={savingName}>
+                {savingName ? <span className="spinner-border spinner-border-sm me-2" /> : null}
+                Save Changes
+              </button>
+            </form>
+
             <h6 className="fw-semibold mt-4 mb-2 text-muted text-uppercase" style={{ fontSize: '.75rem', letterSpacing: '.08em' }}>
               Permissions
             </h6>
@@ -112,25 +202,6 @@ export default function Profile() {
                 <span key={p} className="badge bg-primary bg-opacity-10 text-primary fw-normal">{p}</span>
               ))}
             </div>
-          </div>
-
-          {/* Change display name */}
-          <div className="card p-4">
-            <h6 className="fw-semibold mb-3 text-muted text-uppercase" style={{ fontSize: '.75rem', letterSpacing: '.08em' }}>
-              Change Display Name
-            </h6>
-            <form onSubmit={saveName} className="d-flex gap-2">
-              <input
-                type="text"
-                className="form-control"
-                value={nameForm.display_name}
-                onChange={e => setNameForm({ display_name: e.target.value })}
-                placeholder="New display name"
-              />
-              <button className="btn btn-primary flex-shrink-0" disabled={savingName}>
-                {savingName ? <span className="spinner-border spinner-border-sm" /> : 'Save'}
-              </button>
-            </form>
           </div>
 
           {/* Change password */}
@@ -163,7 +234,7 @@ export default function Profile() {
                 onChange={e => setPassForm(f => ({ ...f, confirm: e.target.value }))}
                 required
               />
-              <button className="btn btn-primary" disabled={savingPass}>
+              <button className="btn btn-primary align-self-start" disabled={savingPass}>
                 {savingPass ? <span className="spinner-border spinner-border-sm me-2" /> : null}
                 Change Password
               </button>

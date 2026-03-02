@@ -232,16 +232,42 @@ def update_user_status(username):
 @auth_bp.route('/profile', methods=['PUT'])
 @login_required
 def update_own_profile():
-    """User updates their own display name."""
+    """User updates their own display name and/or email."""
     data = request.get_json() or {}
-    display_name = data.get('display_name', '').strip()
-    if not display_name:
-        return jsonify({'ok': False, 'error': 'Display name required'}), 400
+    display_name = data.get('display_name', '').strip() or None
+    email        = data.get('email', '').strip() or None
+    if not display_name and email is None:
+        return jsonify({'ok': False, 'error': 'Nothing to update'}), 400
     username = request.current_user['username']
-    success, message = user_manager.update_user_profile(username, display_name=display_name)
+    success, message = user_manager.update_user_profile(username, display_name=display_name, email=email)
     if not success:
         return jsonify({'ok': False, 'error': message}), 400
     return jsonify({'ok': True, 'message': message})
+
+
+@auth_bp.route('/avatar', methods=['POST'])
+@login_required
+def upload_avatar():
+    """User uploads their own avatar image."""
+    from Backend.Controller.r2_manager import upload_avatar as r2_upload_avatar
+    file = request.files.get('avatar')
+    if not file or not file.filename:
+        return jsonify({'ok': False, 'error': 'No file provided'}), 400
+    import os
+    ext = os.path.splitext(file.filename)[1].lower()
+    if ext not in ('.jpg', '.jpeg', '.png'):
+        return jsonify({'ok': False, 'error': 'Only JPEG/PNG allowed'}), 400
+    file.seek(0, 2)
+    if file.tell() > 2 * 1024 * 1024:
+        return jsonify({'ok': False, 'error': 'Avatar must be under 2MB'}), 400
+    file.seek(0)
+    username = request.current_user['username']
+    try:
+        _, avatar_url = r2_upload_avatar(file.stream, username, file.filename)
+    except Exception as e:
+        return jsonify({'ok': False, 'error': f'Upload failed: {str(e)}'}), 500
+    user_manager.update_user_profile(username, avatar_url=avatar_url)
+    return jsonify({'ok': True, 'avatar_url': avatar_url})
 
 
 @auth_bp.route('/password', methods=['PUT'])

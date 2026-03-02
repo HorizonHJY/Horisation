@@ -199,11 +199,12 @@ class UserManager:
 
         if user.get('password') == password:
             return True, {
-                'username': user['username'],
-                'role': user['role'],
+                'username':     user['username'],
+                'role':         user['role'],
                 'display_name': user['display_name'],
-                'email': user['email'],
-                'role_info': self.USER_ROLES[user['role']]
+                'email':        user['email'],
+                'avatar_url':   user.get('avatar_url'),
+                'role_info':    self.USER_ROLES[user['role']]
             }
 
         return False, None
@@ -249,11 +250,12 @@ class UserManager:
         _, user = self._find_user(users, username)
         if user is not None:
             return {
-                'username': user['username'],
-                'role': user['role'],
+                'username':     user['username'],
+                'role':         user['role'],
                 'display_name': user['display_name'],
-                'email': user['email'],
-                'role_info': self.USER_ROLES[user['role']]
+                'email':        user['email'],
+                'avatar_url':   user.get('avatar_url'),
+                'role_info':    self.USER_ROLES[user['role']]
             }
 
         return None
@@ -401,8 +403,8 @@ class UserManager:
         return True, f"User {username} activated"
 
     def update_user_profile(self, username: str, display_name: str = None,
-                            email: str = None) -> Tuple[bool, str]:
-        """Update display name and/or email (admin function)."""
+                            email: str = None, avatar_url: str = None) -> Tuple[bool, str]:
+        """Update display name, email, and/or avatar_url."""
         users = self._load_users()
         key, user = self._find_user(users, username)
         if key is None:
@@ -411,6 +413,8 @@ class UserManager:
             users[key]['display_name'] = display_name
         if email is not None:
             users[key]['email'] = email
+        if avatar_url is not None:
+            users[key]['avatar_url'] = avatar_url
         self._save_users(users)
         return True, f"User {username} profile updated"
 
