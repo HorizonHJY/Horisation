@@ -58,6 +58,15 @@
 - Created `.gitignore` (excludes `node_modules/`, `dist/`, `_uploads/`, `Key/`, `__pycache__/`)
 - Project is now pure English (all Chinese text removed from code, templates, comments)
 
+### Bug Fix — Server Login Failure (Session Cookie + ProxyFix)
+- **症状**: 本地登录正常，服务器（Nginx + Gunicorn + Cloudflare + HTTPS）登录失败
+- **根因**: Flask 从 Gunicorn 收到请求时看到的是 HTTP（内网），不知道用户实际走的是 HTTPS，因此拒绝设置 Secure Cookie，导致 Set-Cookie 根本没有发出去
+- **修复** (`app.py`):
+  - 加入 `ProxyFix(x_proto=1)` — 让 Flask 读取 `X-Forwarded-Proto: https` 请求头，正确识别 HTTPS 环境
+  - `SESSION_COOKIE_SECURE = True` — Cookie 仅 HTTPS 传输
+  - `SESSION_COOKIE_HTTPONLY = True` — 禁止 JS 读取 Cookie
+  - `SESSION_COOKIE_SAMESITE = 'Lax'` — Cloudflare 代理下跨域 Cookie 正常传递
+
 ---
 
 ## Deploy Checklist (for future reference)

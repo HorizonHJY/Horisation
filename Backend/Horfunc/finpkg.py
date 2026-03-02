@@ -11,7 +11,6 @@ def simulate_price(S0, vol_annual, days, seed=None, basis=252):
     dt = days / basis
     sigma = vol_annual
     Z = np.random.normal()
-    # GBM公式：S_T = S0 * exp(-0.5σ²T + σ√T * Z)
     ST = S0 * np.exp(-0.5 * sigma ** 2 * dt + sigma * np.sqrt(dt) * Z)
     return ST
 

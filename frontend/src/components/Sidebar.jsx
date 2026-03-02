@@ -20,9 +20,15 @@ const NAV = [
     ]
   },
   {
+    section: 'Community',
+    items: [
+      { to: '/market', icon: 'fa-store', label: 'Market' },
+    ]
+  },
+  {
     section: 'For Fun',
     items: [
-      { to: '/fun/gomoku',        icon: 'fa-chess-board', label: 'Gomoku' },
+      { to: '/fun/gomoku', icon: 'fa-chess-board', label: 'Gomoku' },
     ]
   },
 ]

@@ -14,6 +14,8 @@ from Backend.Controller.csvcontroller import bp as csv_bp
 from Backend.Controller.auth_controller import auth_bp
 from Backend.Controller.notes_controller import notes_bp
 from Backend.Controller.memos_controller import memos_bp
+from Backend.Controller.market_controller import market_bp
+from Backend.Controller.market_db import init_db
 
 # Paths
 BASE_DIR     = os.path.dirname(os.path.abspath(__file__))
@@ -39,6 +41,10 @@ app.register_blueprint(csv_bp)
 app.register_blueprint(auth_bp)
 app.register_blueprint(notes_bp)
 app.register_blueprint(memos_bp)
+app.register_blueprint(market_bp)
+
+# Initialise database (creates _data/market.db tables if not exist)
+init_db()
 
 # Import user manager for session validation
 from Backend.Controller.user_manager import user_manager
