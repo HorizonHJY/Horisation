@@ -22,7 +22,8 @@ const NAV = [
   {
     section: 'Community',
     items: [
-      { to: '/market', icon: 'fa-store', label: 'Market' },
+      { to: '/market',   icon: 'fa-store',    label: 'Market' },
+      { to: '/feedback', icon: 'fa-comments', label: 'Message Board' },
     ]
   },
   {

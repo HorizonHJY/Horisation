@@ -12,6 +12,7 @@ import AdminUsers from './pages/AdminUsers'
 import UnderDevelopment from './pages/UnderDevelopment'
 import Gomoku from './pages/fun/Gomoku'
 import Market from './pages/Market'
+import Feedback from './pages/Feedback'
 
 // ── Auth Context ────────────────────────────────────────────────
 export const AuthContext = createContext(null)
@@ -81,6 +82,7 @@ export default function App() {
             <Route path="/under-development" element={<UnderDevelopment />} />
             <Route path="/fun/gomoku"        element={<Gomoku />} />
             <Route path="/market"            element={<Market />} />
+            <Route path="/feedback"          element={<Feedback />} />
           </Route>
 
           {/* Fallback */}

@@ -15,6 +15,7 @@ from Backend.Controller.auth_controller import auth_bp
 from Backend.Controller.notes_controller import notes_bp
 from Backend.Controller.memos_controller import memos_bp
 from Backend.Controller.market_controller import market_bp
+from Backend.Controller.feedback_controller import feedback_bp
 from Backend.Controller.market_db import init_db
 
 # Paths
@@ -42,6 +43,7 @@ app.register_blueprint(auth_bp)
 app.register_blueprint(notes_bp)
 app.register_blueprint(memos_bp)
 app.register_blueprint(market_bp)
+app.register_blueprint(feedback_bp)
 
 # Initialise database (creates _data/market.db tables if not exist)
 init_db()

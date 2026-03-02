@@ -45,6 +45,16 @@ class Listing(Base):
                           cascade='all, delete-orphan', order_by='ListingImage.display_order')
 
 
+class Message(Base):
+    __tablename__ = 'messages'
+
+    id           = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    username     = Column(String(100), nullable=False, index=True)
+    display_name = Column(String(100), nullable=False)
+    content      = Column(Text, nullable=False)
+    created_at   = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+
 class ListingImage(Base):
     __tablename__ = 'listing_images'
 
@@ -84,6 +94,53 @@ def _listing_to_dict(listing: Listing) -> dict:
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
+def get_messages(limit: int = 100) -> list:
+    with Session() as s:
+        rows = s.query(Message).order_by(Message.created_at.desc()).limit(limit).all()
+        return [
+            {
+                'id':           r.id,
+                'username':     r.username,
+                'display_name': r.display_name,
+                'content':      r.content,
+                'created_at':   r.created_at.isoformat(),
+            }
+            for r in rows
+        ]
+
+
+def post_message(username: str, display_name: str, content: str) -> dict:
+    msg = Message(
+        id=str(uuid.uuid4()),
+        username=username,
+        display_name=display_name,
+        content=content,
+    )
+    with Session() as s:
+        s.add(msg)
+        s.commit()
+        return {
+            'id':           msg.id,
+            'username':     msg.username,
+            'display_name': msg.display_name,
+            'content':      msg.content,
+            'created_at':   msg.created_at.isoformat(),
+        }
+
+
+def delete_message(message_id: str, username: str, is_admin: bool = False) -> bool:
+    """Delete a message. Users can only delete their own; admins can delete any."""
+    with Session() as s:
+        row = s.query(Message).filter_by(id=message_id).first()
+        if not row:
+            return False
+        if not is_admin and row.username != username:
+            return False
+        s.delete(row)
+        s.commit()
+        return True
+
 
 def get_all_listings(status: str = 'active') -> list[dict]:
     with Session() as s:
