@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../App'
 import { api } from '../api'
 
-export default function Topbar() {
+export default function Topbar({ onMenuClick }) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
 
@@ -17,6 +17,9 @@ export default function Topbar() {
 
   return (
     <div className="topbar">
+      <button className="hamburger-btn d-md-none me-auto" onClick={onMenuClick}>
+        <i className="fas fa-bars" />
+      </button>
       <div className="dropdown">
         <div
           className="d-flex align-items-center gap-2"

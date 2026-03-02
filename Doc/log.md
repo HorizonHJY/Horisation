@@ -2,6 +2,74 @@
 
 ---
 
+## 2026-03-02
+
+### Marketplace Feature (二手交易平台)
+- New page `/market` — Browse, Post Listing, My Listings tabs
+- Image storage: Cloudflare R2 (`horisation-market` bucket), up to 3 images per listing
+- Listing metadata: SQLite via SQLAlchemy (`_data/market.db`), auto-created on startup
+- New files:
+  - `Backend/Controller/r2_manager.py` — R2 upload/delete via boto3
+  - `Backend/Controller/market_db.py` — SQLAlchemy models (Listing, ListingImage)
+  - `Backend/Controller/market_controller.py` — Blueprint `/api/market/*`
+  - `frontend/src/pages/Market.jsx`
+  - `Key/r2_config.json` (gitignored)
+- Added `sqlalchemy>=2.0.0`, `boto3>=1.34.0` to `requirements.txt`
+- Bug fix: Python 3.9 incompatible type hints (`dict | None` → `Optional[dict]`) causing 502 on server
+
+### Message Board (留言板)
+- New page `/feedback` — all users can post messages, delete own messages; admins can delete any
+- Message model added to `market.db` (same SQLite DB)
+- New files:
+  - `Backend/Controller/feedback_controller.py` — Blueprint `/api/feedback/*`
+  - `frontend/src/pages/Feedback.jsx`
+- Features: relative time display, 500-char limit, newest-first order
+
+### User Management Improvements
+- Admin (`/admin`) can now: edit display name, edit email, reset password, delete user
+- New backend endpoints: `PUT /api/auth/users/<username>/profile`, `PUT /api/auth/users/<username>/password`, `DELETE /api/auth/users/<username>`
+- `horizon` account protected from deletion
+- Bootstrap JS added to `index.html` (modals were broken without it)
+
+### User Self-Service Profile
+- `/profile` page: users can update their own display name, email, password, and avatar
+- Avatar stored in R2 under `avatars/<username>.<ext>`, overwrites on re-upload
+- New backend endpoints: `PUT /api/auth/profile`, `PUT /api/auth/password`, `POST /api/auth/avatar`
+- `avatar_url` field added to user session info
+
+### Navigation & UI
+- Sidebar: added Community section (Market, Message Board)
+- Sidebar: Log Out button fixed to bottom
+- Logo: replaced Font Awesome horse-head icon with `logol.avif`
+- Logo file placed in `frontend/public/` for Vite static serving
+- Navigation restructured: Toolkit section (CSV, Data Analysis, Data Handling, Data Visualisation) now **horizon-only**; other roles only see Main, Community, For Fun
+- User avatars now displayed in Message Board (fallback to initials if no avatar set)
+
+### Mobile Sidebar (响应式侧边栏)
+- On mobile (`< 768px`), sidebar is hidden off-screen by default (`translateX(-100%)`)
+- Hamburger button (`☰`) added to topbar, visible only on mobile (`d-md-none`)
+- Tapping hamburger slides sidebar in with CSS transition (`0.25s ease`)
+- Dark overlay backdrop rendered behind open sidebar; tap overlay to close
+- Navigating to any page auto-closes the sidebar
+- Topbar and main content expand to full width on mobile (`left: 0`, `margin-left: 0`)
+- Files changed: `Layout.jsx` (state management), `Topbar.jsx` (hamburger), `Sidebar.jsx` (isOpen/onClose props), `index.css` (media query)
+
+### Server — Python Upgrade
+- Upgraded server Python from 3.9 (EOL) to 3.11
+- New venv: `/home/ec2-user/venv311/`
+- Old venv (`~/venv`) deleted after confirming stability
+
+### Deploy Script
+- `scripts/deploy.sh` added to project (git-tracked, replaces ad-hoc server script)
+- Server's `~/deploy.sh` now simply calls `bash ~/Horisation/scripts/deploy.sh`
+- Script now includes pip install step for Python dependencies
+
+### .gitignore Updates
+- Added `_data/users.json`, `_data/sessions.json` — user data managed independently per environment
+- Added `_data/market.db` — SQLite DB auto-created on startup, not committed
+
+---
+
 ## 2026-03-01
 
 ### Deployment & Server Setup
@@ -15,69 +83,46 @@
 - Created `requirements.txt` (flask, pandas, numpy, openpyxl, xlrd, pyarrow, gunicorn)
 
 ### Bug Fixes — Authentication
-- Removed hardcoded auth backdoor: `password in ['horizon', 'yyf']` fallback was allowing any user with a `password_hash` field to login with those passwords
-- Fixed `authenticate_user` and all user lookup methods to search by `username` **field** (not dict key) using new `_find_user(users, username)` helper
+- Removed hardcoded auth backdoor: `password in ['horizon', 'yyf']`
+- Fixed `authenticate_user` and all user lookup methods to search by `username` field (not dict key) using `_find_user()` helper
 - Same fix applied to `memos_controller.py`
-- Fixed `users.json` key/username inconsistencies (e.g. key `"sammy"` with `username: "Sammy"`)
+- Fixed `users.json` key/username inconsistencies
 
 ### Feature Removal
 - Removed `/limit` route and `limit.html` page
-- Removed `last_login` field entirely: no longer written on login, not stored in JSON, not shown in UI
-  - Reason: caused git conflicts on every login since `_data/users.json` was tracked in git
+- Removed `last_login` field (caused git conflicts since users.json was tracked)
 
 ### Frontend — React SPA Migration
 - Migrated entire frontend from Flask/Jinja2 to React 18 + Vite
 - Flask is now API-only; all routes under `/api/*`
-- React app lives in `frontend/`, built to `frontend/dist/`
-- Flask serves `frontend/dist/index.html` as catch-all for non-API routes
-- Deleted `Template/` and `Static/` directories (no longer needed)
+- Deleted `Template/` and `Static/` directories
 
 ### React Pages Built
-| Page | Route | Notes |
-|------|-------|-------|
-| Login | `/login` | Two-panel layout, session-based auth |
-| Home | `/home` | Feature grid dashboard |
-| CSV Workspace | `/csv` | File upload, preview, summary |
-| Hormemo | `/hormemo` | Full CRUD memos via `/api/memos/` |
-| Profile | `/profile` | User info display |
-| Admin Users | `/admin` | Role management, create/activate users |
-| Under Development | `/under-development` | Placeholder for unfinished sections |
-| Gomoku | `/fun/gomoku` | Local 2-player Five in a Row, 15×15 board |
+| Page | Route |
+|------|-------|
+| Login | `/login` |
+| Home | `/home` |
+| CSV Workspace | `/csv` |
+| Hormemo | `/hormemo` |
+| Profile | `/profile` |
+| Admin Users | `/admin` |
+| Under Development | `/under-development` |
+| Gomoku | `/fun/gomoku` |
 
-### Navigation (English only)
-- Removed: Settings, Help, Ad-Hoc / Limit
-- Added: For Fun section with Gomoku
-- Under Development redirects: Data Analysis, Data Handling, Data Visualisation, Notes
+### Bug Fix — Server Login Failure
+- Root cause: Flask saw requests as HTTP (internal), refused to set Secure Cookie
+- Fix: Added `ProxyFix`, `SESSION_COOKIE_SECURE`, `SESSION_COOKIE_HTTPONLY`, `SESSION_COOKIE_SAMESITE`
 
 ### Documentation
-- Created `Doc/project_intro.md` — full English project overview
-- Created `Doc/server.md` — server config reference
-- Created `Doc/log.md` — this file
-
-### Config
-- Created `.gitignore` (excludes `node_modules/`, `dist/`, `_uploads/`, `Key/`, `__pycache__/`)
-- Project is now pure English (all Chinese text removed from code, templates, comments)
-
-### Bug Fix — Server Login Failure (Session Cookie + ProxyFix)
-- **症状**: 本地登录正常，服务器（Nginx + Gunicorn + Cloudflare + HTTPS）登录失败
-- **根因**: Flask 从 Gunicorn 收到请求时看到的是 HTTP（内网），不知道用户实际走的是 HTTPS，因此拒绝设置 Secure Cookie，导致 Set-Cookie 根本没有发出去
-- **修复** (`app.py`):
-  - 加入 `ProxyFix(x_proto=1)` — 让 Flask 读取 `X-Forwarded-Proto: https` 请求头，正确识别 HTTPS 环境
-  - `SESSION_COOKIE_SECURE = True` — Cookie 仅 HTTPS 传输
-  - `SESSION_COOKIE_HTTPONLY = True` — 禁止 JS 读取 Cookie
-  - `SESSION_COOKIE_SAMESITE = 'Lax'` — Cloudflare 代理下跨域 Cookie 正常传递
+- Created `Doc/project_intro.md`, `Doc/server.md`, `Doc/log.md`, `Doc/data_storage.md`
 
 ---
 
-## Deploy Checklist (for future reference)
+## Deploy Checklist
 ```bash
-# Local
-cd frontend && npm run build
+# Local — push changes
 git add -A && git commit -m "..." && git push
 
-# Server
-cd /home/ec2-user/Horisation
-git pull
-cd frontend && npm install && npm run build
-cd .. && sudo systemctl restart horisation
+# Server — one command
+bash ~/deploy.sh
 ```

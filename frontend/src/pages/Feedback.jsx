@@ -104,13 +104,21 @@ export default function Feedback() {
               <div key={m.id} className="card shadow-sm px-4 py-3">
                 <div className="d-flex justify-content-between align-items-start">
                   <div className="d-flex align-items-center gap-2">
-                    {/* Avatar initial */}
-                    <div
-                      className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
-                      style={{ width: 36, height: 36, background: '#3a7bd51a', color: '#3a7bd5', fontWeight: 700, fontSize: '0.9rem' }}
-                    >
-                      {m.display_name?.[0]?.toUpperCase()}
-                    </div>
+                    {m.avatar_url ? (
+                      <img
+                        src={m.avatar_url}
+                        alt={m.display_name}
+                        className="rounded-circle flex-shrink-0"
+                        style={{ width: 36, height: 36, objectFit: 'cover' }}
+                      />
+                    ) : (
+                      <div
+                        className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                        style={{ width: 36, height: 36, background: '#3a7bd51a', color: '#3a7bd5', fontWeight: 700, fontSize: '0.9rem' }}
+                      >
+                        {m.display_name?.[0]?.toUpperCase()}
+                      </div>
+                    )}
                     <div>
                       <span className="fw-semibold">{m.display_name}</span>
                       <span className="text-muted ms-1 small">@{m.username}</span>

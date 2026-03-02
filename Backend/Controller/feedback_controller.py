@@ -6,6 +6,7 @@ Message board — all logged-in users can post and read messages.
 from flask import Blueprint, request, jsonify
 from Backend.Controller.auth_controller import login_required
 from Backend.Controller import market_db
+from Backend.Controller.user_manager import user_manager
 
 feedback_bp = Blueprint('feedback', __name__, url_prefix='/api/feedback')
 
@@ -14,6 +15,16 @@ feedback_bp = Blueprint('feedback', __name__, url_prefix='/api/feedback')
 @login_required
 def get_messages():
     messages = market_db.get_messages(limit=200)
+
+    # Attach current avatar_url for each user
+    users = user_manager._load_users()
+    avatar_map = {
+        u.get('username'): u.get('avatar_url')
+        for u in users.values()
+    }
+    for m in messages:
+        m['avatar_url'] = avatar_map.get(m['username'])
+
     return jsonify({'ok': True, 'messages': messages})
 
 
@@ -33,6 +44,7 @@ def post_message():
         display_name=user['display_name'],
         content=content,
     )
+    message['avatar_url'] = user.get('avatar_url')
     return jsonify({'ok': True, 'message': message}), 201
 
 
