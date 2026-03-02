@@ -400,5 +400,43 @@ class UserManager:
 
         return True, f"User {username} activated"
 
+    def update_user_profile(self, username: str, display_name: str = None,
+                            email: str = None) -> Tuple[bool, str]:
+        """Update display name and/or email (admin function)."""
+        users = self._load_users()
+        key, user = self._find_user(users, username)
+        if key is None:
+            return False, "User not found"
+        if display_name is not None:
+            users[key]['display_name'] = display_name
+        if email is not None:
+            users[key]['email'] = email
+        self._save_users(users)
+        return True, f"User {username} profile updated"
+
+    def reset_user_password(self, username: str, new_password: str) -> Tuple[bool, str]:
+        """Reset a user's password (admin function)."""
+        if len(new_password) < 6:
+            return False, "Password must be at least 6 characters"
+        users = self._load_users()
+        key, _ = self._find_user(users, username)
+        if key is None:
+            return False, "User not found"
+        users[key]['password'] = new_password
+        self._save_users(users)
+        return True, f"Password for {username} has been reset"
+
+    def delete_user(self, username: str) -> Tuple[bool, str]:
+        """Permanently delete a user (admin function). Cannot delete 'horizon'."""
+        if username == 'horizon':
+            return False, "Cannot delete the root admin account"
+        users = self._load_users()
+        key, _ = self._find_user(users, username)
+        if key is None:
+            return False, "User not found"
+        del users[key]
+        self._save_users(users)
+        return True, f"User {username} deleted"
+
 # 创建全局用户管理器实例
 user_manager = UserManager()

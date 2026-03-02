@@ -9,48 +9,123 @@ const ROLE_COLORS = {
   vip1: 'role-vip1', vip2: 'role-vip2', vip3: 'role-vip3', user: 'role-user',
 }
 
+const EMPTY_NEW = { username: '', password: '', role: 'user', email: '', display_name: '' }
+
 export default function AdminUsers() {
   const { user } = useAuth()
-  const navigate = useNavigate()
-  const [users, setUsers]   = useState([])
+  const navigate  = useNavigate()
+
+  const [users, setUsers]     = useState([])
   const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
-  const [newUser, setNewUser] = useState({ username: '', password: '', role: 'user', email: '', display_name: '' })
+  const [search, setSearch]   = useState('')
+  const [msg, setMsg]         = useState(null)
+
+  // Create modal state
+  const [newUser, setNewUser]   = useState(EMPTY_NEW)
   const [creating, setCreating] = useState(false)
-  const [msg, setMsg] = useState(null)
+
+  // Edit modal state
+  const [editTarget, setEditTarget] = useState(null)   // user object being edited
+  const [editForm, setEditForm]     = useState({ display_name: '', email: '', password: '' })
+  const [saving, setSaving]         = useState(false)
 
   const isAdmin = user?.role_info?.permissions?.includes('admin')
 
   useEffect(() => {
     if (!isAdmin) { navigate('/home'); return }
-    api.get('/api/auth/users').then(d => { if (d.ok) setUsers(d.users) }).finally(() => setLoading(false))
+    load()
   }, [])
 
-  const reload = () => api.get('/api/auth/users').then(d => { if (d.ok) setUsers(d.users) })
+  const load = () =>
+    api.get('/api/auth/users')
+       .then(d => { if (d.ok) setUsers(d.users) })
+       .finally(() => setLoading(false))
 
+  const flash = (text, type = 'success') => {
+    setMsg({ type, text })
+    setTimeout(() => setMsg(null), 3000)
+  }
+
+  // ── Role ──────────────────────────────────────────────────────────
   const updateRole = async (username, role) => {
     const d = await api.put(`/api/auth/users/${username}/role`, { role })
-    if (d.ok) { setMsg({ type: 'success', text: `${username} role updated.` }); reload() }
-    else setMsg({ type: 'danger', text: d.error })
+    if (d.ok) { flash(`${username} role updated.`); load() }
+    else flash(d.error, 'danger')
   }
 
+  // ── Activate / Deactivate ─────────────────────────────────────────
   const toggleStatus = async (username, is_active) => {
     const d = await api.put(`/api/auth/users/${username}/status`, { is_active })
-    if (d.ok) reload()
+    if (d.ok) load()
+    else flash(d.error, 'danger')
   }
 
+  // ── Delete ────────────────────────────────────────────────────────
+  const deleteUser = async (username) => {
+    if (!window.confirm(`Delete user "${username}"? This cannot be undone.`)) return
+    const d = await api.delete(`/api/auth/users/${username}`)
+    if (d.ok) { flash(`${username} deleted.`); load() }
+    else flash(d.error, 'danger')
+  }
+
+  // ── Create ────────────────────────────────────────────────────────
   const createUser = async (e) => {
     e.preventDefault()
     setCreating(true)
     const d = await api.post('/api/auth/register', newUser)
     if (d.ok) {
-      setMsg({ type: 'success', text: 'User created.' })
-      setNewUser({ username: '', password: '', role: 'user', email: '', display_name: '' })
-      reload()
+      flash('User created.')
+      setNewUser(EMPTY_NEW)
+      document.getElementById('createModal').querySelector('[data-bs-dismiss="modal"]').click()
+      load()
     } else {
-      setMsg({ type: 'danger', text: d.error })
+      flash(d.error, 'danger')
     }
     setCreating(false)
+  }
+
+  // ── Edit (open modal) ─────────────────────────────────────────────
+  const openEdit = (u) => {
+    setEditTarget(u)
+    setEditForm({ display_name: u.display_name, email: u.email, password: '' })
+  }
+
+  // ── Edit (save) ───────────────────────────────────────────────────
+  const saveEdit = async (e) => {
+    e.preventDefault()
+    if (!editTarget) return
+    setSaving(true)
+
+    const username = editTarget.username
+    let ok = true
+
+    // Update profile (display_name + email)
+    const profileChanged =
+      editForm.display_name !== editTarget.display_name ||
+      editForm.email        !== editTarget.email
+
+    if (profileChanged) {
+      const d = await api.put(`/api/auth/users/${username}/profile`, {
+        display_name: editForm.display_name,
+        email:        editForm.email,
+      })
+      if (!d.ok) { flash(d.error, 'danger'); ok = false }
+    }
+
+    // Reset password (only if filled in)
+    if (ok && editForm.password) {
+      const d = await api.put(`/api/auth/users/${username}/password`, {
+        password: editForm.password,
+      })
+      if (!d.ok) { flash(d.error, 'danger'); ok = false }
+    }
+
+    setSaving(false)
+    if (ok) {
+      flash(`${username} updated.`)
+      document.getElementById('editModal').querySelector('[data-bs-dismiss="modal"]').click()
+      load()
+    }
   }
 
   const filtered = users.filter(u =>
@@ -77,9 +152,9 @@ export default function AdminUsers() {
       {/* Stats */}
       <div className="row g-3 mb-4">
         {[
-          ['Total Users',  users.length,                           'fa-users',       'primary'],
-          ['Active',       users.filter(u => u.is_active).length,  'fa-user-check',  'success'],
-          ['Admins',       users.filter(u => ['horizon','horizonadmin'].includes(u.role)).length, 'fa-user-shield', 'warning'],
+          ['Total Users', users.length,                                                             'fa-users',      'primary'],
+          ['Active',      users.filter(u => u.is_active).length,                                    'fa-user-check', 'success'],
+          ['Admins',      users.filter(u => ['horizon','horizonadmin'].includes(u.role)).length,     'fa-user-shield','warning'],
         ].map(([label, val, icon, color]) => (
           <div key={label} className="col-4">
             <div className="stat-card">
@@ -115,11 +190,16 @@ export default function AdminUsers() {
                 >
                   {u.display_name?.[0]?.toUpperCase()}
                 </div>
+
                 <div className="flex-grow-1">
-                  <div className="fw-semibold">{u.display_name} <span className="text-muted fw-normal">@{u.username}</span></div>
+                  <div className="fw-semibold">
+                    {u.display_name} <span className="text-muted fw-normal">@{u.username}</span>
+                  </div>
                   <span className={`role-badge ${ROLE_COLORS[u.role] ?? 'role-user'}`}>{u.role}</span>
                 </div>
+
                 <div className="d-flex align-items-center gap-2 flex-shrink-0">
+                  {/* Role selector */}
                   <select
                     className="form-select form-select-sm"
                     style={{ width: 130 }}
@@ -128,12 +208,34 @@ export default function AdminUsers() {
                   >
                     {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
                   </select>
+
+                  {/* Edit button */}
                   <button
-                    className={`btn btn-sm ${u.is_active ? 'btn-outline-danger' : 'btn-outline-success'}`}
+                    className="btn btn-sm btn-outline-primary"
+                    data-bs-toggle="modal"
+                    data-bs-target="#editModal"
+                    onClick={() => openEdit(u)}
+                  >
+                    <i className="fas fa-pen" />
+                  </button>
+
+                  {/* Activate / Deactivate */}
+                  <button
+                    className={`btn btn-sm ${u.is_active ? 'btn-outline-warning' : 'btn-outline-success'}`}
                     onClick={() => toggleStatus(u.username, !u.is_active)}
                   >
                     {u.is_active ? 'Deactivate' : 'Activate'}
                   </button>
+
+                  {/* Delete (hide for root admin) */}
+                  {u.username !== 'horizon' && (
+                    <button
+                      className="btn btn-sm btn-outline-danger"
+                      onClick={() => deleteUser(u.username)}
+                    >
+                      <i className="fas fa-trash" />
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
@@ -141,7 +243,7 @@ export default function AdminUsers() {
         )}
       </div>
 
-      {/* Create user modal */}
+      {/* ── Create User Modal ── */}
       <div className="modal fade" id="createModal" tabIndex="-1">
         <div className="modal-dialog">
           <div className="modal-content">
@@ -153,7 +255,7 @@ export default function AdminUsers() {
               <div className="modal-body">
                 {[
                   ['Username',     'username',     'text',     'Username'],
-                  ['Password',     'password',     'password', 'Password (min 6 chars)'],
+                  ['Password',     'password',     'password', 'Min 6 characters'],
                   ['Display Name', 'display_name', 'text',     'Display name'],
                   ['Email',        'email',        'email',    'Email (optional)'],
                 ].map(([label, key, type, placeholder]) => (
@@ -184,6 +286,61 @@ export default function AdminUsers() {
                 <button type="button" className="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button type="submit" className="btn btn-primary" disabled={creating}>
                   {creating ? <span className="spinner-border spinner-border-sm" /> : 'Create User'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Edit User Modal ── */}
+      <div className="modal fade" id="editModal" tabIndex="-1">
+        <div className="modal-dialog">
+          <div className="modal-content">
+            <form onSubmit={saveEdit}>
+              <div className="modal-header">
+                <h5 className="modal-title">
+                  Edit User — <span className="text-muted fw-normal">@{editTarget?.username}</span>
+                </h5>
+                <button type="button" className="btn-close" data-bs-dismiss="modal" />
+              </div>
+              <div className="modal-body">
+                <div className="mb-3">
+                  <label className="form-label">Display Name</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={editForm.display_name}
+                    onChange={e => setEditForm(f => ({ ...f, display_name: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="mb-3">
+                  <label className="form-label">Email</label>
+                  <input
+                    type="email"
+                    className="form-control"
+                    value={editForm.email}
+                    onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))}
+                  />
+                </div>
+                <div className="mb-3">
+                  <label className="form-label">
+                    New Password <span className="text-muted fw-normal">(leave blank to keep current)</span>
+                  </label>
+                  <input
+                    type="password"
+                    className="form-control"
+                    placeholder="Min 6 characters"
+                    value={editForm.password}
+                    onChange={e => setEditForm(f => ({ ...f, password: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={saving}>
+                  {saving ? <span className="spinner-border spinner-border-sm" /> : 'Save Changes'}
                 </button>
               </div>
             </form>

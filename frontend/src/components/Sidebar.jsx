@@ -34,42 +34,57 @@ const NAV = [
 ]
 
 export default function Sidebar() {
-  const { user } = useAuth()
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
 
   const isAdmin = user?.role_info?.permissions?.includes('admin')
 
+  function handleLogout() {
+    logout()
+    navigate('/login')
+  }
+
   return (
-    <div className="sidebar">
+    <div className="sidebar d-flex flex-column" style={{ height: '100vh' }}>
       <div className="logo">
-        <i className="fas fa-horse-head" />
+        <img src="/logol.avif" alt="Horisation" style={{ height: 32, width: 32, objectFit: 'contain' }} />
         <span>Horisation</span>
       </div>
 
-      {NAV.map(({ section, items }) => (
-        <div className="nav-section" key={section}>
-          <div className="nav-title">{section}</div>
-          {items.map(({ to, icon, label }) => (
-            <NavLink
-              key={label}
-              to={to}
-              className={({ isActive }) => `nav-item${isActive && to !== '/under-development' ? ' active' : ''}`}
-            >
-              <i className={`fas ${icon}`} />
-              <span>{label}</span>
-            </NavLink>
-          ))}
-        </div>
-      ))}
+      <div className="flex-grow-1">
+        {NAV.map(({ section, items }) => (
+          <div className="nav-section" key={section}>
+            <div className="nav-title">{section}</div>
+            {items.map(({ to, icon, label }) => (
+              <NavLink
+                key={label}
+                to={to}
+                className={({ isActive }) => `nav-item${isActive && to !== '/under-development' ? ' active' : ''}`}
+              >
+                <i className={`fas ${icon}`} />
+                <span>{label}</span>
+              </NavLink>
+            ))}
+          </div>
+        ))}
 
-      {isAdmin && (
-        <div className="nav-section">
-          <div className="nav-title">Admin</div>
-          <NavLink to="/admin" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
-            <i className="fas fa-users-cog" />
-            <span>User Management</span>
-          </NavLink>
-        </div>
-      )}
+        {isAdmin && (
+          <div className="nav-section">
+            <div className="nav-title">Admin</div>
+            <NavLink to="/admin" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
+              <i className="fas fa-users-cog" />
+              <span>User Management</span>
+            </NavLink>
+          </div>
+        )}
+      </div>
+
+      <div className="nav-section" style={{ marginTop: 'auto' }}>
+        <button className="nav-item w-100 border-0 bg-transparent text-start" onClick={handleLogout}>
+          <i className="fas fa-sign-out-alt" />
+          <span>Log Out</span>
+        </button>
+      </div>
     </div>
   )
 }

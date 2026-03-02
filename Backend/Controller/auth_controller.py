@@ -229,6 +229,40 @@ def update_user_status(username):
     except Exception as e:
         return jsonify({'ok': False, 'error': f'Failed to update status: {str(e)}'}), 500
 
+@auth_bp.route('/users/<username>/profile', methods=['PUT'])
+@admin_required
+def update_user_profile(username):
+    data = request.get_json() or {}
+    display_name = data.get('display_name')
+    email = data.get('email')
+    success, message = user_manager.update_user_profile(username, display_name, email)
+    if not success:
+        return jsonify({'ok': False, 'error': message}), 400
+    return jsonify({'ok': True, 'message': message})
+
+
+@auth_bp.route('/users/<username>/password', methods=['PUT'])
+@admin_required
+def reset_user_password(username):
+    data = request.get_json() or {}
+    new_password = data.get('password', '')
+    if not new_password:
+        return jsonify({'ok': False, 'error': 'Password required'}), 400
+    success, message = user_manager.reset_user_password(username, new_password)
+    if not success:
+        return jsonify({'ok': False, 'error': message}), 400
+    return jsonify({'ok': True, 'message': message})
+
+
+@auth_bp.route('/users/<username>', methods=['DELETE'])
+@admin_required
+def delete_user(username):
+    success, message = user_manager.delete_user(username)
+    if not success:
+        return jsonify({'ok': False, 'error': message}), 400
+    return jsonify({'ok': True, 'message': message})
+
+
 @auth_bp.route('/permissions/check', methods=['POST'])
 @login_required
 def check_permissions():

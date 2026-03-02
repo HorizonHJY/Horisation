@@ -8,6 +8,7 @@ Designed for easy migration to PostgreSQL: swap the engine URL only.
 import os
 import uuid
 from datetime import datetime, timezone
+from typing import Optional, List
 
 from sqlalchemy import (
     create_engine, Column, String, Text, Float, Integer, DateTime, ForeignKey
@@ -91,7 +92,7 @@ def get_all_listings(status: str = 'active') -> list[dict]:
         return [_listing_to_dict(r) for r in rows]
 
 
-def get_listing(listing_id: str) -> dict | None:
+def get_listing(listing_id: str) -> Optional[dict]:
     with Session() as s:
         row = s.query(Listing).filter_by(id=listing_id).first()
         return _listing_to_dict(row) if row else None
@@ -164,7 +165,7 @@ def mark_sold(listing_id: str, seller: str) -> bool:
         return True
 
 
-def delete_listing(listing_id: str, seller: str) -> list[str] | None:
+def delete_listing(listing_id: str, seller: str) -> Optional[List[str]]:
     """
     Delete a listing and its image records.
     Returns list of r2_keys that must be deleted from R2, or None if not found/wrong seller.
