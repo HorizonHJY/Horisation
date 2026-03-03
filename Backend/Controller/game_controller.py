@@ -1,9 +1,12 @@
 """
 game_controller.py
-Online Gomoku — room management via REST + real-time moves via Socket.IO.
+Online Gomoku — room management + real-time moves via Socket.IO.
+
+Auth strategy: cache the user in _connected_users at connect time
+(flask session is unreliable in eventlet socket context).
 """
 
-from flask import Blueprint, session
+from flask import Blueprint, session, request
 from flask_socketio import emit, join_room, leave_room
 
 from Backend.Controller.socketio_instance import socketio
@@ -14,33 +17,49 @@ from Backend.Controller.user_manager import user_manager
 
 game_bp = Blueprint('game', __name__, url_prefix='/api/game')
 
-SIZE = 15  # 15×15 board
+SIZE = 15
+
+# sid → user dict (per-worker, matches socket routing with Redis)
+_connected_users: dict = {}
 
 
-# ── Auth helper ───────────────────────────────────────────────────────────────
+# ── Auth ──────────────────────────────────────────────────────────────────────
+
+@socketio.on('connect')
+def on_connect():
+    token = session.get('session_token')
+    if token:
+        user = user_manager.validate_session(token)
+        if user:
+            _connected_users[request.sid] = user
+
+
+@socketio.on('disconnect')
+def on_disconnect():
+    _connected_users.pop(request.sid, None)
+
 
 def _get_user():
-    token = session.get('session_token')
-    return user_manager.validate_session(token) if token else None
+    return _connected_users.get(request.sid)
 
 
-# ── Enrich room dict with display names ──────────────────────────────────────
+# ── Enrich room dict with display names + avatars ─────────────────────────────
 
 def _enrich(room: dict) -> dict:
     if not room:
         return room
     users = user_manager._load_users()
 
-    def display(username):
+    def info(username):
         if not username:
-            return None
+            return None, None
         for u in users.values():
             if u.get('username') == username:
-                return u.get('display_name', username)
-        return username
+                return u.get('display_name', username), u.get('avatar_url')
+        return username, None
 
-    room['host_display']    = display(room['host'])
-    room['player2_display'] = display(room['player2'])
+    room['host_display'],    room['host_avatar']    = info(room['host'])
+    room['player2_display'], room['player2_avatar'] = info(room['player2'])
     return room
 
 
@@ -96,8 +115,7 @@ def on_join_lobby():
     if not user:
         return
     join_room('lobby')
-    room_list = [_enrich(r) for r in get_game_rooms()]
-    emit('rooms_updated', {'rooms': room_list})
+    emit('rooms_updated', {'rooms': [_enrich(r) for r in get_game_rooms()]})
 
 
 @socketio.on('game_leave_lobby')
@@ -109,7 +127,7 @@ def on_leave_lobby():
 def on_create(data):
     user = _get_user()
     if not user:
-        emit('game_error', {'message': 'Not authenticated'})
+        emit('game_error', {'message': 'Not authenticated — please refresh the page.'})
         return
     name = (data.get('name') or f"{user['display_name']}'s Game")[:50]
     room_id = create_game_room(name, user['username'])
@@ -122,7 +140,7 @@ def on_create(data):
 def on_join(data):
     user = _get_user()
     if not user:
-        emit('game_error', {'message': 'Not authenticated'})
+        emit('game_error', {'message': 'Not authenticated — please refresh the page.'})
         return
     room_id = data.get('room_id')
     role    = data.get('role', 'spectator')
@@ -138,7 +156,9 @@ def on_join(data):
             emit('game_error', {'message': 'Room is full'})
             return
         if room['host'] == username:
-            emit('game_error', {'message': 'You are already in this room as host'})
+            # Host re-entering their own room
+            join_room(f'game_{room_id}')
+            emit('game_state', _enrich(get_game_room(room_id)))
             return
         update_game_room(room_id, player2=username, status='playing',
                          current_turn=room['host'], board=[None] * 225, win_cells=[])
@@ -146,7 +166,6 @@ def on_join(data):
         _broadcast_state(room_id)
         _broadcast_rooms()
     else:
-        # spectator — just join the socket room and receive current state
         join_room(f'game_{room_id}')
         emit('game_state', _enrich(get_game_room(room_id)))
 
@@ -175,7 +194,7 @@ def on_move(data):
         emit('game_error', {'message': 'Cell already occupied'})
         return
 
-    color       = 'black' if username == room['host'] else 'white'
+    color        = 'black' if username == room['host'] else 'white'
     board[index] = color
 
     if _check_win(board, index, color):
@@ -241,4 +260,3 @@ def on_leave(data):
                          current_turn=None, board=[None] * 225, win_cells=[])
         _broadcast_state(room_id)
         _broadcast_rooms()
-    # spectators just leave silently
