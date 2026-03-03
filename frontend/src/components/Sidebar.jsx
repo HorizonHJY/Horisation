@@ -12,7 +12,8 @@ const NAV_COMMUNITY = [
 ]
 
 const NAV_FUN = [
-  { to: '/fun/gomoku', icon: 'fa-chess-board', label: 'Gomoku' },
+  { to: '/fun/gomoku',        icon: 'fa-chess-board', label: 'Gomoku' },
+  { to: '/fun/gomoku-online', icon: 'fa-globe',       label: 'Online Gomoku' },
 ]
 
 const NAV_TOOLKIT_BASE = [

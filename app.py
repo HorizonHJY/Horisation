@@ -17,6 +17,8 @@ from Backend.Controller.market_controller import market_bp
 from Backend.Controller.feedback_controller import feedback_bp
 from Backend.Controller.market_db import init_db
 from Backend.Controller.socketio_instance import socketio
+import Backend.Controller.game_controller as _game_ctrl  # registers socket events
+from Backend.Controller.game_controller import game_bp
 
 # Paths
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
@@ -52,6 +54,7 @@ app.register_blueprint(notes_bp)
 app.register_blueprint(memos_bp)
 app.register_blueprint(market_bp)
 app.register_blueprint(feedback_bp)
+app.register_blueprint(game_bp)
 
 # Initialise database
 init_db()

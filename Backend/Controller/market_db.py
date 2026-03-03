@@ -6,12 +6,13 @@ Designed for easy migration to PostgreSQL: swap the engine URL only.
 """
 
 import os
+import json
 import uuid
 from datetime import datetime, timezone
 from typing import Optional, List
 
 from sqlalchemy import (
-    create_engine, Column, String, Text, Float, Integer, DateTime, ForeignKey
+    create_engine, Column, String, Text, Float, Integer, DateTime, ForeignKey, Boolean
 )
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 
@@ -52,6 +53,21 @@ class Message(Base):
     username     = Column(String(100), nullable=False, index=True)
     display_name = Column(String(100), nullable=False)
     content      = Column(Text, nullable=False)
+    created_at   = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+
+class GameRoom(Base):
+    __tablename__ = 'game_rooms'
+
+    id           = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    name         = Column(String(50),  nullable=False)
+    host         = Column(String(100), nullable=False)   # player1, plays black
+    player2      = Column(String(100), nullable=True)    # plays white
+    status       = Column(String(20),  nullable=False, default='waiting')  # waiting/playing/finished
+    board        = Column(Text, nullable=False, default=lambda: json.dumps([None]*225))
+    current_turn = Column(String(100), nullable=True)
+    winner       = Column(String(100), nullable=True)
+    win_cells    = Column(Text, nullable=False, default='[]')
     created_at   = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
 
@@ -218,6 +234,69 @@ def mark_sold(listing_id: str, seller: str) -> bool:
             return False
         row.status     = 'sold'
         row.updated_at = datetime.now(timezone.utc)
+        s.commit()
+        return True
+
+
+# ── Game room helpers ─────────────────────────────────────────────────────────
+
+def _room_to_dict(room: GameRoom) -> dict:
+    return {
+        'id':           room.id,
+        'name':         room.name,
+        'host':         room.host,
+        'player2':      room.player2,
+        'status':       room.status,
+        'board':        json.loads(room.board),
+        'current_turn': room.current_turn,
+        'winner':       room.winner,
+        'win_cells':    json.loads(room.win_cells),
+        'created_at':   room.created_at.isoformat(),
+    }
+
+
+def get_game_rooms() -> list:
+    """Return all non-finished rooms."""
+    with Session() as s:
+        rows = s.query(GameRoom).filter(GameRoom.status != 'finished') \
+                                .order_by(GameRoom.created_at.desc()).all()
+        return [_room_to_dict(r) for r in rows]
+
+
+def get_game_room(room_id: str) -> Optional[dict]:
+    with Session() as s:
+        row = s.query(GameRoom).filter_by(id=room_id).first()
+        return _room_to_dict(row) if row else None
+
+
+def create_game_room(name: str, host: str) -> str:
+    room = GameRoom(id=str(uuid.uuid4()), name=name, host=host)
+    with Session() as s:
+        s.add(room)
+        s.commit()
+        return room.id
+
+
+def update_game_room(room_id: str, **fields) -> None:
+    allowed = {'player2', 'status', 'board', 'current_turn', 'winner', 'win_cells'}
+    with Session() as s:
+        row = s.query(GameRoom).filter_by(id=room_id).first()
+        if not row:
+            return
+        for key, val in fields.items():
+            if key in allowed:
+                if key in ('board', 'win_cells') and not isinstance(val, str):
+                    val = json.dumps(val)
+                setattr(row, key, val)
+        s.commit()
+
+
+def delete_game_room(room_id: str) -> bool:
+    with Session() as s:
+        row = s.query(GameRoom).filter_by(id=room_id).first()
+        if not row:
+            return False
+        s.delete(row)
         s.commit()
         return True
 
