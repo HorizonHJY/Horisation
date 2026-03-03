@@ -129,8 +129,18 @@ def on_create(data):
     if not user:
         emit('game_error', {'message': 'Not authenticated — please refresh the page.'})
         return
+
+    username = user['username']
+
+    # One room per person — re-enter if already hosting
+    for r in get_game_rooms():
+        if r['host'] == username:
+            join_room(f'game_{r["id"]}')
+            emit('game_state', _enrich(r))
+            return
+
     name = (data.get('name') or f"{user['display_name']}'s Game")[:50]
-    room_id = create_game_room(name, user['username'])
+    room_id = create_game_room(name, username)
     join_room(f'game_{room_id}')
     emit('game_state', _enrich(get_game_room(room_id)))
     _broadcast_rooms()
