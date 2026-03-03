@@ -83,6 +83,24 @@ class ListingImage(Base):
     listing = relationship('Listing', back_populates='images')
 
 
+class Memo(Base):
+    __tablename__ = 'memos'
+
+    id           = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    username     = Column(String(100), nullable=False, index=True)
+    content      = Column(Text, nullable=False)
+    type         = Column(String(50), nullable=False, default='general')
+    priority     = Column(String(20), nullable=False, default='normal')
+    status       = Column(String(20), nullable=False, default='active')
+    tags         = Column(Text, nullable=False, default='[]')   # JSON list
+    due_date     = Column(String(50), nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+    created_at   = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    updated_at   = Column(DateTime, nullable=False,
+                          default=lambda: datetime.now(timezone.utc),
+                          onupdate=lambda: datetime.now(timezone.utc))
+
+
 # ── Init ──────────────────────────────────────────────────────────────────────
 
 def init_db():
@@ -314,3 +332,120 @@ def delete_listing(listing_id: str, seller: str) -> Optional[List[str]]:
         s.delete(row)
         s.commit()
         return r2_keys
+
+
+# ── Memo helpers ──────────────────────────────────────────────────────────────
+
+def _memo_to_dict(memo: Memo) -> dict:
+    return {
+        'id':           memo.id,
+        'content':      memo.content,
+        'type':         memo.type,
+        'priority':     memo.priority,
+        'status':       memo.status,
+        'tags':         json.loads(memo.tags),
+        'due_date':     memo.due_date,
+        'completed_at': memo.completed_at.isoformat() if memo.completed_at else None,
+        'created_at':   memo.created_at.isoformat(),
+        'updated_at':   memo.updated_at.isoformat(),
+    }
+
+
+def get_memos(username: str, status: str = None, memo_type: str = None,
+              priority: str = None, limit: int = 50, offset: int = 0) -> tuple:
+    """Return (list_of_dicts, total_count) for the user's memos."""
+    with Session() as s:
+        q = s.query(Memo).filter_by(username=username)
+        if status:
+            q = q.filter_by(status=status)
+        if memo_type:
+            q = q.filter_by(type=memo_type)
+        if priority:
+            q = q.filter_by(priority=priority)
+        q = q.order_by(Memo.created_at.desc())
+        total = q.count()
+        rows  = q.offset(offset).limit(limit).all()
+        return [_memo_to_dict(r) for r in rows], total
+
+
+def create_memo(username: str, content: str, memo_type: str = 'general',
+                priority: str = 'normal', tags: list = None, due_date: str = None) -> str:
+    """Insert a memo row and return its id."""
+    memo = Memo(
+        id=str(uuid.uuid4()),
+        username=username,
+        content=content,
+        type=memo_type,
+        priority=priority,
+        tags=json.dumps(tags or []),
+        due_date=due_date,
+    )
+    with Session() as s:
+        s.add(memo)
+        s.commit()
+        return memo.id
+
+
+def get_memo_by_id(memo_id: str, username: str) -> Optional[dict]:
+    with Session() as s:
+        row = s.query(Memo).filter_by(id=memo_id, username=username).first()
+        return _memo_to_dict(row) if row else None
+
+
+def update_memo(memo_id: str, username: str, **fields) -> bool:
+    allowed = {'content', 'priority', 'tags', 'due_date', 'status'}
+    with Session() as s:
+        row = s.query(Memo).filter_by(id=memo_id, username=username).first()
+        if not row:
+            return False
+        for key, val in fields.items():
+            if key not in allowed:
+                continue
+            if key == 'tags':
+                val = json.dumps(val) if isinstance(val, list) else val
+            setattr(row, key, val)
+        if fields.get('status') == 'completed' and row.completed_at is None:
+            row.completed_at = datetime.now(timezone.utc)
+        row.updated_at = datetime.now(timezone.utc)
+        s.commit()
+        return True
+
+
+def complete_memo(memo_id: str, username: str) -> bool:
+    with Session() as s:
+        row = s.query(Memo).filter_by(id=memo_id, username=username).first()
+        if not row:
+            return False
+        row.status       = 'completed'
+        row.completed_at = datetime.now(timezone.utc)
+        row.updated_at   = datetime.now(timezone.utc)
+        s.commit()
+        return True
+
+
+def delete_memo(memo_id: str, username: str) -> bool:
+    with Session() as s:
+        row = s.query(Memo).filter_by(id=memo_id, username=username).first()
+        if not row:
+            return False
+        s.delete(row)
+        s.commit()
+        return True
+
+
+def get_memo_statistics(username: str) -> dict:
+    with Session() as s:
+        rows = s.query(Memo).filter_by(username=username).all()
+        status_stats   = {}
+        priority_stats = {}
+        type_stats     = {}
+        for r in rows:
+            status_stats[r.status]     = status_stats.get(r.status, 0) + 1
+            priority_stats[r.priority] = priority_stats.get(r.priority, 0) + 1
+            type_stats[r.type]         = type_stats.get(r.type, 0) + 1
+        return {
+            'total_memos':    len(rows),
+            'status_stats':   status_stats,
+            'priority_stats': priority_stats,
+            'type_stats':     type_stats,
+        }
