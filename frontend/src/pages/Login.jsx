@@ -36,16 +36,18 @@ export default function Login() {
         className="d-none d-lg-flex flex-column justify-content-center align-items-center text-white p-5"
         style={{ width: '45%', background: 'linear-gradient(135deg, #1e2a3a 0%, #3a7bd5 100%)' }}
       >
-        <img src="/logo.png" alt="Arch Bay" style={{ width: 72, height: 72, objectFit: 'contain', marginBottom: '1.5rem' }} />
+        <img src="/logo.png" alt="Arch Bay" style={{ width: 120, height: 120, objectFit: 'contain', marginBottom: '1.5rem' }} />
         <h1 className="fw-bold mb-3">Arch Bay</h1>
         <p className="text-center opacity-75" style={{ maxWidth: 320 }}>
-          A personal platform for tools, games, notes, and anything else that matters.
+          A private space for friends — trade, chat, and stay connected.
         </p>
         <div className="mt-5 d-flex flex-column gap-3" style={{ maxWidth: 280 }}>
           {[
-            ['fa-file-csv',       'CSV Workspace',    'Upload, preview and summarise data'],
-            ['fa-clipboard-list', 'Hormemo',          'Personal memo and task tracker'],
-            ['fa-chess-board',    'For Fun',          'Games and experiments'],
+            ['fa-store',          'Market',         'Buy and sell second-hand items'],
+            ['fa-clipboard-list', 'Hormemo',         'Personal memo and task tracker'],
+            ['fa-user-friends',   'Friends',         'Private chat and contact sharing'],
+            ['fa-comments',       'Message Board',   'Share updates with everyone'],
+            ['fa-globe',          'Online Gomoku',   'Play Five in a Row with friends'],
           ].map(([icon, title, desc]) => (
             <div key={title} className="d-flex gap-3 align-items-start">
               <i className={`fas ${icon} mt-1`} style={{ width: 20, opacity: .8 }} />
