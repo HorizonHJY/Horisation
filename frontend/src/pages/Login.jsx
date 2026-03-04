@@ -36,8 +36,8 @@ export default function Login() {
         className="d-none d-lg-flex flex-column justify-content-center align-items-center text-white p-5"
         style={{ width: '45%', background: 'linear-gradient(135deg, #1e2a3a 0%, #3a7bd5 100%)' }}
       >
-        <i className="fas fa-horse-head mb-4" style={{ fontSize: '4rem' }} />
-        <h1 className="fw-bold mb-3">Horisation</h1>
+        <img src="/logo.png" alt="Arch Bay" style={{ width: 72, height: 72, objectFit: 'contain', marginBottom: '1.5rem' }} />
+        <h1 className="fw-bold mb-3">Arch Bay</h1>
         <p className="text-center opacity-75" style={{ maxWidth: 320 }}>
           A personal platform for tools, games, notes, and anything else that matters.
         </p>
@@ -62,7 +62,7 @@ export default function Login() {
       <div className="flex-grow-1 d-flex justify-content-center align-items-center p-4">
         <div style={{ width: '100%', maxWidth: 400 }}>
           <div className="text-center mb-5">
-            <i className="fas fa-horse-head d-lg-none mb-3" style={{ fontSize: '2.5rem', color: '#3a7bd5' }} />
+            <img src="/logo.png" alt="Arch Bay" className="d-lg-none mb-3" style={{ width: 48, height: 48, objectFit: 'contain' }} />
             <h2 className="fw-bold">Welcome back</h2>
             <p className="text-muted">Sign in to your account</p>
           </div>

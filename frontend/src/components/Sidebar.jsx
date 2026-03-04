@@ -47,8 +47,8 @@ export default function Sidebar({ isOpen, onClose }) {
   return (
     <div className={`sidebar d-flex flex-column${isOpen ? ' sidebar-open' : ''}`} style={{ height: '100vh' }}>
       <div className="logo">
-        <img src="/logol.avif" alt="Horisation" style={{ height: 32, width: 32, objectFit: 'contain' }} />
-        <span>Horisation</span>
+        <img src="/logo.png" alt="Arch Bay" style={{ height: 32, width: 32, objectFit: 'contain' }} />
+        <span>Arch Bay</span>
       </div>
 
       <div className="flex-grow-1">
