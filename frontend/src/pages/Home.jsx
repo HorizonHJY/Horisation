@@ -18,11 +18,7 @@ export default function Home() {
         className="rounded-3 text-white mb-4 p-4 p-md-5"
         style={{ background: 'linear-gradient(135deg, #1e2a3a 0%, #3a7bd5 100%)' }}
       >
-        <h2 className="fw-bold mb-1">Hello, {user?.display_name} 👋</h2>
-        <p className="mb-3 opacity-75">Welcome to your personal platform. What are you working on today?</p>
-        <button className="btn btn-light btn-sm fw-semibold" onClick={() => navigate('/hormemo')}>
-          <i className="fas fa-clipboard-list me-2" />Open Hormemo
-        </button>
+        <h2 className="fw-bold mb-0">Hello, {user?.display_name} 👋</h2>
       </div>
 
       <h5 className="fw-semibold mb-3 text-muted">Quick Access</h5>
