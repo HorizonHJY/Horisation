@@ -10,10 +10,12 @@ const ROLE_COLORS = {
 export default function Profile() {
   const { user, login } = useAuth()
 
-  const [nameForm, setNameForm] = useState({ display_name: user?.display_name ?? '', email: user?.email ?? '' })
-  const [passForm, setPassForm] = useState({ current_password: '', new_password: '', confirm: '' })
+  const [nameForm, setNameForm]     = useState({ display_name: user?.display_name ?? '', email: user?.email ?? '' })
+  const [passForm, setPassForm]     = useState({ current_password: '', new_password: '', confirm: '' })
+  const [contactForm, setContactForm] = useState(user?.contact_info ?? '')
   const [savingName, setSavingName] = useState(false)
   const [savingPass, setSavingPass] = useState(false)
+  const [savingContact, setSavingContact] = useState(false)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [avatarPreview, setAvatarPreview] = useState(null)
   const [msg, setMsg] = useState(null)
@@ -204,6 +206,37 @@ export default function Profile() {
             </div>
           </div>
 
+          {/* Contact info */}
+          <div className="card p-4">
+            <h6 className="fw-semibold mb-3 text-muted text-uppercase" style={{ fontSize: '.75rem', letterSpacing: '.08em' }}>
+              Contact Info
+            </h6>
+            <p className="text-muted small mb-2">
+              <i className="fas fa-lock me-1" />Only visible to your friends.
+              Enter your WeChat ID, phone number, or any handle.
+            </p>
+            <form onSubmit={async (e) => {
+              e.preventDefault()
+              setSavingContact(true)
+              const d = await api.put('/api/auth/profile', { contact_info: contactForm })
+              setSavingContact(false)
+              if (d.ok) flash('Contact info saved.')
+              else flash(d.error, 'danger')
+            }} className="d-flex gap-2">
+              <input
+                type="text"
+                className="form-control"
+                placeholder="WeChat ID / phone / etc."
+                value={contactForm}
+                onChange={e => setContactForm(e.target.value)}
+                maxLength={100}
+              />
+              <button className="btn btn-primary flex-shrink-0" disabled={savingContact}>
+                {savingContact ? <span className="spinner-border spinner-border-sm" /> : 'Save'}
+              </button>
+            </form>
+          </div>
+
           {/* Change password */}
           <div className="card p-4">
             <h6 className="fw-semibold mb-3 text-muted text-uppercase" style={{ fontSize: '.75rem', letterSpacing: '.08em' }}>
@@ -216,6 +249,7 @@ export default function Profile() {
                 placeholder="Current password"
                 value={passForm.current_password}
                 onChange={e => setPassForm(f => ({ ...f, current_password: e.target.value }))}
+                autoComplete="current-password"
                 required
               />
               <input
@@ -224,6 +258,7 @@ export default function Profile() {
                 placeholder="New password (min 6 characters)"
                 value={passForm.new_password}
                 onChange={e => setPassForm(f => ({ ...f, new_password: e.target.value }))}
+                autoComplete="new-password"
                 required
               />
               <input
@@ -232,6 +267,7 @@ export default function Profile() {
                 placeholder="Confirm new password"
                 value={passForm.confirm}
                 onChange={e => setPassForm(f => ({ ...f, confirm: e.target.value }))}
+                autoComplete="new-password"
                 required
               />
               <button className="btn btn-primary align-self-start" disabled={savingPass}>

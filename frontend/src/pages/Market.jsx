@@ -4,7 +4,7 @@ import { useAuth } from '../App'
 
 const CATEGORIES = ['electronics', 'clothing', 'books', 'furniture', 'other']
 
-const EMPTY_FORM = { title: '', description: '', price: '', category: 'electronics', contact: '' }
+const EMPTY_FORM = { title: '', description: '', price: '', category: 'electronics' }
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
 function useToast() {
@@ -59,7 +59,6 @@ function ListingCard({ listing, currentUser, onSold, onDelete }) {
 
         <div className="mt-auto pt-2 border-top small text-muted">
           <div><i className="fas fa-user me-1" />{listing.seller_username}</div>
-          <div><i className="fas fa-phone me-1" />{listing.contact}</div>
           <div className="text-muted" style={{ fontSize: '0.75rem' }}>
             {new Date(listing.created_at).toLocaleDateString()}
           </div>
@@ -137,7 +136,6 @@ export default function Market() {
     e.preventDefault()
     if (!form.title.trim())       return showToast('Title is required.', 'danger')
     if (!form.description.trim()) return showToast('Description is required.', 'danger')
-    if (!form.contact.trim())     return showToast('Contact info is required.', 'danger')
     if (!form.price || isNaN(form.price) || Number(form.price) < 0)
                                   return showToast('Enter a valid price.', 'danger')
 
@@ -313,16 +311,6 @@ export default function Market() {
                         ))}
                       </select>
                     </div>
-                  </div>
-
-                  <div className="mb-3">
-                    <label className="form-label fw-medium">Contact Info <span className="text-danger">*</span></label>
-                    <input
-                      className="form-control"
-                      placeholder="WeChat ID / Phone number"
-                      value={form.contact}
-                      onChange={e => setForm(f => ({ ...f, contact: e.target.value }))}
-                    />
                   </div>
 
                   <div className="mb-4">

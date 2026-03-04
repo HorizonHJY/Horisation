@@ -50,7 +50,6 @@ def create_listing():
 
     title       = request.form.get('title', '').strip()
     description = request.form.get('description', '').strip()
-    contact     = request.form.get('contact', '').strip()
     category    = request.form.get('category', 'other').strip()
 
     try:
@@ -62,8 +61,6 @@ def create_listing():
         return jsonify({'ok': False, 'error': 'Title is required.'}), 400
     if not description:
         return jsonify({'ok': False, 'error': 'Description is required.'}), 400
-    if not contact:
-        return jsonify({'ok': False, 'error': 'Contact info is required.'}), 400
     if category not in VALID_CATEGORIES:
         return jsonify({'ok': False, 'error': 'Invalid category.'}), 400
     if price < 0:
@@ -81,7 +78,7 @@ def create_listing():
                 return jsonify({'ok': False, 'error': err}), 400
 
     # Create listing row
-    listing_id = market_db.create_listing(seller, title, description, price, category, contact)
+    listing_id = market_db.create_listing(seller, title, description, price, category, '')
 
     # Upload images to R2
     uploaded_keys = []
@@ -124,7 +121,6 @@ def update_listing(listing_id):
     fields = {}
     if 'title'       in data: fields['title']       = str(data['title']).strip()
     if 'description' in data: fields['description'] = str(data['description']).strip()
-    if 'contact'     in data: fields['contact']     = str(data['contact']).strip()
     if 'category'    in data:
         if data['category'] not in VALID_CATEGORIES:
             return jsonify({'ok': False, 'error': 'Invalid category.'}), 400

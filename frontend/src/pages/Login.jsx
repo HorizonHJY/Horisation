@@ -79,6 +79,7 @@ export default function Login() {
                 placeholder="Enter username"
                 value={form.username}
                 onChange={e => setForm(f => ({ ...f, username: e.target.value }))}
+                autoComplete="username"
                 autoFocus
                 required
               />
@@ -91,6 +92,7 @@ export default function Login() {
                 placeholder="Enter password"
                 value={form.password}
                 onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                autoComplete="current-password"
                 required
               />
             </div>

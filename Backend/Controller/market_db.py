@@ -449,3 +449,152 @@ def get_memo_statistics(username: str) -> dict:
             'priority_stats': priority_stats,
             'type_stats':     type_stats,
         }
+
+
+# ── Friend / chat models ───────────────────────────────────────────────────────
+
+class FriendRequest(Base):
+    __tablename__ = 'friend_requests'
+
+    id         = Column(String(36),  primary_key=True, default=lambda: str(uuid.uuid4()))
+    from_user  = Column(String(100), nullable=False, index=True)
+    to_user    = Column(String(100), nullable=False, index=True)
+    status     = Column(String(20),  nullable=False, default='pending')  # pending/accepted/rejected
+    created_at = Column(DateTime,    nullable=False, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime,    nullable=False,
+                        default=lambda: datetime.now(timezone.utc),
+                        onupdate=lambda: datetime.now(timezone.utc))
+
+
+class Friendship(Base):
+    __tablename__ = 'friendships'
+
+    id         = Column(String(36),  primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_a     = Column(String(100), nullable=False, index=True)  # lexicographically smaller
+    user_b     = Column(String(100), nullable=False, index=True)
+    created_at = Column(DateTime,    nullable=False, default=lambda: datetime.now(timezone.utc))
+
+
+class PrivateChatMessage(Base):
+    __tablename__ = 'private_chat_messages'
+
+    id         = Column(String(36),   primary_key=True, default=lambda: str(uuid.uuid4()))
+    room_key   = Column(String(201),  nullable=False, index=True)  # "{user_a}:{user_b}" sorted
+    sender     = Column(String(100),  nullable=False)
+    content    = Column(Text,         nullable=False)
+    created_at = Column(DateTime,     nullable=False, default=lambda: datetime.now(timezone.utc))
+
+
+# ── Friend helpers ─────────────────────────────────────────────────────────────
+
+def _friend_pair(a: str, b: str) -> tuple:
+    """Return (user_a, user_b) with user_a <= user_b for consistent storage."""
+    return (a, b) if a <= b else (b, a)
+
+
+def _req_to_dict(r: FriendRequest) -> dict:
+    return {
+        'id':         r.id,
+        'from_user':  r.from_user,
+        'to_user':    r.to_user,
+        'status':     r.status,
+        'created_at': r.created_at.isoformat(),
+    }
+
+
+def send_friend_request(from_user: str, to_user: str) -> Optional[dict]:
+    """Create a pending request. Returns None if duplicate pending or already friends."""
+    with Session() as s:
+        existing = s.query(FriendRequest).filter(
+            FriendRequest.status == 'pending',
+            ((FriendRequest.from_user == from_user) & (FriendRequest.to_user == to_user)) |
+            ((FriendRequest.from_user == to_user)   & (FriendRequest.to_user == from_user))
+        ).first()
+        if existing:
+            return None
+        ua, ub = _friend_pair(from_user, to_user)
+        if s.query(Friendship).filter_by(user_a=ua, user_b=ub).first():
+            return None
+        req = FriendRequest(id=str(uuid.uuid4()), from_user=from_user, to_user=to_user)
+        s.add(req)
+        s.commit()
+        return _req_to_dict(req)
+
+
+def respond_friend_request(request_id: str, to_user: str, accept: bool) -> bool:
+    """Accept or reject. On accept inserts a Friendship row. Returns False if not found."""
+    with Session() as s:
+        req = s.query(FriendRequest).filter_by(id=request_id, to_user=to_user, status='pending').first()
+        if not req:
+            return False
+        req.status     = 'accepted' if accept else 'rejected'
+        req.updated_at = datetime.now(timezone.utc)
+        if accept:
+            ua, ub = _friend_pair(req.from_user, req.to_user)
+            s.add(Friendship(id=str(uuid.uuid4()), user_a=ua, user_b=ub))
+        s.commit()
+        return True
+
+
+def get_pending_requests(username: str) -> list:
+    with Session() as s:
+        rows = s.query(FriendRequest).filter_by(to_user=username, status='pending') \
+                                     .order_by(FriendRequest.created_at.desc()).all()
+        return [_req_to_dict(r) for r in rows]
+
+
+def get_sent_requests(username: str) -> list:
+    with Session() as s:
+        rows = s.query(FriendRequest).filter_by(from_user=username) \
+                                     .order_by(FriendRequest.created_at.desc()).all()
+        return [_req_to_dict(r) for r in rows]
+
+
+def get_friends(username: str) -> list:
+    with Session() as s:
+        rows = s.query(Friendship).filter(
+            (Friendship.user_a == username) | (Friendship.user_b == username)
+        ).all()
+        return [r.user_b if r.user_a == username else r.user_a for r in rows]
+
+
+def are_friends(a: str, b: str) -> bool:
+    ua, ub = _friend_pair(a, b)
+    with Session() as s:
+        return s.query(Friendship).filter_by(user_a=ua, user_b=ub).first() is not None
+
+
+def remove_friend(a: str, b: str) -> bool:
+    ua, ub = _friend_pair(a, b)
+    with Session() as s:
+        row = s.query(Friendship).filter_by(user_a=ua, user_b=ub).first()
+        if not row:
+            return False
+        s.delete(row)
+        s.commit()
+        return True
+
+
+def get_chat_history(a: str, b: str, limit: int = 100) -> list:
+    """Return last N messages between two users, oldest-first."""
+    ua, ub   = _friend_pair(a, b)
+    room_key = f'{ua}:{ub}'
+    with Session() as s:
+        rows = s.query(PrivateChatMessage).filter_by(room_key=room_key) \
+                                          .order_by(PrivateChatMessage.created_at.desc()) \
+                                          .limit(limit).all()
+        rows.reverse()
+        return [
+            {'id': r.id, 'room_key': r.room_key, 'sender': r.sender,
+             'content': r.content, 'created_at': r.created_at.isoformat()}
+            for r in rows
+        ]
+
+
+def save_chat_message(room_key: str, sender: str, content: str) -> dict:
+    msg = PrivateChatMessage(id=str(uuid.uuid4()), room_key=room_key, sender=sender, content=content)
+    with Session() as s:
+        s.add(msg)
+        s.commit()
+        return {'id': msg.id, 'room_key': msg.room_key, 'sender': msg.sender,
+                'content': msg.content, 'created_at': msg.created_at.isoformat()}

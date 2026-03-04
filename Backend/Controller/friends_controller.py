@@ -1,0 +1,141 @@
+"""
+friends_controller.py
+Friend system REST API: requests, friendship, chat history, contact info.
+"""
+
+from flask import Blueprint, request, jsonify
+from .auth_controller import login_required
+from .user_manager import user_manager
+from . import market_db
+
+friends_bp = Blueprint('friends', __name__, url_prefix='/api/friends')
+
+
+def _enrich_user(u: dict) -> dict:
+    return {
+        'username':     u.get('username'),
+        'display_name': u.get('display_name', u.get('username')),
+        'avatar_url':   u.get('avatar_url'),
+    }
+
+
+@friends_bp.route('/users', methods=['GET'])
+@login_required
+def list_users():
+    """All active users (except self) — for the Add Friends search."""
+    me    = request.current_user['username']
+    users = user_manager._load_users()
+    return jsonify({'ok': True, 'users': [
+        _enrich_user(u) for u in users.values()
+        if u.get('username') != me and u.get('is_active', True)
+    ]})
+
+
+@friends_bp.route('/requests', methods=['POST'])
+@login_required
+def send_request():
+    me      = request.current_user['username']
+    to_user = (request.get_json() or {}).get('to_user', '').strip()
+    if not to_user:
+        return jsonify({'ok': False, 'error': 'to_user required'}), 400
+    if to_user == me:
+        return jsonify({'ok': False, 'error': 'Cannot add yourself'}), 400
+
+    users = user_manager._load_users()
+    key, _ = user_manager._find_user(users, to_user)
+    if key is None:
+        return jsonify({'ok': False, 'error': 'User not found'}), 404
+
+    if market_db.are_friends(me, to_user):
+        return jsonify({'ok': False, 'error': 'Already friends'}), 400
+
+    row = market_db.send_friend_request(me, to_user)
+    if row is None:
+        return jsonify({'ok': False, 'error': 'Request already pending'}), 400
+
+    from .friends_socket import notify_friend_request
+    notify_friend_request(to_user, row)
+    return jsonify({'ok': True, 'request': row}), 201
+
+
+@friends_bp.route('/requests/pending', methods=['GET'])
+@login_required
+def get_pending():
+    me   = request.current_user['username']
+    reqs = market_db.get_pending_requests(me)
+    users = user_manager._load_users()
+    for r in reqs:
+        _, u = user_manager._find_user(users, r['from_user'])
+        r['from_display'] = u.get('display_name', r['from_user']) if u else r['from_user']
+        r['from_avatar']  = u.get('avatar_url') if u else None
+    return jsonify({'ok': True, 'requests': reqs})
+
+
+@friends_bp.route('/requests/sent', methods=['GET'])
+@login_required
+def get_sent():
+    me = request.current_user['username']
+    return jsonify({'ok': True, 'requests': market_db.get_sent_requests(me)})
+
+
+@friends_bp.route('/requests/<req_id>', methods=['PUT'])
+@login_required
+def respond_request(req_id):
+    me     = request.current_user['username']
+    action = (request.get_json() or {}).get('action')
+    if action not in ('accept', 'reject'):
+        return jsonify({'ok': False, 'error': 'action must be accept or reject'}), 400
+
+    ok = market_db.respond_friend_request(req_id, me, accept=(action == 'accept'))
+    if not ok:
+        return jsonify({'ok': False, 'error': 'Request not found or not yours'}), 404
+
+    if action == 'accept':
+        from .friends_socket import notify_friend_accepted
+        notify_friend_accepted(me, req_id)
+    return jsonify({'ok': True})
+
+
+@friends_bp.route('/list', methods=['GET'])
+@login_required
+def get_friends():
+    me      = request.current_user['username']
+    friends = market_db.get_friends(me)
+    users   = user_manager._load_users()
+    result  = []
+    for username in friends:
+        _, u = user_manager._find_user(users, username)
+        if u:
+            result.append(_enrich_user(u))
+    return jsonify({'ok': True, 'friends': result})
+
+
+@friends_bp.route('/<username>', methods=['DELETE'])
+@login_required
+def unfriend(username):
+    me = request.current_user['username']
+    if not market_db.remove_friend(me, username):
+        return jsonify({'ok': False, 'error': 'Not friends'}), 404
+    return jsonify({'ok': True})
+
+
+@friends_bp.route('/<username>/contact', methods=['GET'])
+@login_required
+def get_contact(username):
+    me = request.current_user['username']
+    if not market_db.are_friends(me, username):
+        return jsonify({'ok': False, 'error': 'Not friends'}), 403
+    users = user_manager._load_users()
+    _, u  = user_manager._find_user(users, username)
+    if not u:
+        return jsonify({'ok': False, 'error': 'User not found'}), 404
+    return jsonify({'ok': True, 'contact_info': u.get('contact_info', '')})
+
+
+@friends_bp.route('/<username>/history', methods=['GET'])
+@login_required
+def get_history(username):
+    me = request.current_user['username']
+    if not market_db.are_friends(me, username):
+        return jsonify({'ok': False, 'error': 'Not friends'}), 403
+    return jsonify({'ok': True, 'messages': market_db.get_chat_history(me, username)})

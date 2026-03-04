@@ -255,6 +255,7 @@ class UserManager:
                 'display_name': user['display_name'],
                 'email':        user['email'],
                 'avatar_url':   user.get('avatar_url'),
+                'contact_info': user.get('contact_info', ''),
                 'role_info':    self.USER_ROLES[user['role']]
             }
 
@@ -403,8 +404,9 @@ class UserManager:
         return True, f"User {username} activated"
 
     def update_user_profile(self, username: str, display_name: str = None,
-                            email: str = None, avatar_url: str = None) -> Tuple[bool, str]:
-        """Update display name, email, and/or avatar_url."""
+                            email: str = None, avatar_url: str = None,
+                            contact_info: str = None) -> Tuple[bool, str]:
+        """Update display name, email, avatar_url, and/or contact_info."""
         users = self._load_users()
         key, user = self._find_user(users, username)
         if key is None:
@@ -415,6 +417,8 @@ class UserManager:
             users[key]['email'] = email
         if avatar_url is not None:
             users[key]['avatar_url'] = avatar_url
+        if contact_info is not None:
+            users[key]['contact_info'] = contact_info
         self._save_users(users)
         return True, f"User {username} profile updated"
 

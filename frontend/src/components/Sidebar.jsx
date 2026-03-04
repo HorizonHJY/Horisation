@@ -7,13 +7,13 @@ const NAV_MAIN = [
 ]
 
 const NAV_COMMUNITY = [
-  { to: '/market',   icon: 'fa-store',    label: 'Market' },
-  { to: '/feedback', icon: 'fa-comments', label: 'Message Board' },
+  { to: '/market',   icon: 'fa-store',        label: 'Market' },
+  { to: '/feedback', icon: 'fa-comments',     label: 'Message Board' },
+  { to: '/friends',  icon: 'fa-user-friends', label: 'Friends' },
 ]
 
 const NAV_FUN = [
-  { to: '/fun/gomoku',        icon: 'fa-chess-board', label: 'Gomoku' },
-  { to: '/fun/gomoku-online', icon: 'fa-globe',       label: 'Online Gomoku' },
+  { to: '/fun/gomoku-online', icon: 'fa-globe', label: 'Online Gomoku' },
 ]
 
 const NAV_TOOLKIT_BASE = [
@@ -21,10 +21,7 @@ const NAV_TOOLKIT_BASE = [
 ]
 
 const NAV_TOOLKIT_HORIZON = [
-  { to: '/csv',               icon: 'fa-file-csv',   label: 'CSV Workspace' },
-  { to: '/under-development', icon: 'fa-chart-bar',  label: 'Data Analysis' },
-  { to: '/under-development', icon: 'fa-database',   label: 'Data Handling' },
-  { to: '/under-development', icon: 'fa-chart-line', label: 'Data Visualisation' },
+  { to: '/csv', icon: 'fa-file-csv', label: 'CSV Workspace' },
 ]
 
 export default function Sidebar({ isOpen, onClose }) {
