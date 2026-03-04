@@ -1,10 +1,11 @@
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../App'
+import { useAuth, useTheme } from '../App'
 import { api } from '../api'
 
 export default function Topbar({ onMenuClick }) {
   const { user, logout } = useAuth()
+  const { isDark, toggleTheme } = useTheme()
   const navigate = useNavigate()
 
   const handleLogout = async () => {
@@ -20,6 +21,27 @@ export default function Topbar({ onMenuClick }) {
       <button className="hamburger-btn d-md-none me-auto" onClick={onMenuClick}>
         <i className="fas fa-bars" />
       </button>
+      <div className="toggle-container me-3" style={{ fontSize: '13px' }}>
+        <input
+          type="checkbox"
+          className="toggle-input"
+          checked={isDark}
+          onChange={toggleTheme}
+          aria-label="Toggle dark mode"
+        />
+        <div className="toggle-handle-wrapper">
+          <div className="toggle-handle">
+            <div className="toggle-handle-knob" />
+            <div className="toggle-handle-bar-wrapper">
+              <div className="toggle-handle-bar" />
+            </div>
+          </div>
+        </div>
+        <div className="toggle-base">
+          <div className="toggle-base-inside" />
+        </div>
+      </div>
+
       <div className="dropdown">
         <div
           className="d-flex align-items-center gap-2"

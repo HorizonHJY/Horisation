@@ -47,16 +47,8 @@ export default function Sidebar({ isOpen, onClose }) {
   return (
     <div className={`sidebar d-flex flex-column${isOpen ? ' sidebar-open' : ''}`} style={{ height: '100vh' }}>
       <div className="logo">
-        <img src="/logo.png" alt="Arch Bay" style={{ height: 56, width: 56, objectFit: 'contain' }} />
-        <span style={{
-          background: 'linear-gradient(135deg, #ffffff 0%, #93c5fd 60%, #60a5fa 100%)',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-          backgroundClip: 'text',
-          fontWeight: 800,
-          fontSize: '1.25rem',
-          letterSpacing: '0.04em',
-        }}>Arch Bay</span>
+        <img src="/logo.png" alt="Arch Bay" style={{ height: 64, width: 64, objectFit: 'contain' }} />
+        <span className="arch-bay-text" style={{ fontSize: '1.2rem' }}>Arch Bay</span>
       </div>
 
       <div className="flex-grow-1">

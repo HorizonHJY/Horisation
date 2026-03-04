@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { api } from '../api'
 import { useAuth } from '../App'
+import HandLoader from '../components/HandLoader'
 
 const CATEGORIES = ['electronics', 'clothing', 'books', 'furniture', 'other']
 
@@ -18,68 +19,56 @@ function useToast() {
 
 // ── Listing Card ──────────────────────────────────────────────────────────────
 function ListingCard({ listing, currentUser, onSold, onDelete }) {
-  const isMine = listing.seller_username === currentUser
+  const isMine   = listing.seller_username === currentUser
   const firstImg = listing.images?.[0]?.url
+  const isSold   = listing.status === 'sold'
 
   return (
-    <div className="card h-100 shadow-sm">
-      {firstImg ? (
-        <img
-          src={firstImg}
-          alt={listing.title}
-          className="card-img-top"
-          style={{ height: 180, objectFit: 'cover' }}
-        />
-      ) : (
-        <div
-          className="card-img-top bg-light d-flex align-items-center justify-content-center"
-          style={{ height: 180 }}
-        >
-          <i className="fas fa-image fa-3x text-muted" />
+    <div className="market-card">
+      {/* Image */}
+      <div className="market-card__img">
+        {firstImg
+          ? <img src={firstImg} alt={listing.title} />
+          : <i className="fas fa-image placeholder-icon" />
+        }
+      </div>
+
+      {/* Title */}
+      <div className="market-card__title" title={listing.title}>{listing.title}</div>
+
+      {/* Category + sold badge */}
+      <div className="market-card__meta">
+        <span className="market-card__category">{listing.category}</span>
+        {isSold && <span className="market-card__sold-badge">Sold</span>}
+      </div>
+
+      {/* Description */}
+      <p className="market-card__desc">{listing.description}</p>
+
+      {/* Footer: seller + price */}
+      <div className="market-card__footer">
+        <div className="market-card__seller">
+          <i className="fas fa-user me-1" />{listing.seller_username}
+          <div>{new Date(listing.created_at).toLocaleDateString()}</div>
         </div>
-      )}
-
-      <div className="card-body d-flex flex-column">
-        <div className="d-flex justify-content-between align-items-start mb-1">
-          <h6 className="card-title mb-0 fw-semibold">{listing.title}</h6>
-          <span className={`badge ms-2 ${listing.status === 'sold' ? 'bg-secondary' : 'bg-success'}`}>
-            {listing.status === 'sold' ? 'Sold' : `¥${listing.price}`}
-          </span>
-        </div>
-
-        <span className="badge bg-primary-subtle text-primary-emphasis mb-2" style={{ width: 'fit-content' }}>
-          {listing.category}
-        </span>
-
-        <p className="card-text text-muted small flex-grow-1" style={{ whiteSpace: 'pre-wrap' }}>
-          {listing.description.length > 100
-            ? listing.description.slice(0, 100) + '…'
-            : listing.description}
-        </p>
-
-        <div className="mt-auto pt-2 border-top small text-muted">
-          <div><i className="fas fa-user me-1" />{listing.seller_username}</div>
-          <div className="text-muted" style={{ fontSize: '0.75rem' }}>
-            {new Date(listing.created_at).toLocaleDateString()}
-          </div>
-        </div>
-
-        {isMine && listing.status === 'active' && (
-          <div className="d-flex gap-2 mt-2">
-            <button className="btn btn-sm btn-outline-secondary flex-grow-1" onClick={() => onSold(listing.id)}>
-              Mark Sold
-            </button>
-            <button className="btn btn-sm btn-outline-danger flex-grow-1" onClick={() => onDelete(listing.id)}>
-              Delete
-            </button>
-          </div>
-        )}
-        {isMine && listing.status === 'sold' && (
-          <button className="btn btn-sm btn-outline-danger mt-2 w-100" onClick={() => onDelete(listing.id)}>
-            Delete
-          </button>
+        {!isSold && (
+          <div className="market-card__price">¥{listing.price}</div>
         )}
       </div>
+
+      {/* Owner actions */}
+      {isMine && (
+        <div className="market-card__action">
+          {!isSold && (
+            <button className="market-card__btn" onClick={() => onSold(listing.id)}>
+              <i className="fas fa-check-circle" />Mark Sold
+            </button>
+          )}
+          <button className="market-card__btn market-card__btn--danger" onClick={() => onDelete(listing.id)}>
+            <i className="fas fa-trash" />Delete
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -224,7 +213,7 @@ export default function Market() {
         <>
           {loading ? (
             <div className="text-center py-5">
-              <div className="spinner-border text-primary" />
+              <HandLoader />
             </div>
           ) : displayList.length === 0 ? (
             <div className="text-center py-5 text-muted">

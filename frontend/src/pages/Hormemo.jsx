@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '../App'
 import { api } from '../api'
+import HandLoader from '../components/HandLoader'
 
 const TYPES     = ['general', 'todo', 'reminder', 'idea']
 const PRIORITIES = ['low', 'normal', 'high']
@@ -165,7 +166,7 @@ export default function Hormemo() {
           </div>
 
           {loading ? (
-            <div className="text-center p-5"><div className="spinner-border text-primary" /></div>
+            <div className="text-center p-5"><HandLoader /></div>
           ) : memos.length === 0 ? (
             <div className="card text-center p-5 text-muted">
               <i className="fas fa-inbox mb-2" style={{ fontSize: '2rem', opacity: .3 }} />

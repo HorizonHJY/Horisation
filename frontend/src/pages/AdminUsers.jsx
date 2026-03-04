@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '../App'
 import { useNavigate } from 'react-router-dom'
+import HandLoader from '../components/HandLoader'
 import { api } from '../api'
 
 const ROLES = ['horizon', 'horizonadmin', 'vip1', 'vip2', 'vip3', 'user']
@@ -179,7 +180,7 @@ export default function AdminUsers() {
       {/* User list */}
       <div className="card">
         {loading ? (
-          <div className="text-center p-5"><div className="spinner-border text-primary" /></div>
+          <div className="text-center p-5"><HandLoader /></div>
         ) : (
           <div className="list-group list-group-flush">
             {filtered.map(u => (

@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { api } from './api'
 
 import Layout from './components/Layout'
+import HandLoader from './components/HandLoader'
 import Login from './pages/Login'
 import Home from './pages/Home'
 import CSV from './pages/CSV'
@@ -13,6 +14,29 @@ import OnlineGomoku from './pages/fun/OnlineGomoku'
 import Market from './pages/Market'
 import Feedback from './pages/Feedback'
 import Friends from './pages/Friends'
+
+// ── Theme Context ────────────────────────────────────────────────
+export const ThemeContext = createContext(null)
+export const useTheme = () => useContext(ThemeContext)
+
+function ThemeProvider({ children }) {
+  const [isDark, setIsDark] = useState(() => localStorage.getItem('theme') === 'dark')
+
+  useEffect(() => {
+    const t = isDark ? 'dark' : 'light'
+    document.documentElement.setAttribute('data-theme', t)
+    document.documentElement.setAttribute('data-bs-theme', t)
+    localStorage.setItem('theme', t)
+  }, [isDark])
+
+  const toggleTheme = () => setIsDark(d => !d)
+
+  return (
+    <ThemeContext.Provider value={{ isDark, toggleTheme }}>
+      {children}
+    </ThemeContext.Provider>
+  )
+}
 
 // ── Auth Context ────────────────────────────────────────────────
 export const AuthContext = createContext(null)
@@ -35,11 +59,7 @@ function AuthProvider({ children }) {
     api.post('/api/auth/logout').finally(() => setUser(null))
   }
 
-  if (loading) return (
-    <div className="d-flex justify-content-center align-items-center vh-100">
-      <div className="spinner-border text-primary" />
-    </div>
-  )
+  if (loading) return <HandLoader fullPage />
 
   return (
     <AuthContext.Provider value={{ user, login, logout }}>
@@ -66,6 +86,7 @@ function PublicOnlyRoute({ children }) {
 export default function App() {
   return (
     <BrowserRouter>
+      <ThemeProvider>
       <AuthProvider>
         <Routes>
           {/* Public */}
@@ -89,6 +110,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/home" replace />} />
         </Routes>
       </AuthProvider>
+      </ThemeProvider>
     </BrowserRouter>
   )
 }

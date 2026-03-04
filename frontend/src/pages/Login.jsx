@@ -36,8 +36,8 @@ export default function Login() {
         className="d-none d-lg-flex flex-column justify-content-center align-items-center text-white p-5"
         style={{ width: '45%', background: 'linear-gradient(135deg, #1e2a3a 0%, #3a7bd5 100%)' }}
       >
-        <img src="/logo.png" alt="Arch Bay" style={{ width: 120, height: 120, objectFit: 'contain', marginBottom: '1.5rem' }} />
-        <h1 className="fw-bold mb-3">Arch Bay</h1>
+        <img src="/logo.png" alt="Arch Bay" style={{ width: 160, height: 160, objectFit: 'contain', marginBottom: '1.5rem' }} />
+        <h1 className="arch-bay-text mb-3" style={{ fontSize: '2.8rem' }}>Arch Bay</h1>
         <p className="text-center opacity-75" style={{ maxWidth: 320 }}>
           A private space for friends — trade, chat, and stay connected.
         </p>
@@ -64,7 +64,7 @@ export default function Login() {
       <div className="flex-grow-1 d-flex justify-content-center align-items-center p-4">
         <div style={{ width: '100%', maxWidth: 400 }}>
           <div className="text-center mb-5">
-            <img src="/logo.png" alt="Arch Bay" className="d-lg-none mb-3" style={{ width: 48, height: 48, objectFit: 'contain' }} />
+            <img src="/logo.png" alt="Arch Bay" className="d-lg-none mb-3" style={{ width: 72, height: 72, objectFit: 'contain' }} />
             <h2 className="fw-bold">Welcome back</h2>
             <p className="text-muted">Sign in to your account</p>
           </div>
@@ -76,27 +76,33 @@ export default function Login() {
           <form onSubmit={handleSubmit}>
             <div className="mb-3">
               <label className="form-label fw-semibold">Username</label>
-              <input
-                className="form-control form-control-lg"
-                placeholder="Enter username"
-                value={form.username}
-                onChange={e => setForm(f => ({ ...f, username: e.target.value }))}
-                autoComplete="username"
-                autoFocus
-                required
-              />
+              <div className="login-group">
+                <i className="fas fa-user login-icon" />
+                <input
+                  className="login-input"
+                  placeholder="Enter username"
+                  value={form.username}
+                  onChange={e => setForm(f => ({ ...f, username: e.target.value }))}
+                  autoComplete="username"
+                  autoFocus
+                  required
+                />
+              </div>
             </div>
             <div className="mb-4">
               <label className="form-label fw-semibold">Password</label>
-              <input
-                type="password"
-                className="form-control form-control-lg"
-                placeholder="Enter password"
-                value={form.password}
-                onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-                autoComplete="current-password"
-                required
-              />
+              <div className="login-group">
+                <i className="fas fa-lock login-icon" />
+                <input
+                  type="password"
+                  className="login-input"
+                  placeholder="Enter password"
+                  value={form.password}
+                  onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                  autoComplete="current-password"
+                  required
+                />
+              </div>
             </div>
             <button
               type="submit"

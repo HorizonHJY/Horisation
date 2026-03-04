@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { io } from 'socket.io-client'
 import { api } from '../api'
+import HandLoader from '../components/HandLoader'
 import { useAuth } from '../App'
 
 function Avatar({ display, avatar, size = 40 }) {
@@ -284,7 +285,7 @@ export default function Friends() {
           </ul>
 
           {loading ? (
-            <div className="text-center py-5"><div className="spinner-border text-primary" /></div>
+            <div className="text-center py-5"><HandLoader /></div>
 
           ) : tab === 'friends' ? (
             friends.length === 0 ? (
