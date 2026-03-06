@@ -42,7 +42,8 @@ export default function Login() {
       <div style={{
         position: 'absolute', inset: 0,
         display: 'flex', flexDirection: 'column',
-        alignItems: 'flex-start', justifyContent: 'center',
+        alignItems: 'flex-start', justifyContent: 'flex-start',
+        paddingTop: 'clamp(6rem, 6vh, 3rem)',
         paddingLeft: 'clamp(2rem, 8vw, 8rem)',
         pointerEvents: 'none',
       }}>
@@ -59,7 +60,7 @@ export default function Login() {
             fontSize: 'clamp(2rem, 4vw, 2.8rem)',
             color: '#1a1a1a',
             letterSpacing: '-0.02em',
-            margin: '0 0 1rem',
+            margin: '0 0 2.5rem',
           }}>
             Arch Bay
           </h1>
