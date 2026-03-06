@@ -31,50 +31,55 @@ export default function Login() {
   }
 
   return (
-    /* Full-screen container */
     <div style={{ position: 'fixed', inset: 0, overflow: 'hidden' }}>
 
-      {/* Canvas background — flowers from bottom-right */}
+      {/* Canvas background */}
       <div style={{ position: 'absolute', inset: 0 }}>
         <FlowerCanvas origin="right" />
       </div>
 
-      {/* Overlay */}
+      {/* ── Centre: logo + form ───────────────────────────────────────────── */}
       <div style={{
         position: 'absolute', inset: 0,
         display: 'flex', flexDirection: 'column',
-        justifyContent: 'space-between',
-        padding: 'clamp(1.5rem, 4vw, 3rem)',
+        alignItems: 'center', justifyContent: 'center',
+        paddingTop: '8vh',          /* nudge content slightly below true centre */
         pointerEvents: 'none',
       }}>
+        {/* Logo + title */}
+        <img
+          src="/logo.png"
+          alt="Arch Bay"
+          style={{ width: 999, height:300, objectFit: 'contain', opacity: 0.92, marginBottom: '0.1rem' }}
+        />
+        <h1 style={{
+          fontFamily: "'Playfair Display', serif",
+          fontWeight: 800,
+          fontSize: 'clamp(2rem, 4vw, 2.8rem)',
+          color: '#1a1a1a',
+          letterSpacing: '-0.02em',
+          margin: '0 0 2.2rem',
+        }}>
+          Arch Bay
+        </h1>
 
-        {/* ── Top-left: login card ───────────────────────────────────────── */}
-        <div style={{ pointerEvents: 'auto', width: '100%', maxWidth: 380 }}>
-          {/* Logo row */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: '1.5rem' }}>
-            <img src="/logo.png" alt="Arch Bay"
-              style={{ width: 72, height: 72, objectFit: 'contain', opacity: 0.92 }} />
-            <span style={{
-              fontFamily: "'Playfair Display', serif",
-              fontWeight: 600, fontSize: '1.7rem',
-              color: '#1a1a1a', letterSpacing: '-0.01em',
-            }}>
-              Arch Bay
-            </span>
-          </div>
-
-          {/* Card */}
+        {/* Login form card */}
+        <div style={{
+          pointerEvents: 'auto',
+          width: '100%', maxWidth: 600,
+          padding: '0 1rem',
+        }}>
           <div style={{
-            background: 'rgba(255,255,255,0.82)',
-            backdropFilter: 'blur(12px)',
-            WebkitBackdropFilter: 'blur(12px)',
+            background: 'rgba(255,255,255,0.80)',
+            backdropFilter: 'blur(14px)',
+            WebkitBackdropFilter: 'blur(14px)',
             borderRadius: 16,
-            padding: '2rem',
+            padding: '2rem 2rem 1.75rem',
             boxShadow: '0 8px 32px rgba(0,0,0,0.10)',
-            border: '1px solid rgba(255,255,255,0.6)',
+            border: '1px solid rgba(255,255,255,0.65)',
           }}>
-            <h2 style={{ fontWeight: 700, marginBottom: 4, fontSize: '1.5rem' }}>Welcome back</h2>
-            <p style={{ color: '#666', marginBottom: '1.5rem', fontSize: '.9rem' }}>
+            <h2 style={{ fontWeight: 700, marginBottom: 4, fontSize: '1.3rem' }}>Welcome back</h2>
+            <p style={{ color: '#666', marginBottom: '1.4rem', fontSize: '.875rem' }}>
               Sign in to your account
             </p>
 
@@ -124,35 +129,41 @@ export default function Login() {
             </form>
           </div>
         </div>
+      </div>
 
-        {/* ── Bottom-left: tagline ───────────────────────────────────────── */}
-        <div style={{ pointerEvents: 'none', maxWidth: 360 }}>
-          <p style={{
-            fontFamily: "'Playfair Display', serif",
-            fontWeight: 600,
-            fontSize: 'clamp(1.4rem, 2.5vw, 2rem)',
-            color: '#1a1a1a',
-            opacity: 0.82,
-            lineHeight: 1.3,
-            margin: '0 0 0.6rem',
-            letterSpacing: '-0.01em',
-          }}>
-            St. Louis's private harbor.
-          </p>
-          <p style={{
-            fontFamily: "'Playfair Display', serif",
-            fontStyle: 'italic',
-            fontSize: 'clamp(0.9rem, 1.6vw, 1.1rem)',
-            color: '#3a3a3a',
-            opacity: 0.65,
-            lineHeight: 1.7,
-            margin: 0,
-          }}>
-            Connect with friends,<br />
-            discover great deals,<br />
-            stay close.
-          </p>
-        </div>
+      {/* ── Bottom-left: tagline ──────────────────────────────────────────── */}
+      <div style={{
+        position: 'absolute',
+        bottom: 'clamp(1.5rem, 3vw, 2.5rem)',
+        left:   'clamp(1.5rem, 3vw, 2.5rem)',
+        pointerEvents: 'none',
+        maxWidth: 360,
+      }}>
+        <p style={{
+          fontFamily: "'Playfair Display', serif",
+          fontWeight: 600,
+          fontSize: 'clamp(1.3rem, 2.2vw, 1.8rem)',
+          color: '#1a1a1a',
+          opacity: 0.82,
+          lineHeight: 1.3,
+          margin: '0 0 0.5rem',
+          letterSpacing: '-0.01em',
+        }}>
+          St. Louis's private harbor.
+        </p>
+        <p style={{
+          fontFamily: "'Playfair Display', serif",
+          fontStyle: 'italic',
+          fontSize: 'clamp(0.85rem, 1.4vw, 1rem)',
+          color: '#3a3a3a',
+          opacity: 0.62,
+          lineHeight: 1.7,
+          margin: 0,
+        }}>
+          Connect with friends,<br />
+          discover great deals,<br />
+          stay close.
+        </p>
       </div>
     </div>
   )
