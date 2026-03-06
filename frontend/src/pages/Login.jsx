@@ -39,20 +39,19 @@ export default function Login() {
       </div>
 
       {/* ── Left: logo + title + login form ──────────────────────────────── */}
-      <div style={{
+      <div className="login-page-overlay" style={{
         position: 'absolute', inset: 0,
         display: 'flex', flexDirection: 'column',
         alignItems: 'flex-start', justifyContent: 'flex-start',
-        paddingTop: 'clamp(6rem, 6vh, 3rem)',
-        paddingLeft: 'clamp(2rem, 8vw, 8rem)',
         pointerEvents: 'none',
       }}>
         {/* Logo + title directly above the card */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', maxWidth: 600 }}>
+        <div className="login-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', maxWidth: 600 }}>
           <img
             src="/logo.png"
             alt="Arch Bay"
-            style={{ width: 500, height: 300, objectFit: 'contain', opacity: 0.92, marginBottom: '-6rem' }}
+            className="login-logo"
+            style={{ objectFit: 'contain', opacity: 0.92 }}
           />
           <h1 style={{
             fontFamily: "'Playfair Display', serif",
@@ -66,7 +65,7 @@ export default function Login() {
           </h1>
         </div>
 
-        <div style={{
+        <div className="login-form-wrap" style={{
           pointerEvents: 'auto',
           width: '100%', maxWidth: 600,
         }}>
@@ -133,12 +132,9 @@ export default function Login() {
       </div>
 
       {/* ── Bottom-left: tagline ──────────────────────────────────────────── */}
-      <div style={{
+      <div className="login-tagline" style={{
         position: 'absolute',
-        bottom: 'clamp(1.5rem, 3vw, 2.5rem)',
-        left:   'clamp(1.5rem, 3vw, 2.5rem)',
         pointerEvents: 'none',
-        maxWidth: 500,
       }}>
         <p style={{
           fontFamily: "'Playfair Display', serif",

@@ -692,6 +692,49 @@ body { background: var(--bg); font-family: 'Segoe UI', sans-serif; margin: 0; }
 [data-theme="light"] .login-icon                         { color: rgba(5, 6, 15, 0.4); }
 [data-theme="light"] .login-group:focus-within .login-icon { color: #05060f; }
 
+/* ── Login page responsive ───────────────────────────────────── */
+.login-page-overlay {
+  padding-top: clamp(6rem, 6vh, 3rem);
+  padding-left: clamp(2rem, 8vw, 8rem);
+  padding-right: 1rem;
+}
+
+.login-logo {
+  width: 500px;
+  height: 300px;
+  margin-bottom: -6rem;
+}
+
+.login-tagline {
+  bottom: clamp(1.5rem, 3vw, 2.5rem);
+  left:   clamp(1.5rem, 3vw, 2.5rem);
+  max-width: 500px;
+}
+
+@media (max-width: 600px) {
+  .login-page-overlay {
+    padding-top: 2rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    align-items: center !important;
+  }
+  .login-header {
+    align-items: center;
+    max-width: 100% !important;
+  }
+  .login-logo {
+    width: 200px !important;
+    height: 120px !important;
+    margin-bottom: -2rem !important;
+  }
+  .login-form-wrap {
+    max-width: 100% !important;
+  }
+  .login-tagline {
+    display: none;
+  }
+}
+
 /* Hamburger button (visible on mobile via d-md-none) */
 .hamburger-btn {
   background: none; border: none; color: #555;
