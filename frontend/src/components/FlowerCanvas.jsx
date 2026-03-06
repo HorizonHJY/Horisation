@@ -5,7 +5,8 @@
  */
 import React, { useEffect, useRef } from 'react'
 
-export default function FlowerCanvas({ children }) {
+// origin: 'right' = bottom-right corner (like original), 'spread' = across full bottom
+export default function FlowerCanvas({ children, origin = 'spread' }) {
   const displayCanvasRef = useRef(null)
 
   useEffect(() => {
@@ -310,10 +311,14 @@ export default function FlowerCanvas({ children }) {
       flowers = []
 
       const startY = height + 40
-      const count  = Math.max(8, Math.floor(width / 22))
+      const count  = origin === 'right'
+        ? (width < 600 ? 15 : 25)
+        : Math.max(8, Math.floor(width / 22))
       for (let i = 0; i < count; i++) {
-        const startX = width * 0.05 + Math.random() * width * 0.9
-        const angle  = -Math.PI/2 - 0.2 + (Math.random() - 0.5) * 0.6
+        const startX = origin === 'right'
+          ? width * 0.85 + (Math.random() - 0.5) * width * 0.4
+          : width * 0.05 + Math.random() * width * 0.9
+        const angle  = -Math.PI/2 - 0.4 + (Math.random() - 0.5) * 0.5
         const h      = height * 0.35 + Math.random() * (height * 0.55)
         const stem   = new Stem(startX, startY, h, angle)
         stem.flowerTypeHint = pickFlowerType()
@@ -385,7 +390,7 @@ export default function FlowerCanvas({ children }) {
       clearTimeout(timer)
       svg.remove()
     }
-  }, [])
+  }, [origin])
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%', background: '#efebe6', overflow: 'hidden' }}>
@@ -393,14 +398,16 @@ export default function FlowerCanvas({ children }) {
         ref={displayCanvasRef}
         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
       />
-      <div style={{
-        position: 'absolute', inset: 0, zIndex: 10,
-        display: 'flex', flexDirection: 'column',
-        justifyContent: 'center', alignItems: 'center',
-        padding: '2.5rem',
-      }}>
-        {children}
-      </div>
+      {children && (
+        <div style={{
+          position: 'absolute', inset: 0, zIndex: 10,
+          display: 'flex', flexDirection: 'column',
+          justifyContent: 'center', alignItems: 'center',
+          padding: '2.5rem',
+        }}>
+          {children}
+        </div>
+      )}
     </div>
   )
 }
