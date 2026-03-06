@@ -38,36 +38,36 @@ export default function Login() {
         <FlowerCanvas origin="right" />
       </div>
 
-      {/* ── Centre: logo + form ───────────────────────────────────────────── */}
+      {/* ── Left: logo + title + login form ──────────────────────────────── */}
       <div style={{
         position: 'absolute', inset: 0,
         display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center',
-        paddingTop: '8vh',          /* nudge content slightly below true centre */
+        alignItems: 'flex-start', justifyContent: 'center',
+        paddingLeft: 'clamp(2rem, 8vw, 8rem)',
         pointerEvents: 'none',
       }}>
-        {/* Logo + title */}
-        <img
-          src="/logo.png"
-          alt="Arch Bay"
-          style={{ width: 999, height:300, objectFit: 'contain', opacity: 0.92, marginBottom: '0.1rem' }}
-        />
-        <h1 style={{
-          fontFamily: "'Playfair Display', serif",
-          fontWeight: 800,
-          fontSize: 'clamp(2rem, 4vw, 2.8rem)',
-          color: '#1a1a1a',
-          letterSpacing: '-0.02em',
-          margin: '0 0 2.2rem',
-        }}>
-          Arch Bay
-        </h1>
+        {/* Logo + title directly above the card */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', maxWidth: 600 }}>
+          <img
+            src="/logo.png"
+            alt="Arch Bay"
+            style={{ width: 500, height: 300, objectFit: 'contain', opacity: 0.92, marginBottom: '-6rem' }}
+          />
+          <h1 style={{
+            fontFamily: "'Playfair Display', serif",
+            fontWeight: 800,
+            fontSize: 'clamp(2rem, 4vw, 2.8rem)',
+            color: '#1a1a1a',
+            letterSpacing: '-0.02em',
+            margin: '0 0 1rem',
+          }}>
+            Arch Bay
+          </h1>
+        </div>
 
-        {/* Login form card */}
         <div style={{
           pointerEvents: 'auto',
           width: '100%', maxWidth: 600,
-          padding: '0 1rem',
         }}>
           <div style={{
             background: 'rgba(255,255,255,0.80)',
@@ -78,8 +78,8 @@ export default function Login() {
             boxShadow: '0 8px 32px rgba(0,0,0,0.10)',
             border: '1px solid rgba(255,255,255,0.65)',
           }}>
-            <h2 style={{ fontWeight: 700, marginBottom: 4, fontSize: '1.3rem' }}>Welcome back</h2>
-            <p style={{ color: '#666', marginBottom: '1.4rem', fontSize: '.875rem' }}>
+            <h2 style={{ fontWeight: 700, marginBottom: 4, fontSize: '1.3rem', textAlign: 'center' }}>Welcome back</h2>
+            <p style={{ color: '#666', marginBottom: '1.4rem', fontSize: '.875rem', textAlign: 'center' }}>
               Sign in to your account
             </p>
 
@@ -137,7 +137,7 @@ export default function Login() {
         bottom: 'clamp(1.5rem, 3vw, 2.5rem)',
         left:   'clamp(1.5rem, 3vw, 2.5rem)',
         pointerEvents: 'none',
-        maxWidth: 360,
+        maxWidth: 500,
       }}>
         <p style={{
           fontFamily: "'Playfair Display', serif",
@@ -149,7 +149,7 @@ export default function Login() {
           margin: '0 0 0.5rem',
           letterSpacing: '-0.01em',
         }}>
-          St. Louis's private harbor.
+          St. Louis private harbor.
         </p>
         <p style={{
           fontFamily: "'Playfair Display', serif",
@@ -160,9 +160,8 @@ export default function Login() {
           lineHeight: 1.7,
           margin: 0,
         }}>
-          Connect with friends,<br />
-          discover great deals,<br />
-          stay close.
+          欢迎来到圣路易斯 让我们把村里的生活变得丰富多彩一些吧 <br />
+          希望你们在这里能买到心仪的物品 延续物品的生命<br />
         </p>
       </div>
     </div>
