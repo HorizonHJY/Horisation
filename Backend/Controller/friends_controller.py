@@ -21,14 +21,15 @@ def _enrich_user(u: dict) -> dict:
 
 @friends_bp.route('/users', methods=['GET'])
 @login_required
-def list_users():
-    """All active users (except self) — for the Add Friends search."""
-    me    = request.current_user['username']
-    users = user_manager._load_users()
-    return jsonify({'ok': True, 'users': [
-        _enrich_user(u) for u in users.values()
-        if u.get('username') != me and u.get('is_active', True)
-    ]})
+def search_users():
+    """Search users by username or display name (requires ?q= with 2+ chars)."""
+    q = request.args.get('q', '').strip()
+    if len(q) < 2:
+        return jsonify({'ok': True, 'users': []})
+    me      = request.current_user['username']
+    results = user_manager.search_users(q)
+    filtered = [u for u in results if u['username'] != me and u.get('is_active', True)]
+    return jsonify({'ok': True, 'users': [_enrich_user(u) for u in filtered]})
 
 
 @friends_bp.route('/requests', methods=['POST'])

@@ -2,17 +2,16 @@
 """
 用户管理系统
 处理用户认证、权限管理、会话管理
-支持文件存储（可轻松迁移到数据库）
+数据存储：SQLite via market_db
 """
 
-import json
 import os
-import hashlib
+import secrets
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
-# 简化版本 - 不使用密码加密
-# from werkzeug.security import generate_password_hash, check_password_hash
-import secrets
+
+from . import market_db
+
 
 class UserManager:
     """用户管理类"""
@@ -22,7 +21,7 @@ class UserManager:
         'horizon': {
             'level': 100,
             'name': 'Horizon超级管理员',
-            'sectors': ['all'],  # 可访问所有sector
+            'sectors': ['all'],
             'permissions': ['admin', 'read', 'write', 'delete', 'user_manage']
         },
         'horizonadmin': {
@@ -64,393 +63,202 @@ class UserManager:
     }
 
     def __init__(self, data_dir: str = "_data"):
-        """初始化用户管理器"""
-        self.data_dir = data_dir
-        self.users_file = os.path.join(data_dir, "users.json")
-        self.sessions_file = os.path.join(data_dir, "sessions.json")
+        self.data_dir  = data_dir
         self.notes_dir = os.path.join(data_dir, "notes")
-
-        # 确保数据目录存在
         os.makedirs(data_dir, exist_ok=True)
         os.makedirs(self.notes_dir, exist_ok=True)
+        self._ensure_default_users()
 
-        # 初始化用户和会话数据
-        self._init_data_files()
-
-        # 创建默认管理员账户
-        self._create_default_admin()
-
-    def _init_data_files(self):
-        """初始化数据文件"""
-        # 初始化用户文件
-        if not os.path.exists(self.users_file):
-            with open(self.users_file, 'w', encoding='utf-8') as f:
-                json.dump({}, f, ensure_ascii=False, indent=2)
-
-        # 初始化会话文件
-        if not os.path.exists(self.sessions_file):
-            with open(self.sessions_file, 'w', encoding='utf-8') as f:
-                json.dump({}, f, ensure_ascii=False, indent=2)
-
-    def _create_default_admin(self):
-        """创建默认用户账户"""
-        users = self._load_users()
-
-        # 创建horizon用户
-        if 'horizon' not in users:
-            horizon_user = {
-                'username': 'horizon',
-                'password': 'horizon',  # 明文密码
-                'role': 'horizon',
-                'email': 'horizon@horisation.com',
-                'display_name': 'Horizon Administrator',
-                'created_at': datetime.now().isoformat(),
-                'is_active': True,
-                'memos': []  # 备忘录数据
-            }
-            users['horizon'] = horizon_user
+    def _ensure_default_users(self):
+        """Ensure default admin users exist in DB."""
+        if not market_db.db_get_user('horizon'):
+            market_db.db_create_user(
+                'horizon', 'horizon', 'horizon',
+                'horizon@horisation.com', 'Horizon Administrator'
+            )
             print("✅ Created admin user: horizon/horizon")
-
-        # 创建fanfan0315用户
-        if 'fanfan0315' not in users:
-            fanfan_user = {
-                'username': 'fanfan0315',
-                'password': 'yyf',  # 明文密码
-                'role': 'vip1',
-                'email': 'fanfan0315@horisation.com',
-                'display_name': 'Fanfan0315',
-                'created_at': datetime.now().isoformat(),
-                'is_active': True,
-                'memos': []  # 备忘录数据
-            }
-            users['fanfan0315'] = fanfan_user
+        if not market_db.db_get_user('fanfan0315'):
+            market_db.db_create_user(
+                'fanfan0315', 'yyf', 'vip1',
+                'fanfan0315@horisation.com', 'Fanfan0315'
+            )
             print("✅ Created user: fanfan0315/yyf")
 
-        # 保存用户数据
-        if 'horizon' in users or 'fanfan0315' in users:
-            self._save_users(users)
+    # ── Compatibility shims (used by friends_controller.py) ───────────────────
+
+    def _load_users(self) -> Dict:
+        """Compatibility shim — returns {username: user_dict} from DB."""
+        users = market_db.db_list_users()
+        return {u['username']: u for u in users}
 
     def _find_user(self, users: Dict, username: str) -> Tuple[Optional[str], Optional[Dict]]:
-        """按 username 字段查找用户，返回 (key, user_dict)"""
+        """Find user by username field. Returns (key, user_dict)."""
         for key, user in users.items():
             if user.get('username') == username:
                 return key, user
         return None, None
 
-    def _load_users(self) -> Dict:
-        """加载用户数据"""
-        try:
-            with open(self.users_file, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError):
-            return {}
-
-    def _save_users(self, users: Dict):
-        """保存用户数据"""
-        with open(self.users_file, 'w', encoding='utf-8') as f:
-            json.dump(users, f, ensure_ascii=False, indent=2)
-
-    def _load_sessions(self) -> Dict:
-        """加载会话数据"""
-        try:
-            with open(self.sessions_file, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError):
-            return {}
-
-    def _save_sessions(self, sessions: Dict):
-        """保存会话数据"""
-        with open(self.sessions_file, 'w', encoding='utf-8') as f:
-            json.dump(sessions, f, ensure_ascii=False, indent=2)
+    # ── Auth ──────────────────────────────────────────────────────────────────
 
     def create_user(self, username: str, password: str, role: str,
-                   email: str = "", display_name: str = "") -> Tuple[bool, str]:
-        """创建新用户"""
+                    email: str = "", display_name: str = "") -> Tuple[bool, str]:
         if role not in self.USER_ROLES:
             return False, f"Invalid role: {role}"
-
-        users = self._load_users()
-
-        key, _ = self._find_user(users, username)
-        if key is not None:
+        if market_db.db_get_user(username):
             return False, "Username already exists"
-
-        # 创建用户数据
-        user_data = {
-            'username': username,
-            'password': password,  # 明文密码
-            'role': role,
-            'email': email,
-            'display_name': display_name or username,
-            'created_at': datetime.now().isoformat(),
-            'is_active': True,
-            'memos': []  # 备忘录数据
-        }
-
-        users[username] = user_data
-        self._save_users(users)
-
+        market_db.db_create_user(username, password, role, email, display_name or username)
         return True, f"User {username} created successfully"
 
     def authenticate_user(self, username: str, password: str) -> Tuple[bool, Optional[Dict]]:
-        """用户认证"""
-        users = self._load_users()
-
-        _, user = self._find_user(users, username)
-        if user is None:
+        u = market_db.db_get_user(username)
+        if not u:
             return False, None
-
-        if not user.get('is_active', True):
+        if not u.get('is_active', True):
             return False, None
-
-        if user.get('password') == password:
-            return True, {
-                'username':     user['username'],
-                'role':         user['role'],
-                'display_name': user['display_name'],
-                'email':        user['email'],
-                'avatar_url':   user.get('avatar_url'),
-                'role_info':    self.USER_ROLES[user['role']]
-            }
-
+        if u.get('password') == password:
+            return True, self._public_user_dict(u)
         return False, None
 
     def create_session(self, username: str) -> str:
-        """创建用户会话"""
-        session_token = secrets.token_urlsafe(32)
-        sessions = self._load_sessions()
-
-        # 清理过期会话
-        self._cleanup_expired_sessions()
-
-        # 创建新会话
-        sessions[session_token] = {
-            'username': username,
-            'created_at': datetime.now().isoformat(),
-            'expires_at': (datetime.now() + timedelta(hours=24)).isoformat()
-        }
-
-        self._save_sessions(sessions)
-        return session_token
+        token = secrets.token_urlsafe(32)
+        market_db.db_cleanup_sessions()
+        expires_at = datetime.utcnow() + timedelta(hours=24)
+        market_db.db_create_session(token, username, expires_at)
+        return token
 
     def validate_session(self, session_token: str) -> Optional[Dict]:
-        """验证会话"""
-        sessions = self._load_sessions()
-
-        if session_token not in sessions:
+        sess = market_db.db_get_session(session_token)
+        if not sess:
             return None
-
-        session = sessions[session_token]
-        expires_at = datetime.fromisoformat(session['expires_at'])
-
-        if datetime.now() > expires_at:
-            # 会话过期，删除
-            del sessions[session_token]
-            self._save_sessions(sessions)
+        expires_at = sess['expires_at']
+        if isinstance(expires_at, str):
+            expires_at = datetime.fromisoformat(expires_at)
+        # Compare as naive UTC datetimes
+        if expires_at.tzinfo is not None:
+            expires_at = expires_at.replace(tzinfo=None)
+        if datetime.utcnow() > expires_at:
+            market_db.db_delete_session(session_token)
             return None
-
-        # 获取用户信息
-        users = self._load_users()
-        username = session['username']
-
-        _, user = self._find_user(users, username)
-        if user is not None:
-            return {
-                'username':     user['username'],
-                'role':         user['role'],
-                'display_name': user['display_name'],
-                'email':        user['email'],
-                'avatar_url':   user.get('avatar_url'),
-                'contact_info': user.get('contact_info', ''),
-                'role_info':    self.USER_ROLES[user['role']]
-            }
-
+        u = market_db.db_get_user(sess['username'])
+        if u:
+            result = self._public_user_dict(u)
+            result['contact_info'] = u.get('contact_info', '')
+            return result
         return None
 
-    def _cleanup_expired_sessions(self):
-        """清理过期会话"""
-        sessions = self._load_sessions()
-        current_time = datetime.now()
-
-        expired_sessions = []
-        for token, session in sessions.items():
-            expires_at = datetime.fromisoformat(session['expires_at'])
-            if current_time > expires_at:
-                expired_sessions.append(token)
-
-        for token in expired_sessions:
-            del sessions[token]
-
-        if expired_sessions:
-            self._save_sessions(sessions)
-
     def logout_user(self, session_token: str) -> bool:
-        """用户登出"""
-        sessions = self._load_sessions()
-
-        if session_token in sessions:
-            del sessions[session_token]
-            self._save_sessions(sessions)
-            return True
-
-        return False
+        sess = market_db.db_get_session(session_token)
+        if not sess:
+            return False
+        market_db.db_delete_session(session_token)
+        return True
 
     def check_permission(self, username: str, permission: str) -> bool:
-        """检查用户权限"""
-        users = self._load_users()
-
-        _, user = self._find_user(users, username)
-        if user is None:
+        u = market_db.db_get_user(username)
+        if not u:
             return False
-
-        role = user['role']
-
+        role = u.get('role', '')
         if role not in self.USER_ROLES:
             return False
-
         return permission in self.USER_ROLES[role]['permissions']
 
     def check_sector_access(self, username: str, sector: str) -> bool:
-        """检查用户sector访问权限"""
-        users = self._load_users()
-
-        _, user = self._find_user(users, username)
-        if user is None:
+        u = market_db.db_get_user(username)
+        if not u:
             return False
-
-        role = user['role']
-
+        role = u.get('role', '')
         if role not in self.USER_ROLES:
             return False
-
         role_sectors = self.USER_ROLES[role]['sectors']
-
-        # 如果用户有'all'权限，可以访问所有sector
         if 'all' in role_sectors:
             return True
-
         return sector in role_sectors
 
     def get_user_info(self, username: str) -> Optional[Dict]:
-        """获取用户信息"""
-        users = self._load_users()
-
-        _, user = self._find_user(users, username)
-        if user is None:
+        u = market_db.db_get_user(username)
+        if not u:
             return None
-
         return {
-            'username': user['username'],
-            'role': user['role'],
-            'display_name': user['display_name'],
-            'email': user['email'],
-            'created_at': user['created_at'],
-            'is_active': user['is_active'],
-            'role_info': self.USER_ROLES[user['role']]
+            'username':     u['username'],
+            'role':         u['role'],
+            'display_name': u['display_name'],
+            'email':        u['email'],
+            'created_at':   u['created_at'],
+            'is_active':    u['is_active'],
+            'role_info':    self.USER_ROLES.get(u['role'], {}),
         }
 
     def list_users(self) -> List[Dict]:
-        """列出所有用户（管理员功能）"""
-        users = self._load_users()
-        user_list = []
+        return [{
+            'username':     u['username'],
+            'role':         u['role'],
+            'display_name': u['display_name'],
+            'email':        u['email'],
+            'created_at':   u['created_at'],
+            'is_active':    u['is_active'],
+            'role_info':    self.USER_ROLES.get(u['role'], {}),
+        } for u in market_db.db_list_users()]
 
-        for username, user in users.items():
-            user_list.append({
-                'username': user['username'],
-                'role': user['role'],
-                'display_name': user['display_name'],
-                'email': user['email'],
-                'created_at': user['created_at'],
-                'is_active': user['is_active'],
-                'role_info': self.USER_ROLES[user['role']]
-            })
-
-        return user_list
+    def search_users(self, query: str) -> List[Dict]:
+        return market_db.db_search_users(query)
 
     def update_user_role(self, username: str, new_role: str) -> Tuple[bool, str]:
-        """更新用户角色（管理员功能）"""
         if new_role not in self.USER_ROLES:
             return False, f"Invalid role: {new_role}"
-
-        users = self._load_users()
-
-        key, _ = self._find_user(users, username)
-        if key is None:
+        if not market_db.db_update_user(username, role=new_role):
             return False, "User not found"
-
-        users[key]['role'] = new_role
-        self._save_users(users)
-
         return True, f"User {username} role updated to {new_role}"
 
     def deactivate_user(self, username: str) -> Tuple[bool, str]:
-        """停用用户（管理员功能）"""
-        users = self._load_users()
-
-        key, _ = self._find_user(users, username)
-        if key is None:
+        if not market_db.db_update_user(username, is_active=False):
             return False, "User not found"
-
-        users[key]['is_active'] = False
-        self._save_users(users)
-
         return True, f"User {username} deactivated"
 
     def activate_user(self, username: str) -> Tuple[bool, str]:
-        """激活用户（管理员功能）"""
-        users = self._load_users()
-
-        key, _ = self._find_user(users, username)
-        if key is None:
+        if not market_db.db_update_user(username, is_active=True):
             return False, "User not found"
-
-        users[key]['is_active'] = True
-        self._save_users(users)
-
         return True, f"User {username} activated"
 
     def update_user_profile(self, username: str, display_name: str = None,
                             email: str = None, avatar_url: str = None,
                             contact_info: str = None) -> Tuple[bool, str]:
-        """Update display name, email, avatar_url, and/or contact_info."""
-        users = self._load_users()
-        key, user = self._find_user(users, username)
-        if key is None:
-            return False, "User not found"
+        fields = {}
         if display_name is not None:
-            users[key]['display_name'] = display_name
+            fields['display_name'] = display_name
         if email is not None:
-            users[key]['email'] = email
+            fields['email'] = email
         if avatar_url is not None:
-            users[key]['avatar_url'] = avatar_url
+            fields['avatar_url'] = avatar_url
         if contact_info is not None:
-            users[key]['contact_info'] = contact_info
-        self._save_users(users)
+            fields['contact_info'] = contact_info
+        if not market_db.db_update_user(username, **fields):
+            return False, "User not found"
         return True, f"User {username} profile updated"
 
     def reset_user_password(self, username: str, new_password: str) -> Tuple[bool, str]:
-        """Reset a user's password (admin function)."""
         if len(new_password) < 6:
             return False, "Password must be at least 6 characters"
-        users = self._load_users()
-        key, _ = self._find_user(users, username)
-        if key is None:
+        if not market_db.db_update_user(username, password=new_password):
             return False, "User not found"
-        users[key]['password'] = new_password
-        self._save_users(users)
         return True, f"Password for {username} has been reset"
 
     def delete_user(self, username: str) -> Tuple[bool, str]:
-        """Permanently delete a user (admin function). Cannot delete 'horizon'."""
         if username == 'horizon':
             return False, "Cannot delete the root admin account"
-        users = self._load_users()
-        key, _ = self._find_user(users, username)
-        if key is None:
+        if not market_db.db_delete_user(username):
             return False, "User not found"
-        del users[key]
-        self._save_users(users)
         return True, f"User {username} deleted"
+
+    def _public_user_dict(self, u: dict) -> dict:
+        return {
+            'username':     u['username'],
+            'role':         u['role'],
+            'display_name': u.get('display_name', u['username']),
+            'email':        u.get('email', ''),
+            'avatar_url':   u.get('avatar_url'),
+            'role_info':    self.USER_ROLES.get(u['role'], {}),
+        }
+
 
 # 创建全局用户管理器实例
 user_manager = UserManager()

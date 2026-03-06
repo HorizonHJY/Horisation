@@ -8,7 +8,11 @@ import os
 from flask import Flask, g, session, send_from_directory, jsonify
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-# Import Blueprints
+# Initialise database FIRST — blueprints import user_manager which needs tables
+from Backend.Controller.market_db import init_db
+init_db()
+
+# Import Blueprints (user_manager is instantiated during these imports)
 from Backend.Controller.csvcontroller import bp as csv_bp
 from Backend.Controller.auth_controller import auth_bp
 from Backend.Controller.notes_controller import notes_bp
@@ -16,7 +20,6 @@ from Backend.Controller.memos_controller import memos_bp
 from Backend.Controller.market_controller import market_bp
 from Backend.Controller.feedback_controller import feedback_bp
 from Backend.Controller.friends_controller import friends_bp
-from Backend.Controller.market_db import init_db
 from Backend.Controller.socketio_instance import socketio
 import Backend.Controller.game_controller as _game_ctrl    # registers socket events
 import Backend.Controller.friends_socket  as _friends_sock  # registers socket events
@@ -58,9 +61,6 @@ app.register_blueprint(market_bp)
 app.register_blueprint(feedback_bp)
 app.register_blueprint(friends_bp)
 app.register_blueprint(game_bp)
-
-# Initialise database
-init_db()
 
 # Import user manager for session validation
 from Backend.Controller.user_manager import user_manager

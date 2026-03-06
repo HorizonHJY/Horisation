@@ -674,6 +674,24 @@ body { background: var(--bg); font-family: 'Segoe UI', sans-serif; margin: 0; }
 }
 [data-theme="dark"] .form-label { color: rgba(255, 255, 255, 0.5); }
 
+/* ── Light-container override (e.g. login page in dark mode) ─── */
+/* These rules have equal specificity to the dark ones above but  */
+/* come later, so they win for elements inside [data-theme=light] */
+[data-theme="light"] .form-label                         { color: rgba(5, 6, 15, 0.6); }
+[data-theme="light"] .form-control,
+[data-theme="light"] .form-select                        { background-color: rgba(5, 6, 15, 0.04); border-color: transparent; color: #05060f; }
+[data-theme="light"] .form-control::placeholder          { color: rgba(5, 6, 15, 0.4); }
+[data-theme="light"] .form-control:hover,
+[data-theme="light"] .form-control:focus,
+[data-theme="light"] .form-select:hover,
+[data-theme="light"] .form-select:focus                  { border-color: #05060f; background-color: rgba(5, 6, 15, 0.04); box-shadow: none; }
+[data-theme="light"] .login-input                        { background-color: rgba(5, 6, 15, 0.04); border-color: transparent; color: #05060f; }
+[data-theme="light"] .login-input::placeholder           { color: rgba(5, 6, 15, 0.4); }
+[data-theme="light"] .login-input:hover,
+[data-theme="light"] .login-input:focus                  { border-color: #05060f; background-color: rgba(5, 6, 15, 0.04); box-shadow: none; }
+[data-theme="light"] .login-icon                         { color: rgba(5, 6, 15, 0.4); }
+[data-theme="light"] .login-group:focus-within .login-icon { color: #05060f; }
+
 /* Hamburger button (visible on mobile via d-md-none) */
 .hamburger-btn {
   background: none; border: none; color: #555;

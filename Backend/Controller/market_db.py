@@ -1,6 +1,6 @@
 """
 market_db.py
-SQLAlchemy models and helper functions for the marketplace feature.
+SQLAlchemy models and helper functions for all persistent data.
 Database: _data/market.db (SQLite, auto-created on init_db()).
 Designed for easy migration to PostgreSQL: swap the engine URL only.
 """
@@ -8,7 +8,7 @@ Designed for easy migration to PostgreSQL: swap the engine URL only.
 import os
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional, List
 
 from sqlalchemy import (
@@ -25,6 +25,30 @@ Base    = declarative_base()
 
 
 # ── Models ────────────────────────────────────────────────────────────────────
+
+class User(Base):
+    __tablename__ = 'user'
+
+    id           = Column(Integer, primary_key=True, autoincrement=True)
+    username     = Column(String(100), unique=True, nullable=False, index=True)
+    password     = Column(String(255), nullable=False)
+    role         = Column(String(50),  nullable=False, default='user')
+    email        = Column(String(200), default='')
+    display_name = Column(String(100), default='')
+    is_active    = Column(Boolean, default=True)
+    avatar_url   = Column(String(500), nullable=True)
+    contact_info = Column(Text, nullable=True)
+    created_at   = Column(DateTime, default=lambda: datetime.utcnow())
+
+
+class UserSession(Base):
+    __tablename__ = 'session'
+
+    token      = Column(String(64), primary_key=True)
+    username   = Column(String(100), nullable=False, index=True)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    expires_at = Column(DateTime, nullable=False)
+
 
 class Listing(Base):
     __tablename__ = 'listings'
@@ -106,6 +130,144 @@ class Memo(Base):
 def init_db():
     """Create tables if they don't exist. Called once at app startup."""
     Base.metadata.create_all(engine)
+    _migrate_from_json()
+
+
+def _migrate_from_json():
+    """One-time migration: users.json → User table."""
+    users_file = os.path.join(BASE_DIR, '_data', 'users.json')
+    if not os.path.exists(users_file):
+        return
+    with Session() as s:
+        if s.query(User).count() > 0:
+            return  # already migrated
+    with open(users_file, encoding='utf-8') as f:
+        data = json.load(f)
+    with Session() as s:
+        for u in data.values():
+            row = User(
+                username=u.get('username', ''),
+                password=u.get('password', ''),
+                role=u.get('role', 'user'),
+                email=u.get('email', ''),
+                display_name=u.get('display_name', u.get('username', '')),
+                is_active=u.get('is_active', True),
+                avatar_url=u.get('avatar_url'),
+                contact_info=u.get('contact_info'),
+            )
+            s.add(row)
+        s.commit()
+    os.rename(users_file, users_file + '.migrated')
+    print('✅ Migrated users.json → SQLite')
+
+
+# ── User helpers ───────────────────────────────────────────────────────────────
+
+def _user_to_dict(u: User) -> dict:
+    return {
+        'username':     u.username,
+        'password':     u.password,
+        'role':         u.role,
+        'email':        u.email or '',
+        'display_name': u.display_name or u.username,
+        'is_active':    u.is_active,
+        'avatar_url':   u.avatar_url,
+        'contact_info': u.contact_info or '',
+        'created_at':   u.created_at.isoformat() if u.created_at else '',
+    }
+
+
+def db_create_user(username: str, password: str, role: str,
+                   email: str = '', display_name: str = '') -> dict:
+    u = User(username=username, password=password, role=role,
+             email=email, display_name=display_name or username)
+    with Session() as s:
+        s.add(u)
+        s.commit()
+        s.refresh(u)
+        return _user_to_dict(u)
+
+
+def db_get_user(username: str) -> Optional[dict]:
+    with Session() as s:
+        u = s.query(User).filter_by(username=username).first()
+        return _user_to_dict(u) if u else None
+
+
+def db_list_users() -> List[dict]:
+    with Session() as s:
+        rows = s.query(User).order_by(User.username).all()
+        return [_user_to_dict(u) for u in rows]
+
+
+def db_search_users(q: str) -> List[dict]:
+    pattern = f'%{q}%'
+    with Session() as s:
+        rows = s.query(User).filter(
+            (User.username.ilike(pattern)) |
+            (User.display_name.ilike(pattern))
+        ).limit(20).all()
+        return [_user_to_dict(u) for u in rows]
+
+
+def db_update_user(username: str, **fields) -> bool:
+    allowed = {'password', 'role', 'email', 'display_name',
+               'is_active', 'avatar_url', 'contact_info'}
+    with Session() as s:
+        u = s.query(User).filter_by(username=username).first()
+        if not u:
+            return False
+        for key, val in fields.items():
+            if key in allowed:
+                setattr(u, key, val)
+        s.commit()
+        return True
+
+
+def db_delete_user(username: str) -> bool:
+    with Session() as s:
+        u = s.query(User).filter_by(username=username).first()
+        if not u:
+            return False
+        s.delete(u)
+        s.commit()
+        return True
+
+
+# ── Session helpers ────────────────────────────────────────────────────────────
+
+def db_create_session(token: str, username: str, expires_at: datetime) -> None:
+    sess = UserSession(token=token, username=username, expires_at=expires_at)
+    with Session() as s:
+        s.add(sess)
+        s.commit()
+
+
+def db_get_session(token: str) -> Optional[dict]:
+    with Session() as s:
+        sess = s.query(UserSession).filter_by(token=token).first()
+        if not sess:
+            return None
+        return {
+            'token':      sess.token,
+            'username':   sess.username,
+            'expires_at': sess.expires_at,
+        }
+
+
+def db_delete_session(token: str) -> None:
+    with Session() as s:
+        sess = s.query(UserSession).filter_by(token=token).first()
+        if sess:
+            s.delete(sess)
+            s.commit()
+
+
+def db_cleanup_sessions() -> None:
+    now = datetime.utcnow()
+    with Session() as s:
+        s.query(UserSession).filter(UserSession.expires_at < now).delete()
+        s.commit()
 
 
 # ── Serialisers ───────────────────────────────────────────────────────────────

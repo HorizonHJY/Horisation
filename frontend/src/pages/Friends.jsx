@@ -29,7 +29,9 @@ export default function Friends() {
   const [tab, setTab]               = useState('friends')
   const [friends, setFriends]       = useState([])
   const [pending, setPending]       = useState([])
-  const [allUsers, setAllUsers]     = useState([])
+  const [searchQuery, setSearchQuery]   = useState('')
+  const [searchResults, setSearchResults] = useState([])
+  const [searching, setSearching]   = useState(false)
   const [sentSet, setSentSet]       = useState(new Set())
   const [activeChat, setActiveChat] = useState(null)
   const [chatHistory, setChatHistory] = useState([])
@@ -82,7 +84,8 @@ export default function Friends() {
   useEffect(() => {
     if (tab === 'friends') loadFriends()
     if (tab === 'pending') loadPending()
-    if (tab === 'add')     loadAllUsers()
+    if (tab === 'add')     loadSentRequests()
+    else { setSearchQuery(''); setSearchResults([]) }
   }, [tab])
 
   // ── Data loaders ────────────────────────────────────────────────────────────
@@ -100,18 +103,21 @@ export default function Friends() {
     setLoading(false)
   }
 
-  async function loadAllUsers() {
-    setLoading(true)
-    const [usersRes, sentRes] = await Promise.all([
-      api.get('/api/friends/users'),
-      api.get('/api/friends/requests/sent'),
-    ])
-    if (usersRes.ok) setAllUsers(usersRes.users)
-    if (sentRes.ok) {
-      const pending = sentRes.requests.filter(r => r.status === 'pending').map(r => r.to_user)
+  async function loadSentRequests() {
+    const d = await api.get('/api/friends/requests/sent')
+    if (d.ok) {
+      const pending = d.requests.filter(r => r.status === 'pending').map(r => r.to_user)
       setSentSet(new Set(pending))
     }
-    setLoading(false)
+  }
+
+  async function handleSearch(e) {
+    e.preventDefault()
+    if (searchQuery.trim().length < 2) return
+    setSearching(true)
+    const d = await api.get(`/api/friends/users?q=${encodeURIComponent(searchQuery.trim())}`)
+    if (d.ok) setSearchResults(d.users)
+    setSearching(false)
   }
 
   // ── Actions ─────────────────────────────────────────────────────────────────
@@ -355,11 +361,32 @@ export default function Friends() {
 
           ) : (
             /* Add tab */
-            allUsers.length === 0 ? (
-              <div className="text-center py-5 text-muted">No other users found.</div>
-            ) : (
+            <div>
+              <form className="d-flex gap-2 mb-4" onSubmit={handleSearch}>
+                <input
+                  className="form-control"
+                  placeholder="Search by username or display name…"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  minLength={2}
+                />
+                <button className="btn btn-primary flex-shrink-0" type="submit" disabled={searching}>
+                  {searching
+                    ? <span className="spinner-border spinner-border-sm" />
+                    : <i className="fas fa-search" />}
+                </button>
+              </form>
+
+              {searchResults.length === 0 && !searching && (
+                <div className="text-center py-4 text-muted" style={{ fontSize: '.9rem' }}>
+                  {searchQuery.length >= 2
+                    ? 'No users found.'
+                    : 'Type at least 2 characters to search.'}
+                </div>
+              )}
+
               <div className="d-flex flex-column gap-2">
-                {allUsers.map(u => {
+                {searchResults.map(u => {
                   const isFriend  = friends.some(f => f.username === u.username)
                   const isPending = sentSet.has(u.username)
                   return (
@@ -384,7 +411,7 @@ export default function Friends() {
                   )
                 })}
               </div>
-            )
+            </div>
           )}
         </>
       )}
