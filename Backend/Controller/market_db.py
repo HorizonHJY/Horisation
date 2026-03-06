@@ -12,7 +12,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional, List
 
 from sqlalchemy import (
-    create_engine, Column, String, Text, Float, Integer, DateTime, ForeignKey, Boolean
+    create_engine, Column, String, Text, Float, Integer, DateTime, ForeignKey, Boolean, text
 )
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 
@@ -60,6 +60,7 @@ class Listing(Base):
     price            = Column(Float, nullable=False)
     category         = Column(String(50), nullable=False, default='other')
     contact          = Column(String(200), nullable=False)
+    original_price   = Column(Float, nullable=True)
     status           = Column(String(20), nullable=False, default='active')  # active / sold / removed
     created_at       = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     updated_at       = Column(DateTime, nullable=False,
@@ -131,6 +132,22 @@ def init_db():
     """Create tables if they don't exist. Called once at app startup."""
     Base.metadata.create_all(engine)
     _migrate_from_json()
+    _migrate_columns()
+
+
+def _migrate_columns():
+    """Idempotently add new columns to existing tables."""
+    stmts = [
+        "ALTER TABLE listings ADD COLUMN original_price REAL",
+        "ALTER TABLE friend_requests ADD COLUMN message TEXT",
+    ]
+    with Session() as s:
+        for stmt in stmts:
+            try:
+                s.execute(text(stmt))
+                s.commit()
+            except Exception:
+                pass  # column already exists
 
 
 def _migrate_from_json():
@@ -279,6 +296,7 @@ def _listing_to_dict(listing: Listing) -> dict:
         'title':           listing.title,
         'description':     listing.description,
         'price':           listing.price,
+        'original_price':  listing.original_price,
         'category':        listing.category,
         'contact':         listing.contact,
         'status':          listing.status,
@@ -359,7 +377,8 @@ def get_my_listings(username: str) -> list[dict]:
 
 
 def create_listing(seller: str, title: str, description: str,
-                   price: float, category: str, contact: str) -> str:
+                   price: float, category: str, contact: str,
+                   original_price: float = None) -> str:
     """Create a listing row and return its id."""
     listing = Listing(
         id=str(uuid.uuid4()),
@@ -367,6 +386,7 @@ def create_listing(seller: str, title: str, description: str,
         title=title,
         description=description,
         price=price,
+        original_price=original_price,
         category=category,
         contact=contact,
     )
@@ -622,6 +642,7 @@ class FriendRequest(Base):
     from_user  = Column(String(100), nullable=False, index=True)
     to_user    = Column(String(100), nullable=False, index=True)
     status     = Column(String(20),  nullable=False, default='pending')  # pending/accepted/rejected
+    message    = Column(Text,        nullable=True)
     created_at = Column(DateTime,    nullable=False, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime,    nullable=False,
                         default=lambda: datetime.now(timezone.utc),
@@ -660,11 +681,12 @@ def _req_to_dict(r: FriendRequest) -> dict:
         'from_user':  r.from_user,
         'to_user':    r.to_user,
         'status':     r.status,
+        'message':    r.message,
         'created_at': r.created_at.isoformat(),
     }
 
 
-def send_friend_request(from_user: str, to_user: str) -> Optional[dict]:
+def send_friend_request(from_user: str, to_user: str, message: str = None) -> Optional[dict]:
     """Create a pending request. Returns None if duplicate pending or already friends."""
     with Session() as s:
         existing = s.query(FriendRequest).filter(
@@ -677,7 +699,7 @@ def send_friend_request(from_user: str, to_user: str) -> Optional[dict]:
         ua, ub = _friend_pair(from_user, to_user)
         if s.query(Friendship).filter_by(user_a=ua, user_b=ub).first():
             return None
-        req = FriendRequest(id=str(uuid.uuid4()), from_user=from_user, to_user=to_user)
+        req = FriendRequest(id=str(uuid.uuid4()), from_user=from_user, to_user=to_user, message=message)
         s.add(req)
         s.commit()
         return _req_to_dict(req)

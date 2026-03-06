@@ -57,6 +57,16 @@ def create_listing():
     except (ValueError, TypeError):
         return jsonify({'ok': False, 'error': 'Price must be a number.'}), 400
 
+    original_price = None
+    raw_op = request.form.get('original_price', '').strip()
+    if raw_op:
+        try:
+            original_price = float(raw_op)
+            if original_price < 0:
+                original_price = None
+        except (ValueError, TypeError):
+            pass
+
     if not title:
         return jsonify({'ok': False, 'error': 'Title is required.'}), 400
     if not description:
@@ -78,7 +88,7 @@ def create_listing():
                 return jsonify({'ok': False, 'error': err}), 400
 
     # Create listing row
-    listing_id = market_db.create_listing(seller, title, description, price, category, '')
+    listing_id = market_db.create_listing(seller, title, description, price, category, '', original_price)
 
     # Upload images to R2
     uploaded_keys = []

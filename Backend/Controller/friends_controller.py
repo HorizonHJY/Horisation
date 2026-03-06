@@ -35,8 +35,11 @@ def search_users():
 @friends_bp.route('/requests', methods=['POST'])
 @login_required
 def send_request():
+    body    = request.get_json() or {}
     me      = request.current_user['username']
-    to_user = (request.get_json() or {}).get('to_user', '').strip()
+    to_user = body.get('to_user', '').strip()
+    message = body.get('message', '').strip() or None
+
     if not to_user:
         return jsonify({'ok': False, 'error': 'to_user required'}), 400
     if to_user == me:
@@ -50,7 +53,7 @@ def send_request():
     if market_db.are_friends(me, to_user):
         return jsonify({'ok': False, 'error': 'Already friends'}), 400
 
-    row = market_db.send_friend_request(me, to_user)
+    row = market_db.send_friend_request(me, to_user, message)
     if row is None:
         return jsonify({'ok': False, 'error': 'Request already pending'}), 400
 

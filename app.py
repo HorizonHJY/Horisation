@@ -37,20 +37,19 @@ app = Flask(__name__, static_folder=None)
 app.config['MAX_CONTENT_LENGTH']      = 100 * 1024 * 1024
 app.config['UPLOAD_FOLDER']           = UPLOAD_DIR
 app.config['SECRET_KEY']              = 'horisation-secret-key-2024'
-app.config['SESSION_COOKIE_SECURE']   = True
+_local = os.environ.get('LOCAL_DEV') == '1'
+app.config['SESSION_COOKIE_SECURE']   = not _local
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 # Trust one layer of reverse proxy (Nginx / Cloudflare)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
-# Initialise SocketIO with Redis message queue
-socketio.init_app(
-    app,
-    message_queue='redis://',
-    async_mode='eventlet',
-    cors_allowed_origins='*',
-)
+# SocketIO: threading mode locally (no Redis/eventlet needed), eventlet+Redis in prod
+if _local:
+    socketio.init_app(app, async_mode='threading', cors_allowed_origins='*')
+else:
+    socketio.init_app(app, message_queue='redis://', async_mode='eventlet', cors_allowed_origins='*')
 
 # Register API blueprints
 app.register_blueprint(csv_bp)

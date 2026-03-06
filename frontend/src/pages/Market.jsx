@@ -5,7 +5,7 @@ import HandLoader from '../components/HandLoader'
 
 const CATEGORIES = ['electronics', 'clothing', 'books', 'furniture', 'other']
 
-const EMPTY_FORM = { title: '', description: '', price: '', category: 'electronics' }
+const EMPTY_FORM = { title: '', description: '', price: '', original_price: '', category: 'electronics' }
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
 function useToast() {
@@ -18,10 +18,12 @@ function useToast() {
 }
 
 // ── Listing Card ──────────────────────────────────────────────────────────────
-function ListingCard({ listing, currentUser, onSold, onDelete }) {
-  const isMine   = listing.seller_username === currentUser
-  const firstImg = listing.images?.[0]?.url
-  const isSold   = listing.status === 'sold'
+function ListingCard({ listing, currentUser, onSold, onDelete, onInterested, interestedSet }) {
+  const isMine      = listing.seller_username === currentUser
+  const firstImg    = listing.images?.[0]?.url
+  const isSold      = listing.status === 'sold'
+  const hasOriginal = listing.original_price && listing.original_price > listing.price
+  const interestStatus = interestedSet?.[listing.seller_username]  // 'sent'|'friends'|undefined
 
   return (
     <div className="market-card">
@@ -52,7 +54,14 @@ function ListingCard({ listing, currentUser, onSold, onDelete }) {
           <div>{new Date(listing.created_at).toLocaleDateString()}</div>
         </div>
         {!isSold && (
-          <div className="market-card__price">¥{listing.price}</div>
+          <div className="market-card__price">
+            <span>¥{listing.price}</span>
+            {hasOriginal && (
+              <span style={{ fontSize: '.75rem', color: '#999', textDecoration: 'line-through', marginLeft: 6 }}>
+                ¥{listing.original_price}
+              </span>
+            )}
+          </div>
         )}
       </div>
 
@@ -69,6 +78,29 @@ function ListingCard({ listing, currentUser, onSold, onDelete }) {
           </button>
         </div>
       )}
+
+      {/* Interested button for other users' active listings */}
+      {!isMine && !isSold && (
+        <div className="market-card__action">
+          {interestStatus === 'friends' ? (
+            <span className="badge bg-success px-3 py-2" style={{ fontSize: '.8rem' }}>
+              <i className="fas fa-user-friends me-1" />Friends
+            </span>
+          ) : interestStatus === 'sent' ? (
+            <span className="badge bg-warning text-dark px-3 py-2" style={{ fontSize: '.8rem' }}>
+              <i className="fas fa-clock me-1" />Request Sent
+            </span>
+          ) : (
+            <button
+              className="market-card__btn"
+              style={{ background: '#3a7bd5', color: '#fff', border: 'none' }}
+              onClick={() => onInterested(listing)}
+            >
+              <i className="fas fa-star me-1" />I'm Interested
+            </button>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -76,15 +108,17 @@ function ListingCard({ listing, currentUser, onSold, onDelete }) {
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function Market() {
   const { user } = useAuth()
-  const [tab, setTab]           = useState('browse')
-  const [listings, setListings] = useState([])
-  const [myListings, setMy]     = useState([])
-  const [loading, setLoading]   = useState(false)
-  const [form, setForm]         = useState(EMPTY_FORM)
-  const [images, setImages]     = useState([])      // File objects
-  const [previews, setPreviews] = useState([])      // Object URLs
-  const [submitting, setSub]    = useState(false)
-  const [toast, showToast]      = useToast()
+  const [tab, setTab]               = useState('browse')
+  const [listings, setListings]     = useState([])
+  const [myListings, setMy]         = useState([])
+  const [loading, setLoading]       = useState(false)
+  const [form, setForm]             = useState(EMPTY_FORM)
+  const [images, setImages]         = useState([])
+  const [previews, setPreviews]     = useState([])
+  const [submitting, setSub]        = useState(false)
+  const [toast, showToast]          = useToast()
+  // interestedSet: { [seller_username]: 'sent' | 'friends' }
+  const [interestedSet, setInterested] = useState({})
   const fileRef = useRef()
 
   // Load listings on tab switch
@@ -95,8 +129,17 @@ export default function Market() {
 
   async function loadBrowse() {
     setLoading(true)
-    const d = await api.get('/api/market/listings')
-    if (d.ok) setListings(d.listings)
+    const [listRes, friendsRes, sentRes] = await Promise.all([
+      api.get('/api/market/listings'),
+      api.get('/api/friends/list'),
+      api.get('/api/friends/requests/sent'),
+    ])
+    if (listRes.ok) setListings(listRes.listings)
+    // Build interestedSet from friends + sent requests
+    const map = {}
+    if (friendsRes.ok)  friendsRes.friends.forEach(f => { map[f.username] = 'friends' })
+    if (sentRes.ok)     sentRes.requests.filter(r => r.status === 'pending').forEach(r => { map[r.to_user] = 'sent' })
+    setInterested(map)
     setLoading(false)
   }
 
@@ -171,6 +214,21 @@ export default function Market() {
     }
   }
 
+  async function handleInterested(listing) {
+    const msg = `Hi! I'm interested in your listing "${listing.title}" and would love to connect. Want to add me as a friend?`
+    const d = await api.post('/api/friends/requests', { to_user: listing.seller_username, message: msg })
+    if (d.ok) {
+      setInterested(prev => ({ ...prev, [listing.seller_username]: 'sent' }))
+      showToast('Friend request sent!')
+    } else if (d.error === 'Already friends') {
+      setInterested(prev => ({ ...prev, [listing.seller_username]: 'friends' }))
+    } else if (d.error === 'Request already pending') {
+      setInterested(prev => ({ ...prev, [listing.seller_username]: 'sent' }))
+    } else {
+      showToast(d.error, 'danger')
+    }
+  }
+
   const displayList = tab === 'mylistings' ? myListings : listings
 
   return (
@@ -234,6 +292,8 @@ export default function Market() {
                     currentUser={user.username}
                     onSold={handleSold}
                     onDelete={handleDelete}
+                    onInterested={handleInterested}
+                    interestedSet={interestedSet}
                   />
                 </div>
               ))}
@@ -277,7 +337,19 @@ export default function Market() {
 
                   <div className="row mb-3">
                     <div className="col">
-                      <label className="form-label fw-medium">Price (¥) <span className="text-danger">*</span></label>
+                      <label className="form-label fw-medium">Original Price (¥) <span className="text-muted small">(optional)</span></label>
+                      <input
+                        type="number"
+                        className="form-control"
+                        min={0}
+                        step="0.01"
+                        placeholder="e.g. 5000.00"
+                        value={form.original_price}
+                        onChange={e => setForm(f => ({ ...f, original_price: e.target.value }))}
+                      />
+                    </div>
+                    <div className="col">
+                      <label className="form-label fw-medium">Selling Price (¥) <span className="text-danger">*</span></label>
                       <input
                         type="number"
                         className="form-control"
@@ -288,6 +360,9 @@ export default function Market() {
                         onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
                       />
                     </div>
+                  </div>
+
+                  <div className="row mb-3">
                     <div className="col">
                       <label className="form-label fw-medium">Category</label>
                       <select

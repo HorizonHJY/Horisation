@@ -1,0 +1,66 @@
+{
+  "horizon": {
+    "username": "horizon",
+    "password": "horizon",
+    "role": "horizon",
+    "email": "horizon_hj@outlook.com",
+    "display_name": "Horizon",
+    "created_at": "2026-03-02T06:13:22.042872",
+    "is_active": true,
+    "memos": [
+      {
+        "id": "17e706bd-ada5-493d-bcad-4c69e1e7cdb2",
+        "content": "增加用户聊天功能",
+        "type": "general",
+        "tags": [],
+        "priority": "normal",
+        "status": "active",
+        "created_at": "2026-03-02T19:59:03.898061",
+        "updated_at": "2026-03-02T19:59:03.898073",
+        "due_date": null,
+        "completed_at": null
+      }
+    ],
+    "avatar_url": "https://pub-a99b72ec2d5f4c96b1891a7dafc657c1.r2.dev/avatars/horizon.jpg"
+  },
+  "fanfan0315": {
+    "username": "fanfan0315",
+    "password": "yyf",
+    "role": "vip1",
+    "email": "fanfan0315@horisation.com",
+    "display_name": "Fanfan0315",
+    "created_at": "2026-03-02T06:13:22.042895",
+    "is_active": true,
+    "memos": []
+  },
+  "April": {
+    "username": "April",
+    "password": "zhaoziqi",
+    "role": "vip1",
+    "email": "",
+    "display_name": "四月",
+    "created_at": "2026-03-02T06:14:36.925866",
+    "is_active": true,
+    "memos": []
+  },
+  "zwy": {
+    "username": "zwy",
+    "password": "zwyzwy",
+    "role": "vip1",
+    "email": "",
+    "display_name": "hi是张张",
+    "created_at": "2026-03-02T06:14:47.879803",
+    "is_active": true,
+    "memos": []
+  },
+  "kabi": {
+    "username": "kabi",
+    "password": "kabikabi",
+    "role": "vip1",
+    "email": "",
+    "display_name": "卡比大王",
+    "created_at": "2026-03-02T06:15:08.649359",
+    "is_active": true,
+    "memos": []
+  }
+}

@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../App'
 import { api } from '../api'
+import FlowerCanvas from '../components/FlowerCanvas'
 
 export default function Login() {
   const [form, setForm]   = useState({ username: '', password: '' })
@@ -30,38 +31,48 @@ export default function Login() {
   }
 
   return (
-    <div className="min-vh-100 d-flex" data-bs-theme="light" data-theme="light" style={{ background: '#f4f6f9' }}>
-      {/* Left panel */}
-      <div
-        className="d-none d-lg-flex flex-column justify-content-center align-items-center text-white p-5"
-        style={{ width: '45%', background: 'linear-gradient(135deg, #1e2a3a 0%, #3a7bd5 100%)' }}
-      >
-        <img src="/logo.png" alt="Arch Bay" style={{ width: 160, height: 160, objectFit: 'contain', marginBottom: '1.5rem' }} />
-        <h1 className="arch-bay-text mb-3" style={{ fontSize: '2.8rem' }}>Arch Bay</h1>
-        <p className="text-center opacity-75" style={{ maxWidth: 320 }}>
-          A private space for friends — trade, chat, and stay connected.
-        </p>
-        <div className="mt-5 d-flex flex-column gap-3" style={{ maxWidth: 280 }}>
-          {[
-            ['fa-store',          'Market',         'Buy and sell second-hand items'],
-            ['fa-clipboard-list', 'Hormemo',         'Personal memo and task tracker'],
-            ['fa-user-friends',   'Friends',         'Private chat and contact sharing'],
-            ['fa-comments',       'Message Board',   'Share updates with everyone'],
-            ['fa-globe',          'Online Gomoku',   'Play Five in a Row with friends'],
-          ].map(([icon, title, desc]) => (
-            <div key={title} className="d-flex gap-3 align-items-start">
-              <i className={`fas ${icon} mt-1`} style={{ width: 20, opacity: .8 }} />
-              <div>
-                <div className="fw-semibold">{title}</div>
-                <div style={{ fontSize: '.82rem', opacity: .65 }}>{desc}</div>
-              </div>
-            </div>
-          ))}
-        </div>
+    <div className="min-vh-100 d-flex" data-bs-theme="light" data-theme="light">
+      {/* Left panel — petal animation */}
+      <div className="d-none d-lg-block" style={{ width: '45%', flexShrink: 0 }}>
+        <FlowerCanvas>
+          <img
+            src="/logo.png"
+            alt="Arch Bay"
+            style={{ width: 96, height: 96, objectFit: 'contain', marginBottom: '1.25rem', opacity: 0.9 }}
+          />
+          <h1
+            style={{
+              fontFamily: "'Playfair Display', serif",
+              fontWeight: 600,
+              fontSize: '3rem',
+              color: '#1a1a1a',
+              margin: '0 0 0.75rem',
+              letterSpacing: '-0.02em',
+              textAlign: 'center',
+            }}
+          >
+            Arch Bay
+          </h1>
+          <p
+            style={{
+              fontFamily: "'Playfair Display', serif",
+              fontStyle: 'italic',
+              fontSize: '1rem',
+              color: '#3a3a3a',
+              opacity: 0.75,
+              textAlign: 'center',
+              maxWidth: 260,
+              lineHeight: 1.6,
+              margin: 0,
+            }}
+          >
+            A private space for friends —<br />trade, chat, and stay connected.
+          </p>
+        </FlowerCanvas>
       </div>
 
-      {/* Right panel */}
-      <div className="flex-grow-1 d-flex justify-content-center align-items-center p-4">
+      {/* Right panel — login form */}
+      <div className="flex-grow-1 d-flex justify-content-center align-items-center p-4" style={{ background: '#f4f6f9' }}>
         <div style={{ width: '100%', maxWidth: 400 }}>
           <div className="text-center mb-5">
             <img src="/logo.png" alt="Arch Bay" className="d-lg-none mb-3" style={{ width: 72, height: 72, objectFit: 'contain' }} />

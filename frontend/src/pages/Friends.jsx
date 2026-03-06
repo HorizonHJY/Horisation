@@ -344,7 +344,9 @@ export default function Friends() {
                     <Avatar display={r.from_display || r.from_user} avatar={r.from_avatar} size={42} />
                     <div className="flex-grow-1">
                       <div className="fw-semibold">{r.from_display || r.from_user}</div>
-                      <div className="text-muted small">wants to be your friend</div>
+                      <div className="text-muted small">
+                        {r.message || 'wants to be your friend'}
+                      </div>
                     </div>
                     <div className="d-flex gap-2 flex-shrink-0">
                       <button className="btn btn-sm btn-success" onClick={() => respond(r.id, 'accept')}>
