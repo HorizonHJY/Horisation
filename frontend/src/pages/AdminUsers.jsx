@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import HandLoader from '../components/HandLoader'
 import { api } from '../api'
 
-const ROLES = ['horizon', 'horizonadmin', 'vip1', 'vip2', 'vip3', 'user']
+const ROLES = ['horizon', 'horizonadmin', 'vip1', 'vip2', 'vip3', 'test', 'user']
 const ROLE_COLORS = {
   horizon: 'role-horizon', horizonadmin: 'role-horizonadmin',
   vip1: 'role-vip1', vip2: 'role-vip2', vip3: 'role-vip3', user: 'role-user',

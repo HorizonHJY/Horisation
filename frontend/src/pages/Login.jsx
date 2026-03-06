@@ -30,7 +30,7 @@ export default function Login() {
   }
 
   return (
-    <div className="min-vh-100 d-flex" style={{ background: '#f4f6f9' }}>
+    <div className="min-vh-100 d-flex" data-bs-theme="light" data-theme="light" style={{ background: '#f4f6f9' }}>
       {/* Left panel */}
       <div
         className="d-none d-lg-flex flex-column justify-content-center align-items-center text-white p-5"

@@ -4,6 +4,7 @@ import { api } from './api'
 
 import Layout from './components/Layout'
 import HandLoader from './components/HandLoader'
+import { canAccess } from './features'
 import Login from './pages/Login'
 import Home from './pages/Home'
 import CSV from './pages/CSV'
@@ -41,6 +42,12 @@ function ThemeProvider({ children }) {
 // ── Auth Context ────────────────────────────────────────────────
 export const AuthContext = createContext(null)
 export const useAuth = () => useContext(AuthContext)
+
+/** Check if the current user can access a feature flag. */
+export function useFeature(feature) {
+  const { user } = useContext(AuthContext) ?? {}
+  return canAccess(user?.role, feature)
+}
 
 function AuthProvider({ children }) {
   const [user, setUser]       = useState(null)

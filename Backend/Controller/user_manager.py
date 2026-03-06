@@ -49,6 +49,12 @@ class UserManager:
             'sectors': ['vip', 'general'],
             'permissions': ['read', 'write']
         },
+        'test': {
+            'level': 50,
+            'name': '测试用户',
+            'sectors': ['general'],
+            'permissions': ['read', 'write']
+        },
         'user': {
             'level': 10,
             'name': '普通用户',
