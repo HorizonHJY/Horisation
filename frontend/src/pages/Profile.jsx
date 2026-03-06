@@ -197,14 +197,18 @@ export default function Profile() {
               </button>
             </form>
 
-            <h6 className="fw-semibold mt-4 mb-2 text-muted text-uppercase" style={{ fontSize: '.75rem', letterSpacing: '.08em' }}>
-              Permissions
-            </h6>
-            <div className="d-flex flex-wrap gap-2">
-              {user.role_info?.permissions?.map(p => (
-                <span key={p} className="badge bg-primary bg-opacity-10 text-primary fw-normal">{p}</span>
-              ))}
-            </div>
+            {(user.role_info?.level ?? 0) > 60 && (
+              <>
+                <h6 className="fw-semibold mt-4 mb-2 text-muted text-uppercase" style={{ fontSize: '.75rem', letterSpacing: '.08em' }}>
+                  Permissions
+                </h6>
+                <div className="d-flex flex-wrap gap-2">
+                  {user.role_info?.permissions?.map(p => (
+                    <span key={p} className="badge bg-primary bg-opacity-10 text-primary fw-normal">{p}</span>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
 
           {/* Contact info */}

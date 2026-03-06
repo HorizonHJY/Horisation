@@ -292,21 +292,23 @@ def db_cleanup_sessions() -> None:
 
 # ── Serialisers ───────────────────────────────────────────────────────────────
 
-def _listing_to_dict(listing: Listing) -> dict:
+def _listing_to_dict(listing: Listing, seller_user: 'User | None' = None) -> dict:
     return {
-        'id':              listing.id,
-        'seller_username': listing.seller_username,
-        'title':           listing.title,
-        'description':     listing.description,
-        'price':           listing.price,
-        'original_price':  listing.original_price,
-        'category':        listing.category,
-        'contact':         listing.contact,
-        'status':          listing.status,
-        'created_at':      listing.created_at.isoformat(),
-        'updated_at':      listing.updated_at.isoformat(),
-        'images':          [{'id': img.id, 'url': img.r2_url, 'order': img.display_order}
-                            for img in listing.images],
+        'id':               listing.id,
+        'seller_username':  listing.seller_username,
+        'seller_display':   (seller_user.display_name or listing.seller_username) if seller_user else listing.seller_username,
+        'seller_avatar':    seller_user.avatar_url if seller_user else None,
+        'title':            listing.title,
+        'description':      listing.description,
+        'price':            listing.price,
+        'original_price':   listing.original_price,
+        'category':         listing.category,
+        'contact':          listing.contact,
+        'status':           listing.status,
+        'created_at':       listing.created_at.isoformat(),
+        'updated_at':       listing.updated_at.isoformat(),
+        'images':           [{'id': img.id, 'url': img.r2_url, 'order': img.display_order}
+                             for img in listing.images],
     }
 
 
@@ -359,24 +361,42 @@ def delete_message(message_id: str, username: str, is_admin: bool = False) -> bo
         return True
 
 
+def _enrich_listings(rows: list, s) -> list[dict]:
+    """Batch-fetch seller User rows and attach display info to each listing dict."""
+    usernames = list({r.seller_username for r in rows})
+    sellers   = {u.username: u for u in s.query(User).filter(User.username.in_(usernames)).all()}
+    return [_listing_to_dict(r, sellers.get(r.seller_username)) for r in rows]
+
+
 def get_all_listings(status: str = 'active') -> list[dict]:
     with Session() as s:
         rows = s.query(Listing).filter_by(status=status)\
                                .order_by(Listing.created_at.desc()).all()
-        return [_listing_to_dict(r) for r in rows]
+        return _enrich_listings(rows, s)
 
 
 def get_listing(listing_id: str) -> Optional[dict]:
     with Session() as s:
         row = s.query(Listing).filter_by(id=listing_id).first()
-        return _listing_to_dict(row) if row else None
+        if not row:
+            return None
+        seller = s.query(User).filter_by(username=row.seller_username).first()
+        return _listing_to_dict(row, seller)
 
 
 def get_my_listings(username: str) -> list[dict]:
     with Session() as s:
         rows = s.query(Listing).filter_by(seller_username=username)\
                                .order_by(Listing.created_at.desc()).all()
-        return [_listing_to_dict(r) for r in rows]
+        return _enrich_listings(rows, s)
+
+
+def get_active_listings_by_user(username: str) -> list[dict]:
+    """Active (non-sold) listings for a given seller."""
+    with Session() as s:
+        rows = s.query(Listing).filter_by(seller_username=username, status='active')\
+                               .order_by(Listing.created_at.desc()).all()
+        return _enrich_listings(rows, s)
 
 
 def create_listing(seller: str, title: str, description: str,

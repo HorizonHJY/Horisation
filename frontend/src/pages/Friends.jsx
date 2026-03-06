@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { io } from 'socket.io-client'
+import { useLocation } from 'react-router-dom'
 import { api } from '../api'
 import HandLoader from '../components/HandLoader'
 import { useAuth } from '../App'
@@ -22,6 +23,7 @@ function Avatar({ display, avatar, size = 40 }) {
 
 export default function Friends() {
   const { user } = useAuth()
+  const location      = useLocation()
   const socketRef     = useRef(null)
   const chatEndRef    = useRef(null)
   const activeChatRef = useRef(null)   // mirror of activeChat for socket handler
@@ -90,6 +92,19 @@ export default function Friends() {
     if (tab === 'add')     loadSentRequests()
     else { setSearchQuery(''); setSearchResults([]) }
   }, [tab])
+
+  // Auto-open chat if navigated here from Market with state
+  useEffect(() => {
+    const state = location.state
+    if (!state?.openChat) return
+    const friend = state.openChat
+    const initialMsg = state.initialMessage || ''
+    // clear navigation state so back-navigation doesn't re-trigger
+    window.history.replaceState({}, '')
+    openChat(friend).then(() => {
+      if (initialMsg) setChatInput(initialMsg)
+    })
+  }, [])
 
   // ── Data loaders ────────────────────────────────────────────────────────────
   async function loadFriends() {
@@ -162,6 +177,7 @@ export default function Friends() {
     setChatHistory([])
     const d = await api.get(`/api/friends/${friend.username}/history`)
     if (d.ok) setChatHistory(d.messages)
+    return friend
   }
 
   const closeChat = () => {

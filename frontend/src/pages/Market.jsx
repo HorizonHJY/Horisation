@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../App'
 import HandLoader from '../components/HandLoader'
@@ -17,13 +18,33 @@ function useToast() {
   return [toast, show]
 }
 
+// ── Seller Avatar ─────────────────────────────────────────────────────────────
+function SellerAvatar({ username, displayName, avatarUrl, size = 28, onClick }) {
+  const style = {
+    width: size, height: size, borderRadius: '50%', flexShrink: 0,
+    cursor: onClick ? 'pointer' : 'default',
+  }
+  if (avatarUrl) return (
+    <img src={avatarUrl} alt={displayName} style={{ ...style, objectFit: 'cover' }} onClick={onClick} />
+  )
+  return (
+    <div style={{
+      ...style,
+      background: '#3a7bd5', color: '#fff',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontWeight: 700, fontSize: size * 0.4,
+    }} onClick={onClick}>
+      {(displayName || username)?.[0]?.toUpperCase() || '?'}
+    </div>
+  )
+}
+
 // ── Listing Card ──────────────────────────────────────────────────────────────
-function ListingCard({ listing, currentUser, onSold, onDelete, onInterested, interestedSet }) {
+function ListingCard({ listing, currentUser, onSold, onDelete, onReachOut, onSellerClick, reachOutStatus }) {
   const isMine      = listing.seller_username === currentUser
   const firstImg    = listing.images?.[0]?.url
   const isSold      = listing.status === 'sold'
   const hasOriginal = listing.original_price && listing.original_price > listing.price
-  const interestStatus = interestedSet?.[listing.seller_username]  // 'sent'|'friends'|undefined
 
   return (
     <div className="market-card">
@@ -49,9 +70,22 @@ function ListingCard({ listing, currentUser, onSold, onDelete, onInterested, int
 
       {/* Footer: seller + price */}
       <div className="market-card__footer">
-        <div className="market-card__seller">
-          <i className="fas fa-user me-1" />{listing.seller_username}
-          <div>{new Date(listing.created_at).toLocaleDateString()}</div>
+        <div
+          className="market-card__seller"
+          style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+          onClick={() => onSellerClick(listing.seller_username)}
+          title={`View ${listing.seller_username}'s listings`}
+        >
+          <SellerAvatar
+            username={listing.seller_username}
+            displayName={listing.seller_display}
+            avatarUrl={listing.seller_avatar}
+            size={26}
+          />
+          <div>
+            <div style={{ fontWeight: 600, fontSize: '.78rem' }}>{listing.seller_display || listing.seller_username}</div>
+            <div style={{ fontSize: '.7rem' }}>{new Date(listing.created_at).toLocaleDateString()}</div>
+          </div>
         </div>
         {!isSold && (
           <div className="market-card__price">
@@ -79,14 +113,18 @@ function ListingCard({ listing, currentUser, onSold, onDelete, onInterested, int
         </div>
       )}
 
-      {/* Interested button for other users' active listings */}
+      {/* Reach Out for other users' active listings */}
       {!isMine && !isSold && (
         <div className="market-card__action">
-          {interestStatus === 'friends' ? (
-            <span className="badge bg-success px-3 py-2" style={{ fontSize: '.8rem' }}>
-              <i className="fas fa-user-friends me-1" />Friends
-            </span>
-          ) : interestStatus === 'sent' ? (
+          {reachOutStatus === 'friends' ? (
+            <button
+              className="market-card__btn"
+              style={{ background: '#22c55e', border: 'none' }}
+              onClick={() => onReachOut(listing)}
+            >
+              <i className="fas fa-comment-dots me-1" />Reach Out
+            </button>
+          ) : reachOutStatus === 'sent' ? (
             <span className="badge bg-warning text-dark px-3 py-2" style={{ fontSize: '.8rem' }}>
               <i className="fas fa-clock me-1" />Request Sent
             </span>
@@ -94,9 +132,9 @@ function ListingCard({ listing, currentUser, onSold, onDelete, onInterested, int
             <button
               className="market-card__btn"
               style={{ background: '#3a7bd5', color: '#fff', border: 'none' }}
-              onClick={() => onInterested(listing)}
+              onClick={() => onReachOut(listing)}
             >
-              <i className="fas fa-star me-1" />I'm Interested
+              <i className="fas fa-paper-plane me-1" />Reach Out
             </button>
           )}
         </div>
@@ -105,9 +143,77 @@ function ListingCard({ listing, currentUser, onSold, onDelete, onInterested, int
   )
 }
 
+// ── Seller Modal ──────────────────────────────────────────────────────────────
+function SellerModal({ seller, listings, onClose, onReachOut, reachOutStatus }) {
+  return (
+    <div className="modal show d-block" style={{ background: 'rgba(0,0,0,.45)' }} onClick={onClose}>
+      <div className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable"
+        onClick={e => e.stopPropagation()}>
+        <div className="modal-content">
+          <div className="modal-header">
+            <div className="d-flex align-items-center gap-3">
+              <SellerAvatar username={seller.username} displayName={seller.display_name} avatarUrl={seller.avatar_url} size={44} />
+              <div>
+                <div className="fw-bold">{seller.display_name || seller.username}</div>
+                <div className="text-muted small">@{seller.username}</div>
+              </div>
+              {reachOutStatus === 'friends' ? (
+                <button className="btn btn-sm btn-success ms-2" onClick={() => onReachOut(null)}>
+                  <i className="fas fa-comment-dots me-1" />Chat
+                </button>
+              ) : reachOutStatus === 'sent' ? (
+                <span className="badge bg-warning text-dark ms-2">Request Sent</span>
+              ) : (
+                <button className="btn btn-sm btn-primary ms-2" onClick={() => onReachOut(null)}>
+                  <i className="fas fa-user-plus me-1" />Add Friend
+                </button>
+              )}
+            </div>
+            <button className="btn-close" onClick={onClose} />
+          </div>
+          <div className="modal-body">
+            <p className="text-muted small mb-3">
+              <i className="fas fa-store me-1" />{listings.length} active listing{listings.length !== 1 ? 's' : ''}
+            </p>
+            {listings.length === 0 ? (
+              <div className="text-center py-4 text-muted">
+                <i className="fas fa-box-open fa-2x mb-2 d-block opacity-25" />
+                No active listings.
+              </div>
+            ) : (
+              <div className="row row-cols-1 row-cols-sm-2 g-3">
+                {listings.map(l => (
+                  <div className="col" key={l.id}>
+                    <div className="card h-100 p-2">
+                      {l.images?.[0]?.url && (
+                        <img src={l.images[0].url} alt={l.title}
+                          style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 6 }} />
+                      )}
+                      <div className="fw-semibold mt-2 small text-truncate">{l.title}</div>
+                      <div className="text-primary fw-bold">¥{l.price}
+                        {l.original_price > l.price && (
+                          <span style={{ fontSize: '.7rem', color: '#999', textDecoration: 'line-through', marginLeft: 6 }}>
+                            ¥{l.original_price}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-muted small text-truncate">{l.description}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function Market() {
-  const { user } = useAuth()
+  const { user }    = useAuth()
+  const navigate    = useNavigate()
   const [tab, setTab]               = useState('browse')
   const [listings, setListings]     = useState([])
   const [myListings, setMy]         = useState([])
@@ -119,12 +225,18 @@ export default function Market() {
   const [toast, showToast]          = useToast()
   // interestedSet: { [seller_username]: 'sent' | 'friends' }
   const [interestedSet, setInterested] = useState({})
+  // friendsMap: { [username]: { username, display_name, avatar_url } }
+  const [friendsMap, setFriendsMap] = useState({})
+  // sellerModal: { username, display_name, avatar_url } | null
+  const [sellerModal, setSellerModal]   = useState(null)
+  const [sellerListings, setSellerListings] = useState([])
+  const [sellerLoading, setSellerLoading]  = useState(false)
   const fileRef = useRef()
 
   // Load listings on tab switch
   useEffect(() => {
-    if (tab === 'browse')     loadBrowse()
-    if (tab === 'mylistings') loadMine()
+    if (tab === 'browse')      loadBrowse()
+    if (tab === 'mylistings')  loadMine()
   }, [tab])
 
   async function loadBrowse() {
@@ -134,12 +246,19 @@ export default function Market() {
       api.get('/api/friends/list'),
       api.get('/api/friends/requests/sent'),
     ])
-    if (listRes.ok) setListings(listRes.listings)
-    // Build interestedSet from friends + sent requests
+
+    // Build friendsMap
+    const fMap = {}
+    if (friendsRes.ok) friendsRes.friends.forEach(f => { fMap[f.username] = f })
+    setFriendsMap(fMap)
+
+    // Build interestedSet
     const map = {}
     if (friendsRes.ok)  friendsRes.friends.forEach(f => { map[f.username] = 'friends' })
     if (sentRes.ok)     sentRes.requests.filter(r => r.status === 'pending').forEach(r => { map[r.to_user] = 'sent' })
     setInterested(map)
+
+    if (listRes.ok) setListings(listRes.listings)
     setLoading(false)
   }
 
@@ -148,6 +267,19 @@ export default function Market() {
     const d = await api.get('/api/market/my')
     if (d.ok) setMy(d.listings)
     setLoading(false)
+  }
+
+  async function openSellerModal(username) {
+    // Don't show modal for own profile
+    if (username === user.username) return
+    const friend = friendsMap[username]
+    const sellerInfo = friend ?? { username, display_name: username, avatar_url: null }
+    setSellerModal(sellerInfo)
+    setSellerListings([])
+    setSellerLoading(true)
+    const d = await api.get(`/api/market/user/${username}`)
+    if (d.ok) setSellerListings(d.listings)
+    setSellerLoading(false)
   }
 
   function handleFileChange(e) {
@@ -214,22 +346,43 @@ export default function Market() {
     }
   }
 
-  async function handleInterested(listing) {
-    const msg = `Hi! I'm interested in your listing "${listing.title}" and would love to connect. Want to add me as a friend?`
-    const d = await api.post('/api/friends/requests', { to_user: listing.seller_username, message: msg })
+  // Reach Out: friends → navigate to chat; not friends → send friend request
+  async function handleReachOut(listing, sellerUsername) {
+    const username = sellerUsername ?? listing?.seller_username
+    const title    = listing?.title ?? null
+    const status   = interestedSet[username]
+
+    if (status === 'friends') {
+      const friend = friendsMap[username]
+      const initialMessage = title
+        ? `嗨！我看到你发布的《${title}》，想聊一聊 😊`
+        : ''
+      // Close seller modal if open
+      setSellerModal(null)
+      navigate('/friends', { state: { openChat: friend, initialMessage } })
+      return
+    }
+
+    // Not friends — send friend request
+    const msg = listing
+      ? `Hi! I saw your listing "${listing.title}" and would like to connect!`
+      : `Hi! I'd like to connect with you!`
+    const d = await api.post('/api/friends/requests', { to_user: username, message: msg })
     if (d.ok) {
-      setInterested(prev => ({ ...prev, [listing.seller_username]: 'sent' }))
+      setInterested(prev => ({ ...prev, [username]: 'sent' }))
       showToast('Friend request sent!')
     } else if (d.error === 'Already friends') {
-      setInterested(prev => ({ ...prev, [listing.seller_username]: 'friends' }))
+      setInterested(prev => ({ ...prev, [username]: 'friends' }))
     } else if (d.error === 'Request already pending') {
-      setInterested(prev => ({ ...prev, [listing.seller_username]: 'sent' }))
+      setInterested(prev => ({ ...prev, [username]: 'sent' }))
     } else {
       showToast(d.error, 'danger')
     }
   }
 
-  const displayList = tab === 'mylistings' ? myListings : listings
+  // Browse: filter out own listings
+  const browseListing = listings.filter(l => l.seller_username !== user.username)
+  const displayList   = tab === 'mylistings' ? myListings : browseListing
 
   return (
     <div className="container-fluid py-4">
@@ -242,18 +395,29 @@ export default function Market() {
         </div>
       )}
 
+      {/* Seller modal */}
+      {sellerModal && (
+        <SellerModal
+          seller={sellerModal}
+          listings={sellerLoading ? [] : sellerListings}
+          onClose={() => setSellerModal(null)}
+          onReachOut={(listing) => handleReachOut(listing, sellerModal.username)}
+          reachOutStatus={interestedSet[sellerModal.username]}
+        />
+      )}
+
       <div className="d-flex align-items-center mb-4">
         <i className="fas fa-store fa-lg me-2 text-primary" />
         <h4 className="mb-0 fw-bold">Market</h4>
         <span className="text-muted ms-2 small">Second-hand trading</span>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs — Browse → My Listings → Post Item */}
       <ul className="nav nav-tabs mb-4">
         {[
           { key: 'browse',     label: 'Browse',      icon: 'fa-th-large' },
-          { key: 'create',     label: 'Post Listing', icon: 'fa-plus-circle' },
           { key: 'mylistings', label: 'My Listings',  icon: 'fa-list-ul' },
+          { key: 'create',     label: 'Post Item',    icon: 'fa-plus-circle' },
         ].map(t => (
           <li className="nav-item" key={t.key}>
             <button
@@ -292,8 +456,9 @@ export default function Market() {
                     currentUser={user.username}
                     onSold={handleSold}
                     onDelete={handleDelete}
-                    onInterested={handleInterested}
-                    interestedSet={interestedSet}
+                    onReachOut={handleReachOut}
+                    onSellerClick={openSellerModal}
+                    reachOutStatus={interestedSet[l.seller_username]}
                   />
                 </div>
               ))}
@@ -362,19 +527,17 @@ export default function Market() {
                     </div>
                   </div>
 
-                  <div className="row mb-3">
-                    <div className="col">
-                      <label className="form-label fw-medium">Category</label>
-                      <select
-                        className="form-select"
-                        value={form.category}
-                        onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
-                      >
-                        {CATEGORIES.map(c => (
-                          <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
-                        ))}
-                      </select>
-                    </div>
+                  <div className="mb-3">
+                    <label className="form-label fw-medium">Category</label>
+                    <select
+                      className="form-select"
+                      value={form.category}
+                      onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
+                    >
+                      {CATEGORIES.map(c => (
+                        <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
+                      ))}
+                    </select>
                   </div>
 
                   <div className="mb-4">

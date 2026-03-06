@@ -187,3 +187,12 @@ def my_listings():
     seller   = request.current_user['username']
     listings = market_db.get_my_listings(seller)
     return jsonify({'ok': True, 'listings': listings})
+
+
+# ── Active listings for a specific user ───────────────────────────────────────
+
+@market_bp.route('/user/<username>', methods=['GET'])
+@login_required
+def user_listings(username):
+    listings = market_db.get_active_listings_by_user(username)
+    return jsonify({'ok': True, 'listings': listings})
