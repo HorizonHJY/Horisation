@@ -12,7 +12,8 @@ export default function Profile() {
 
   const [nameForm, setNameForm]     = useState({ display_name: user?.display_name ?? '', email: user?.email ?? '' })
   const [passForm, setPassForm]     = useState({ current_password: '', new_password: '', confirm: '' })
-  const [contactForm, setContactForm] = useState(user?.contact_info ?? '')
+  const [contactForm, setContactForm]     = useState(user?.contact_info ?? '')
+  const [contactHidden, setContactHidden] = useState(user?.contact_hidden ?? false)
   const [savingName, setSavingName] = useState(false)
   const [savingPass, setSavingPass] = useState(false)
   const [savingContact, setSavingContact] = useState(false)
@@ -212,8 +213,7 @@ export default function Profile() {
               Contact Info
             </h6>
             <p className="text-muted small mb-2">
-              <i className="fas fa-lock me-1" />Only visible to your friends.
-              Enter your WeChat ID, phone number, or any handle.
+              Friends can request to see your contact info. You must approve each request.
             </p>
             <form onSubmit={async (e) => {
               e.preventDefault()
@@ -222,7 +222,7 @@ export default function Profile() {
               setSavingContact(false)
               if (d.ok) flash('Contact info saved.')
               else flash(d.error, 'danger')
-            }} className="d-flex gap-2">
+            }} className="d-flex gap-2 mb-3">
               <input
                 type="text"
                 className="form-control"
@@ -235,6 +235,25 @@ export default function Profile() {
                 {savingContact ? <span className="spinner-border spinner-border-sm" /> : 'Save'}
               </button>
             </form>
+            <div className="form-check form-switch">
+              <input
+                className="form-check-input"
+                type="checkbox"
+                role="switch"
+                id="hideContact"
+                checked={contactHidden}
+                onChange={async e => {
+                  const hidden = e.target.checked
+                  setContactHidden(hidden)
+                  const d = await api.put('/api/auth/profile', { contact_hidden: hidden })
+                  if (d.ok) flash(hidden ? 'Contact hidden from friends.' : 'Contact visible to friends.')
+                  else { setContactHidden(!hidden); flash(d.error, 'danger') }
+                }}
+              />
+              <label className="form-check-label small" htmlFor="hideContact">
+                Hide my contact info (friends cannot request it while hidden)
+              </label>
+            </div>
           </div>
 
           {/* Change password */}

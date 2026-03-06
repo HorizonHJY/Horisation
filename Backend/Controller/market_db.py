@@ -29,16 +29,17 @@ Base    = declarative_base()
 class User(Base):
     __tablename__ = 'user'
 
-    id           = Column(Integer, primary_key=True, autoincrement=True)
-    username     = Column(String(100), unique=True, nullable=False, index=True)
-    password     = Column(String(255), nullable=False)
-    role         = Column(String(50),  nullable=False, default='user')
-    email        = Column(String(200), default='')
-    display_name = Column(String(100), default='')
-    is_active    = Column(Boolean, default=True)
-    avatar_url   = Column(String(500), nullable=True)
-    contact_info = Column(Text, nullable=True)
-    created_at   = Column(DateTime, default=lambda: datetime.utcnow())
+    id              = Column(Integer, primary_key=True, autoincrement=True)
+    username        = Column(String(100), unique=True, nullable=False, index=True)
+    password        = Column(String(255), nullable=False)
+    role            = Column(String(50),  nullable=False, default='user')
+    email           = Column(String(200), default='')
+    display_name    = Column(String(100), default='')
+    is_active       = Column(Boolean, default=True)
+    avatar_url      = Column(String(500), nullable=True)
+    contact_info    = Column(Text, nullable=True)
+    contact_hidden  = Column(Boolean, default=False)
+    created_at      = Column(DateTime, default=lambda: datetime.utcnow())
 
 
 class UserSession(Base):
@@ -140,6 +141,7 @@ def _migrate_columns():
     stmts = [
         "ALTER TABLE listings ADD COLUMN original_price REAL",
         "ALTER TABLE friend_requests ADD COLUMN message TEXT",
+        "ALTER TABLE user ADD COLUMN contact_hidden BOOLEAN DEFAULT 0",
     ]
     with Session() as s:
         for stmt in stmts:
@@ -182,15 +184,16 @@ def _migrate_from_json():
 
 def _user_to_dict(u: User) -> dict:
     return {
-        'username':     u.username,
-        'password':     u.password,
-        'role':         u.role,
-        'email':        u.email or '',
-        'display_name': u.display_name or u.username,
-        'is_active':    u.is_active,
-        'avatar_url':   u.avatar_url,
-        'contact_info': u.contact_info or '',
-        'created_at':   u.created_at.isoformat() if u.created_at else '',
+        'username':        u.username,
+        'password':        u.password,
+        'role':            u.role,
+        'email':           u.email or '',
+        'display_name':    u.display_name or u.username,
+        'is_active':       u.is_active,
+        'avatar_url':      u.avatar_url,
+        'contact_info':    u.contact_info or '',
+        'contact_hidden':  bool(u.contact_hidden),
+        'created_at':      u.created_at.isoformat() if u.created_at else '',
     }
 
 
@@ -229,7 +232,7 @@ def db_search_users(q: str) -> List[dict]:
 
 def db_update_user(username: str, **fields) -> bool:
     allowed = {'password', 'role', 'email', 'display_name',
-               'is_active', 'avatar_url', 'contact_info'}
+               'is_active', 'avatar_url', 'contact_info', 'contact_hidden'}
     with Session() as s:
         u = s.query(User).filter_by(username=username).first()
         if not u:
@@ -668,6 +671,16 @@ class PrivateChatMessage(Base):
     created_at = Column(DateTime,     nullable=False, default=lambda: datetime.now(timezone.utc))
 
 
+class ContactRequest(Base):
+    __tablename__ = 'contact_requests'
+
+    id         = Column(Integer,      primary_key=True, autoincrement=True)
+    from_user  = Column(String(100),  nullable=False, index=True)
+    to_user    = Column(String(100),  nullable=False, index=True)
+    status     = Column(String(20),   nullable=False, default='pending')  # pending/approved/declined
+    created_at = Column(DateTime,     nullable=False, default=lambda: datetime.now(timezone.utc))
+
+
 # ── Friend helpers ─────────────────────────────────────────────────────────────
 
 def _friend_pair(a: str, b: str) -> tuple:
@@ -782,3 +795,64 @@ def save_chat_message(room_key: str, sender: str, content: str) -> dict:
         s.commit()
         return {'id': msg.id, 'room_key': msg.room_key, 'sender': msg.sender,
                 'content': msg.content, 'created_at': msg.created_at.isoformat()}
+
+
+# ── Contact request helpers ────────────────────────────────────────────────────
+
+def _contact_req_to_dict(r: ContactRequest) -> dict:
+    return {
+        'id':         r.id,
+        'from_user':  r.from_user,
+        'to_user':    r.to_user,
+        'status':     r.status,
+        'created_at': r.created_at.isoformat(),
+    }
+
+
+def send_contact_request(from_user: str, to_user: str) -> Optional[dict]:
+    """Create a pending contact request. Returns None if duplicate pending/approved."""
+    with Session() as s:
+        existing = s.query(ContactRequest).filter_by(
+            from_user=from_user, to_user=to_user
+        ).filter(ContactRequest.status.in_(['pending', 'approved'])).first()
+        if existing:
+            return None
+        req = ContactRequest(from_user=from_user, to_user=to_user)
+        s.add(req)
+        s.commit()
+        s.refresh(req)
+        return _contact_req_to_dict(req)
+
+
+def get_contact_requests_received(username: str) -> list:
+    """Pending contact requests where I am the target."""
+    with Session() as s:
+        rows = s.query(ContactRequest).filter_by(to_user=username, status='pending') \
+                                      .order_by(ContactRequest.created_at.desc()).all()
+        return [_contact_req_to_dict(r) for r in rows]
+
+
+def get_contact_requests_sent(username: str) -> list:
+    """All contact requests I have sent (any status)."""
+    with Session() as s:
+        rows = s.query(ContactRequest).filter_by(from_user=username) \
+                                      .order_by(ContactRequest.created_at.desc()).all()
+        return [_contact_req_to_dict(r) for r in rows]
+
+
+def respond_contact_request(req_id: int, to_user: str, accept: bool) -> bool:
+    with Session() as s:
+        req = s.query(ContactRequest).filter_by(id=req_id, to_user=to_user, status='pending').first()
+        if not req:
+            return False
+        req.status = 'approved' if accept else 'declined'
+        s.commit()
+        return True
+
+
+def has_contact_access(from_user: str, to_user: str) -> bool:
+    """True if from_user's contact request to to_user was approved."""
+    with Session() as s:
+        return s.query(ContactRequest).filter_by(
+            from_user=from_user, to_user=to_user, status='approved'
+        ).first() is not None

@@ -133,7 +133,64 @@ def get_contact(username):
     _, u  = user_manager._find_user(users, username)
     if not u:
         return jsonify({'ok': False, 'error': 'User not found'}), 404
+    if u.get('contact_hidden'):
+        return jsonify({'ok': False, 'error': 'Contact is hidden'}), 403
+    if not market_db.has_contact_access(me, username):
+        return jsonify({'ok': False, 'error': 'No contact access. Send a contact request first.'}), 403
     return jsonify({'ok': True, 'contact_info': u.get('contact_info', '')})
+
+
+@friends_bp.route('/<username>/contact/request', methods=['POST'])
+@login_required
+def request_contact(username):
+    me = request.current_user['username']
+    if not market_db.are_friends(me, username):
+        return jsonify({'ok': False, 'error': 'Not friends'}), 403
+    users = user_manager._load_users()
+    _, u  = user_manager._find_user(users, username)
+    if not u:
+        return jsonify({'ok': False, 'error': 'User not found'}), 404
+    if u.get('contact_hidden'):
+        return jsonify({'ok': False, 'error': 'Contact is hidden'}), 400
+    row = market_db.send_contact_request(me, username)
+    if row is None:
+        return jsonify({'ok': False, 'error': 'Request already sent or approved'}), 400
+    return jsonify({'ok': True, 'request': row}), 201
+
+
+@friends_bp.route('/contact/requests', methods=['GET'])
+@login_required
+def get_contact_requests():
+    """Pending contact requests I need to respond to."""
+    me   = request.current_user['username']
+    reqs = market_db.get_contact_requests_received(me)
+    users = user_manager._load_users()
+    for r in reqs:
+        _, u = user_manager._find_user(users, r['from_user'])
+        r['from_display'] = u.get('display_name', r['from_user']) if u else r['from_user']
+        r['from_avatar']  = u.get('avatar_url') if u else None
+    return jsonify({'ok': True, 'requests': reqs})
+
+
+@friends_bp.route('/contact/sent', methods=['GET'])
+@login_required
+def get_contact_sent():
+    """Contact requests I have sent (all statuses)."""
+    me = request.current_user['username']
+    return jsonify({'ok': True, 'requests': market_db.get_contact_requests_sent(me)})
+
+
+@friends_bp.route('/contact/requests/<int:req_id>', methods=['PUT'])
+@login_required
+def respond_contact(req_id):
+    me     = request.current_user['username']
+    action = (request.get_json() or {}).get('action')
+    if action not in ('approve', 'decline'):
+        return jsonify({'ok': False, 'error': 'action must be approve or decline'}), 400
+    ok = market_db.respond_contact_request(req_id, me, accept=(action == 'approve'))
+    if not ok:
+        return jsonify({'ok': False, 'error': 'Request not found or not yours'}), 404
+    return jsonify({'ok': True})
 
 
 @friends_bp.route('/<username>/history', methods=['GET'])

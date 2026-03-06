@@ -37,7 +37,10 @@ export default function Friends() {
   const [chatHistory, setChatHistory] = useState([])
   const [chatInput, setChatInput]   = useState('')
   const [onlineSet, setOnlineSet]   = useState(new Set())
-  const [contactModal, setContactModal] = useState(null)
+  const [contactModal, setContactModal]   = useState(null)
+  // contactStatusMap: { [username]: 'pending' | 'approved' | 'declined' }
+  const [contactStatusMap, setContactStatusMap] = useState({})
+  const [contactReqs, setContactReqs]     = useState([])  // incoming contact requests
   const [toast, setToast]           = useState(null)
   const [loading, setLoading]       = useState(false)
 
@@ -91,15 +94,27 @@ export default function Friends() {
   // ── Data loaders ────────────────────────────────────────────────────────────
   async function loadFriends() {
     setLoading(true)
-    const d = await api.get('/api/friends/list')
-    if (d.ok) setFriends(d.friends)
+    const [fRes, cRes] = await Promise.all([
+      api.get('/api/friends/list'),
+      api.get('/api/friends/contact/sent'),
+    ])
+    if (fRes.ok) setFriends(fRes.friends)
+    if (cRes.ok) {
+      const map = {}
+      cRes.requests.forEach(r => { map[r.to_user] = r.status })
+      setContactStatusMap(map)
+    }
     setLoading(false)
   }
 
   async function loadPending() {
     setLoading(true)
-    const d = await api.get('/api/friends/requests/pending')
-    if (d.ok) setPending(d.requests)
+    const [fRes, cRes] = await Promise.all([
+      api.get('/api/friends/requests/pending'),
+      api.get('/api/friends/contact/requests'),
+    ])
+    if (fRes.ok) setPending(fRes.requests)
+    if (cRes.ok) setContactReqs(cRes.requests)
     setLoading(false)
   }
 
@@ -167,6 +182,25 @@ export default function Friends() {
     else flash(d.error, 'danger')
   }
 
+  const requestContact = async (username) => {
+    const d = await api.post(`/api/friends/${username}/contact/request`)
+    if (d.ok) {
+      setContactStatusMap(prev => ({ ...prev, [username]: 'pending' }))
+      flash('Contact request sent!')
+    } else {
+      if (d.error === 'Contact is hidden') setContactStatusMap(prev => ({ ...prev, [username]: 'hidden' }))
+      flash(d.error, 'danger')
+    }
+  }
+
+  const respondContact = async (reqId, action, fromUser) => {
+    const d = await api.put(`/api/friends/contact/requests/${reqId}`, { action })
+    if (d.ok) {
+      setContactReqs(prev => prev.filter(r => r.id !== reqId))
+      flash(action === 'approve' ? 'Contact shared!' : 'Request declined.')
+    } else flash(d.error, 'danger')
+  }
+
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div className="container-fluid py-3" style={{ maxWidth: 720 }}>
@@ -214,9 +248,17 @@ export default function Friends() {
                 {onlineSet.has(activeChat.username) ? '🟢 Online' : '⚪ Offline'}
               </div>
             </div>
-            <button className="btn btn-outline-primary btn-sm" onClick={() => showContact(activeChat)}>
-              <i className="fas fa-id-card me-1" />Contact
-            </button>
+            {contactStatusMap[activeChat.username] === 'approved' ? (
+              <button className="btn btn-outline-success btn-sm" onClick={() => showContact(activeChat)}>
+                <i className="fas fa-id-card me-1" />Contact
+              </button>
+            ) : contactStatusMap[activeChat.username] === 'pending' ? (
+              <span className="badge bg-warning text-dark">Contact Pending</span>
+            ) : (
+              <button className="btn btn-outline-primary btn-sm" onClick={() => requestContact(activeChat.username)}>
+                <i className="fas fa-address-card me-1" />Request Contact
+              </button>
+            )}
           </div>
 
           {/* Messages */}
@@ -273,13 +315,13 @@ export default function Friends() {
           <div className="d-flex align-items-center gap-2 mb-4">
             <i className="fas fa-user-friends fa-lg text-primary" />
             <h4 className="mb-0 fw-bold">Friends</h4>
-            {pending.length > 0 && <span className="badge bg-danger">{pending.length}</span>}
+            {(pending.length + contactReqs.length) > 0 && <span className="badge bg-danger">{pending.length + contactReqs.length}</span>}
           </div>
 
           <ul className="nav nav-tabs mb-4">
             {[
               { key: 'friends', label: 'Friends',  icon: 'fa-user-friends' },
-              { key: 'pending', label: pending.length > 0 ? `Requests (${pending.length})` : 'Requests', icon: 'fa-bell' },
+              { key: 'pending', label: (pending.length + contactReqs.length) > 0 ? `Requests (${pending.length + contactReqs.length})` : 'Requests', icon: 'fa-bell' },
               { key: 'add',     label: 'Add',       icon: 'fa-user-plus' },
             ].map(t => (
               <li className="nav-item" key={t.key}>
@@ -301,7 +343,9 @@ export default function Friends() {
               </div>
             ) : (
               <div className="d-flex flex-column gap-2">
-                {friends.map(f => (
+                {friends.map(f => {
+                  const cStatus = contactStatusMap[f.username]
+                  return (
                   <div key={f.username} className="card px-3 py-2 d-flex flex-row align-items-center gap-3">
                     <div className="position-relative">
                       <Avatar display={f.display_name} avatar={f.avatar_url} size={42} />
@@ -317,7 +361,25 @@ export default function Friends() {
                       <div className="fw-semibold text-truncate">{f.display_name}</div>
                       <div className="text-muted small">{f.username}</div>
                     </div>
-                    <div className="d-flex gap-2 flex-shrink-0">
+                    <div className="d-flex gap-2 flex-shrink-0 flex-wrap justify-content-end">
+                      {/* Contact status */}
+                      {cStatus === 'approved' ? (
+                        <button className="btn btn-sm btn-outline-success" onClick={() => showContact(f)}>
+                          <i className="fas fa-id-card me-1" />Contact
+                        </button>
+                      ) : cStatus === 'pending' ? (
+                        <span className="badge bg-warning text-dark align-self-center">
+                          <i className="fas fa-clock me-1" />Pending
+                        </span>
+                      ) : cStatus === 'hidden' ? (
+                        <span className="badge bg-secondary align-self-center" title="They hid their contact">
+                          <i className="fas fa-eye-slash me-1" />Hidden
+                        </span>
+                      ) : (
+                        <button className="btn btn-sm btn-outline-primary" onClick={() => requestContact(f.username)}>
+                          <i className="fas fa-address-card me-1" />Request Contact
+                        </button>
+                      )}
                       <button className="btn btn-sm btn-primary" onClick={() => openChat(f)}>
                         <i className="fas fa-comment-dots me-1" />Chat
                       </button>
@@ -327,37 +389,71 @@ export default function Friends() {
                       </button>
                     </div>
                   </div>
-                ))}
+                )})}
               </div>
             )
 
           ) : tab === 'pending' ? (
-            pending.length === 0 ? (
+            pending.length === 0 && contactReqs.length === 0 ? (
               <div className="text-center py-5 text-muted">
                 <i className="fas fa-bell fa-3x mb-3 d-block opacity-25" />
-                <p>No pending friend requests.</p>
+                <p>No pending requests.</p>
               </div>
             ) : (
-              <div className="d-flex flex-column gap-2">
-                {pending.map(r => (
-                  <div key={r.id} className="card px-3 py-2 d-flex flex-row align-items-center gap-3">
-                    <Avatar display={r.from_display || r.from_user} avatar={r.from_avatar} size={42} />
-                    <div className="flex-grow-1">
-                      <div className="fw-semibold">{r.from_display || r.from_user}</div>
-                      <div className="text-muted small">
-                        {r.message || 'wants to be your friend'}
+              <div className="d-flex flex-column gap-3">
+                {/* Friend requests */}
+                {pending.length > 0 && (
+                  <>
+                    <div className="text-muted small fw-semibold text-uppercase" style={{ letterSpacing: '.06em' }}>
+                      Friend Requests
+                    </div>
+                    {pending.map(r => (
+                      <div key={r.id} className="card px-3 py-2 d-flex flex-row align-items-center gap-3">
+                        <Avatar display={r.from_display || r.from_user} avatar={r.from_avatar} size={42} />
+                        <div className="flex-grow-1">
+                          <div className="fw-semibold">{r.from_display || r.from_user}</div>
+                          <div className="text-muted small">
+                            {r.message || 'wants to be your friend'}
+                          </div>
+                        </div>
+                        <div className="d-flex gap-2 flex-shrink-0">
+                          <button className="btn btn-sm btn-success" onClick={() => respond(r.id, 'accept')}>
+                            <i className="fas fa-check me-1" />Accept
+                          </button>
+                          <button className="btn btn-sm btn-outline-secondary" onClick={() => respond(r.id, 'reject')}>
+                            Decline
+                          </button>
+                        </div>
                       </div>
+                    ))}
+                  </>
+                )}
+
+                {/* Contact requests */}
+                {contactReqs.length > 0 && (
+                  <>
+                    <div className="text-muted small fw-semibold text-uppercase mt-2" style={{ letterSpacing: '.06em' }}>
+                      Contact Requests
                     </div>
-                    <div className="d-flex gap-2 flex-shrink-0">
-                      <button className="btn btn-sm btn-success" onClick={() => respond(r.id, 'accept')}>
-                        <i className="fas fa-check me-1" />Accept
-                      </button>
-                      <button className="btn btn-sm btn-outline-secondary" onClick={() => respond(r.id, 'reject')}>
-                        Decline
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                    {contactReqs.map(r => (
+                      <div key={r.id} className="card px-3 py-2 d-flex flex-row align-items-center gap-3">
+                        <Avatar display={r.from_display || r.from_user} avatar={r.from_avatar} size={42} />
+                        <div className="flex-grow-1">
+                          <div className="fw-semibold">{r.from_display || r.from_user}</div>
+                          <div className="text-muted small">wants to see your contact info</div>
+                        </div>
+                        <div className="d-flex gap-2 flex-shrink-0">
+                          <button className="btn btn-sm btn-success" onClick={() => respondContact(r.id, 'approve', r.from_user)}>
+                            <i className="fas fa-check me-1" />Share
+                          </button>
+                          <button className="btn btn-sm btn-outline-secondary" onClick={() => respondContact(r.id, 'decline', r.from_user)}>
+                            Decline
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                )}
               </div>
             )
 

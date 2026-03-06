@@ -221,7 +221,8 @@ class UserManager:
 
     def update_user_profile(self, username: str, display_name: str = None,
                             email: str = None, avatar_url: str = None,
-                            contact_info: str = None) -> Tuple[bool, str]:
+                            contact_info: str = None,
+                            contact_hidden: bool = None) -> Tuple[bool, str]:
         fields = {}
         if display_name is not None:
             fields['display_name'] = display_name
@@ -231,6 +232,8 @@ class UserManager:
             fields['avatar_url'] = avatar_url
         if contact_info is not None:
             fields['contact_info'] = contact_info
+        if contact_hidden is not None:
+            fields['contact_hidden'] = bool(contact_hidden)
         if not market_db.db_update_user(username, **fields):
             return False, "User not found"
         return True, f"User {username} profile updated"

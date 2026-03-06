@@ -233,15 +233,17 @@ def update_user_status(username):
 @login_required
 def update_own_profile():
     """User updates their own display name, email, and/or contact_info."""
-    data         = request.get_json() or {}
-    display_name = data.get('display_name', '').strip() or None
-    email        = data.get('email', '').strip() or None
-    contact_info = data.get('contact_info')  # None means don't update; '' means clear
-    if display_name is None and email is None and contact_info is None:
+    data            = request.get_json() or {}
+    display_name    = data.get('display_name', '').strip() or None
+    email           = data.get('email', '').strip() or None
+    contact_info    = data.get('contact_info')   # None = don't update; '' = clear
+    contact_hidden  = data.get('contact_hidden') # None = don't update; bool = set
+    if display_name is None and email is None and contact_info is None and contact_hidden is None:
         return jsonify({'ok': False, 'error': 'Nothing to update'}), 400
     username = request.current_user['username']
     success, message = user_manager.update_user_profile(
-        username, display_name=display_name, email=email, contact_info=contact_info
+        username, display_name=display_name, email=email,
+        contact_info=contact_info, contact_hidden=contact_hidden,
     )
     if not success:
         return jsonify({'ok': False, 'error': message}), 400
