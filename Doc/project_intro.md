@@ -1,6 +1,6 @@
 # Horisation — Project Introduction
 
-Last updated: 2026-03-03
+Last updated: 2026-03-06
 
 ---
 
@@ -32,12 +32,12 @@ Access is **invitation-only**. No public registration.
 | Component | Technology |
 |-----------|------------|
 | Language | Python 3.11 |
-| Framework | Flask |
-| WSGI Server | Gunicorn (4 workers) |
-| User Storage | JSON files (`_data/users.json`) |
-| Listing / Message Storage | SQLite via SQLAlchemy (`_data/market.db`) |
+| Framework | Flask + Flask-SocketIO |
+| WSGI Server | Gunicorn (`-w 1` for SocketIO, eventlet worker) |
+| Data Storage | SQLite via SQLAlchemy (`_data/market.db`) — all data including users and sessions |
 | Image Storage | Cloudflare R2 (S3-compatible object storage) |
 | Auth | Session-based (server-side cookies + Werkzeug ProxyFix) |
+| Real-time | Socket.IO + Redis message queue (eventlet on server, threading locally) |
 
 ### Frontend
 | Component | Technology |
@@ -82,10 +82,12 @@ Images are stored in Cloudflare R2; only the public URL is kept in the database.
 |---------|-------|-------|-------------|
 | Home | `/home` | All | Personal dashboard with feature overview |
 | Hormemo | `/hormemo` | All | Personal memo / task tracker (CRUD, priority, tags) |
-| Market | `/market` | All | Second-hand trading — post listings with images, price, contact |
+| Market | `/market` | All | Second-hand trading — browse, post listings with images, Reach Out to sellers, seller profile modal |
 | Message Board | `/feedback` | All | Community message board, all users can post |
-| Profile | `/profile` | All | Update display name, email, password, avatar |
-| Gomoku | `/fun/gomoku` | All | Local 2-player Five in a Row, 15×15 board |
+| Friends | `/friends` | All | Friend system: search, add, private chat, contact sharing with approval flow |
+| Profile | `/profile` | All | Update display name, email, password, avatar, contact info (with hide toggle) |
+| Gomoku (Local) | `/fun/gomoku` | All | Local 2-player Five in a Row, 15×15 board |
+| Gomoku (Online) | `/fun/online-gomoku` | All | Real-time multiplayer Five in a Row via Socket.IO |
 | Admin | `/admin` | admin+ | User management (create, edit, reset password, delete, role) |
 | CSV Workspace | `/csv` | horizon only | Upload, preview, and summarise CSV / Excel files |
 
@@ -104,53 +106,61 @@ Images are stored in Cloudflare R2; only the public URL is kept in the database.
 
 ```
 Horisation/
-├── app.py                            # Flask entry point (API + React catch-all)
+├── app.py                            # Flask entry point (API + React catch-all + SocketIO init)
 ├── requirements.txt
 ├── deploy.sh → scripts/deploy.sh     # Server deploy entry point
 ├── scripts/
 │   ├── deploy.sh                     # Full deploy: pull → pip → npm build → restart
 │   ├── dev.bat                       # Windows local dev: Flask + Vite
+│   ├── _flask_local.bat              # Sets LOCAL_DEV=1, starts Flask (threading mode)
 │   └── build-run.bat                 # Windows local production test
 ├── _data/                            # Runtime data (gitignored except notes/)
-│   ├── users.json                    # User accounts + memos (gitignored)
-│   ├── sessions.json                 # Active sessions (gitignored)
-│   ├── market.db                     # SQLite: listings + images + messages (gitignored)
-│   └── notes/                        # Per-user note files
+│   ├── market.db                     # SQLite: ALL data — users, sessions, listings, friends, chat, memos
+│   └── notes/                        # Per-user note files (git tracked)
 ├── Backend/
 │   └── Controller/
-│       ├── auth_controller.py        # /api/auth/*
+│       ├── auth_controller.py        # /api/auth/* — login, register, profile, avatar
 │       ├── csvcontroller.py          # /api/csv/*
 │       ├── memos_controller.py       # /api/memos/*
 │       ├── notes_controller.py       # /api/notes/*
 │       ├── market_controller.py      # /api/market/*
 │       ├── feedback_controller.py    # /api/feedback/*
-│       ├── user_manager.py           # User / session management (JSON)
-│       ├── market_db.py              # SQLAlchemy models: Listing, ListingImage, Message
+│       ├── friends_controller.py     # /api/friends/* — search, requests, friends, contact, chat history
+│       ├── friends_socket.py         # Socket.IO events: friend notifications, private chat
+│       ├── game_controller.py        # Socket.IO events: online Gomoku rooms and moves
+│       ├── user_manager.py           # User / session management (SQLite via market_db)
+│       ├── market_db.py              # All SQLAlchemy models + helpers
 │       └── r2_manager.py             # Cloudflare R2 upload/delete
 ├── frontend/
 │   ├── public/
-│   │   └── logol.avif                # Logo
+│   │   ├── logo.png                  # Login page logo
+│   │   └── logol.avif                # Sidebar logo
 │   ├── index.html
 │   ├── vite.config.js
 │   └── src/
 │       ├── App.jsx                   # Router + AuthContext
 │       ├── api.js                    # Fetch wrapper
+│       ├── index.css                 # Global styles + responsive rules
 │       ├── components/
 │       │   ├── Sidebar.jsx
 │       │   ├── Topbar.jsx
-│       │   └── Layout.jsx
+│       │   ├── Layout.jsx
+│       │   ├── FlowerCanvas.jsx      # Watercolor petal animation (canvas, SVG filter)
+│       │   └── HandLoader.jsx        # Loading spinner
 │       └── pages/
-│           ├── Login.jsx
+│           ├── Login.jsx             # Full-screen flower animation + frosted-glass card
 │           ├── Home.jsx
 │           ├── CSV.jsx
 │           ├── Hormemo.jsx
-│           ├── Market.jsx
+│           ├── Market.jsx            # Browse / My Listings / Post Item; seller modal; Reach Out
 │           ├── Feedback.jsx
+│           ├── Friends.jsx           # Friends list, search, private chat, contact requests
 │           ├── Profile.jsx
 │           ├── AdminUsers.jsx
 │           ├── UnderDevelopment.jsx
 │           └── fun/
-│               └── Gomoku.jsx
+│               ├── Gomoku.jsx        # Local 2-player
+│               └── OnlineGomoku.jsx  # Real-time multiplayer (Socket.IO)
 ├── Key/
 │   └── r2_config.json                # R2 credentials (gitignored)
 └── Doc/
@@ -175,8 +185,10 @@ Horisation/
 
 ## Roadmap
 
-- [ ] Migrate user storage (users.json) to PostgreSQL
-- [ ] Password hashing (bcrypt)
+- [ ] Password hashing (bcrypt) — currently plaintext
+- [ ] Group messaging / group chat
+- [ ] Avalon board game
 - [ ] More games in For Fun section
 - [ ] Data visualisation tools
 - [ ] CI/CD pipeline (GitHub Actions → EC2)
+- [ ] Migrate SQLite → PostgreSQL for concurrent write safety

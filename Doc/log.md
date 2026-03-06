@@ -2,6 +2,85 @@
 
 ---
 
+## 2026-03-06
+
+### User & Session Migration — JSON → SQLite
+- `users.json` and `sessions.json` fully retired; replaced by `user` and `session` tables in `market.db`
+- `User` model: auto-increment integer PK, all existing profile fields + `contact_hidden` flag
+- `UserSession` model: token PK, username, created_at, expires_at
+- `_migrate_from_json()` in `init_db()`: one-time migration on first startup, renames source file to `.migrated` after completion
+- `user_manager.py` fully rewritten — same public API, all JSON ops replaced with SQLAlchemy helpers from `market_db.py`
+- `db_search_users(q)`: case-insensitive ilike search on username + display_name, limit 20
+
+### Friend System
+- New models in `market_db.py`: `FriendRequest`, `Friendship`, `PrivateChatMessage`
+- New blueprint `friends_controller.py` (`/api/friends/*`):
+  - `GET /users?q=` — search users (min 2 chars)
+  - `POST /requests` — send friend request (with optional message)
+  - `GET /requests/pending` — incoming requests
+  - `GET /requests/sent` — sent requests
+  - `PUT /requests/<id>` — accept / reject
+  - `GET /list` — friend list (with display name + avatar)
+  - `DELETE /<username>` — unfriend
+  - `GET /<username>/contact` — view contact info (now requires contact request approval)
+  - `GET /<username>/history` — private chat history
+- New `friends_socket.py`: real-time friend request + accept notifications via Socket.IO
+- New `Friends.jsx` page (`/friends`):
+  - **Friends tab**: list with online indicator, Chat / Request Contact / Unfriend buttons
+  - **Requests tab**: Friend Requests section + Contact Requests section (Approve / Decline)
+  - **Add tab**: live user search (2+ chars), Add / Pending / Friends status per result
+  - Real-time private chat with message history (Socket.IO room keyed on sorted usernames)
+  - Auto-open chat when navigated from Market with `location.state.openChat`
+
+### Contact Request System
+- New `ContactRequest` model: tracks per-user contact sharing permissions (`pending / approved / declined`)
+- `contact_hidden` boolean field on `User` — prevents friends from sending contact requests
+- New endpoints under `/api/friends/`:
+  - `POST /<username>/contact/request` — request to see someone's contact info
+  - `GET /contact/requests` — incoming contact requests I need to respond to
+  - `GET /contact/sent` — contact requests I have sent
+  - `PUT /contact/requests/<id>` — approve or decline (action: `approve` / `decline`)
+- `GET /<username>/contact` updated: now checks `has_contact_access()` before returning info
+- **Profile page**: contact info section updated with description; new "Hide my contact" toggle switch
+- **Friends page**: contact status per friend shown inline (Request Contact / Pending / Contact (green) / Hidden)
+
+### Market Improvements
+- **Browse tab filters out own listings** — you no longer see your own items when browsing
+- **Tab order changed**: Browse → My Listings → Post Item
+- **Seller info on cards**: seller avatar + display name shown; clicking opens seller profile modal
+- **Seller profile modal**: shows seller's avatar, name, all active listings as mini-cards + Reach Out / Add Friend button
+- **"Reach Out" button** replaces "I'm Interested":
+  - Already friends → navigates to `/friends` with `location.state { openChat, initialMessage }` pre-filling chat input with `"嗨！我看到你发布的《title》，想聊一聊 😊"`
+  - Not friends → sends friend request with auto-message
+- New API `GET /api/market/user/<username>` — returns active listings for any user
+- Listing response enriched with `seller_display` and `seller_avatar` (batch-fetched from User table, no N+1)
+- `original_price` field added to `Listing` model
+
+### Login Page Redesign
+- New `FlowerCanvas.jsx` component — watercolor petal growth animation (canvas-based, ResizeObserver, unique SVG filter IDs per instance, `origin` prop)
+- Login page fully redesigned: full-screen fixed canvas background (flowers from bottom-right), frosted-glass login card, logo + "Arch Bay" title above card, bottom-left St. Louis tagline in Chinese
+- **Responsive** (`<= 600px`): logo shrinks to 200×120, content centres, tagline hidden to save space
+- CSS classes (`login-page-overlay`, `login-logo`, `login-form-wrap`, `login-tagline`) moved to `index.css` for clean media query control
+
+### Online Gomoku (五子棋)
+- New page `/fun/online-gomoku` — real-time multiplayer Five in a Row via Socket.IO
+- `GameRoom` model in `market_db.py` (host, player2, board JSON, current_turn, winner, win_cells)
+- `game_controller.py`: Socket.IO events for room create/join/move/leave/reset
+- `OnlineGomoku.jsx`: lobby list + in-game board UI
+
+### Profile & Permissions
+- Permissions section hidden for VIP1 (level ≤ 60) and `user` role — only shown to VIP2+ and admins
+
+### Local Dev Script
+- `scripts/dev.bat` — launches Flask + Vite in separate windows
+- `scripts/_flask_local.bat` — sets `LOCAL_DEV=1` before starting Flask (uses threading mode, no Redis/eventlet required)
+- `app.py`: `LOCAL_DEV=1` switches SocketIO to `async_mode='threading'` and disables `SESSION_COOKIE_SECURE`
+
+### Deploy
+- `scripts/deploy.sh`: removed users.json / sessions.json backup block (data now lives in `market.db` which is gitignored and never touched by `git reset --hard`)
+
+---
+
 ## 2026-03-02
 
 ### Marketplace Feature (二手交易平台)

@@ -1,176 +1,236 @@
 # Horisation — Data Storage Reference
 
-Last updated: 2026-03-01
+Last updated: 2026-03-06
 
 ---
 
 ## Overview
 
-The project uses **three different storage layers** depending on the nature of the data:
+All persistent data lives in a single **SQLite database** (`_data/market.db`) managed by SQLAlchemy ORM.
+Actual image files are stored in **Cloudflare R2** object storage.
 
 | Layer | Technology | Location | Used For |
 |-------|-----------|----------|----------|
-| JSON files | Plain JSON | `_data/` | Users, sessions, notes |
-| Relational DB | SQLite (SQLAlchemy) | `_data/market.db` | Market listings & images metadata |
-| Object Storage | Cloudflare R2 | Cloud bucket | Market listing images (actual files) |
+| Relational DB | SQLite (SQLAlchemy) | `_data/market.db` | All structured data |
+| Object Storage | Cloudflare R2 | Cloud bucket | Image files (listings + avatars) |
+| JSON files | Plain JSON | `_data/notes/` | Per-user notes (git tracked) |
+
+> **Previous state**: `users.json` and `sessions.json` were used before March 2026.
+> They were migrated to SQLite on first startup and renamed to `.migrated`.
 
 ---
 
-## 1. JSON File Storage (`_data/`)
+## SQLite Database — `_data/market.db`
 
-Simple file-based storage. Each read/write loads or saves the entire file.
+Created automatically on app startup via `init_db()` in `market_db.py`.
+Built with SQLAlchemy ORM — can migrate to PostgreSQL by changing the engine URL (one line).
 
-### `_data/users.json`
-Stores all user accounts. Dict key is the user's registration key (may differ from `username` field — use `_find_user()` to look up by username).
+### Table: `user`
 
-```json
-{
-  "horizon": {
-    "username": "horizon",
-    "password": "horizon",
-    "role": "horizon",
-    "email": "horizon@horisation.com",
-    "display_name": "Horizon Administrator",
-    "created_at": "2025-10-12T16:51:56.646191",
-    "is_active": true,
-    "memos": [
-      {
-        "id": "uuid",
-        "content": "...",
-        "type": "general | todo | reminder | idea",
-        "tags": [],
-        "priority": "low | normal | high",
-        "status": "active | completed",
-        "created_at": "ISO8601",
-        "updated_at": "ISO8601",
-        "due_date": null,
-        "completed_at": null
-      }
-    ]
-  }
-}
-```
+| Column | Type | Notes |
+|--------|------|-------|
+| id | INTEGER | Auto-increment PK |
+| username | TEXT | Unique, indexed |
+| password | TEXT | Plaintext (⚠️ needs bcrypt) |
+| role | TEXT | horizon / horizonadmin / vip1 / vip2 / vip3 / user |
+| email | TEXT | Optional |
+| display_name | TEXT | Shown in UI |
+| is_active | BOOLEAN | Deactivated users cannot log in |
+| avatar_url | TEXT | R2 public URL |
+| contact_info | TEXT | WeChat / phone / handle — shared on request |
+| contact_hidden | BOOLEAN | When true, friends cannot send contact requests |
+| created_at | DATETIME | UTC |
 
-**Managed by:** `Backend/Controller/user_manager.py`
-- `_load_users()` / `_save_users()`
-- `_find_user(users, username)` — search by `username` field, not dict key
-
-> ⚠️ Memos are stored **inside** the user object (denormalised). This works for small datasets but means loading all users just to read one user's memos.
+**Managed by:** `market_db.py` helpers (`db_create_user`, `db_get_user`, `db_update_user`, etc.)
+via `user_manager.py` public API.
 
 ---
 
-### `_data/sessions.json`
-Active login session tokens. Expires after 24 hours.
+### Table: `session`
 
-```json
-{
-  "token_string": {
-    "username": "horizon",
-    "created_at": "ISO8601",
-    "expires_at": "ISO8601"
-  }
-}
-```
-
-**Managed by:** `Backend/Controller/user_manager.py`
-- `create_session(username)` → token
-- `validate_session(token)` → user info or None
+| Column | Type | Notes |
+|--------|------|-------|
+| token | TEXT | PK (64-char random hex) |
+| username | TEXT | Indexed |
+| created_at | DATETIME | UTC |
+| expires_at | DATETIME | UTC — 24h from login |
 
 ---
-
-### `_data/notes/<username>_notes.json`
-Per-user notes files. One file per user, created on first note.
-
-```json
-[
-  {
-    "id": "uuid",
-    "title": "...",
-    "content": "...",
-    "created_at": "ISO8601",
-    "updated_at": "ISO8601"
-  }
-]
-```
-
-**Managed by:** `Backend/Controller/notes_manager.py`
-
----
-
-## 2. SQLite Database (`_data/market.db`)
-
-Used for the Market feature. Created automatically on app startup via `init_db()`.
-Built with **SQLAlchemy ORM** — can be migrated to PostgreSQL by changing one line (the engine URL).
 
 ### Table: `listings`
 
 | Column | Type | Notes |
 |--------|------|-------|
-| id | TEXT (UUID) | Primary key |
-| seller_username | TEXT | References username in users.json |
+| id | TEXT (UUID) | PK |
+| seller_username | TEXT | Indexed |
 | title | TEXT | Max 100 chars |
 | description | TEXT | Full text |
-| price | REAL | Float, non-negative |
+| price | REAL | Selling price (non-negative) |
+| original_price | REAL | Optional; shown with strikethrough if > price |
 | category | TEXT | electronics / clothing / books / furniture / other |
-| contact | TEXT | WeChat / phone, shown publicly |
+| contact | TEXT | Legacy field (kept for compatibility) |
 | status | TEXT | `active` / `sold` / `removed` |
 | created_at | DATETIME | UTC |
 | updated_at | DATETIME | UTC, auto-updates |
+
+---
 
 ### Table: `listing_images`
 
 | Column | Type | Notes |
 |--------|------|-------|
-| id | TEXT (UUID) | Primary key |
+| id | TEXT (UUID) | PK |
 | listing_id | TEXT (UUID) | FK → listings.id (cascade delete) |
 | r2_url | TEXT | Public URL served to browser |
-| r2_key | TEXT | Object key in R2 bucket (for deletion) |
+| r2_key | TEXT | Object key in R2 (for deletion) |
 | display_order | INTEGER | 0, 1, 2 |
-
-**Managed by:** `Backend/Controller/market_db.py`
-
-> Migration to PostgreSQL: change engine URL in `market_db.py`:
-> ```python
-> # SQLite (current)
-> create_engine('sqlite:///_data/market.db')
->
-> # PostgreSQL (future)
-> create_engine('postgresql://user:password@host/dbname')
-> ```
 
 ---
 
-## 3. Cloudflare R2 (Object Storage)
+### Table: `messages` (Message Board)
 
-Used to store actual image files for market listings.
-Accessed via `boto3` with an S3-compatible API.
+| Column | Type | Notes |
+|--------|------|-------|
+| id | TEXT (UUID) | PK |
+| username | TEXT | Author |
+| display_name | TEXT | Snapshot at post time |
+| content | TEXT | Max 500 chars |
+| created_at | DATETIME | UTC |
+
+---
+
+### Table: `memos`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | TEXT (UUID) | PK |
+| username | TEXT | Indexed |
+| content | TEXT | Memo body |
+| type | TEXT | general / todo / reminder / idea |
+| priority | TEXT | low / normal / high |
+| status | TEXT | active / completed |
+| tags | TEXT | JSON array |
+| due_date | TEXT | Optional date string |
+| completed_at | DATETIME | Set when status → completed |
+| created_at / updated_at | DATETIME | UTC |
+
+---
+
+### Table: `game_rooms` (Online Gomoku)
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | TEXT (UUID) | PK |
+| name | TEXT | Room display name |
+| host | TEXT | Player 1 username (black stones) |
+| player2 | TEXT | Player 2 username (white stones), nullable |
+| status | TEXT | waiting / playing / finished |
+| board | TEXT | JSON array of 225 cells (15×15) |
+| current_turn | TEXT | Username whose turn it is |
+| winner | TEXT | Username of winner, nullable |
+| win_cells | TEXT | JSON array of winning cell indices |
+| created_at | DATETIME | UTC |
+
+---
+
+### Table: `friend_requests`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | TEXT (UUID) | PK |
+| from_user | TEXT | Indexed |
+| to_user | TEXT | Indexed |
+| status | TEXT | pending / accepted / rejected |
+| message | TEXT | Optional note sent with request |
+| created_at / updated_at | DATETIME | UTC |
+
+---
+
+### Table: `friendships`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | TEXT (UUID) | PK |
+| user_a | TEXT | Lexicographically smaller username |
+| user_b | TEXT | Lexicographically larger username |
+| created_at | DATETIME | UTC |
+
+> `user_a <= user_b` always — use `_friend_pair(a, b)` helper to normalise before querying.
+
+---
+
+### Table: `private_chat_messages`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | TEXT (UUID) | PK |
+| room_key | TEXT | `"{user_a}:{user_b}"` (sorted), indexed |
+| sender | TEXT | Sender username |
+| content | TEXT | Max 1000 chars |
+| created_at | DATETIME | UTC |
+
+---
+
+### Table: `contact_requests`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | INTEGER | Auto-increment PK |
+| from_user | TEXT | Requester, indexed |
+| to_user | TEXT | Target (whose contact is requested), indexed |
+| status | TEXT | pending / approved / declined |
+| created_at | DATETIME | UTC |
+
+> Friends can request to see another friend's `contact_info`.
+> The target must `approve` before the info is revealed.
+> `contact_hidden = true` on User prevents any requests from being sent.
+
+---
+
+## Cloudflare R2 (Object Storage)
+
+Used to store image files. Accessed via `boto3` (S3-compatible API).
 
 **Bucket:** `horisation-market`
 **Config file:** `Key/r2_config.json` (gitignored — never committed)
 
 ### Object Key Format
 ```
-listings/<listing_uuid>/<image_uuid>.jpg
+listings/<listing_uuid>/<image_uuid>.jpg   ← listing images
+avatars/<username>.jpg                     ← user avatars
 ```
 
-### Flow
+### Flow — Listing Image
 ```
 User uploads image
   → Flask validates (JPEG/PNG, max 5MB, max 3 per listing)
-  → r2_manager.upload_image() puts file to R2
-  → R2 returns public URL
+  → r2_manager.upload_image() → R2
   → URL + key stored in listing_images table
-  → Browser loads image directly from R2 (no Flask involvement)
+  → Browser loads image directly from R2 CDN
 
 User deletes listing
-  → market_db.delete_listing() returns list of r2_keys
-  → r2_manager.delete_image() removes each file from R2
+  → market_db.delete_listing() returns r2_keys list
+  → r2_manager.delete_image() removes each from R2
   → DB rows deleted via cascade
 ```
 
 **Managed by:** `Backend/Controller/r2_manager.py`
-- `upload_image(file_obj, filename)` → `(r2_key, public_url)`
-- `delete_image(r2_key)` → `bool`
+
+---
+
+## Notes Storage (`_data/notes/`)
+
+Per-user JSON files, one file per user, git-tracked.
+
+```
+_data/notes/
+├── horizon_notes.json
+└── <username>_notes.json
+```
+
+Each file is a JSON array of note objects: `{ id, title, content, created_at, updated_at }`.
+
+**Managed by:** `Backend/Controller/notes_controller.py`
 
 ---
 
@@ -178,29 +238,39 @@ User deletes listing
 
 ```
 _data/
-├── users.json          ← all users + their memos (JSON)
-├── sessions.json       ← active session tokens (JSON)
-├── market.db           ← market listings + image metadata (SQLite)
-└── notes/
-    ├── horizon_notes.json
-    └── <username>_notes.json
-
-_uploads/               ← temporary CSV uploads (not persisted)
+├── market.db            ← all structured data (SQLite, gitignored)
+└── notes/               ← per-user note JSON files (git tracked)
 
 Key/
-└── r2_config.json      ← R2 credentials (gitignored)
+└── r2_config.json       ← R2 credentials (gitignored)
 
 Cloudflare R2 bucket: horisation-market
-└── listings/<id>/<img>.jpg   ← actual image files
+├── listings/<id>/<img>.jpg
+└── avatars/<username>.jpg
 ```
 
 ---
 
-## Limitations & Future Improvements
+## PostgreSQL Migration Path
 
-| Current | Limitation | Future Fix |
-|---------|-----------|------------|
-| users.json | No concurrent write safety | Move to PostgreSQL |
-| Memos inside users.json | Must load all users to query memos | Separate `memos` table in DB |
-| Plain text passwords | Security risk | bcrypt hashing |
-| SQLite | Single-writer, file-based | Migrate to PostgreSQL (one-line change) |
+Change one line in `market_db.py`:
+
+```python
+# Current (SQLite)
+engine = create_engine(f'sqlite:///{DB_PATH}', echo=False)
+
+# Future (PostgreSQL)
+engine = create_engine('postgresql://user:password@host/dbname', echo=False)
+```
+
+All models and helpers are ORM-based and require no further changes.
+
+---
+
+## Known Limitations
+
+| Issue | Impact | Fix |
+|-------|--------|-----|
+| Plaintext passwords | Security risk | bcrypt hashing |
+| SQLite single-writer | Concurrent writes may fail under load | Migrate to PostgreSQL |
+| No soft delete on users | Deleted user data lost | Add `deleted_at` timestamp |
