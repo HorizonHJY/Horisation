@@ -37,8 +37,10 @@ class User(Base):
     display_name    = Column(String(100), default='')
     is_active       = Column(Boolean, default=True)
     avatar_url      = Column(String(500), nullable=True)
-    contact_info    = Column(Text, nullable=True)
+    contact_info    = Column(Text, nullable=True)   # legacy, kept for migration
     contact_hidden  = Column(Boolean, default=False)
+    wechat          = Column(String(200), nullable=True)
+    phone           = Column(String(50),  nullable=True)
     created_at      = Column(DateTime, default=lambda: datetime.utcnow())
 
 
@@ -142,6 +144,8 @@ def _migrate_columns():
         "ALTER TABLE listings ADD COLUMN original_price REAL",
         "ALTER TABLE friend_requests ADD COLUMN message TEXT",
         "ALTER TABLE user ADD COLUMN contact_hidden BOOLEAN DEFAULT 0",
+        "ALTER TABLE user ADD COLUMN wechat TEXT",
+        "ALTER TABLE user ADD COLUMN phone TEXT",
     ]
     with Session() as s:
         for stmt in stmts:
@@ -193,6 +197,8 @@ def _user_to_dict(u: User) -> dict:
         'avatar_url':      u.avatar_url,
         'contact_info':    u.contact_info or '',
         'contact_hidden':  bool(u.contact_hidden),
+        'wechat':          u.wechat or '',
+        'phone':           u.phone or '',
         'created_at':      u.created_at.isoformat() if u.created_at else '',
     }
 
@@ -232,7 +238,7 @@ def db_search_users(q: str) -> List[dict]:
 
 def db_update_user(username: str, **fields) -> bool:
     allowed = {'password', 'role', 'email', 'display_name',
-               'is_active', 'avatar_url', 'contact_info', 'contact_hidden'}
+               'is_active', 'avatar_url', 'contact_info', 'contact_hidden', 'wechat', 'phone'}
     with Session() as s:
         u = s.query(User).filter_by(username=username).first()
         if not u:
@@ -886,6 +892,25 @@ def has_contact_access(from_user: str, to_user: str) -> bool:
         return s.query(ContactRequest).filter_by(
             from_user=from_user, to_user=to_user, status='approved'
         ).first() is not None
+
+
+def get_contact_requests_approved(username: str) -> list:
+    """Approved contact requests where I am the target (people I've shared my contact with)."""
+    with Session() as s:
+        rows = s.query(ContactRequest).filter_by(to_user=username, status='approved') \
+                                      .order_by(ContactRequest.created_at.desc()).all()
+        return [_contact_req_to_dict(r) for r in rows]
+
+
+def revoke_contact_access(req_id: int, to_user: str) -> bool:
+    """Revoke an approved contact request (set status back to declined)."""
+    with Session() as s:
+        req = s.query(ContactRequest).filter_by(id=req_id, to_user=to_user, status='approved').first()
+        if not req:
+            return False
+        req.status = 'declined'
+        s.commit()
+        return True
 
 
 # ── Chat read / unread helpers ─────────────────────────────────────────────────

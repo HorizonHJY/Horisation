@@ -41,6 +41,7 @@ export default function Friends() {
   const [chatInput, setChatInput]   = useState('')
   const [onlineSet, setOnlineSet]   = useState(new Set())
   const [contactModal, setContactModal]   = useState(null)
+  const [sharedContacts, setSharedContacts] = useState([])  // approved contact reqs where I am to_user
   // contactStatusMap: { [username]: 'pending' | 'approved' | 'declined' }
   const [contactStatusMap, setContactStatusMap] = useState({})
   const [contactReqs, setContactReqs]     = useState([])  // incoming contact requests
@@ -138,12 +139,14 @@ export default function Friends() {
 
   async function loadPending() {
     setLoading(true)
-    const [fRes, cRes] = await Promise.all([
+    const [fRes, cRes, sRes] = await Promise.all([
       api.get('/api/friends/requests/pending'),
       api.get('/api/friends/contact/requests'),
+      api.get('/api/friends/contact/shared'),
     ])
     if (fRes.ok) setPending(fRes.requests)
     if (cRes.ok) setContactReqs(cRes.requests)
+    if (sRes.ok) setSharedContacts(sRes.requests)
     setLoading(false)
   }
 
@@ -210,8 +213,16 @@ export default function Friends() {
 
   const showContact = async (friend) => {
     const d = await api.get(`/api/friends/${friend.username}/contact`)
-    if (d.ok) setContactModal({ name: friend.display_name, info: d.contact_info || '(not set)' })
+    if (d.ok) setContactModal({ name: friend.display_name, phone: d.phone, wechat: d.wechat })
     else flash(d.error, 'danger')
+  }
+
+  const revokeContact = async (reqId, fromUser) => {
+    const d = await api.put(`/api/friends/contact/requests/${reqId}`, { action: 'revoke' })
+    if (d.ok) {
+      setSharedContacts(prev => prev.filter(r => r.id !== reqId))
+      flash(`Contact access revoked for ${fromUser}.`)
+    } else flash(d.error, 'danger')
   }
 
   const requestContact = async (username) => {
@@ -256,9 +267,19 @@ export default function Friends() {
                 <h6 className="modal-title">{contactModal.name}'s Contact</h6>
                 <button className="btn-close" onClick={() => setContactModal(null)} />
               </div>
-              <div className="modal-body text-center py-4">
-                <i className="fas fa-id-card fa-2x text-primary mb-3 d-block" />
-                <p className="fs-5 mb-0 fw-semibold">{contactModal.info}</p>
+              <div className="modal-body py-4">
+                <div className="row g-0 text-center">
+                  <div className="col-6 border-end py-3">
+                    <i className="fas fa-phone text-primary mb-2 d-block" />
+                    <div className="text-muted small mb-1">Phone</div>
+                    <div className="fw-semibold">{contactModal.phone || '—'}</div>
+                  </div>
+                  <div className="col-6 py-3">
+                    <i className="fab fa-weixin text-success mb-2 d-block" />
+                    <div className="text-muted small mb-1">WeChat</div>
+                    <div className="fw-semibold">{contactModal.wechat || '—'}</div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -433,7 +454,7 @@ export default function Friends() {
             )
 
           ) : tab === 'pending' ? (
-            pending.length === 0 && contactReqs.length === 0 ? (
+            pending.length === 0 && contactReqs.length === 0 && sharedContacts.length === 0 ? (
               <div className="text-center py-5 text-muted">
                 <i className="fas fa-bell fa-3x mb-3 d-block opacity-25" />
                 <p>No pending requests.</p>
@@ -489,6 +510,28 @@ export default function Friends() {
                             Decline
                           </button>
                         </div>
+                      </div>
+                    ))}
+                  </>
+                )}
+
+                {/* Shared with */}
+                {sharedContacts.length > 0 && (
+                  <>
+                    <div className="text-muted small fw-semibold text-uppercase mt-2" style={{ letterSpacing: '.06em' }}>
+                      Shared With
+                    </div>
+                    {sharedContacts.map(r => (
+                      <div key={r.id} className="card px-3 py-2 d-flex flex-row align-items-center gap-3">
+                        <Avatar display={r.from_display || r.from_user} avatar={r.from_avatar} size={42} />
+                        <div className="flex-grow-1">
+                          <div className="fw-semibold">{r.from_display || r.from_user}</div>
+                          <div className="text-muted small">can see your contact info</div>
+                        </div>
+                        <button className="btn btn-sm btn-outline-danger flex-shrink-0"
+                          onClick={() => revokeContact(r.id, r.from_display || r.from_user)}>
+                          <i className="fas fa-eye-slash me-1" />Revoke
+                        </button>
                       </div>
                     ))}
                   </>

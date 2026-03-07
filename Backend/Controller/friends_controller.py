@@ -137,7 +137,7 @@ def get_contact(username):
         return jsonify({'ok': False, 'error': 'Contact is hidden'}), 403
     if not market_db.has_contact_access(me, username):
         return jsonify({'ok': False, 'error': 'No contact access. Send a contact request first.'}), 403
-    return jsonify({'ok': True, 'contact_info': u.get('contact_info', '')})
+    return jsonify({'ok': True, 'phone': u.get('phone', ''), 'wechat': u.get('wechat', '')})
 
 
 @friends_bp.route('/<username>/contact/request', methods=['POST'])
@@ -201,13 +201,32 @@ def mark_read(username):
     return jsonify({'ok': True})
 
 
+@friends_bp.route('/contact/shared', methods=['GET'])
+@login_required
+def get_contact_shared():
+    """Approved contact requests I have shared (people who can currently see my contact)."""
+    me   = request.current_user['username']
+    reqs = market_db.get_contact_requests_approved(me)
+    users = user_manager._load_users()
+    for r in reqs:
+        _, u = user_manager._find_user(users, r['from_user'])
+        r['from_display'] = u.get('display_name', r['from_user']) if u else r['from_user']
+        r['from_avatar']  = u.get('avatar_url') if u else None
+    return jsonify({'ok': True, 'requests': reqs})
+
+
 @friends_bp.route('/contact/requests/<int:req_id>', methods=['PUT'])
 @login_required
 def respond_contact(req_id):
     me     = request.current_user['username']
     action = (request.get_json() or {}).get('action')
+    if action == 'revoke':
+        ok = market_db.revoke_contact_access(req_id, me)
+        if not ok:
+            return jsonify({'ok': False, 'error': 'Request not found or not yours'}), 404
+        return jsonify({'ok': True})
     if action not in ('approve', 'decline'):
-        return jsonify({'ok': False, 'error': 'action must be approve or decline'}), 400
+        return jsonify({'ok': False, 'error': 'action must be approve, decline, or revoke'}), 400
     ok = market_db.respond_contact_request(req_id, me, accept=(action == 'approve'))
     if not ok:
         return jsonify({'ok': False, 'error': 'Request not found or not yours'}), 404

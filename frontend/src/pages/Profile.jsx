@@ -12,7 +12,7 @@ export default function Profile() {
 
   const [nameForm, setNameForm]     = useState({ display_name: user?.display_name ?? '', email: user?.email ?? '' })
   const [passForm, setPassForm]     = useState({ current_password: '', new_password: '', confirm: '' })
-  const [contactForm, setContactForm]     = useState(user?.contact_info ?? '')
+  const [contactForm, setContactForm]     = useState({ phone: user?.phone ?? '', wechat: user?.wechat ?? '' })
   const [contactHidden, setContactHidden] = useState(user?.contact_hidden ?? false)
   const [savingName, setSavingName] = useState(false)
   const [savingPass, setSavingPass] = useState(false)
@@ -222,21 +222,38 @@ export default function Profile() {
             <form onSubmit={async (e) => {
               e.preventDefault()
               setSavingContact(true)
-              const d = await api.put('/api/auth/profile', { contact_info: contactForm })
+              const d = await api.put('/api/auth/profile', { phone: contactForm.phone, wechat: contactForm.wechat })
               setSavingContact(false)
               if (d.ok) flash('Contact info saved.')
               else flash(d.error, 'danger')
-            }} className="d-flex gap-2 mb-3">
-              <input
-                type="text"
-                className="form-control"
-                placeholder="WeChat ID / phone / etc."
-                value={contactForm}
-                onChange={e => setContactForm(e.target.value)}
-                maxLength={100}
-              />
-              <button className="btn btn-primary flex-shrink-0" disabled={savingContact}>
-                {savingContact ? <span className="spinner-border spinner-border-sm" /> : 'Save'}
+            }} className="mb-3">
+              <div className="row g-2 mb-2">
+                <div className="col-sm-6">
+                  <label className="form-label fw-medium small mb-1">Phone</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="+86 138 0000 0000"
+                    value={contactForm.phone}
+                    onChange={e => setContactForm(f => ({ ...f, phone: e.target.value }))}
+                    maxLength={50}
+                  />
+                </div>
+                <div className="col-sm-6">
+                  <label className="form-label fw-medium small mb-1">WeChat ID</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="WeChat ID"
+                    value={contactForm.wechat}
+                    onChange={e => setContactForm(f => ({ ...f, wechat: e.target.value }))}
+                    maxLength={100}
+                  />
+                </div>
+              </div>
+              <button className="btn btn-primary btn-sm" disabled={savingContact}>
+                {savingContact ? <span className="spinner-border spinner-border-sm me-1" /> : null}
+                Save
               </button>
             </form>
             <div className="form-check form-switch">

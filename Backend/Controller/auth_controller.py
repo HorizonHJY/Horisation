@@ -238,12 +238,16 @@ def update_own_profile():
     email           = data.get('email', '').strip() or None
     contact_info    = data.get('contact_info')   # None = don't update; '' = clear
     contact_hidden  = data.get('contact_hidden') # None = don't update; bool = set
-    if display_name is None and email is None and contact_info is None and contact_hidden is None:
+    wechat          = data.get('wechat')         # None = don't update; '' = clear
+    phone           = data.get('phone')          # None = don't update; '' = clear
+    if display_name is None and email is None and contact_info is None \
+            and contact_hidden is None and wechat is None and phone is None:
         return jsonify({'ok': False, 'error': 'Nothing to update'}), 400
     username = request.current_user['username']
     success, message = user_manager.update_user_profile(
         username, display_name=display_name, email=email,
         contact_info=contact_info, contact_hidden=contact_hidden,
+        wechat=wechat, phone=phone,
     )
     if not success:
         return jsonify({'ok': False, 'error': message}), 400
