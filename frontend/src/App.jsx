@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react'
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { api } from './api'
 
@@ -36,6 +36,45 @@ function ThemeProvider({ children }) {
     <ThemeContext.Provider value={{ isDark, toggleTheme }}>
       {children}
     </ThemeContext.Provider>
+  )
+}
+
+// ── Unread Context ───────────────────────────────────────────────
+export const UnreadContext = createContext(null)
+export const useUnread = () => useContext(UnreadContext)
+
+function UnreadProvider({ children }) {
+  const { user } = useAuth()
+  const [unreadMap, setUnreadMap] = useState({})   // { username: count }
+  const intervalRef = useRef(null)
+
+  const refresh = useCallback(async () => {
+    if (!user) return
+    const d = await api.get('/api/friends/unread')
+    if (d.ok) setUnreadMap(d.by_friend)
+  }, [user])
+
+  useEffect(() => {
+    if (!user) { setUnreadMap({}); return }
+    refresh()
+    intervalRef.current = setInterval(refresh, 30000)
+    return () => clearInterval(intervalRef.current)
+  }, [user, refresh])
+
+  const clearUnread = useCallback((username) => {
+    setUnreadMap(prev => { const n = { ...prev }; delete n[username]; return n })
+  }, [])
+
+  const bumpUnread = useCallback((username) => {
+    setUnreadMap(prev => ({ ...prev, [username]: (prev[username] || 0) + 1 }))
+  }, [])
+
+  const total = Object.values(unreadMap).reduce((a, b) => a + b, 0)
+
+  return (
+    <UnreadContext.Provider value={{ unreadMap, total, refresh, clearUnread, bumpUnread }}>
+      {children}
+    </UnreadContext.Provider>
   )
 }
 
@@ -95,6 +134,7 @@ export default function App() {
     <BrowserRouter>
       <ThemeProvider>
       <AuthProvider>
+      <UnreadProvider>
         <Routes>
           {/* Public */}
           <Route path="/login" element={<PublicOnlyRoute><Login /></PublicOnlyRoute>} />
@@ -116,6 +156,7 @@ export default function App() {
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/home" replace />} />
         </Routes>
+      </UnreadProvider>
       </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>

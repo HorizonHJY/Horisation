@@ -1,6 +1,6 @@
 import React from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { useAuth } from '../App'
+import { useAuth, useUnread } from '../App'
 
 const NAV_MAIN = [
   { to: '/home', icon: 'fa-home', label: 'Home' },
@@ -26,6 +26,7 @@ const NAV_TOOLKIT_HORIZON = [
 
 export default function Sidebar({ isOpen, onClose }) {
   const { user, logout } = useAuth()
+  const { total: unreadTotal } = useUnread()
   const navigate = useNavigate()
 
   const isAdmin   = user?.role_info?.permissions?.includes('admin')
@@ -64,6 +65,11 @@ export default function Sidebar({ isOpen, onClose }) {
               >
                 <i className={`fas ${icon}`} />
                 <span>{label}</span>
+                {to === '/friends' && unreadTotal > 0 && (
+                  <span className="badge bg-danger ms-auto" style={{ fontSize: '.65rem', minWidth: 18 }}>
+                    {unreadTotal > 99 ? '99+' : unreadTotal}
+                  </span>
+                )}
               </NavLink>
             ))}
           </div>

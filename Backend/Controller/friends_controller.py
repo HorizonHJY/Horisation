@@ -180,6 +180,24 @@ def get_contact_sent():
     return jsonify({'ok': True, 'requests': market_db.get_contact_requests_sent(me)})
 
 
+@friends_bp.route('/unread', methods=['GET'])
+@login_required
+def get_unread():
+    me       = request.current_user['username']
+    by_friend = market_db.get_unread_counts(me)
+    return jsonify({'ok': True, 'total': sum(by_friend.values()), 'by_friend': by_friend})
+
+
+@friends_bp.route('/<username>/read', methods=['POST'])
+@login_required
+def mark_read(username):
+    me = request.current_user['username']
+    ua, ub   = sorted([me, username])
+    room_key = f'{ua}:{ub}'
+    market_db.mark_chat_read(me, room_key)
+    return jsonify({'ok': True})
+
+
 @friends_bp.route('/contact/requests/<int:req_id>', methods=['PUT'])
 @login_required
 def respond_contact(req_id):

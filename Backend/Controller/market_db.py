@@ -12,7 +12,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional, List
 
 from sqlalchemy import (
-    create_engine, Column, String, Text, Float, Integer, DateTime, ForeignKey, Boolean, text
+    create_engine, Column, String, Text, Float, Integer, DateTime, ForeignKey, Boolean, text, func
 )
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 
@@ -701,6 +701,16 @@ class ContactRequest(Base):
     created_at = Column(DateTime,     nullable=False, default=lambda: datetime.now(timezone.utc))
 
 
+class ChatRead(Base):
+    """Tracks the last time each user read each private chat room."""
+    __tablename__ = 'chat_read'
+
+    id         = Column(Integer,     primary_key=True, autoincrement=True)
+    username   = Column(String(100), nullable=False, index=True)
+    room_key   = Column(String(201), nullable=False, index=True)
+    read_at    = Column(DateTime,    nullable=False, default=lambda: datetime.utcnow())
+
+
 # ── Friend helpers ─────────────────────────────────────────────────────────────
 
 def _friend_pair(a: str, b: str) -> tuple:
@@ -876,3 +886,36 @@ def has_contact_access(from_user: str, to_user: str) -> bool:
         return s.query(ContactRequest).filter_by(
             from_user=from_user, to_user=to_user, status='approved'
         ).first() is not None
+
+
+# ── Chat read / unread helpers ─────────────────────────────────────────────────
+
+def mark_chat_read(username: str, room_key: str) -> None:
+    """Upsert the last-read timestamp for this user+room."""
+    with Session() as s:
+        row = s.query(ChatRead).filter_by(username=username, room_key=room_key).first()
+        if row:
+            row.read_at = datetime.utcnow()
+        else:
+            s.add(ChatRead(username=username, room_key=room_key))
+        s.commit()
+
+
+def get_unread_counts(username: str) -> dict:
+    """Return {friend_username: unread_count} for all friends with unread messages."""
+    with Session() as s:
+        friends = get_friends(username)
+        result = {}
+        for friend in friends:
+            ua, ub    = _friend_pair(username, friend)
+            room_key  = f'{ua}:{ub}'
+            read_row  = s.query(ChatRead).filter_by(username=username, room_key=room_key).first()
+            last_read = read_row.read_at if read_row else datetime(1970, 1, 1)
+            count = s.query(func.count(PrivateChatMessage.id)).filter(
+                PrivateChatMessage.room_key == room_key,
+                PrivateChatMessage.sender   == friend,
+                PrivateChatMessage.created_at > last_read,
+            ).scalar() or 0
+            if count > 0:
+                result[friend] = count
+        return result

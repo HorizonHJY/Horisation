@@ -3,7 +3,7 @@ import { io } from 'socket.io-client'
 import { useLocation } from 'react-router-dom'
 import { api } from '../api'
 import HandLoader from '../components/HandLoader'
-import { useAuth } from '../App'
+import { useAuth, useUnread } from '../App'
 
 function Avatar({ display, avatar, size = 40 }) {
   if (avatar) return (
@@ -23,6 +23,7 @@ function Avatar({ display, avatar, size = 40 }) {
 
 export default function Friends() {
   const { user } = useAuth()
+  const { unreadMap, clearUnread, bumpUnread } = useUnread()
   const location      = useLocation()
   const socketRef     = useRef(null)
   const chatEndRef    = useRef(null)
@@ -69,10 +70,19 @@ export default function Friends() {
     })
     socket.on('chat_message', (msg) => {
       const chat = activeChatRef.current
-      if (!chat) return
-      const [ua, ub] = [user.username, chat.username].sort()
-      if (msg.room_key === `${ua}:${ub}`) {
-        setChatHistory(h => [...h, msg])
+      if (chat) {
+        const [ua, ub] = [user.username, chat.username].sort()
+        if (msg.room_key === `${ua}:${ub}`) {
+          setChatHistory(h => [...h, msg])
+          if (msg.sender !== user.username) {
+            api.post(`/api/friends/${chat.username}/read`)
+          }
+          return
+        }
+      }
+      // Message not in currently open chat — bump unread badge
+      if (msg.sender !== user.username) {
+        bumpUnread(msg.sender)
       }
     })
     socket.on('chat_error', ({ message }) => flash(message, 'danger'))
@@ -175,6 +185,8 @@ export default function Friends() {
     activeChatRef.current = friend
     setActiveChat(friend)
     setChatHistory([])
+    clearUnread(friend.username)
+    api.post(`/api/friends/${friend.username}/read`)
     const d = await api.get(`/api/friends/${friend.username}/history`)
     if (d.ok) setChatHistory(d.messages)
     return friend
@@ -374,7 +386,14 @@ export default function Friends() {
                       )}
                     </div>
                     <div className="flex-grow-1 overflow-hidden">
-                      <div className="fw-semibold text-truncate">{f.display_name}</div>
+                      <div className="d-flex align-items-center gap-2">
+                        <span className="fw-semibold text-truncate">{f.display_name}</span>
+                        {unreadMap[f.username] > 0 && (
+                          <span className="badge bg-danger" style={{ fontSize: '.65rem', minWidth: 18 }}>
+                            {unreadMap[f.username] > 99 ? '99+' : unreadMap[f.username]}
+                          </span>
+                        )}
+                      </div>
                       <div className="text-muted small">{f.username}</div>
                     </div>
                     <div className="d-flex gap-2 flex-shrink-0 flex-wrap justify-content-end">
