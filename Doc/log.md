@@ -24,7 +24,14 @@
   - `DELETE /<username>` — unfriend
   - `GET /<username>/contact` — view contact info (now requires contact request approval)
   - `GET /<username>/history` — private chat history
-- New `friends_socket.py`: real-time friend request + accept notifications via Socket.IO
+- New `friends_socket.py`: real-time friend request + accept + contact request notifications via Socket.IO
+- **Unread message badges**:
+  - `ChatRead` model in `market_db.py` — tracks last-read timestamp per user per chat room
+  - `GET /api/friends/unread` — returns `{total, by_friend}` unread counts
+  - `POST /api/friends/<username>/read` — marks a chat room as read
+  - `UnreadContext` in `App.jsx`: polls `/api/friends/unread` every 30s, exposes `clearUnread` / `bumpUnread`
+  - Sidebar Friends item shows red badge with total unread count
+  - Friends list shows per-friend unread badge; clears on chat open; bumps via Socket.IO `chat_message` event
 - New `Friends.jsx` page (`/friends`):
   - **Friends tab**: list with online indicator, Chat / Request Contact / Unfriend buttons
   - **Requests tab**: Friend Requests section + Contact Requests section (Approve / Decline)
@@ -43,6 +50,7 @@
 - `GET /<username>/contact` updated: now checks `has_contact_access()` before returning info
 - **Profile page**: contact info section updated with description; new "Hide my contact" toggle switch
 - **Friends page**: contact status per friend shown inline (Request Contact / Pending / Contact (green) / Hidden)
+- **Real-time contact request notification**: `notify_contact_request()` added to `friends_socket.py`; called from `request_contact` endpoint after DB insert; `Friends.jsx` handles `contact_request_incoming` socket event to update Requests tab and show toast in real-time (previously, target user had to manually refresh to see incoming contact requests)
 
 ### Market Improvements
 - **Browse tab filters out own listings** — you no longer see your own items when browsing

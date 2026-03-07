@@ -64,6 +64,10 @@ export default function Friends() {
       setPending(prev => [req, ...prev])
       flash('New friend request!', 'info')
     })
+    socket.on('contact_request_incoming', (req) => {
+      setContactReqs(prev => [req, ...prev])
+      flash('New contact request!', 'info')
+    })
     socket.on('friend_accepted', ({ from_user }) => {
       flash(`${from_user} accepted your friend request!`, 'success')
       loadFriends()

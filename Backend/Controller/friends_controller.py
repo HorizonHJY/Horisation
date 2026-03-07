@@ -155,6 +155,9 @@ def request_contact(username):
     row = market_db.send_contact_request(me, username)
     if row is None:
         return jsonify({'ok': False, 'error': 'Request already sent or approved'}), 400
+
+    from .friends_socket import notify_contact_request
+    notify_contact_request(username, row)
     return jsonify({'ok': True, 'request': row}), 201
 
 

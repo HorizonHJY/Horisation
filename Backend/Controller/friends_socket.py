@@ -69,6 +69,10 @@ def notify_friend_request(to_user: str, req_dict: dict) -> None:
     socketio.emit('friend_request_incoming', req_dict, room=f'user_{to_user}')
 
 
+def notify_contact_request(to_user: str, req_dict: dict) -> None:
+    socketio.emit('contact_request_incoming', req_dict, room=f'user_{to_user}')
+
+
 def notify_friend_accepted(acceptor: str, req_id: str) -> None:
     with market_db.Session() as s:
         row = s.query(market_db.FriendRequest).filter_by(id=req_id).first()
