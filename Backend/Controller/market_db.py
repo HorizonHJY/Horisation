@@ -449,7 +449,7 @@ def add_image(listing_id: str, r2_url: str, r2_key: str, order: int) -> str:
 
 def update_listing(listing_id: str, seller: str, **fields) -> bool:
     """Update allowed text fields. Returns False if not found or wrong seller."""
-    allowed = {'title', 'description', 'price', 'category', 'contact'}
+    allowed = {'title', 'description', 'price', 'original_price', 'category', 'contact'}
     with Session() as s:
         row = s.query(Listing).filter_by(id=listing_id, seller_username=seller).first()
         if not row:

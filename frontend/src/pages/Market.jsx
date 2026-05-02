@@ -39,8 +39,95 @@ function SellerAvatar({ username, displayName, avatarUrl, size = 28, onClick }) 
   )
 }
 
+// ── Edit Modal ────────────────────────────────────────────────────────────────
+function EditModal({ listing, onClose, onSave }) {
+  const [form, setForm] = useState({
+    title:          listing.title,
+    description:    listing.description,
+    price:          String(listing.price),
+    original_price: listing.original_price != null ? String(listing.original_price) : '',
+    category:       listing.category,
+  })
+  const [saving, setSaving] = useState(false)
+  const [err, setErr]       = useState('')
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!form.title.trim())       return setErr('Title is required.')
+    if (!form.description.trim()) return setErr('Description is required.')
+    if (!form.price || isNaN(form.price)) return setErr('Enter a valid price.')
+    setSaving(true)
+    await onSave(listing.id, {
+      title:          form.title.trim(),
+      description:    form.description.trim(),
+      price:          Number(form.price),
+      original_price: form.original_price !== '' ? Number(form.original_price) : '',
+      category:       form.category,
+    })
+    setSaving(false)
+  }
+
+  return (
+    <div className="modal show d-block" style={{ background: 'rgba(0,0,0,.45)' }} onClick={onClose}>
+      <div className="modal-dialog modal-dialog-centered" onClick={e => e.stopPropagation()}>
+        <div className="modal-content">
+          <form onSubmit={handleSubmit}>
+            <div className="modal-header">
+              <h5 className="modal-title fw-semibold">Edit Listing</h5>
+              <button type="button" className="btn-close" onClick={onClose} />
+            </div>
+            <div className="modal-body">
+              {err && <div className="alert alert-danger py-2 small">{err}</div>}
+              <div className="mb-3">
+                <label className="form-label fw-medium">Title</label>
+                <input className="form-control" maxLength={100} value={form.title}
+                  onChange={e => setForm(f => ({ ...f, title: e.target.value }))} required />
+              </div>
+              <div className="mb-3">
+                <label className="form-label fw-medium">Description</label>
+                <textarea className="form-control" rows={3} value={form.description}
+                  onChange={e => setForm(f => ({ ...f, description: e.target.value }))} required />
+              </div>
+              <div className="row mb-3">
+                <div className="col">
+                  <label className="form-label fw-medium">Original Price (¥)</label>
+                  <input type="number" className="form-control" min={0} step="0.01"
+                    placeholder="optional" value={form.original_price}
+                    onChange={e => setForm(f => ({ ...f, original_price: e.target.value }))} />
+                </div>
+                <div className="col">
+                  <label className="form-label fw-medium">Selling Price (¥)</label>
+                  <input type="number" className="form-control" min={0} step="0.01"
+                    value={form.price}
+                    onChange={e => setForm(f => ({ ...f, price: e.target.value }))} required />
+                </div>
+              </div>
+              <div className="mb-1">
+                <label className="form-label fw-medium">Category</label>
+                <select className="form-select" value={form.category}
+                  onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
+                  {CATEGORIES.map(c => (
+                    <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+              <button type="submit" className="btn btn-primary" disabled={saving}>
+                {saving ? <span className="spinner-border spinner-border-sm me-1" /> : null}
+                Save Changes
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Listing Card ──────────────────────────────────────────────────────────────
-function ListingCard({ listing, currentUser, onSold, onDelete, onReachOut, onSellerClick, reachOutStatus }) {
+function ListingCard({ listing, currentUser, onSold, onDelete, onEdit, onReachOut, onSellerClick, reachOutStatus }) {
   const isMine      = listing.seller_username === currentUser
   const firstImg    = listing.images?.[0]?.url
   const isSold      = listing.status === 'sold'
@@ -103,9 +190,15 @@ function ListingCard({ listing, currentUser, onSold, onDelete, onReachOut, onSel
       {isMine && (
         <div className="market-card__action">
           {!isSold && (
-            <button className="market-card__btn" onClick={() => onSold(listing.id)}>
-              <i className="fas fa-check-circle" />Mark Sold
-            </button>
+            <>
+              <button className="market-card__btn" onClick={() => onSold(listing.id)}>
+                <i className="fas fa-check-circle" />Mark Sold
+              </button>
+              <button className="market-card__btn" style={{ background: '#f59e0b', border: 'none' }}
+                onClick={() => onEdit(listing)}>
+                <i className="fas fa-pen" />Edit
+              </button>
+            </>
           )}
           <button className="market-card__btn market-card__btn--danger" onClick={() => onDelete(listing.id)}>
             <i className="fas fa-trash" />Delete
@@ -227,6 +320,7 @@ export default function Market() {
   const [interestedSet, setInterested] = useState({})
   // friendsMap: { [username]: { username, display_name, avatar_url } }
   const [friendsMap, setFriendsMap] = useState({})
+  const [editListing, setEditListing]   = useState(null)
   // sellerModal: { username, display_name, avatar_url } | null
   const [sellerModal, setSellerModal]   = useState(null)
   const [sellerListings, setSellerListings] = useState([])
@@ -329,6 +423,18 @@ export default function Market() {
     const d = await api.post(`/api/market/listings/${id}/sold`)
     if (d.ok) {
       showToast('Marked as sold.')
+      if (tab === 'browse')     loadBrowse()
+      if (tab === 'mylistings') loadMine()
+    } else {
+      showToast(d.error, 'danger')
+    }
+  }
+
+  async function handleEditSave(id, fields) {
+    const d = await api.put(`/api/market/listings/${id}`, fields)
+    if (d.ok) {
+      showToast('Listing updated.')
+      setEditListing(null)
       if (tab === 'browse')     loadBrowse()
       if (tab === 'mylistings') loadMine()
     } else {
@@ -451,6 +557,15 @@ export default function Market() {
         </div>
       )}
 
+      {/* Edit listing modal */}
+      {editListing && (
+        <EditModal
+          listing={editListing}
+          onClose={() => setEditListing(null)}
+          onSave={handleEditSave}
+        />
+      )}
+
       {/* Seller modal */}
       {sellerModal && (
         <SellerModal
@@ -519,6 +634,7 @@ export default function Market() {
                     currentUser={user.username}
                     onSold={handleSold}
                     onDelete={handleDelete}
+                    onEdit={setEditListing}
                     onReachOut={handleReachOut}
                     onSellerClick={openSellerModal}
                     reachOutStatus={interestedSet[l.seller_username]}

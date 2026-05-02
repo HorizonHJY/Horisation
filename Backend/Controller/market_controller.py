@@ -140,6 +140,15 @@ def update_listing(listing_id):
             fields['price'] = float(data['price'])
         except (ValueError, TypeError):
             return jsonify({'ok': False, 'error': 'Price must be a number.'}), 400
+    if 'original_price' in data:
+        raw = data['original_price']
+        if raw == '' or raw is None:
+            fields['original_price'] = None
+        else:
+            try:
+                fields['original_price'] = float(raw)
+            except (ValueError, TypeError):
+                return jsonify({'ok': False, 'error': 'Original price must be a number.'}), 400
 
     ok = market_db.update_listing(listing_id, seller, **fields)
     if not ok:
