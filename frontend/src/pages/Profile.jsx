@@ -126,17 +126,22 @@ export default function Profile() {
             <span className={`role-badge ${ROLE_COLORS[user.role] ?? 'role-user'}`}>
               {user.role_info?.name ?? user.role}
             </span>
-            <div className="mt-3 text-muted small">Permission level: {user.role_info?.level}</div>
-
             {/* Avatar upload */}
             <div className="mt-3 d-flex flex-column gap-2">
               <input
                 ref={fileRef}
                 type="file"
                 accept=".jpg,.jpeg,.png"
-                className="form-control form-control-sm"
+                style={{ display: 'none' }}
                 onChange={onAvatarPick}
               />
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-secondary"
+                onClick={() => fileRef.current?.click()}
+              >
+                <i className="fas fa-upload me-1" />Upload Photo
+              </button>
               {avatarPreview && (
                 <button
                   className="btn btn-sm btn-primary"
@@ -145,7 +150,7 @@ export default function Profile() {
                 >
                   {uploadingAvatar
                     ? <span className="spinner-border spinner-border-sm" />
-                    : 'Upload Avatar'}
+                    : 'Save Avatar'}
                 </button>
               )}
               <div className="text-muted" style={{ fontSize: '0.75rem' }}>JPEG/PNG, max 2MB</div>
