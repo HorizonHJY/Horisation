@@ -724,6 +724,17 @@ class ChatRead(Base):
     read_at    = Column(DateTime,    nullable=False, default=lambda: datetime.utcnow())
 
 
+class InviteCode(Base):
+    __tablename__ = 'invite_codes'
+
+    id         = Column(Integer,     primary_key=True, autoincrement=True)
+    code       = Column(String(100), unique=True, nullable=False)
+    valid_from = Column(DateTime,    nullable=False)
+    valid_to   = Column(DateTime,    nullable=False)
+    created_by = Column(String(100), nullable=False)
+    created_at = Column(DateTime,    nullable=False, default=lambda: datetime.now(timezone.utc))
+
+
 # ── Friend helpers ─────────────────────────────────────────────────────────────
 
 def _friend_pair(a: str, b: str) -> tuple:
@@ -951,3 +962,52 @@ def get_unread_counts(username: str) -> dict:
             if count > 0:
                 result[friend] = count
         return result
+
+
+# ── Invite code helpers ────────────────────────────────────────────────────────
+
+def _invite_code_to_dict(r: InviteCode) -> dict:
+    return {
+        'id':         r.id,
+        'code':       r.code,
+        'valid_from': r.valid_from.strftime('%Y-%m-%d'),
+        'valid_to':   r.valid_to.strftime('%Y-%m-%d'),
+        'created_by': r.created_by,
+        'created_at': r.created_at.isoformat(),
+    }
+
+
+def create_invite_code(code: str, valid_from: datetime, valid_to: datetime, created_by: str) -> Optional[dict]:
+    with Session() as s:
+        if s.query(InviteCode).filter_by(code=code).first():
+            return None  # duplicate code
+        row = InviteCode(code=code, valid_from=valid_from, valid_to=valid_to, created_by=created_by)
+        s.add(row)
+        s.commit()
+        s.refresh(row)
+        return _invite_code_to_dict(row)
+
+
+def get_invite_codes() -> list:
+    with Session() as s:
+        rows = s.query(InviteCode).order_by(InviteCode.created_at.desc()).all()
+        return [_invite_code_to_dict(r) for r in rows]
+
+
+def delete_invite_code(code_id: int) -> bool:
+    with Session() as s:
+        row = s.query(InviteCode).filter_by(id=code_id).first()
+        if not row:
+            return False
+        s.delete(row)
+        s.commit()
+        return True
+
+
+def validate_invite_code(code: str) -> bool:
+    now = datetime.utcnow()
+    with Session() as s:
+        row = s.query(InviteCode).filter_by(code=code).first()
+        if not row:
+            return False
+        return row.valid_from <= now <= row.valid_to

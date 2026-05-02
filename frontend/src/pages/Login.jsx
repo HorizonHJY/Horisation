@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../App'
 import { api } from '../api'
 import FlowerCanvas from '../components/FlowerCanvas'
@@ -127,6 +127,11 @@ export default function Login() {
                 {loading ? <span className="spinner-border spinner-border-sm" /> : 'Sign In'}
               </button>
             </form>
+
+            <p className="text-center mt-3 mb-0" style={{ fontSize: '.85rem', color: '#666' }}>
+              New here?{' '}
+              <Link to="/register" style={{ color: '#3a7bd5', fontWeight: 600 }}>Register with invite code</Link>
+            </p>
           </div>
         </div>
       </div>

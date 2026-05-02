@@ -6,6 +6,7 @@ import Layout from './components/Layout'
 import HandLoader from './components/HandLoader'
 import { canAccess } from './features'
 import Login from './pages/Login'
+import Register from './pages/Register'
 import Home from './pages/Home'
 import CSV from './pages/CSV'
 import Hormemo from './pages/Hormemo'
@@ -137,7 +138,8 @@ export default function App() {
       <UnreadProvider>
         <Routes>
           {/* Public */}
-          <Route path="/login" element={<PublicOnlyRoute><Login /></PublicOnlyRoute>} />
+          <Route path="/login"    element={<PublicOnlyRoute><Login /></PublicOnlyRoute>} />
+          <Route path="/register" element={<PublicOnlyRoute><Register /></PublicOnlyRoute>} />
 
           {/* Protected — all inside Layout */}
           <Route element={<PrivateRoute><Layout /></PrivateRoute>}>

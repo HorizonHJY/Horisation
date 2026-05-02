@@ -113,13 +113,9 @@ def register():
         if len(password) < 6:
             return jsonify({'ok': False, 'error': 'Password must be at least 6 characters'}), 400
 
-        # 创建用户
         success, message = user_manager.create_user(
-            username=username,
-            password=password,
-            role=role,
-            email=email,
-            display_name=display_name
+            username=username, password=password, role=role,
+            email=email, display_name=display_name
         )
 
         if not success:
@@ -129,6 +125,85 @@ def register():
 
     except Exception as e:
         return jsonify({'ok': False, 'error': f'Registration failed: {str(e)}'}), 500
+
+
+@auth_bp.route('/signup', methods=['POST'])
+def signup():
+    """Public self-registration — requires a valid invite code."""
+    from .market_db import validate_invite_code
+    data         = request.get_json() or {}
+    username     = data.get('username', '').strip()
+    password     = data.get('password', '')
+    display_name = data.get('display_name', '').strip()
+    invite_code  = data.get('invite_code', '').strip()
+
+    if not username or not password or not invite_code:
+        return jsonify({'ok': False, 'error': 'Username, password and invite code are required'}), 400
+    if len(password) < 6:
+        return jsonify({'ok': False, 'error': 'Password must be at least 6 characters'}), 400
+    if not validate_invite_code(invite_code):
+        return jsonify({'ok': False, 'error': 'Invalid or expired invite code'}), 403
+
+    success, message = user_manager.create_user(
+        username=username, password=password, role='user',
+        display_name=display_name or username,
+    )
+    if not success:
+        return jsonify({'ok': False, 'error': message}), 400
+
+    # Auto-login
+    session_token = user_manager.create_session(username)
+    session['session_token'] = session_token
+    _, user_info = user_manager.authenticate_user(username, password)
+    return jsonify({'ok': True, 'user': user_info})
+
+
+# ── Invite code management (horizon only) ─────────────────────────────────────
+
+@auth_bp.route('/invite-codes', methods=['GET'])
+@login_required
+def list_invite_codes():
+    if request.current_user['username'] != 'horizon':
+        return jsonify({'ok': False, 'error': 'Forbidden'}), 403
+    from .market_db import get_invite_codes
+    return jsonify({'ok': True, 'codes': get_invite_codes()})
+
+
+@auth_bp.route('/invite-codes', methods=['POST'])
+@login_required
+def create_invite_code():
+    if request.current_user['username'] != 'horizon':
+        return jsonify({'ok': False, 'error': 'Forbidden'}), 403
+    from .market_db import create_invite_code as db_create_invite_code
+    from datetime import datetime
+    data       = request.get_json() or {}
+    code       = data.get('code', '').strip()
+    valid_from = data.get('valid_from', '')
+    valid_to   = data.get('valid_to', '')
+    if not code or not valid_from or not valid_to:
+        return jsonify({'ok': False, 'error': 'code, valid_from and valid_to are required'}), 400
+    try:
+        vf = datetime.strptime(valid_from, '%Y-%m-%d')
+        vt = datetime.strptime(valid_to,   '%Y-%m-%d').replace(hour=23, minute=59, second=59)
+    except ValueError:
+        return jsonify({'ok': False, 'error': 'Date format must be YYYY-MM-DD'}), 400
+    if vt < vf:
+        return jsonify({'ok': False, 'error': 'valid_to must be after valid_from'}), 400
+    result = db_create_invite_code(code, vf, vt, request.current_user['username'])
+    if result is None:
+        return jsonify({'ok': False, 'error': 'Invite code already exists'}), 409
+    return jsonify({'ok': True, 'invite_code': result})
+
+
+@auth_bp.route('/invite-codes/<int:code_id>', methods=['DELETE'])
+@login_required
+def delete_invite_code(code_id):
+    if request.current_user['username'] != 'horizon':
+        return jsonify({'ok': False, 'error': 'Forbidden'}), 403
+    from .market_db import delete_invite_code as db_delete_invite_code
+    if not db_delete_invite_code(code_id):
+        return jsonify({'ok': False, 'error': 'Not found'}), 404
+    return jsonify({'ok': True})
 
 @auth_bp.route('/profile', methods=['GET'])
 @login_required

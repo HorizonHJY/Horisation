@@ -10,7 +10,16 @@ const ROLE_COLORS = {
   vip1: 'role-vip1', vip2: 'role-vip2', vip3: 'role-vip3', user: 'role-user',
 }
 
-const EMPTY_NEW = { username: '', password: '', role: 'user', email: '', display_name: '' }
+const EMPTY_NEW       = { username: '', password: '', role: 'user', email: '', display_name: '' }
+const EMPTY_CODE_FORM = { code: '', valid_from: '', valid_to: '' }
+
+function todayStr() {
+  return new Date().toISOString().slice(0, 10)
+}
+function plusDaysStr(n) {
+  const d = new Date(); d.setDate(d.getDate() + n)
+  return d.toISOString().slice(0, 10)
+}
 
 export default function AdminUsers() {
   const { user } = useAuth()
@@ -21,26 +30,63 @@ export default function AdminUsers() {
   const [search, setSearch]   = useState('')
   const [msg, setMsg]         = useState(null)
 
-  // Create modal state
+  // Create user modal state
   const [newUser, setNewUser]   = useState(EMPTY_NEW)
   const [creating, setCreating] = useState(false)
 
   // Edit modal state
-  const [editTarget, setEditTarget] = useState(null)   // user object being edited
+  const [editTarget, setEditTarget] = useState(null)
   const [editForm, setEditForm]     = useState({ display_name: '', email: '', password: '' })
   const [saving, setSaving]         = useState(false)
 
-  const isAdmin = user?.role_info?.permissions?.includes('admin')
+  // Invite codes state (horizon only)
+  const [codes, setCodes]           = useState([])
+  const [codesLoading, setCodesLoading] = useState(false)
+  const [codeForm, setCodeForm]     = useState({ ...EMPTY_CODE_FORM, valid_from: todayStr(), valid_to: plusDaysStr(30) })
+  const [creatingCode, setCreatingCode] = useState(false)
+
+  const isAdmin   = user?.role_info?.permissions?.includes('admin')
+  const isHorizon = user?.username === 'horizon'
 
   useEffect(() => {
     if (!isAdmin) { navigate('/home'); return }
     load()
+    if (isHorizon) loadCodes()
   }, [])
 
   const load = () =>
     api.get('/api/auth/users')
        .then(d => { if (d.ok) setUsers(d.users) })
        .finally(() => setLoading(false))
+
+  const loadCodes = () => {
+    setCodesLoading(true)
+    api.get('/api/auth/invite-codes')
+       .then(d => { if (d.ok) setCodes(d.codes) })
+       .finally(() => setCodesLoading(false))
+  }
+
+  const createCode = async (e) => {
+    e.preventDefault()
+    setCreatingCode(true)
+    const d = await api.post('/api/auth/invite-codes', codeForm)
+    setCreatingCode(false)
+    if (d.ok) {
+      flash('Invite code created.')
+      setCodeForm({ ...EMPTY_CODE_FORM, valid_from: todayStr(), valid_to: plusDaysStr(30) })
+      document.getElementById('codeModal').querySelector('[data-bs-dismiss="modal"]').click()
+      loadCodes()
+    } else {
+      flash(d.error, 'danger')
+    }
+  }
+
+  const deleteCode = async (id) => {
+    if (!window.confirm('Delete this invite code?')) return
+    const d = await api.delete(`/api/auth/invite-codes/${id}`)
+    if (d.ok) { flash('Invite code deleted.'); loadCodes() }
+    else flash(d.error, 'danger')
+  }
 
   const flash = (text, type = 'success') => {
     setMsg({ type, text })
@@ -244,6 +290,72 @@ export default function AdminUsers() {
         )}
       </div>
 
+      {/* ── Invite Codes Section (horizon only) ── */}
+      {isHorizon && (
+        <div className="mt-5">
+          <div className="d-flex justify-content-between align-items-center mb-3">
+            <h5 className="fw-bold mb-0">
+              <i className="fas fa-ticket-alt me-2 text-primary" />Invite Codes
+            </h5>
+            <button className="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#codeModal">
+              <i className="fas fa-plus me-1" />New Code
+            </button>
+          </div>
+
+          <div className="card">
+            {codesLoading ? (
+              <div className="text-center p-4"><HandLoader /></div>
+            ) : codes.length === 0 ? (
+              <div className="text-center py-4 text-muted small">No invite codes yet.</div>
+            ) : (
+              <div className="table-responsive">
+                <table className="table table-sm mb-0">
+                  <thead className="table-light">
+                    <tr>
+                      <th>Code</th>
+                      <th>Valid From</th>
+                      <th>Valid To</th>
+                      <th>Status</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {codes.map(c => {
+                      const now   = new Date().toISOString().slice(0, 10)
+                      const live  = c.valid_from <= now && now <= c.valid_to
+                      const past  = now > c.valid_to
+                      return (
+                        <tr key={c.id}>
+                          <td><code className="fw-bold">{c.code}</code></td>
+                          <td>{c.valid_from}</td>
+                          <td>{c.valid_to}</td>
+                          <td>
+                            {live
+                              ? <span className="badge bg-success">Active</span>
+                              : past
+                              ? <span className="badge bg-secondary">Expired</span>
+                              : <span className="badge bg-warning text-dark">Upcoming</span>
+                            }
+                          </td>
+                          <td className="text-end">
+                            <button
+                              className="btn btn-sm btn-outline-danger"
+                              onClick={() => deleteCode(c.id)}
+                            >
+                              <i className="fas fa-trash" />
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ── Create User Modal ── */}
       <div className="modal fade" id="createModal" tabIndex="-1">
         <div className="modal-dialog">
@@ -342,6 +454,60 @@ export default function AdminUsers() {
                 <button type="button" className="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button type="submit" className="btn btn-primary" disabled={saving}>
                   {saving ? <span className="spinner-border spinner-border-sm" /> : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+      {/* ── New Invite Code Modal ── */}
+      <div className="modal fade" id="codeModal" tabIndex="-1">
+        <div className="modal-dialog">
+          <div className="modal-content">
+            <form onSubmit={createCode}>
+              <div className="modal-header">
+                <h5 className="modal-title">New Invite Code</h5>
+                <button type="button" className="btn-close" data-bs-dismiss="modal" />
+              </div>
+              <div className="modal-body">
+                <div className="mb-3">
+                  <label className="form-label">Code</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="e.g. summer2025"
+                    value={codeForm.code}
+                    onChange={e => setCodeForm(f => ({ ...f, code: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="row g-2">
+                  <div className="col-6">
+                    <label className="form-label">Valid From</label>
+                    <input
+                      type="date"
+                      className="form-control"
+                      value={codeForm.valid_from}
+                      onChange={e => setCodeForm(f => ({ ...f, valid_from: e.target.value }))}
+                      required
+                    />
+                  </div>
+                  <div className="col-6">
+                    <label className="form-label">Valid To</label>
+                    <input
+                      type="date"
+                      className="form-control"
+                      value={codeForm.valid_to}
+                      onChange={e => setCodeForm(f => ({ ...f, valid_to: e.target.value }))}
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={creatingCode}>
+                  {creatingCode ? <span className="spinner-border spinner-border-sm" /> : 'Create'}
                 </button>
               </div>
             </form>
