@@ -5,8 +5,8 @@
  * Roles: 'horizon' | 'horizonadmin' | 'vip1' | 'vip2' | 'vip3' | 'user' | 'test'
  */
 export const FEATURES = {
-  darkMode: ['horizon', 'test'],
-  // Example: once mature → darkMode: ['horizon', 'horizonadmin', 'vip1', 'vip2', 'vip3', 'test', 'user']
+  darkMode:      ['horizon', 'test'],
+  onlineGomoku:  ['horizon', 'horizonadmin', 'vip3'],
 }
 
 /** Returns true if the given role can access a feature. */

@@ -1,6 +1,6 @@
 import React from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { useAuth, useUnread } from '../App'
+import { useAuth, useUnread, useFeature } from '../App'
 
 const NAV_MAIN = [
   { to: '/home', icon: 'fa-home', label: 'Home' },
@@ -13,7 +13,7 @@ const NAV_COMMUNITY = [
 ]
 
 const NAV_FUN = [
-  { to: '/fun/gomoku-online', icon: 'fa-globe', label: 'Online Gomoku' },
+  { to: '/fun/gomoku-online', icon: 'fa-globe', label: 'Online Gomoku', feature: 'onlineGomoku' },
 ]
 
 const NAV_TOOLKIT_BASE = [
@@ -28,14 +28,17 @@ export default function Sidebar({ isOpen, onClose }) {
   const { user, logout } = useAuth()
   const { total: unreadTotal } = useUnread()
   const navigate = useNavigate()
+  const canGomoku = useFeature('onlineGomoku')
 
   const isAdmin   = user?.role_info?.permissions?.includes('admin')
   const isHorizon = user?.role === 'horizon'
 
+  const visibleFun = NAV_FUN.filter(item => !item.feature || canGomoku)
+
   const nav = [
     { section: 'Main',      items: NAV_MAIN },
     { section: 'Community', items: NAV_COMMUNITY },
-    { section: 'For Fun',   items: NAV_FUN },
+    ...(visibleFun.length > 0 ? [{ section: 'For Fun', items: visibleFun }] : []),
     { section: 'Toolkit',   items: isHorizon ? [...NAV_TOOLKIT_BASE, ...NAV_TOOLKIT_HORIZON] : NAV_TOOLKIT_BASE },
   ]
 

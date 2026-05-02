@@ -129,6 +129,12 @@ function PublicOnlyRoute({ children }) {
   return children
 }
 
+function FeatureRoute({ feature, children }) {
+  const allowed = useFeature(feature)
+  if (!allowed) return <Navigate to="/home" replace />
+  return children
+}
+
 // ── App ───────────────────────────────────────────────────────────
 export default function App() {
   return (
@@ -149,7 +155,7 @@ export default function App() {
             <Route path="/hormemo"           element={<Hormemo />} />
             <Route path="/profile"           element={<Profile />} />
             <Route path="/admin"             element={<AdminUsers />} />
-            <Route path="/fun/gomoku-online" element={<OnlineGomoku />} />
+            <Route path="/fun/gomoku-online" element={<FeatureRoute feature="onlineGomoku"><OnlineGomoku /></FeatureRoute>} />
             <Route path="/market"            element={<Market />} />
             <Route path="/feedback"          element={<Feedback />} />
             <Route path="/friends"           element={<Friends />} />
