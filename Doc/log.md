@@ -2,6 +2,42 @@
 
 ---
 
+## 2026-05-02
+
+### Invite Code & Public Registration
+- New `InviteCode` model in `market_db.py` (`invite_codes` table): code, valid_from, valid_to, created_by — auto-created on startup
+- New backend endpoints (horizon only):
+  - `GET /api/auth/invite-codes` — list all codes
+  - `POST /api/auth/invite-codes` — create code (custom string + date range)
+  - `DELETE /api/auth/invite-codes/<id>` — delete code
+- New public endpoint `POST /api/auth/signup` — self-registration; requires a valid (in-date) invite code; assigns `user` role; auto-logs in on success
+- New `Register.jsx` page (`/register`) — same FlowerCanvas background as Login; fields: username, display name, password, confirm password, invite code; auto-login on success
+- `Login.jsx` — added "Register with invite code" link below Sign In button
+- `App.jsx` — added `/register` as `PublicOnlyRoute`; added `FeatureRoute` guard component for role-gated routes
+- `AdminUsers.jsx` — Invite Codes section visible to `horizon` only: table shows code, valid_from, valid_to, status (Active / Expired / Upcoming); New Code modal with date picker; delete button per row
+
+### Online Gomoku — Access Restriction
+- `features.js` — new `onlineGomoku` flag: `['horizon', 'horizonadmin', 'vip3']`
+- `Sidebar.jsx` — "For Fun" section hidden entirely if user has no visible items; Online Gomoku entry filtered by `useFeature('onlineGomoku')`
+- `App.jsx` — route wrapped in `<FeatureRoute feature="onlineGomoku">`, direct URL access redirects to `/home` for unauthorised roles
+
+### Market — Edit Listing
+- `market_db.py` — `update_listing` now allows `original_price` field
+- `market_controller.py` — PUT endpoint parses and validates `original_price` (accepts empty string to clear)
+- `Market.jsx` — new `EditModal` component: edit title, description, original price, selling price, category; new amber Edit button on active owner listings; `handleEditSave` calls PUT and refreshes list
+
+### Profile — UI Cleanup
+- Removed "Permission level: X" display (internal implementation detail, not user-facing)
+- File input for avatar replaced with hidden `<input>` + custom "Upload Photo" button (eliminates browser-locale "选择文件" label); confirm step renamed "Save Avatar"
+
+### Profile — Address & Postal Code
+- `User` model: added `address` (Text) and `postal_code` (String 20) columns
+- `_migrate_columns()`: auto-adds columns to existing DBs on startup
+- `user_manager.update_user_profile()` and `PUT /api/auth/profile` both accept and persist the new fields
+- `Profile.jsx` — Contact Info section: added Address (col-8) and Postal Code (col-4) inputs, saved together with phone/wechat
+
+---
+
 ## 2026-03-06
 
 ### User & Session Migration — JSON → SQLite

@@ -1,6 +1,6 @@
 # Horisation — Project Introduction
 
-Last updated: 2026-03-06
+Last updated: 2026-05-02
 
 ---
 
@@ -11,7 +11,7 @@ It serves as a central hub for tools, community features, games, and anything th
 wants to host and share. The name is a blend of "Horizon" and "Isation", representing
 an ever-expanding personal space.
 
-Access is **invitation-only**. No public registration.
+Access is **invitation-only**. Self-registration is available but requires a valid invite code issued by the owner.
 
 ---
 
@@ -87,8 +87,8 @@ Images are stored in Cloudflare R2; only the public URL is kept in the database.
 | Friends | `/friends` | All | Friend system: search, add, private chat, contact sharing with approval flow |
 | Profile | `/profile` | All | Update display name, email, password, avatar, contact info (with hide toggle) |
 | Gomoku (Local) | `/fun/gomoku` | All | Local 2-player Five in a Row, 15×15 board |
-| Gomoku (Online) | `/fun/online-gomoku` | All | Real-time multiplayer Five in a Row via Socket.IO |
-| Admin | `/admin` | admin+ | User management (create, edit, reset password, delete, role) |
+| Gomoku (Online) | `/fun/online-gomoku` | horizon, horizonadmin, vip3 | Real-time multiplayer Five in a Row via Socket.IO |
+| Admin | `/admin` | admin+ | User management (create, edit, reset password, delete, role) + invite code management (horizon only) |
 | CSV Workspace | `/csv` | horizon only | Upload, preview, and summarise CSV / Excel files |
 
 ### Under Development
@@ -148,7 +148,8 @@ Horisation/
 │       │   ├── FlowerCanvas.jsx      # Watercolor petal animation (canvas, SVG filter)
 │       │   └── HandLoader.jsx        # Loading spinner
 │       └── pages/
-│           ├── Login.jsx             # Full-screen flower animation + frosted-glass card
+│           ├── Login.jsx             # Full-screen flower animation + frosted-glass card; link to Register
+│           ├── Register.jsx          # Public self-registration (invite code required)
 │           ├── Home.jsx
 │           ├── CSV.jsx
 │           ├── Hormemo.jsx
@@ -185,10 +186,12 @@ Horisation/
 
 ## Roadmap
 
+See `Doc/todo.md` for the full prioritised list. Key items:
+
 - [ ] Password hashing (bcrypt) — currently plaintext
+- [ ] Listing image re-upload in Edit flow
 - [ ] Group messaging / group chat
 - [ ] Avalon board game
-- [ ] More games in For Fun section
 - [ ] Data visualisation tools
 - [ ] CI/CD pipeline (GitHub Actions → EC2)
 - [ ] Migrate SQLite → PostgreSQL for concurrent write safety
