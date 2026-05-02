@@ -41,6 +41,8 @@ class User(Base):
     contact_hidden  = Column(Boolean, default=False)
     wechat          = Column(String(200), nullable=True)
     phone           = Column(String(50),  nullable=True)
+    address         = Column(Text, nullable=True)
+    postal_code     = Column(String(20),  nullable=True)
     created_at      = Column(DateTime, default=lambda: datetime.utcnow())
 
 
@@ -146,6 +148,8 @@ def _migrate_columns():
         "ALTER TABLE user ADD COLUMN contact_hidden BOOLEAN DEFAULT 0",
         "ALTER TABLE user ADD COLUMN wechat TEXT",
         "ALTER TABLE user ADD COLUMN phone TEXT",
+        "ALTER TABLE user ADD COLUMN address TEXT",
+        "ALTER TABLE user ADD COLUMN postal_code TEXT",
     ]
     with Session() as s:
         for stmt in stmts:
@@ -199,6 +203,8 @@ def _user_to_dict(u: User) -> dict:
         'contact_hidden':  bool(u.contact_hidden),
         'wechat':          u.wechat or '',
         'phone':           u.phone or '',
+        'address':         u.address or '',
+        'postal_code':     u.postal_code or '',
         'created_at':      u.created_at.isoformat() if u.created_at else '',
     }
 
@@ -238,7 +244,8 @@ def db_search_users(q: str) -> List[dict]:
 
 def db_update_user(username: str, **fields) -> bool:
     allowed = {'password', 'role', 'email', 'display_name',
-               'is_active', 'avatar_url', 'contact_info', 'contact_hidden', 'wechat', 'phone'}
+               'is_active', 'avatar_url', 'contact_info', 'contact_hidden', 'wechat', 'phone',
+               'address', 'postal_code'}
     with Session() as s:
         u = s.query(User).filter_by(username=username).first()
         if not u:

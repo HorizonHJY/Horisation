@@ -12,7 +12,7 @@ export default function Profile() {
 
   const [nameForm, setNameForm]     = useState({ display_name: user?.display_name ?? '', email: user?.email ?? '' })
   const [passForm, setPassForm]     = useState({ current_password: '', new_password: '', confirm: '' })
-  const [contactForm, setContactForm]     = useState({ phone: user?.phone ?? '', wechat: user?.wechat ?? '' })
+  const [contactForm, setContactForm]     = useState({ phone: user?.phone ?? '', wechat: user?.wechat ?? '', address: user?.address ?? '', postal_code: user?.postal_code ?? '' })
   const [contactHidden, setContactHidden] = useState(user?.contact_hidden ?? false)
   const [savingName, setSavingName] = useState(false)
   const [savingPass, setSavingPass] = useState(false)
@@ -222,7 +222,12 @@ export default function Profile() {
             <form onSubmit={async (e) => {
               e.preventDefault()
               setSavingContact(true)
-              const d = await api.put('/api/auth/profile', { phone: contactForm.phone, wechat: contactForm.wechat })
+              const d = await api.put('/api/auth/profile', {
+                phone: contactForm.phone,
+                wechat: contactForm.wechat,
+                address: contactForm.address,
+                postal_code: contactForm.postal_code,
+              })
               setSavingContact(false)
               if (d.ok) flash('Contact info saved.')
               else flash(d.error, 'danger')
@@ -248,6 +253,28 @@ export default function Profile() {
                     value={contactForm.wechat}
                     onChange={e => setContactForm(f => ({ ...f, wechat: e.target.value }))}
                     maxLength={100}
+                  />
+                </div>
+                <div className="col-sm-8">
+                  <label className="form-label fw-medium small mb-1">Address</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Street, City"
+                    value={contactForm.address}
+                    onChange={e => setContactForm(f => ({ ...f, address: e.target.value }))}
+                    maxLength={200}
+                  />
+                </div>
+                <div className="col-sm-4">
+                  <label className="form-label fw-medium small mb-1">Postal Code</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="000000"
+                    value={contactForm.postal_code}
+                    onChange={e => setContactForm(f => ({ ...f, postal_code: e.target.value }))}
+                    maxLength={20}
                   />
                 </div>
               </div>

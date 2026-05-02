@@ -231,6 +231,8 @@ export default function Market() {
   const [sellerModal, setSellerModal]   = useState(null)
   const [sellerListings, setSellerListings] = useState([])
   const [sellerLoading, setSellerLoading]  = useState(false)
+  const [showExport, setShowExport]     = useState(false)
+  const [copied, setCopied]             = useState(false)
   const fileRef = useRef()
 
   // Load listings on tab switch
@@ -380,6 +382,23 @@ export default function Market() {
     }
   }
 
+  function buildExportText() {
+    return myListings
+      .filter(l => l.status === 'active')
+      .map((l, i) => {
+        const orig = l.original_price && l.original_price > l.price ? `（原价 ¥${l.original_price}）` : ''
+        return `${i + 1}. ${l.title}  ¥${l.price}${orig}`
+      })
+      .join('\n')
+  }
+
+  function handleCopyExport() {
+    navigator.clipboard.writeText(buildExportText()).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
   // Browse: filter out own listings
   const browseListing = listings.filter(l => l.seller_username !== user.username)
   const displayList   = tab === 'mylistings' ? myListings : browseListing
@@ -392,6 +411,43 @@ export default function Market() {
         <div className={`alert alert-${toast.type} alert-dismissible position-fixed top-0 end-0 m-3`}
              style={{ zIndex: 9999 }}>
           {toast.msg}
+        </div>
+      )}
+
+      {/* Export modal */}
+      {showExport && (
+        <div className="modal show d-block" style={{ background: 'rgba(0,0,0,.45)' }} onClick={() => setShowExport(false)}>
+          <div className="modal-dialog modal-dialog-centered" onClick={e => e.stopPropagation()}>
+            <div className="modal-content">
+              <div className="modal-header">
+                <h6 className="modal-title fw-semibold">
+                  <i className="fas fa-file-export me-2 text-primary" />Export My Listings
+                </h6>
+                <button className="btn-close" onClick={() => setShowExport(false)} />
+              </div>
+              <div className="modal-body">
+                <textarea
+                  className="form-control font-monospace"
+                  rows={Math.min(myListings.filter(l => l.status === 'active').length + 2, 14)}
+                  readOnly
+                  value={buildExportText()}
+                  style={{ fontSize: '.85rem', resize: 'none' }}
+                  onClick={e => e.target.select()}
+                />
+                <div className="text-muted small mt-2">Click the text area to select all, or use the button below.</div>
+              </div>
+              <div className="modal-footer">
+                <button className="btn btn-outline-secondary btn-sm" onClick={() => setShowExport(false)}>Close</button>
+                <button
+                  className={`btn btn-sm ${copied ? 'btn-success' : 'btn-primary'}`}
+                  onClick={handleCopyExport}
+                >
+                  <i className={`fas ${copied ? 'fa-check' : 'fa-copy'} me-1`} />
+                  {copied ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -433,6 +489,13 @@ export default function Market() {
       {/* ── Browse / My Listings ── */}
       {(tab === 'browse' || tab === 'mylistings') && (
         <>
+          {tab === 'mylistings' && myListings.length > 0 && (
+            <div className="d-flex justify-content-end mb-3">
+              <button className="btn btn-outline-secondary btn-sm" onClick={() => setShowExport(true)}>
+                <i className="fas fa-file-export me-1" />Export List
+              </button>
+            </div>
+          )}
           {loading ? (
             <div className="text-center py-5">
               <HandLoader />

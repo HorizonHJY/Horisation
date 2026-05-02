@@ -224,7 +224,9 @@ class UserManager:
                             contact_info: str = None,
                             contact_hidden: bool = None,
                             wechat: str = None,
-                            phone: str = None) -> Tuple[bool, str]:
+                            phone: str = None,
+                            address: str = None,
+                            postal_code: str = None) -> Tuple[bool, str]:
         fields = {}
         if display_name is not None:
             fields['display_name'] = display_name
@@ -240,6 +242,10 @@ class UserManager:
             fields['wechat'] = wechat
         if phone is not None:
             fields['phone'] = phone
+        if address is not None:
+            fields['address'] = address
+        if postal_code is not None:
+            fields['postal_code'] = postal_code
         if not market_db.db_update_user(username, **fields):
             return False, "User not found"
         return True, f"User {username} profile updated"
