@@ -411,4 +411,111 @@ Last Updated: 2026-05-03
 - 在移动端浏览器（375px 宽）验证汉堡菜单展开/关闭，导航后侧边栏自动收起
 - 部署至服务器后验证 502 不再出现（Python 版本升级 + 类型注解修复）
 
-#### 
+#### Lessons Learned
+- **Symptom**: 本地正常，部署后 502
+- **Root Cause**: `dict | None` 联合类型注解为 Python 3.10+ 语法，服务器运行 3.9
+- **Reusable Solution**: 生产/本地 Python 版本须保持一致；或统一用 `Optional[X]`（`typing` 模块，兼容 3.7+）；CI 中加版本矩阵测试可提前发现
+
+- **Symptom**: Bootstrap Modal 点击无反应
+- **Root Cause**: 只引入了 Bootstrap CSS，未引入 Bootstrap JS；Modal/Dropdown 等交互组件依赖 JS
+- **Reusable Solution**: 使用 Bootstrap 组件时必须同时引入 `bootstrap.bundle.min.js`（含 Popper）
+
+#### Remaining Issues / Next Step
+- 好友和私信系统（下一个迭代完成）
+- 密码仍为明文
+
+---
+
+### 2026-03-01 — 初始部署 + React SPA 迁移 + 认证修复
+
+#### Goal
+将项目从 Flask/Jinja2 模板渲染迁移至 React 18 + Vite SPA；修复认证层的重大安全漏洞；部署至 AWS EC2 并完成 HTTPS 配置；建立基础文档体系。
+
+#### Trigger / Context
+项目原始版本使用 Flask 直接渲染 HTML 模板，难以扩展复杂的前端交互。计划将平台升级为前后端分离架构，为后续功能开发打好基础。
+
+#### Problem & Root Cause
+
+**严重安全漏洞**：`authenticate_user` 函数存在硬编码后门：`password in ['horizon', 'yyf']` — 任何用户用这两个密码均可登录。
+
+**用户查找 bug**：所有用户管理方法使用 `users.json` 的 dict key 查找用户，而非 `username` 字段。当两者不一致时（存量数据）登录失败。
+
+**部署后登录失效**：生产环境登录后 cookie 不生效。根因：Nginx 反代后 Flask 看到的是 HTTP 请求，`SESSION_COOKIE_SECURE=True` 拒绝在 HTTP 上写 cookie。
+
+#### Solution
+
+**React SPA 迁移**
+- 删除 `Template/`（Jinja2 模板）和 `Static/`（旧静态文件）目录
+- Flask 改为纯 API-only，所有路由统一在 `/api/*` 下
+- React 18 + Vite 构建，产出 `frontend/dist/`
+- Flask `serve_react()` catch-all 路由伺服 `index.html`
+
+**认证修复**
+- 移除硬编码后门 `password in ['horizon', 'yyf']`
+- 全局统一用 `_find_user()` helper 按 `username` 字段查找，修复 `auth_controller.py` 和 `memos_controller.py`
+- 修复 `users.json` 存量数据中 key/username 不一致问题
+
+**部署配置**
+- `ProxyFix(x_for=1, x_proto=1, x_host=1)` 信任 Nginx 代理头
+- `SESSION_COOKIE_SECURE` 在 `LOCAL_DEV=1` 时关闭
+- Nginx 配置：`/etc/nginx/conf.d/horizonyhj.com.conf`（反代到 Gunicorn :8000）
+- systemd service：`/etc/systemd/system/horisation.service`
+- SSL：Let's Encrypt + Cloudflare Full 模式
+- Python venv：`/home/ec2-user/venv/`（后续升级至 3.11）
+
+**功能清理**
+- 移除 `/limit` 路由和 `limit.html`（废弃功能）
+- 移除 `last_login` 字段（导致 `users.json` 频繁 git 冲突）
+
+**React 初版页面**
+Login、Home、CSV Workspace、Hormemo、Profile、AdminUsers、Under Development、Gomoku（本地双人）
+
+#### Changed Files
+- `app.py` — 重构为 API-only + SPA catch-all；加 ProxyFix 和 cookie 安全配置
+- `Backend/Controller/auth_controller.py` — 移除后门；修复 `_find_user()` 调用
+- `Backend/Controller/memos_controller.py` — 修复 `_find_user()` 调用
+- `Template/` — 删除目录
+- `Static/` — 删除目录
+- `frontend/` — 新建，React 18 + Vite 项目结构
+- `frontend/src/App.jsx` — 路由、AuthContext、PrivateRoute
+- `frontend/src/api.js` — fetch wrapper（`credentials: include`）
+- `frontend/src/pages/` — 初版所有页面组件
+- `requirements.txt` — 新建（flask, pandas, numpy, openpyxl, xlrd, pyarrow, gunicorn）
+- `Doc/project_intro.md`, `Doc/server.md`, `Doc/log.md`, `Doc/data_storage.md` — 新建文档
+
+#### Result
+- 生产环境 HTTPS 正常运行，登录 cookie 正常设置
+- 安全漏洞修复，用户查找逻辑统一
+- React SPA 全面上线，前后端分离架构就绪
+- 基础文档建立
+
+#### Testing
+- 生产环境用正常账号登录验证 cookie 正常写入，session 跨页面保持
+- 确认硬编码后门密码（`horizon`/`yyf`）不再绕过认证
+- 用存量用户数据验证 `_find_user()` 修复后所有账号可正常登录
+- 访问 `/login` 后重定向至 `/home`；直接访问 `/home` 未登录时重定向至 `/login`
+
+#### Lessons Learned
+- **Symptom**: 生产登录失败，本地正常
+- **Root Cause**: 反向代理改变了请求协议头，Flask 无法正确判断 HTTPS
+- **Reusable Solution**: 所有部署在反代后的 Flask 应用都应加 `ProxyFix`；本地用环境变量关闭 `SESSION_COOKIE_SECURE`，避免掩盖问题
+
+- **Symptom**: 代码中存在硬编码测试凭证
+- **Root Cause**: 开发阶段为方便调试遗留的临时代码未及时清理
+- **Reusable Solution**: 代码 review 时专项检查硬编码凭证；生产部署前运行 `grep -r "password in \[" .` 类扫描
+
+#### Remaining Issues / Next Step
+- 二手市集和留言板（下一个迭代完成）
+- `users.json` 并发安全问题（2026-03-06 通过迁移 SQLite 解决）
+- 密码明文存储
+
+---
+
+## Deploy Checklist
+```bash
+# Local — push changes
+git add -A && git commit -m "..." && git push
+
+# Server — one command
+bash ~/deploy.sh
+```
