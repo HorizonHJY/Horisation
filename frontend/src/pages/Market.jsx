@@ -164,6 +164,8 @@ function ListingCard({ listing, currentUser, onSold, onDelete, onEdit, onReachOu
       {/* Description */}
       <p className="market-card__desc">{listing.description}</p>
 
+      <hr className="market-card__divider" />
+
       {/* Footer: seller + price */}
       <div className="market-card__footer">
         <div
@@ -203,8 +205,7 @@ function ListingCard({ listing, currentUser, onSold, onDelete, onEdit, onReachOu
               <button className="market-card__btn" onClick={() => onSold(listing.id)}>
                 <i className="fas fa-check-circle" />Mark Sold
               </button>
-              <button className="market-card__btn" style={{ background: '#f59e0b', border: 'none' }}
-                onClick={() => onEdit(listing)}>
+              <button className="market-card__btn market-card__btn--edit" onClick={() => onEdit(listing)}>
                 <i className="fas fa-pen" />Edit
               </button>
             </>
@@ -220,11 +221,10 @@ function ListingCard({ listing, currentUser, onSold, onDelete, onEdit, onReachOu
         <div className="market-card__action">
           {reachOutStatus === 'friends' ? (
             <button
-              className="market-card__btn"
-              style={{ background: '#22c55e', border: 'none' }}
+              className="market-card__btn market-card__btn--reach"
               onClick={() => onReachOut(listing)}
             >
-              <i className="fas fa-comment-dots me-1" />Reach Out
+              <i className="fas fa-comment-dots" />Reach Out
             </button>
           ) : reachOutStatus === 'sent' ? (
             <span className="badge bg-warning text-dark px-3 py-2" style={{ fontSize: '.8rem' }}>
@@ -232,11 +232,10 @@ function ListingCard({ listing, currentUser, onSold, onDelete, onEdit, onReachOu
             </span>
           ) : (
             <button
-              className="market-card__btn"
-              style={{ background: '#3a7bd5', color: '#fff', border: 'none' }}
+              className="market-card__btn market-card__btn--reach"
               onClick={() => onReachOut(listing)}
             >
-              <i className="fas fa-paper-plane me-1" />Reach Out
+              <i className="fas fa-paper-plane" />Reach Out
             </button>
           )}
         </div>
@@ -616,22 +615,23 @@ export default function Market() {
       </div>
 
       {/* Tabs — Browse → My Listings → Post Item */}
-      <ul className="nav nav-tabs mb-4">
+      <div className="radio-inputs mb-4">
         {[
-          { key: 'browse',     label: 'Browse',      icon: 'fa-th-large' },
-          { key: 'mylistings', label: 'My Listings',  icon: 'fa-list-ul' },
-          { key: 'create',     label: 'Post Item',    icon: 'fa-plus-circle' },
+          { key: 'browse',     label: 'Browse' },
+          { key: 'mylistings', label: 'My Listings' },
+          { key: 'create',     label: 'Post Item' },
         ].map(t => (
-          <li className="nav-item" key={t.key}>
-            <button
-              className={`nav-link ${tab === t.key ? 'active' : ''}`}
-              onClick={() => setTab(t.key)}
-            >
-              <i className={`fas ${t.icon} me-1`} />{t.label}
-            </button>
-          </li>
+          <label className="radio" key={t.key}>
+            <input
+              type="radio"
+              name="market-tab"
+              checked={tab === t.key}
+              onChange={() => setTab(t.key)}
+            />
+            <span className="name">{t.label}</span>
+          </label>
         ))}
-      </ul>
+      </div>
 
       {/* ── Browse / My Listings ── */}
       {(tab === 'browse' || tab === 'mylistings') && (

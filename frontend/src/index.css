@@ -1,168 +1,148 @@
-/* ── Hand loader ─────────────────────────────────────────────── */
-.hand {
-  --skin-color: #E4C560;
-  --tap-speed: 0.6s;
-  --tap-stagger: 0.1s;
+/* ── Newton's Cradle loader ───────────────────────────────────── */
+.newtons-cradle {
+  --uib-size: 50px;
+  --uib-speed: 1.2s;
+  --uib-color: #474554;
   position: relative;
-  width: 80px;
-  height: 60px;
-  margin-left: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--uib-size);
+  height: var(--uib-size);
 }
 
-.hand:before {
+.newtons-cradle__dot {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 100%;
+  width: 25%;
+  transform-origin: center top;
+}
+
+.newtons-cradle__dot::after {
   content: '';
-  display: block;
-  width: 180%;
-  height: 75%;
-  position: absolute;
-  top: 70%;
-  right: 20%;
-  background-color: black;
-  border-radius: 40px 10px;
-  filter: blur(10px);
-  opacity: 0.3;
-}
-
-.hand-palm {
   display: block;
   width: 100%;
-  height: 100%;
-  position: absolute;
-  top: 0; left: 0;
-  background-color: var(--skin-color);
-  border-radius: 10px 40px;
+  height: 25%;
+  border-radius: 50%;
+  background-color: var(--uib-color);
 }
 
-.hand-thumb {
-  position: absolute;
-  width: 120%;
-  height: 38px;
-  background-color: var(--skin-color);
-  bottom: -18%;
-  right: 1%;
-  transform-origin: calc(100% - 20px) 20px;
-  transform: rotate(-20deg);
-  border-radius: 30px 20px 20px 10px;
-  border-bottom: 2px solid rgba(0,0,0,.1);
-  border-left: 2px solid rgba(0,0,0,.1);
+.newtons-cradle__dot:first-child {
+  animation: swing var(--uib-speed) linear infinite;
 }
 
-.hand-thumb:after {
-  width: 20%;
-  height: 60%;
-  content: '';
-  background-color: rgba(255,255,255,.3);
-  position: absolute;
-  bottom: -8%;
-  left: 5px;
-  border-radius: 60% 10% 10% 30%;
-  border-right: 2px solid rgba(0,0,0,.05);
+.newtons-cradle__dot:last-child {
+  animation: swing2 var(--uib-speed) linear infinite;
 }
 
-.hand-finger {
-  position: absolute;
-  width: 80%;
-  height: 35px;
-  background-color: var(--skin-color);
-  bottom: 32%;
-  right: 64%;
-  transform-origin: 100% 20px;
-  animation-duration: calc(var(--tap-speed) * 2);
-  animation-timing-function: ease-in-out;
-  animation-iteration-count: infinite;
-  transform: rotate(10deg);
+@keyframes swing {
+  0%  { transform: rotate(0deg);   animation-timing-function: ease-out; }
+  25% { transform: rotate(70deg);  animation-timing-function: ease-in;  }
+  50% { transform: rotate(0deg);   animation-timing-function: linear;   }
 }
 
-.hand-finger:before {
-  content: '';
-  position: absolute;
-  width: 140%;
-  height: 30px;
-  background-color: var(--skin-color);
-  bottom: 8%;
-  right: 65%;
-  transform-origin: calc(100% - 20px) 20px;
-  transform: rotate(-60deg);
-  border-radius: 20px;
+@keyframes swing2 {
+  0%  { transform: rotate(0deg);   animation-timing-function: linear;   }
+  50% { transform: rotate(0deg);   animation-timing-function: ease-out; }
+  75% { transform: rotate(-70deg); animation-timing-function: ease-in;  }
 }
 
-.hand-finger:nth-child(1) { animation-delay: 0;                          filter: brightness(70%); animation-name: hand-tap-1; }
-.hand-finger:nth-child(2) { animation-delay: var(--tap-stagger);          filter: brightness(80%); animation-name: hand-tap-2; }
-.hand-finger:nth-child(3) { animation-delay: calc(var(--tap-stagger)*2);  filter: brightness(90%); animation-name: hand-tap-3; }
-.hand-finger:nth-child(4) { animation-delay: calc(var(--tap-stagger)*3);  filter: brightness(100%); animation-name: hand-tap-4; }
+/* ── Radio tab switcher ──────────────────────────────────────── */
+.radio-inputs {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  border-radius: 0.5rem;
+  background-color: #EEE;
+  box-sizing: border-box;
+  box-shadow: 0 0 0px 1px rgba(0, 0, 0, 0.06);
+  padding: 0.25rem;
+  width: 300px;
+  font-size: 14px;
+}
 
-@keyframes hand-tap-1 {
-  0%, 50%, 100% { transform: rotate(10deg) scale(0.4); }
-  40%           { transform: rotate(50deg) scale(0.4); }
+.radio-inputs .radio {
+  flex: 1 1 auto;
+  text-align: center;
 }
-@keyframes hand-tap-2 {
-  0%, 50%, 100% { transform: rotate(10deg) scale(0.6); }
-  40%           { transform: rotate(50deg) scale(0.6); }
+
+.radio-inputs .radio input {
+  display: none;
 }
-@keyframes hand-tap-3 {
-  0%, 50%, 100% { transform: rotate(10deg) scale(0.8); }
-  40%           { transform: rotate(50deg) scale(0.8); }
+
+.radio-inputs .radio .name {
+  display: flex;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  border: none;
+  padding: .5rem 0;
+  color: rgba(51, 65, 85, 1);
+  transition: all .15s ease-in-out;
 }
-@keyframes hand-tap-4 {
-  0%, 50%, 100% { transform: rotate(10deg) scale(1); }
-  40%           { transform: rotate(50deg) scale(1); }
+
+.radio-inputs .radio input:checked + .name {
+  background-color: #fff;
+  font-weight: 600;
 }
 
 /* ── Market card ─────────────────────────────────────────────── */
 .market-card {
-  --mc-bg:        #ffffff;
-  --mc-primary:   #3a7bd5;
-  --mc-primary-d: #1e5bb5;
-  --mc-shadow:    #1a4a9e33;
-  --mc-text:      #1e2a3a;
-  --mc-muted:     #6b7280;
-  --mc-chip-bg:   #f0f4ff;
-  --mc-linear:    linear-gradient(0deg, var(--mc-primary) 50%, #93c5fd 125%);
+  --mc-font:   #323232;
+  --mc-muted:  #666;
+  --mc-border: #323232;
+  --mc-focus:  #2d8cf0;
+  --mc-bg:     #ffffff;
 
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
-  padding: 0.85rem;
-  background-color: var(--mc-bg);
-  border-radius: 1rem;
-  box-shadow: 0 2px 12px rgba(0,0,0,.08);
-  border: 1px solid #e5e7eb;
+  gap: 10px;
+  padding: 20px;
+  background: var(--mc-bg);
+  border: 2px solid var(--mc-border);
+  box-shadow: 4px 4px var(--mc-border);
+  border-radius: 5px;
   height: 100%;
 }
 
 .market-card__img {
+  transition: transform 0.5s;
+  display: flex;
+  justify-content: center;
+  align-items: center;
   overflow: hidden;
-  cursor: pointer;
-  position: relative;
   width: 100%;
   height: 8.5rem;
-  background-color: var(--mc-chip-bg);
-  border-radius: 0.6rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  background-color: #f5f5f5;
+  border-radius: 3px;
+}
+
+.market-card__img:hover {
+  transform: translateY(-3px);
 }
 
 .market-card__img img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: 0.6rem;
 }
 
 .market-card__img .placeholder-icon {
   font-size: 2.2rem;
-  color: #c0cce0;
+  color: #ccc;
 }
 
 .market-card__title {
   overflow: clip;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--mc-text);
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--mc-font);
 }
 
 .market-card__meta {
@@ -175,10 +155,10 @@
   font-size: 0.7rem;
   font-weight: 500;
   padding: 2px 8px;
-  background: var(--mc-chip-bg);
-  color: var(--mc-primary);
-  border-radius: 999px;
-  border: 1px solid #c7d9f8;
+  background: #f0f0f0;
+  color: #555;
+  border-radius: 3px;
+  border: 1px solid #ddd;
   text-transform: capitalize;
 }
 
@@ -188,7 +168,7 @@
   padding: 2px 8px;
   background: #fee2e2;
   color: #b91c1c;
-  border-radius: 999px;
+  border-radius: 3px;
 }
 
 .market-card__desc {
@@ -202,12 +182,17 @@
   overflow: hidden;
 }
 
+.market-card__divider {
+  margin: 0;
+  border: none;
+  border-top: 1px solid var(--mc-border);
+  border-radius: 50px;
+}
+
 .market-card__footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-top: 0.5rem;
-  border-top: 1px solid #f0f0f0;
 }
 
 .market-card__seller {
@@ -216,9 +201,9 @@
 }
 
 .market-card__price {
-  font-size: 1.4rem;
-  font-weight: 700;
-  color: var(--mc-text);
+  font-size: 1.2rem;
+  font-weight: 500;
+  color: var(--mc-font);
   line-height: 1;
 }
 
@@ -233,24 +218,56 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.45rem 0.75rem;
+  gap: 0.3rem;
+  height: 32px;
+  padding: 0 14px;
   flex: 1;
-  background-image: var(--mc-linear);
+  background: var(--mc-bg);
   font-size: 0.75rem;
   font-weight: 500;
-  color: #fff;
-  border: 1.5px solid rgba(58,123,213,.4);
-  border-radius: 0.5rem;
-  box-shadow: inset 0 0 0.2rem 1px rgba(255,255,255,.3);
-  transition: opacity .2s;
+  color: var(--mc-font);
+  border: 2px solid var(--mc-border);
+  border-radius: 5px;
+  transition: all 0.2s;
 }
 
-.market-card__btn:hover { opacity: 0.88; }
+.market-card__btn:hover {
+  border-color: var(--mc-focus);
+  color: var(--mc-focus);
+}
+
+.market-card__btn:active {
+  transform: translateY(2px);
+}
 
 .market-card__btn--danger {
-  background-image: linear-gradient(0deg, #ef4444 50%, #fca5a5 125%);
-  border-color: rgba(239,68,68,.4);
+  color: #ef4444;
+  border-color: #ef4444;
+}
+
+.market-card__btn--danger:hover {
+  border-color: #b91c1c;
+  color: #b91c1c;
+}
+
+.market-card__btn--edit {
+  color: #d97706;
+  border-color: #d97706;
+}
+
+.market-card__btn--edit:hover {
+  border-color: #b45309;
+  color: #b45309;
+}
+
+.market-card__btn--reach {
+  color: #16a34a;
+  border-color: #16a34a;
+}
+
+.market-card__btn--reach:hover {
+  border-color: #15803d;
+  color: #15803d;
 }
 
 /* ── Login inputs ────────────────────────────────────────────── */
