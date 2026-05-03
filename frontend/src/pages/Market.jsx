@@ -6,6 +6,15 @@ import HandLoader from '../components/HandLoader'
 
 const CATEGORIES = ['electronics', 'clothing', 'books', 'furniture', 'other']
 
+const CATEGORY_META = {
+  all:         { label: 'All',         icon: 'fa-border-all' },
+  electronics: { label: 'Electronics', icon: 'fa-laptop' },
+  clothing:    { label: 'Clothing',    icon: 'fa-tshirt' },
+  books:       { label: 'Books',       icon: 'fa-book' },
+  furniture:   { label: 'Furniture',   icon: 'fa-couch' },
+  other:       { label: 'Other',       icon: 'fa-box' },
+}
+
 const EMPTY_FORM = { title: '', description: '', price: '', original_price: '', category: 'electronics' }
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
@@ -308,6 +317,8 @@ export default function Market() {
   const { user }    = useAuth()
   const navigate    = useNavigate()
   const [tab, setTab]               = useState('browse')
+  const [searchQuery, setSearchQuery]   = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('all')
   const [listings, setListings]     = useState([])
   const [myListings, setMy]         = useState([])
   const [loading, setLoading]       = useState(false)
@@ -329,10 +340,10 @@ export default function Market() {
   const [copied, setCopied]             = useState(false)
   const fileRef = useRef()
 
-  // Load listings on tab switch
+  // Load listings on tab switch; reset filters on browse
   useEffect(() => {
-    if (tab === 'browse')      loadBrowse()
-    if (tab === 'mylistings')  loadMine()
+    if (tab === 'browse')     { loadBrowse(); setSearchQuery(''); setCategoryFilter('all') }
+    if (tab === 'mylistings')   loadMine()
   }, [tab])
 
   async function loadBrowse() {
@@ -505,9 +516,17 @@ export default function Market() {
     })
   }
 
-  // Browse: filter out own listings
+  // Browse: filter out own listings, then apply search + category
   const browseListing = listings.filter(l => l.seller_username !== user.username)
-  const displayList   = tab === 'mylistings' ? myListings : browseListing
+  const filteredBrowse = browseListing.filter(l => {
+    const q = searchQuery.trim().toLowerCase()
+    const matchesSearch = !q ||
+      l.title.toLowerCase().includes(q) ||
+      l.description.toLowerCase().includes(q)
+    const matchesCategory = categoryFilter === 'all' || l.category === categoryFilter
+    return matchesSearch && matchesCategory
+  })
+  const displayList = tab === 'mylistings' ? myListings : filteredBrowse
 
   return (
     <div className="container-fluid py-4">
@@ -604,6 +623,63 @@ export default function Market() {
       {/* ── Browse / My Listings ── */}
       {(tab === 'browse' || tab === 'mylistings') && (
         <>
+          {/* Search + Category filter — browse only */}
+          {tab === 'browse' && (
+            <div className="mb-4">
+              {/* Search bar */}
+              <div className="input-group mb-3">
+                <span className="input-group-text bg-transparent border-end-0">
+                  <i className="fas fa-search text-muted" />
+                </span>
+                <input
+                  className="form-control border-start-0 ps-0"
+                  placeholder="Search listings…"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                />
+                {searchQuery && (
+                  <button className="btn btn-outline-secondary border-start-0"
+                    onClick={() => setSearchQuery('')}>
+                    <i className="fas fa-times" />
+                  </button>
+                )}
+              </div>
+
+              {/* Category pills — horizontally scrollable on mobile */}
+              <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                <div className="d-flex gap-2" style={{ width: 'max-content', paddingBottom: 4 }}>
+                  {['all', ...CATEGORIES].map(cat => {
+                    const meta    = CATEGORY_META[cat]
+                    const active  = categoryFilter === cat
+                    return (
+                      <button
+                        key={cat}
+                        onClick={() => setCategoryFilter(cat)}
+                        className={`btn btn-sm ${active ? 'btn-primary' : 'btn-outline-secondary'}`}
+                        style={{ borderRadius: 20, whiteSpace: 'nowrap' }}
+                      >
+                        <i className={`fas ${meta.icon} me-1`} />{meta.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Active filter summary */}
+              {(searchQuery || categoryFilter !== 'all') && !loading && (
+                <div className="d-flex align-items-center gap-2 mt-2">
+                  <span className="text-muted small">
+                    {filteredBrowse.length} result{filteredBrowse.length !== 1 ? 's' : ''}
+                  </span>
+                  <button className="btn btn-link btn-sm p-0 text-muted"
+                    onClick={() => { setSearchQuery(''); setCategoryFilter('all') }}>
+                    Clear filters
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           {tab === 'mylistings' && myListings.length > 0 && (
             <div className="d-flex justify-content-end mb-3">
               <button className="btn btn-outline-secondary btn-sm" onClick={() => setShowExport(true)}>
@@ -618,11 +694,23 @@ export default function Market() {
           ) : displayList.length === 0 ? (
             <div className="text-center py-5 text-muted">
               <i className="fas fa-box-open fa-3x mb-3" />
-              <p>{tab === 'mylistings' ? "You haven't posted anything yet." : 'No listings yet. Be the first to post!'}</p>
-              {tab === 'mylistings' && (
-                <button className="btn btn-primary" onClick={() => setTab('create')}>
-                  Post a Listing
-                </button>
+              {tab === 'browse' && (searchQuery || categoryFilter !== 'all') ? (
+                <>
+                  <p>No listings match your search.</p>
+                  <button className="btn btn-outline-secondary btn-sm"
+                    onClick={() => { setSearchQuery(''); setCategoryFilter('all') }}>
+                    Clear filters
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p>{tab === 'mylistings' ? "You haven't posted anything yet." : 'No listings yet. Be the first to post!'}</p>
+                  {tab === 'mylistings' && (
+                    <button className="btn btn-primary" onClick={() => setTab('create')}>
+                      Post a Listing
+                    </button>
+                  )}
+                </>
               )}
             </div>
           ) : (
