@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../App'
 import { api } from '../api'
 import FlowerCanvas from '../components/FlowerCanvas'
+import { validatePassword } from '../utils'
 
 export default function Register() {
   const [form, setForm] = useState({
@@ -19,7 +20,8 @@ export default function Register() {
     e.preventDefault()
     setError('')
     if (form.password !== form.confirm) return setError('Passwords do not match.')
-    if (form.password.length < 6)       return setError('Password must be at least 6 characters.')
+    const pwErr = validatePassword(form.password)
+    if (pwErr) return setError(pwErr)
     setLoading(true)
     try {
       const data = await api.post('/api/auth/signup', {
@@ -83,7 +85,7 @@ export default function Register() {
               {[
                 { key: 'username',     label: 'Username',     type: 'text',     icon: 'fa-user',        placeholder: 'Choose a username' },
                 { key: 'display_name', label: 'Display Name', type: 'text',     icon: 'fa-id-badge',    placeholder: 'Your name (optional)' },
-                { key: 'password',     label: 'Password',     type: 'password', icon: 'fa-lock',        placeholder: 'Min 6 characters' },
+                { key: 'password',     label: 'Password',     type: 'password', icon: 'fa-lock',        placeholder: 'Min 8 chars, A-Z, a-z, 0-9' },
                 { key: 'confirm',      label: 'Confirm',      type: 'password', icon: 'fa-lock',        placeholder: 'Confirm password' },
                 { key: 'invite_code',  label: 'Invite Code',  type: 'text',     icon: 'fa-ticket-alt',  placeholder: 'Enter invite code' },
               ].map(({ key, label, type, icon, placeholder }) => (

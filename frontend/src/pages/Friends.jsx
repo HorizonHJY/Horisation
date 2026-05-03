@@ -280,29 +280,32 @@ export default function Friends() {
                 <h6 className="modal-title">{contactModal.name}'s Contact</h6>
                 <button className="btn-close" onClick={() => setContactModal(null)} />
               </div>
-              <div className="modal-body py-3">
-                <div className="row g-0 text-center">
-                  <div className="col-6 border-end py-3">
-                    <i className="fas fa-phone text-primary mb-2 d-block" />
-                    <div className="text-muted small mb-1">Phone</div>
-                    <div className="fw-semibold">{contactModal.phone || '—'}</div>
-                  </div>
-                  <div className="col-6 py-3">
-                    <i className="fab fa-weixin text-success mb-2 d-block" />
-                    <div className="text-muted small mb-1">WeChat</div>
-                    <div className="fw-semibold">{contactModal.wechat || '—'}</div>
-                  </div>
-                </div>
-                {(contactModal.address || contactModal.postal_code) && (
-                  <div className="border-top pt-3 mt-1 text-center">
-                    <i className="fas fa-map-marker-alt text-danger mb-2 d-block" />
-                    <div className="text-muted small mb-1">Address</div>
-                    <div className="fw-semibold">{contactModal.address || '—'}</div>
-                    {contactModal.postal_code && (
-                      <div className="text-muted small mt-1">{contactModal.postal_code}</div>
+              <div className="modal-body px-3 py-2">
+                {[
+                  { icon: 'fas fa-phone',          color: '#3a7bd5', label: 'Phone',    value: contactModal.phone },
+                  { icon: 'fab fa-weixin',          color: '#07c160', label: 'WeChat',   value: contactModal.wechat },
+                  { icon: 'fas fa-map-marker-alt',  color: '#e74c3c', label: 'Address',
+                    value: [contactModal.address, contactModal.postal_code].filter(Boolean).join('  ') },
+                ].map(row => (
+                  <div key={row.label} className="d-flex align-items-center gap-3 py-3 border-bottom">
+                    <i className={`${row.icon}`} style={{ color: row.color, width: 18, textAlign: 'center', fontSize: '1rem' }} />
+                    <div className="flex-grow-1 overflow-hidden">
+                      <div style={{ fontSize: '.7rem', color: '#888', marginBottom: 1 }}>{row.label}</div>
+                      <div className="fw-semibold text-truncate" style={{ fontSize: '.95rem' }}>
+                        {row.value || '—'}
+                      </div>
+                    </div>
+                    {row.value && (
+                      <button
+                        className="btn btn-sm btn-outline-secondary flex-shrink-0"
+                        style={{ fontSize: '.75rem', padding: '2px 8px' }}
+                        onClick={() => { navigator.clipboard.writeText(row.value); flash('Copied!') }}
+                      >
+                        <i className="fas fa-copy" />
+                      </button>
                     )}
                   </div>
-                )}
+                ))}
               </div>
             </div>
           </div>

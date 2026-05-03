@@ -4,12 +4,26 @@
 处理登录、注册、会话管理等API接口
 """
 
+import re
 from flask import Blueprint, request, jsonify, session, redirect, url_for
 from functools import wraps
 from .user_manager import user_manager
 
 # 创建认证蓝图
 auth_bp = Blueprint('auth', __name__, url_prefix='/api/auth')
+
+
+def _validate_password(password):
+    """8+ chars, uppercase, lowercase, digit. Returns error string or None."""
+    if len(password) < 8:
+        return 'Password must be at least 8 characters'
+    if not re.search(r'[A-Z]', password):
+        return 'Password must contain at least one uppercase letter'
+    if not re.search(r'[a-z]', password):
+        return 'Password must contain at least one lowercase letter'
+    if not re.search(r'\d', password):
+        return 'Password must contain at least one number'
+    return None
 
 def login_required(f):
     """登录验证装饰器"""
@@ -110,8 +124,9 @@ def register():
         if not username or not password:
             return jsonify({'ok': False, 'error': 'Username and password required'}), 400
 
-        if len(password) < 6:
-            return jsonify({'ok': False, 'error': 'Password must be at least 6 characters'}), 400
+        pw_err = _validate_password(password)
+        if pw_err:
+            return jsonify({'ok': False, 'error': pw_err}), 400
 
         success, message = user_manager.create_user(
             username=username, password=password, role=role,
@@ -139,8 +154,9 @@ def signup():
 
     if not username or not password or not invite_code:
         return jsonify({'ok': False, 'error': 'Username, password and invite code are required'}), 400
-    if len(password) < 6:
-        return jsonify({'ok': False, 'error': 'Password must be at least 6 characters'}), 400
+    pw_err = _validate_password(password)
+    if pw_err:
+        return jsonify({'ok': False, 'error': pw_err}), 400
     if not validate_invite_code(invite_code):
         return jsonify({'ok': False, 'error': 'Invalid or expired invite code'}), 403
 
@@ -366,8 +382,10 @@ def change_own_password():
     new_pass = data.get('new_password', '')
     if not current or not new_pass:
         return jsonify({'ok': False, 'error': 'Current and new password required'}), 400
+    pw_err = _validate_password(new_pass)
+    if pw_err:
+        return jsonify({'ok': False, 'error': pw_err}), 400
     username = request.current_user['username']
-    # Verify current password
     ok, _ = user_manager.authenticate_user(username, current)
     if not ok:
         return jsonify({'ok': False, 'error': 'Current password is incorrect'}), 403
@@ -396,6 +414,9 @@ def reset_user_password(username):
     new_password = data.get('password', '')
     if not new_password:
         return jsonify({'ok': False, 'error': 'Password required'}), 400
+    pw_err = _validate_password(new_password)
+    if pw_err:
+        return jsonify({'ok': False, 'error': pw_err}), 400
     success, message = user_manager.reset_user_password(username, new_password)
     if not success:
         return jsonify({'ok': False, 'error': message}), 400

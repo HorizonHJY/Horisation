@@ -3,6 +3,7 @@ import { useAuth } from '../App'
 import { useNavigate } from 'react-router-dom'
 import HandLoader from '../components/HandLoader'
 import { api } from '../api'
+import { validatePassword } from '../utils'
 
 const ROLES = ['horizon', 'horizonadmin', 'vip1', 'vip2', 'vip3', 'test', 'user']
 const ROLE_COLORS = {
@@ -118,6 +119,8 @@ export default function AdminUsers() {
   // ── Create ────────────────────────────────────────────────────────
   const createUser = async (e) => {
     e.preventDefault()
+    const pwErr = validatePassword(newUser.password)
+    if (pwErr) { flash(pwErr, 'danger'); return }
     setCreating(true)
     const d = await api.post('/api/auth/register', newUser)
     if (d.ok) {
@@ -161,6 +164,8 @@ export default function AdminUsers() {
 
     // Reset password (only if filled in)
     if (ok && editForm.password) {
+      const pwErr = validatePassword(editForm.password)
+      if (pwErr) { flash(pwErr, 'danger'); setSaving(false); return }
       const d = await api.put(`/api/auth/users/${username}/password`, {
         password: editForm.password,
       })

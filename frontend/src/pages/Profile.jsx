@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react'
 import { useAuth } from '../App'
 import { api } from '../api'
+import { validatePassword } from '../utils'
 
 const ROLE_COLORS = {
   horizon: 'role-horizon', horizonadmin: 'role-horizonadmin',
@@ -52,8 +53,8 @@ export default function Profile() {
     e.preventDefault()
     if (passForm.new_password !== passForm.confirm)
       return flash('New passwords do not match.', 'danger')
-    if (passForm.new_password.length < 6)
-      return flash('New password must be at least 6 characters.', 'danger')
+    const pwErr = validatePassword(passForm.new_password)
+    if (pwErr) return flash(pwErr, 'danger')
     setSavingPass(true)
     const d = await api.put('/api/auth/password', {
       current_password: passForm.current_password,
@@ -327,7 +328,7 @@ export default function Profile() {
               <input
                 type="password"
                 className="form-control"
-                placeholder="New password (min 6 characters)"
+                placeholder="New password (min 8 chars, A-Z, a-z, 0-9)"
                 value={passForm.new_password}
                 onChange={e => setPassForm(f => ({ ...f, new_password: e.target.value }))}
                 autoComplete="new-password"
