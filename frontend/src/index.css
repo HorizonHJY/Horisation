@@ -183,7 +183,7 @@
 .market-card__img img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .market-card__img .placeholder-icon {
