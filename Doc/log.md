@@ -1,18 +1,18 @@
 # Horisation — Development Log
 
 ## 0. Current Status
-Last Updated: 2026-05-02
+Last Updated: 2026-05-03
 
 ### Current Working Version
-- **Completed**: 邀请码系统 + 公开注册、功能角色门控（Online Gomoku）、市集商品编辑、Profile 地址字段扩展、好友/私信/联系方式申请系统、用户数据 SQLite 迁移、二手市集、留言板、移动端响应式侧边栏、React SPA 全面迁移
+- **Completed**: UI 组件库统一风格（加载动画、Tab 切换器、搜索框、市集卡片、商品详情弹窗）；邀请码系统 + 公开注册、功能角色门控、市集商品编辑、Profile 地址字段扩展、好友/私信/联系方式申请系统、用户数据 SQLite 迁移、二手市集、留言板、移动端响应式侧边栏、React SPA 全面迁移
 - **In Progress**: [待补充]
-- **Blocked / Not Solved**: 密码明文存储（待迁 bcrypt）；无 CI/CD 流水线
+- **Blocked / Not Solved**: 密码明文存储（待迁 bcrypt）；无 CI/CD 流水线；首页天气卡片（todo #1）
 
 ### Latest Summary
-新增了邀请码机制实现受控公开注册，Online Gomoku 按角色门控，市集支持编辑商品，Profile 扩展了地址和邮编字段。
+全面重构前端 UI 风格：Newton's Cradle 加载动画、radio 风格 Tab 切换器（Market + Friends）、自定义搜索框、brutalist 风格市集卡片、市集商品详情弹窗（展示原图 + 全部信息）。
 
 ### Next Immediate Step
-[待补充 — 请在下次迭代前更新]
+首页加天气卡片（OpenWeatherMap + geolocation）
 
 ---
 
@@ -56,6 +56,76 @@ Last Updated: 2026-05-02
 ---
 
 ## 3. Iteration History
+
+---
+
+### 2026-05-03 — 前端 UI 风格统一：加载动画、Tab 切换、搜索框、市集卡片重设计、商品详情弹窗
+
+#### Goal
+统一全站前端 UI 组件风格，替换默认 Bootstrap 样式为更有设计感的自定义组件；新增市集商品详情弹窗，解决图片在卡片里被裁剪无法查看原图的问题。
+
+#### Trigger / Context
+用户反馈上传的商品图片在卡片里显示尺寸与原图不一致（实为 CSS `object-fit: cover` 裁剪效果），需要一个详情弹窗展示原图。同时借此机会统一替换多处默认 Bootstrap 组件，提升视觉一致性。
+
+#### Problem & Root Cause
+无明显 bug，本次为 UI 优化与功能开发。
+
+图片"压缩"问题的根因：R2 存储的是原图（后端无任何压缩处理），卡片容器高度固定为 `8.5rem`，CSS `object-fit: cover` 使图片填满容器并裁剪。图片本身完好，只是展示时被裁剪了。解法：详情弹窗里用 `object-fit: contain` 展示完整原图。
+
+#### Solution
+
+**Newton's Cradle 加载动画**
+- `HandLoader.jsx`：HTML 结构从手形动画（6个div）换成 4 个 `.newtons-cradle__dot`
+- `index.css`：删除所有 `.hand*` CSS，替换为 `.newtons-cradle` + `@keyframes swing / swing2`
+
+**Radio 风格 Tab 切换器**
+- `index.css`：新增 `.radio-inputs` 样式块（圆角灰底 + 选中白色高亮）
+- `Market.jsx`：`<ul class="nav nav-tabs">` 替换为 `<div class="radio-inputs">` + `<label>` radio 结构，`setTab` 逻辑不变
+- `Friends.jsx`：同上，Friends / Requests（含未读数） / Add 三个 tab
+
+**自定义搜索框**
+- `index.css`：新增 `.search`, `.search__input`, `.search__button`, `.search__clear` 样式
+- `Market.jsx`：原 Bootstrap `input-group` 结构替换为 `.search` + `.search__input`，搜索图标通过 `margin-right: -1.5rem` 压入输入框右侧
+
+**市集卡片 brutalist 重设计**
+- `index.css`：`.market-card` 从圆角软阴影风格改为 `border: 2px solid #323232` + `box-shadow: 4px 4px #323232`（偏移实心阴影）；按钮从渐变背景改为描边风格，悬停变色（蓝/橙/绿/红分别对应不同操作）；新增 `.market-card__divider` 分割线
+- `Market.jsx`：description 和 footer 之间插入 `<hr class="market-card__divider">`；Edit / Reach Out 按钮移除 inline style，改用 modifier class（`--edit` / `--reach`）
+
+**商品详情弹窗**
+- `Market.jsx`：新增 `ListingDetailModal` 组件，点击卡片图片或标题触发
+  - 图片区：`object-fit: contain` 展示完整原图；多图时底部显示缩略图列表，点击切换
+  - 内容：价格（含原价划线）、类别 badge、完整描述（`white-space: pre-wrap`）、卖家信息（点击跳转卖家 Modal）
+  - Footer actions：与卡片完全一致（Mark Sold / Edit / Delete / Reach Out），操作后自动关闭弹窗
+- `Market.jsx` 主组件：新增 `detailListing` state；`ListingCard` 新增 `onDetail` prop
+
+#### Changed Files
+- `frontend/src/components/HandLoader.jsx` — HTML 结构改为 Newton's Cradle 4 dot
+- `frontend/src/index.css` — 删除手形动画 CSS；新增 Newton's Cradle、radio-inputs、search bar、brutalist market card 样式
+- `frontend/src/pages/Market.jsx` — radio tab 切换器、自定义搜索框、卡片 divider + modifier class、新增 `ListingDetailModal` 组件 + `detailListing` state
+- `frontend/src/pages/Friends.jsx` — radio tab 切换器（Friends / Requests / Add）
+- `Doc/log.md` — 本次更新
+
+#### Result
+- 全站加载动画换为 Newton's Cradle，视觉更精致
+- Market 和 Friends 的 Tab 切换器统一为 radio 风格，与 Bootstrap nav-tabs 视觉差异明显
+- 市集搜索框有自定义样式，搜索图标内嵌在输入框右侧
+- 市集卡片整体风格统一为 brutalist：黑色描边 + 偏移阴影，按钮按操作语义分色
+- 点击商品图片或标题弹出详情弹窗，原图以原比例展示，支持多图切换
+
+#### Testing
+- 本地 `npm run dev` 启动，访问 Market 页：点击商品图片确认弹窗展示原比例图片；有 3 张图片的商品验证缩略图切换；点击 Mark Sold / Delete / Reach Out 验证操作正常执行并关闭弹窗
+- Friends 页三个 tab 切换正常，Requests tab 在有未读数时正确显示数字
+- Market 搜索框输入关键词过滤正常，清除按钮出现并可清空
+- 刷新页面验证加载动画（全页 loader）显示 Newton's Cradle
+
+#### Lessons Learned
+- **Symptom**: 用户反映上传图片"被压缩"，显示尺寸与原图不同
+- **Root Cause**: 并非服务端压缩，而是卡片 CSS 固定高度 + `object-fit: cover` 的展示裁剪
+- **Reusable Solution**: 缩略图用 `object-fit: cover` 填满容器是正确的；需要看完整图时用 `object-fit: contain` + 固定最大高度。两者结合（缩略图 + 详情弹窗）是标准解法
+
+#### Remaining Issues / Next Step
+- 首页天气卡片（OpenWeatherMap + geolocation，todo #1）
+- 密码明文存储待迁 bcrypt
 
 ---
 
@@ -341,111 +411,4 @@ Last Updated: 2026-05-02
 - 在移动端浏览器（375px 宽）验证汉堡菜单展开/关闭，导航后侧边栏自动收起
 - 部署至服务器后验证 502 不再出现（Python 版本升级 + 类型注解修复）
 
-#### Lessons Learned
-- **Symptom**: 本地正常，部署后 502
-- **Root Cause**: `dict | None` 联合类型注解为 Python 3.10+ 语法，服务器运行 3.9
-- **Reusable Solution**: 生产/本地 Python 版本须保持一致；或统一用 `Optional[X]`（`typing` 模块，兼容 3.7+）；CI 中加版本矩阵测试可提前发现
-
-- **Symptom**: Bootstrap Modal 点击无反应
-- **Root Cause**: 只引入了 Bootstrap CSS，未引入 Bootstrap JS；Modal/Dropdown 等交互组件依赖 JS
-- **Reusable Solution**: 使用 Bootstrap 组件时必须同时引入 `bootstrap.bundle.min.js`（含 Popper）
-
-#### Remaining Issues / Next Step
-- 好友和私信系统（下一个迭代完成）
-- 密码仍为明文
-
----
-
-### 2026-03-01 — 初始部署 + React SPA 迁移 + 认证修复
-
-#### Goal
-将项目从 Flask/Jinja2 模板渲染迁移至 React 18 + Vite SPA；修复认证层的重大安全漏洞；部署至 AWS EC2 并完成 HTTPS 配置；建立基础文档体系。
-
-#### Trigger / Context
-项目原始版本使用 Flask 直接渲染 HTML 模板，难以扩展复杂的前端交互。计划将平台升级为前后端分离架构，为后续功能开发打好基础。
-
-#### Problem & Root Cause
-
-**严重安全漏洞**：`authenticate_user` 函数存在硬编码后门：`password in ['horizon', 'yyf']` — 任何用户用这两个密码均可登录。
-
-**用户查找 bug**：所有用户管理方法使用 `users.json` 的 dict key 查找用户，而非 `username` 字段。当两者不一致时（存量数据）登录失败。
-
-**部署后登录失效**：生产环境登录后 cookie 不生效。根因：Nginx 反代后 Flask 看到的是 HTTP 请求，`SESSION_COOKIE_SECURE=True` 拒绝在 HTTP 上写 cookie。
-
-#### Solution
-
-**React SPA 迁移**
-- 删除 `Template/`（Jinja2 模板）和 `Static/`（旧静态文件）目录
-- Flask 改为纯 API-only，所有路由统一在 `/api/*` 下
-- React 18 + Vite 构建，产出 `frontend/dist/`
-- Flask `serve_react()` catch-all 路由伺服 `index.html`
-
-**认证修复**
-- 移除硬编码后门 `password in ['horizon', 'yyf']`
-- 全局统一用 `_find_user()` helper 按 `username` 字段查找，修复 `auth_controller.py` 和 `memos_controller.py`
-- 修复 `users.json` 存量数据中 key/username 不一致问题
-
-**部署配置**
-- `ProxyFix(x_for=1, x_proto=1, x_host=1)` 信任 Nginx 代理头
-- `SESSION_COOKIE_SECURE` 在 `LOCAL_DEV=1` 时关闭
-- Nginx 配置：`/etc/nginx/conf.d/horizonyhj.com.conf`（反代到 Gunicorn :8000）
-- systemd service：`/etc/systemd/system/horisation.service`
-- SSL：Let's Encrypt + Cloudflare Full 模式
-- Python venv：`/home/ec2-user/venv/`（后续升级至 3.11）
-
-**功能清理**
-- 移除 `/limit` 路由和 `limit.html`（废弃功能）
-- 移除 `last_login` 字段（导致 `users.json` 频繁 git 冲突）
-
-**React 初版页面**
-Login、Home、CSV Workspace、Hormemo、Profile、AdminUsers、Under Development、Gomoku（本地双人）
-
-#### Changed Files
-- `app.py` — 重构为 API-only + SPA catch-all；加 ProxyFix 和 cookie 安全配置
-- `Backend/Controller/auth_controller.py` — 移除后门；修复 `_find_user()` 调用
-- `Backend/Controller/memos_controller.py` — 修复 `_find_user()` 调用
-- `Template/` — 删除目录
-- `Static/` — 删除目录
-- `frontend/` — 新建，React 18 + Vite 项目结构
-- `frontend/src/App.jsx` — 路由、AuthContext、PrivateRoute
-- `frontend/src/api.js` — fetch wrapper（`credentials: include`）
-- `frontend/src/pages/` — 初版所有页面组件
-- `requirements.txt` — 新建（flask, pandas, numpy, openpyxl, xlrd, pyarrow, gunicorn）
-- `Doc/project_intro.md`, `Doc/server.md`, `Doc/log.md`, `Doc/data_storage.md` — 新建文档
-
-#### Result
-- 生产环境 HTTPS 正常运行，登录 cookie 正常设置
-- 安全漏洞修复，用户查找逻辑统一
-- React SPA 全面上线，前后端分离架构就绪
-- 基础文档建立
-
-#### Testing
-- 生产环境用正常账号登录验证 cookie 正常写入，session 跨页面保持
-- 确认硬编码后门密码（`horizon`/`yyf`）不再绕过认证
-- 用存量用户数据验证 `_find_user()` 修复后所有账号可正常登录
-- 访问 `/login` 后重定向至 `/home`；直接访问 `/home` 未登录时重定向至 `/login`
-
-#### Lessons Learned
-- **Symptom**: 生产登录失败，本地正常
-- **Root Cause**: 反向代理改变了请求协议头，Flask 无法正确判断 HTTPS
-- **Reusable Solution**: 所有部署在反代后的 Flask 应用都应加 `ProxyFix`；本地用环境变量关闭 `SESSION_COOKIE_SECURE`，避免掩盖问题
-
-- **Symptom**: 代码中存在硬编码测试凭证
-- **Root Cause**: 开发阶段为方便调试遗留的临时代码未及时清理
-- **Reusable Solution**: 代码 review 时专项检查硬编码凭证；生产部署前运行 `grep -r "password in \[" .` 类扫描
-
-#### Remaining Issues / Next Step
-- 二手市集和留言板（下一个迭代完成）
-- `users.json` 并发安全问题（2026-03-06 通过迁移 SQLite 解决）
-- 密码明文存储
-
----
-
-## Deploy Checklist
-```bash
-# Local — push changes
-git add -A && git commit -m "..." && git push
-
-# Server — one command
-bash ~/deploy.sh
-```
+#### 

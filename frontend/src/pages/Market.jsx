@@ -136,7 +136,7 @@ function EditModal({ listing, onClose, onSave }) {
 }
 
 // ── Listing Card ──────────────────────────────────────────────────────────────
-function ListingCard({ listing, currentUser, onSold, onDelete, onEdit, onReachOut, onSellerClick, reachOutStatus }) {
+function ListingCard({ listing, currentUser, onSold, onDelete, onEdit, onReachOut, onSellerClick, onDetail, reachOutStatus }) {
   const isMine      = listing.seller_username === currentUser
   const firstImg    = listing.images?.[0]?.url
   const isSold      = listing.status === 'sold'
@@ -144,16 +144,17 @@ function ListingCard({ listing, currentUser, onSold, onDelete, onEdit, onReachOu
 
   return (
     <div className="market-card">
-      {/* Image */}
-      <div className="market-card__img">
+      {/* Image — click opens detail */}
+      <div className="market-card__img" onClick={onDetail} style={{ cursor: 'pointer' }}>
         {firstImg
           ? <img src={firstImg} alt={listing.title} />
           : <i className="fas fa-image placeholder-icon" />
         }
       </div>
 
-      {/* Title */}
-      <div className="market-card__title" title={listing.title}>{listing.title}</div>
+      {/* Title — click opens detail */}
+      <div className="market-card__title" title={listing.title}
+           style={{ cursor: 'pointer' }} onClick={onDetail}>{listing.title}</div>
 
       {/* Category + sold badge */}
       <div className="market-card__meta">
@@ -240,6 +241,152 @@ function ListingCard({ listing, currentUser, onSold, onDelete, onEdit, onReachOu
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+// ── Listing Detail Modal ──────────────────────────────────────────────────────
+function ListingDetailModal({ listing, currentUser, onClose, onSold, onDelete, onEdit, onReachOut, onSellerClick, reachOutStatus }) {
+  const [imgIndex, setImgIndex] = useState(0)
+  const isMine      = listing.seller_username === currentUser
+  const isSold      = listing.status === 'sold'
+  const hasOriginal = listing.original_price && listing.original_price > listing.price
+
+  return (
+    <div className="modal show d-block" style={{ background: 'rgba(0,0,0,.55)' }} onClick={onClose}>
+      <div className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable"
+           onClick={e => e.stopPropagation()}>
+        <div className="modal-content"
+             style={{ border: '2px solid #323232', borderRadius: 6, boxShadow: '6px 6px #323232' }}>
+
+          {/* Header */}
+          <div className="modal-header" style={{ borderBottom: '1px solid #323232' }}>
+            <h5 className="modal-title fw-semibold" style={{ fontSize: '1rem' }}>{listing.title}</h5>
+            <button className="btn-close" onClick={onClose} />
+          </div>
+
+          <div className="modal-body">
+            {/* Images */}
+            {listing.images?.length > 0 && (
+              <div className="mb-3">
+                <img
+                  src={listing.images[imgIndex].url}
+                  alt={listing.title}
+                  style={{
+                    width: '100%', maxHeight: 380,
+                    objectFit: 'contain',
+                    background: '#f5f5f5',
+                    borderRadius: 4,
+                    border: '1px solid #e0e0e0',
+                  }}
+                />
+                {listing.images.length > 1 && (
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                    {listing.images.map((img, i) => (
+                      <img
+                        key={img.id} src={img.url}
+                        onClick={() => setImgIndex(i)}
+                        style={{
+                          width: 58, height: 58, objectFit: 'cover',
+                          border: i === imgIndex ? '2px solid #323232' : '2px solid #e0e0e0',
+                          borderRadius: 4, cursor: 'pointer',
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Price + badges */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <span className="market-card__category">{listing.category}</span>
+                {isSold && <span className="market-card__sold-badge">Sold</span>}
+              </div>
+              {!isSold && (
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                  <span style={{ fontSize: '1.5rem', fontWeight: 600 }}>¥{listing.price}</span>
+                  {hasOriginal && (
+                    <span style={{ fontSize: '.85rem', color: '#999', textDecoration: 'line-through' }}>
+                      ¥{listing.original_price}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <hr className="market-card__divider" />
+
+            {/* Description */}
+            <p style={{ fontSize: '.9rem', color: '#555', lineHeight: 1.7, whiteSpace: 'pre-wrap', marginBottom: 16 }}>
+              {listing.description}
+            </p>
+
+            <hr className="market-card__divider" />
+
+            {/* Seller */}
+            <div
+              style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', marginTop: 12 }}
+              onClick={() => { onSellerClick(listing.seller_username); onClose() }}
+            >
+              <SellerAvatar
+                username={listing.seller_username}
+                displayName={listing.seller_display}
+                avatarUrl={listing.seller_avatar}
+                size={34}
+              />
+              <div>
+                <div style={{ fontWeight: 600, fontSize: '.85rem' }}>
+                  {listing.seller_display || listing.seller_username}
+                </div>
+                <div style={{ fontSize: '.75rem', color: '#888' }}>
+                  Posted {new Date(listing.created_at).toLocaleDateString()}
+                </div>
+              </div>
+              <i className="fas fa-chevron-right ms-auto text-muted" style={{ fontSize: '.75rem' }} />
+            </div>
+          </div>
+
+          {/* Footer actions */}
+          <div className="modal-footer" style={{ borderTop: '1px solid #323232' }}>
+            {isMine ? (
+              <div style={{ display: 'flex', gap: 8, width: '100%' }}>
+                {!isSold && (
+                  <>
+                    <button className="market-card__btn" style={{ flex: 1 }}
+                      onClick={() => { onSold(listing.id); onClose() }}>
+                      <i className="fas fa-check-circle" />Mark Sold
+                    </button>
+                    <button className="market-card__btn market-card__btn--edit" style={{ flex: 1 }}
+                      onClick={() => { onEdit(listing); onClose() }}>
+                      <i className="fas fa-pen" />Edit
+                    </button>
+                  </>
+                )}
+                <button className="market-card__btn market-card__btn--danger" style={{ flex: 1 }}
+                  onClick={() => { onDelete(listing.id); onClose() }}>
+                  <i className="fas fa-trash" />Delete
+                </button>
+              </div>
+            ) : !isSold ? (
+              <div style={{ display: 'flex', gap: 8, width: '100%' }}>
+                {reachOutStatus === 'sent' ? (
+                  <span className="badge bg-warning text-dark px-3 py-2" style={{ fontSize: '.85rem' }}>
+                    <i className="fas fa-clock me-1" />Request Sent
+                  </span>
+                ) : (
+                  <button className="market-card__btn market-card__btn--reach" style={{ flex: 1 }}
+                    onClick={() => { onReachOut(listing); onClose() }}>
+                    <i className={`fas ${reachOutStatus === 'friends' ? 'fa-comment-dots' : 'fa-paper-plane'}`} />
+                    Reach Out
+                  </button>
+                )}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
@@ -331,6 +478,7 @@ export default function Market() {
   // friendsMap: { [username]: { username, display_name, avatar_url } }
   const [friendsMap, setFriendsMap] = useState({})
   const [editListing, setEditListing]   = useState(null)
+  const [detailListing, setDetailListing] = useState(null)
   // sellerModal: { username, display_name, avatar_url } | null
   const [sellerModal, setSellerModal]   = useState(null)
   const [sellerListings, setSellerListings] = useState([])
@@ -543,6 +691,21 @@ export default function Market() {
   return (
     <div className="container-fluid py-4">
 
+      {/* Listing Detail Modal */}
+      {detailListing && (
+        <ListingDetailModal
+          listing={detailListing}
+          currentUser={user.username}
+          onClose={() => setDetailListing(null)}
+          onSold={handleSold}
+          onDelete={handleDelete}
+          onEdit={setEditListing}
+          onReachOut={handleReachOut}
+          onSellerClick={openSellerModal}
+          reachOutStatus={interestedSet[detailListing.seller_username]}
+        />
+      )}
+
       {/* Toast */}
       {toast && (
         <div className={`alert alert-${toast.type} alert-dismissible position-fixed top-0 end-0 m-3`}
@@ -737,6 +900,7 @@ export default function Market() {
                     onEdit={setEditListing}
                     onReachOut={handleReachOut}
                     onSellerClick={openSellerModal}
+                    onDetail={() => setDetailListing(l)}
                     reachOutStatus={interestedSet[l.seller_username]}
                   />
                 </div>
