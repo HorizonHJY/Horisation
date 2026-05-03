@@ -132,7 +132,10 @@ export default function Friends() {
     if (fRes.ok) setFriends(fRes.friends)
     if (cRes.ok) {
       const map = {}
-      cRes.requests.forEach(r => { map[r.to_user] = r.status })
+      // requests are ordered created_at DESC — first entry per user is the latest; skip older duplicates
+      cRes.requests.forEach(r => {
+        if (!(r.to_user in map)) map[r.to_user] = r.status
+      })
       setContactStatusMap(map)
     }
     if (sRes.ok) setSharedContacts(sRes.requests)
@@ -245,6 +248,10 @@ export default function Friends() {
   const respondContact = async (reqId, action, fromUser) => {
     const d = await api.put(`/api/friends/contact/requests/${reqId}`, { action })
     if (d.ok) {
+      if (action === 'approve') {
+        const req = contactReqs.find(r => r.id === reqId)
+        if (req) setSharedContacts(prev => [...prev, req])
+      }
       setContactReqs(prev => prev.filter(r => r.id !== reqId))
       flash(action === 'approve' ? 'Contact shared!' : 'Request declined.')
     } else flash(d.error, 'danger')
