@@ -28,6 +28,7 @@ export default function Friends() {
   const socketRef     = useRef(null)
   const chatEndRef    = useRef(null)
   const activeChatRef = useRef(null)   // mirror of activeChat for socket handler
+  const tabRef        = useRef('friends')
 
   const [tab, setTab]               = useState('friends')
   const [friends, setFriends]       = useState([])
@@ -102,11 +103,23 @@ export default function Friends() {
 
   // Load on tab change
   useEffect(() => {
+    tabRef.current = tab
     if (tab === 'friends') loadFriends()
     if (tab === 'pending') loadPending()
     if (tab === 'add')     loadSentRequests()
     else { setSearchQuery(''); setSearchResults([]) }
   }, [tab])
+
+  // Refresh when user returns to this tab (skip if chat is open — already real-time)
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible' || activeChatRef.current) return
+      if (tabRef.current === 'friends') loadFriends()
+      else if (tabRef.current === 'pending') loadPending()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [])
 
   // Auto-open chat if navigated here from Market with state
   useEffect(() => {
@@ -286,24 +299,20 @@ export default function Friends() {
                   { icon: 'fab fa-weixin',          color: '#07c160', label: 'WeChat',   value: contactModal.wechat },
                   { icon: 'fas fa-map-marker-alt',  color: '#e74c3c', label: 'Address',
                     value: [contactModal.address, contactModal.postal_code].filter(Boolean).join('  ') },
-                ].map(row => (
+                ].filter(row => row.value).map(row => (
                   <div key={row.label} className="d-flex align-items-center gap-3 py-3 border-bottom">
                     <i className={`${row.icon}`} style={{ color: row.color, width: 18, textAlign: 'center', fontSize: '1rem' }} />
                     <div className="flex-grow-1 overflow-hidden">
                       <div style={{ fontSize: '.7rem', color: '#888', marginBottom: 1 }}>{row.label}</div>
-                      <div className="fw-semibold text-truncate" style={{ fontSize: '.95rem' }}>
-                        {row.value || '—'}
-                      </div>
+                      <div className="fw-semibold text-truncate" style={{ fontSize: '.95rem' }}>{row.value}</div>
                     </div>
-                    {row.value && (
-                      <button
-                        className="btn btn-sm btn-outline-secondary flex-shrink-0"
-                        style={{ fontSize: '.75rem', padding: '2px 8px' }}
-                        onClick={() => { navigator.clipboard.writeText(row.value); flash('Copied!') }}
-                      >
-                        <i className="fas fa-copy" />
-                      </button>
-                    )}
+                    <button
+                      className="btn btn-sm btn-outline-secondary flex-shrink-0"
+                      style={{ fontSize: '.75rem', padding: '2px 8px' }}
+                      onClick={() => { navigator.clipboard.writeText(row.value); flash('Copied!') }}
+                    >
+                      <i className="fas fa-copy" />
+                    </button>
                   </div>
                 ))}
               </div>

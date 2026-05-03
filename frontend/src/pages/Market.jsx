@@ -339,12 +339,25 @@ export default function Market() {
   const [showExport, setShowExport]     = useState(false)
   const [copied, setCopied]             = useState(false)
   const fileRef = useRef()
+  const tabRef  = useRef(tab)
+  useEffect(() => { tabRef.current = tab }, [tab])
 
   // Load listings on tab switch; reset filters on browse
   useEffect(() => {
     if (tab === 'browse')     { loadBrowse(); setSearchQuery(''); setCategoryFilter('all') }
     if (tab === 'mylistings')   loadMine()
   }, [tab])
+
+  // Refresh when user returns to this tab
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return
+      if (tabRef.current === 'browse')      loadBrowse()
+      else if (tabRef.current === 'mylistings') loadMine()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [])
 
   async function loadBrowse() {
     setLoading(true)
