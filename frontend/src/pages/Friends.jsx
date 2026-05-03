@@ -406,19 +406,23 @@ export default function Friends() {
             {(pending.length + contactReqs.length) > 0 && <span className="badge bg-danger">{pending.length + contactReqs.length}</span>}
           </div>
 
-          <ul className="nav nav-tabs mb-4">
+          <div className="radio-inputs mb-4">
             {[
-              { key: 'friends', label: 'Friends',  icon: 'fa-user-friends' },
-              { key: 'pending', label: (pending.length + contactReqs.length) > 0 ? `Requests (${pending.length + contactReqs.length})` : 'Requests', icon: 'fa-bell' },
-              { key: 'add',     label: 'Add',       icon: 'fa-user-plus' },
+              { key: 'friends', label: 'Friends' },
+              { key: 'pending', label: (pending.length + contactReqs.length) > 0 ? `Requests (${pending.length + contactReqs.length})` : 'Requests' },
+              { key: 'add',     label: 'Add' },
             ].map(t => (
-              <li className="nav-item" key={t.key}>
-                <button className={`nav-link ${tab === t.key ? 'active' : ''}`} onClick={() => setTab(t.key)}>
-                  <i className={`fas ${t.icon} me-1`} />{t.label}
-                </button>
-              </li>
+              <label className="radio" key={t.key}>
+                <input
+                  type="radio"
+                  name="friends-tab"
+                  checked={tab === t.key}
+                  onChange={() => setTab(t.key)}
+                />
+                <span className="name">{t.label}</span>
+              </label>
             ))}
-          </ul>
+          </div>
 
           {loading ? (
             <div className="text-center py-5"><HandLoader /></div>

@@ -640,19 +640,18 @@ export default function Market() {
           {tab === 'browse' && (
             <div className="mb-4">
               {/* Search bar */}
-              <div className="input-group mb-3">
-                <span className="input-group-text bg-transparent border-end-0">
-                  <i className="fas fa-search text-muted" />
-                </span>
+              <div className="search mb-3">
                 <input
-                  className="form-control border-start-0 ps-0"
+                  className="search__input"
                   placeholder="Search listings…"
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                 />
+                <button className="search__button" onClick={() => {}}>
+                  <i className="fas fa-search" />
+                </button>
                 {searchQuery && (
-                  <button className="btn btn-outline-secondary border-start-0"
-                    onClick={() => setSearchQuery('')}>
+                  <button className="search__clear" onClick={() => setSearchQuery('')}>
                     <i className="fas fa-times" />
                   </button>
                 )}
