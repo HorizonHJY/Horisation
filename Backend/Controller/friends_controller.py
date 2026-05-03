@@ -129,15 +129,20 @@ def get_contact(username):
     me = request.current_user['username']
     if not market_db.are_friends(me, username):
         return jsonify({'ok': False, 'error': 'Not friends'}), 403
-    users = user_manager._load_users()
-    _, u  = user_manager._find_user(users, username)
+    u = market_db.db_get_user(username)
     if not u:
         return jsonify({'ok': False, 'error': 'User not found'}), 404
     if u.get('contact_hidden'):
         return jsonify({'ok': False, 'error': 'Contact is hidden'}), 403
     if not market_db.has_contact_access(me, username):
         return jsonify({'ok': False, 'error': 'No contact access. Send a contact request first.'}), 403
-    return jsonify({'ok': True, 'phone': u.get('phone', ''), 'wechat': u.get('wechat', '')})
+    return jsonify({
+        'ok':          True,
+        'phone':       u.get('phone', ''),
+        'wechat':      u.get('wechat', ''),
+        'address':     u.get('address', ''),
+        'postal_code': u.get('postal_code', ''),
+    })
 
 
 @friends_bp.route('/<username>/contact/request', methods=['POST'])

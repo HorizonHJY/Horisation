@@ -124,9 +124,10 @@ export default function Friends() {
   // ── Data loaders ────────────────────────────────────────────────────────────
   async function loadFriends() {
     setLoading(true)
-    const [fRes, cRes] = await Promise.all([
+    const [fRes, cRes, sRes] = await Promise.all([
       api.get('/api/friends/list'),
       api.get('/api/friends/contact/sent'),
+      api.get('/api/friends/contact/shared'),
     ])
     if (fRes.ok) setFriends(fRes.friends)
     if (cRes.ok) {
@@ -134,6 +135,7 @@ export default function Friends() {
       cRes.requests.forEach(r => { map[r.to_user] = r.status })
       setContactStatusMap(map)
     }
+    if (sRes.ok) setSharedContacts(sRes.requests)
     setLoading(false)
   }
 
@@ -213,7 +215,11 @@ export default function Friends() {
 
   const showContact = async (friend) => {
     const d = await api.get(`/api/friends/${friend.username}/contact`)
-    if (d.ok) setContactModal({ name: friend.display_name, phone: d.phone, wechat: d.wechat })
+    if (d.ok) setContactModal({
+      name: friend.display_name,
+      phone: d.phone, wechat: d.wechat,
+      address: d.address, postal_code: d.postal_code,
+    })
     else flash(d.error, 'danger')
   }
 
@@ -267,7 +273,7 @@ export default function Friends() {
                 <h6 className="modal-title">{contactModal.name}'s Contact</h6>
                 <button className="btn-close" onClick={() => setContactModal(null)} />
               </div>
-              <div className="modal-body py-4">
+              <div className="modal-body py-3">
                 <div className="row g-0 text-center">
                   <div className="col-6 border-end py-3">
                     <i className="fas fa-phone text-primary mb-2 d-block" />
@@ -280,6 +286,16 @@ export default function Friends() {
                     <div className="fw-semibold">{contactModal.wechat || '—'}</div>
                   </div>
                 </div>
+                {(contactModal.address || contactModal.postal_code) && (
+                  <div className="border-top pt-3 mt-1 text-center">
+                    <i className="fas fa-map-marker-alt text-danger mb-2 d-block" />
+                    <div className="text-muted small mb-1">Address</div>
+                    <div className="fw-semibold">{contactModal.address || '—'}</div>
+                    {contactModal.postal_code && (
+                      <div className="text-muted small mt-1">{contactModal.postal_code}</div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -397,7 +413,8 @@ export default function Friends() {
             ) : (
               <div className="d-flex flex-column gap-2">
                 {friends.map(f => {
-                  const cStatus = contactStatusMap[f.username]
+                  const cStatus  = contactStatusMap[f.username]
+                  const sharedReq = sharedContacts.find(r => r.from_user === f.username)
                   return (
                   <div key={f.username} className="card px-3 py-2 d-flex flex-row align-items-center gap-3">
                     <div className="position-relative">
@@ -443,6 +460,13 @@ export default function Friends() {
                       <button className="btn btn-sm btn-primary" onClick={() => openChat(f)}>
                         <i className="fas fa-comment-dots me-1" />Chat
                       </button>
+                      {sharedReq && (
+                        <button className="btn btn-sm btn-outline-warning"
+                          title="Withdraw contact access"
+                          onClick={() => revokeContact(sharedReq.id, f.display_name)}>
+                          <i className="fas fa-eye-slash" />
+                        </button>
+                      )}
                       <button className="btn btn-sm btn-outline-danger" onClick={() => unfriend(f.username)}
                         title="Unfriend">
                         <i className="fas fa-user-minus" />
