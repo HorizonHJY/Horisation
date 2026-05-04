@@ -889,7 +889,7 @@ export default function Market() {
               )}
             </div>
           ) : (
-            <div className="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xl-4 g-3">
+            <div className="row row-cols-2 row-cols-sm-3 row-cols-lg-4 row-cols-xl-5 g-2">
               {displayList.map(l => (
                 <div className="col" key={l.id}>
                   <ListingCard
