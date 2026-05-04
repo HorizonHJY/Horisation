@@ -114,7 +114,7 @@ export default function Feedback() {
                     ) : (
                       <div
                         className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
-                        style={{ width: 36, height: 36, background: '#3a7bd51a', color: '#3a7bd5', fontWeight: 700, fontSize: '0.9rem' }}
+                        style={{ width: 36, height: 36, background: '#6b9cdb1a', color: '#6b9cdb', fontWeight: 700, fontSize: '0.9rem' }}
                       >
                         {m.display_name?.[0]?.toUpperCase()}
                       </div>

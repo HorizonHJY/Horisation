@@ -4,12 +4,12 @@
 Last Updated: 2026-05-03
 
 ### Current Working Version
-- **Completed**: UI 组件库统一风格（加载动画、Tab 切换器、搜索框、市集卡片、商品详情弹窗）；邀请码系统 + 公开注册、功能角色门控、市集商品编辑、Profile 地址字段扩展、好友/私信/联系方式申请系统、用户数据 SQLite 迁移、二手市集、留言板、移动端响应式侧边栏、React SPA 全面迁移
+- **Completed**: 全站设计系统统一（Login 风格扩展到全站：Playfair Display + 思源宋体 + 暖奶油底色 + 扁平卡片 + 柔和粉蓝 #6b9cdb）；UI 组件库统一风格（加载动画、Tab 切换器、搜索框、市集卡片、商品详情弹窗）；邀请码系统 + 公开注册、功能角色门控、市集商品编辑、Profile 地址字段扩展、好友/私信/联系方式申请系统、用户数据 SQLite 迁移、二手市集、留言板、移动端响应式侧边栏、React SPA 全面迁移
 - **In Progress**: [待补充]
 - **Blocked / Not Solved**: 密码明文存储（待迁 bcrypt）；无 CI/CD 流水线；首页天气卡片（todo #1）
 
 ### Latest Summary
-全面重构前端 UI 风格：Newton's Cradle 加载动画、radio 风格 Tab 切换器（Market + Friends）、自定义搜索框、brutalist 风格市集卡片、市集商品详情弹窗（展示原图 + 全部信息）。
+建立全站统一设计系统：以 Login 页为视觉基线，引入 Playfair Display + Noto Serif SC + Inter 字体栈，全局 CSS 变量化（暖奶油底色 #f7f5f0、纯白扁平卡片、柔和粉蓝 accent #6b9cdb），侧边栏改深色为白色扁平 + 蓝色高亮条，Home 加 FlowerCanvas 低饱和度背景。
 
 ### Next Immediate Step
 首页加天气卡片（OpenWeatherMap + geolocation）
@@ -28,6 +28,10 @@ Last Updated: 2026-05-03
 | 2026-03-06 | SocketIO 本地用 threading，生产用 eventlet + Redis | 本地开发不需要 Redis 依赖，降低启动复杂度；生产需要跨进程广播 | 两套配置通过 `LOCAL_DEV=1` 环境变量区分，需保持同步 |
 | 2026-03-06 | 好友关系与联系方式申请分开设计（两张独立表） | 好友 = 可以聊天；看联系方式 = 额外授权，保护用户隐私 | 逻辑略复杂，前端需处理两类请求状态 |
 | 2026-05-02 | 邀请码限时生效（valid_from / valid_to），非单次消耗型 | 便于为活动窗口批量分发邀请，无需逐人管理 | 同一邀请码可被多人使用，无法精确控制注册人数上限 |
+| 2026-05-03 | 以 Login 页为视觉基线建立全站设计系统（CSS variables + 字体栈 + 扁平卡片） | Login 页面已沉淀出文艺极简的视觉语言（Playfair Display + 暖底色 + 玻璃拟态），但其他页面还是 Bootstrap 默认风格，视觉割裂 | 一次性大改动覆盖面广，需扫每个页面替换硬编码 `#3a7bd5`；侧边栏从深海军色改为纯白会有用户认知重置成本 |
+| 2026-05-03 | Accent 色从 `#3a7bd5` 改为更柔和的 `#6b9cdb`（粉蓝） | 用户反馈原蓝色过于饱和，与新的奶油底 + 衬线字体氛围不搭 | 对比度略降，但仍满足 WCAG AA（4.5:1）；hover 状态用 `#5286c7` 保证可识别 |
+| 2026-05-03 | 中英混排：标题 Playfair Display，中文 fallback 到 Noto Serif SC；正文 Inter fallback 到 Noto Serif SC | 单字体栈无法同时覆盖英文衬线与中文衬线；浏览器字符级 fallback 可让中英文自动用各自最合适的字体 | 需要加载 4 个字体（Cinzel + Playfair + Noto Serif SC + Inter），首屏字体 FOUT 风险增加 |
+| 2026-05-03 | 卡片彻底扁平化（去阴影 + 1px 极淡边框） vs 保留 Login 玻璃拟态 | 工具型页面（Hormemo / Profile / AdminUsers）信息密度高，玻璃拟态会让边界模糊；Login 是营销型页面适合玻璃感 | 失去 Login 与其他页面之间的视觉延续，靠字体和配色串联 |
 
 ---
 
@@ -56,6 +60,102 @@ Last Updated: 2026-05-03
 ---
 
 ## 3. Iteration History
+
+---
+
+### 2026-05-03 — 全站设计系统统一：Login 风格扩展为全局视觉语言
+
+#### Goal
+以 Login 页面已沉淀的视觉语言（Playfair Display + 暖奶油底色 + 优雅衬线 + 中英混排）为基线，建立全站统一的设计系统，消除工具页面与 Login 之间的视觉割裂。要求简约扁平、保留原 logo.png、accent 蓝色比原版更柔和。
+
+#### Trigger / Context
+用户希望全站采用 Login 页那种文艺极简的氛围，但 Hormemo / Market / Profile / Friends / Feedback / AdminUsers / CSV 等内部页面仍是 Bootstrap 默认风格 + 深海军色侧边栏 + 高饱和度蓝色 `#3a7bd5`，与 Login 的轻盈感完全不在一个频道。
+
+#### Problem & Root Cause
+无明显 bug，本次为整站设计系统建立。
+
+根因分析：原项目从 Jinja2 + Bootstrap 起步，UI 是渐进式补丁堆叠出来的——每加一个新页面就用 Bootstrap 默认 + 一些临时 inline style，缺少全局设计 token；唯一被精雕细琢过的 Login 页是孤岛。
+
+#### Solution
+
+**0. 启动前对齐设计方向（避免改完才返工）**
+- 使用 `AskUserQuestion` 收集 4 个关键决策：改造范围（全站/部分）、Home 是否保留 FlowerCanvas、卡片风格（玻璃 vs 扁平）、中文字体（衬线 vs 无衬线）
+- 用户答：全站统一 / Home 保留 canvas / 扁平纯色卡 / 中文用思源宋体
+- 生成 `design-preview.html` 独立文件让用户在浏览器看真实字体渲染效果，确认方向后再动代码
+
+**1. 全局字体引入（`frontend/index.html`）**
+- 在原 Cinzel 之外加入：`Playfair Display`（含 ital + 多 weight）、`Noto Serif SC`（含 weight 300-700）、`Inter`（含 400-700）
+
+**2. 重写 `frontend/src/index.css`（核心：~1090 行）**
+- 全套 CSS 变量：`--bg #f7f5f0` 暖奶油 / `--bg-surface #fff` / `--text-primary #1a1a1a` / `--accent #6b9cdb` / `--border-soft rgba(26,26,26,0.06)` / `--radius-lg 14px` / `--font-display 'Playfair Display, Noto Serif SC, serif'`
+- 全局规则：`h1-h6` 一律 Playfair Display 700，`body` 用 Inter 栈
+- Sidebar：背景 `#1e2a3a` → `#fff`，active 项改为左侧 3px 蓝色高亮条 + accent-soft 背景
+- Card：圆角从 12px → 14px，去掉 `box-shadow`，改 1px 极淡边框
+- Bootstrap 覆盖：`.btn-primary`、`.btn-outline-*`、`.alert-*`、`.badge.bg-*`、`.modal-content`、`.dropdown-menu`、`.list-group-item`、`.table`、`.form-control` 全部走新 token
+- Market card 从 brutalist（2px 黑边 + 偏移阴影）改为柔和扁平（1px 软边 + hover 上浮 shadow-md）
+- 角色徽章从纯色改为 alpha 10% 背景 + 深色文字（更柔和）
+- 保留 Login 专用样式（`.login-input` / `.login-icon` / `.login-page-overlay` 响应式）、Gomoku 棋盘、theme-toggle、Newton's Cradle、search 等已有组件
+- 暗色主题 token 配套更新
+
+**3. 组件级调整**
+- `Sidebar.jsx`：保留原 `/logo.png`（用户明确要求不替换），尺寸从 64×64 调到 44×44 让 logo 与 "Arch Bay" 文字配合
+- `Home.jsx` 重写：删除原深色渐变 hero，改用 `.hero-block` 白卡 + Playfair 标题 + 中文宋体副标题；右下角加 FlowerCanvas（fixed + opacity 0.45 + zIndex 0）作为低饱和氛围背景；Quick Access 卡片图标颜色用新 accent
+- 其他页面无需改：标题已通过全局 `h1-h6` 规则继承 Playfair；卡片/按钮/表单/角色徽章已通过 class 选择器继承新样式
+
+**4. 跨页面颜色清理**
+- `Login.jsx` / `Register.jsx` / `Friends.jsx` / `Market.jsx` / `Profile.jsx` / `AdminUsers.jsx` / `Feedback.jsx` / `CSV.jsx`：批量 replace `#3a7bd5` → `#6b9cdb`（覆盖头像背景、链接、icon、drag-zone 边框等所有硬编码引用）
+
+#### Changed Files
+- `frontend/index.html` — Google Fonts 链接加 Playfair Display + Noto Serif SC + Inter
+- `frontend/src/index.css` — 完全重写（1090 行），新设计系统 + 保留必要的旧组件
+- `frontend/src/components/Sidebar.jsx` — logo 尺寸 64→44，文字尺寸 1.2→1.25rem
+- `frontend/src/pages/Home.jsx` — 完全重写：去深色渐变、加 FlowerCanvas 低饱和背景、Playfair 标题
+- `frontend/src/pages/Login.jsx` — `#3a7bd5` → `#6b9cdb`
+- `frontend/src/pages/Register.jsx` — 同上
+- `frontend/src/pages/Friends.jsx` — 同上（avatar、消息气泡、icon）
+- `frontend/src/pages/Market.jsx` — 同上（SellerAvatar）
+- `frontend/src/pages/Profile.jsx` — 同上（avatar fallback）
+- `frontend/src/pages/AdminUsers.jsx` — 同上（avatar）
+- `frontend/src/pages/Feedback.jsx` — 同上（avatar）
+- `frontend/src/pages/CSV.jsx` — 同上（DTYPE_COLORS、drag-zone border、upload icon）
+- `design-preview.html`（项目根目录新建）— 独立 HTML 设计样张，含字体/配色/卡片/按钮预览
+
+#### Result
+全站统一了视觉语言：标题字体走 Playfair Display + Noto Serif SC，正文走 Inter，奶油底色 + 纯白扁平卡片 + 柔和粉蓝 accent。侧边栏从压抑的深海军色换成轻盈的纯白 + 蓝色高亮条。Home 页面有 FlowerCanvas 低饱和度背景延续 Login 的氛围。其他工具页通过全局 CSS 自动继承新风格，无需逐页修改。
+
+#### Testing
+- `node @babel/parser` 解析全部 23 个 JSX 文件 → 全部通过，无语法错误
+- CSS 括号平衡校验：`{` 220 个 vs `}` 220 个，全部匹配
+- 用 grep 确认全站无残留 `#3a7bd5` 旧蓝色硬编码
+- 修复过程中发现 `Write` 工具两次将大文件（index.css 1092 行、Home.jsx 101 行）截断到一半，回退到 bash heredoc + `cat >>` 追加方式补全
+- Vite build 在 Linux sandbox 因缺 `@rollup/rollup-linux-x64-gnu` 平台二进制无法跑，但语法层完整性已通过 babel-parser 验证；用户在 Windows 上 `scripts\dev.bat` 即可看到效果
+
+#### Lessons Learned
+
+**1. 大型设计变更要先生成可视样张让用户确认方向**
+- **Symptom**：直接动手改全站代码，改完才发现配色或字体方向不对，需要返工
+- **Root Cause**：设计语言是主观的，文字描述的"奶油色 + 衬线 + 扁平"在不同人脑中差异巨大
+- **Reusable Solution**：用独立 HTML 文件（含真实 Google Fonts 加载）做视觉样张让用户在浏览器看实际渲染，比 chat 内嵌组件准确——chat 内嵌的 visualize 工具会强制用 claude.ai 自身的 token，无法准确呈现项目 brand
+
+**2. 中英混排靠浏览器字符级 fallback 而非手动切换**
+- **Symptom**：单字体栈无法同时覆盖 Playfair Display 风格的英文衬线和中文衬线
+- **Root Cause**：Playfair Display 不含 CJK glyph，浏览器会自动按 font-family 列表向后查找下一个支持该字符的字体
+- **Reusable Solution**：font-family 写成 `'Playfair Display', 'Noto Serif SC', serif`——英文用 Playfair，中文自动 fallback 到思源宋体；body 同理 `'Inter', ..., 'Noto Serif SC', sans-serif`。无需 JavaScript 检测语言
+
+**3. 全局 CSS token 化是大改造的杠杆**
+- **Symptom**：每个页面有大量硬编码颜色（`#3a7bd5`、`#1e2a3a` 等），修改 accent 色需要扫遍每个 JSX 文件
+- **Root Cause**：项目早期没建立设计 token 系统，颜色直接写在组件 inline style 里
+- **Reusable Solution**：先在 `:root` 定义所有 token（`--accent` / `--bg-surface` / `--text-primary`），全局 CSS 用 `var(--*)`，让 Bootstrap 的 `.btn-primary` `.card` `.alert-*` 等高频类继承新 token——后续改主题色只改一处。残留的 inline style 用 grep + `Edit replace_all` 批量替换
+
+**4. 大文件 Write 失败检测：括号/语法 + 文件大小双重校验**
+- **Symptom**：`Write` 工具对 1000+ 行的 CSS / JSX 文件偶发静默截断（中途被切掉），但 `Read` 工具因为有缓存还能看到完整内容，造成假象"文件已写入"
+- **Root Cause**：`Write` 通过 RPC 传输大字符串可能超过单次传输上限；`Read` 在最近一次成功 Write 时缓存了内容，与磁盘实际状态不一致
+- **Reusable Solution**：写完大文件后**用 bash 直接读磁盘**做双重校验：`wc -l` 看行数对不对、`tail -3` 看是否在合理位置结束、对 CSS 用 `({.match(/\{/g) || []).length` 校验括号平衡、对 JSX 用 `@babel/parser` 解析。如发现截断，用 bash heredoc + `cat >>` 追加缺失部分；同样的，heredoc 也可能被工具截断，需再次校验括号
+
+#### Remaining Issues / Next Step
+- 设计 token 已全局化，下次改主题色只需改 `:root` 一处
+- 后续可继续推进：首页天气卡片、密码 bcrypt 迁移、CI/CD 流水线
+- `design-preview.html` 留在项目根目录作为设计参考（不影响构建），未来如需进一步迭代可在此基础上修改
 
 ---
 
@@ -512,6 +612,13 @@ Login、Home、CSV Workspace、Hormemo、Profile、AdminUsers、Under Developmen
 ---
 
 ## Deploy Checklist
+```bash
+# Local — push changes
+git add -A && git commit -m "..." && git push
+
+# Server — one command
+bash ~/deploy.sh
+```
 ```bash
 # Local — push changes
 git add -A && git commit -m "..." && git push

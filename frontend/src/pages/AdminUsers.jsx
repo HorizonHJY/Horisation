@@ -238,7 +238,7 @@ export default function AdminUsers() {
               <div key={u.username} className="list-group-item d-flex align-items-center gap-3 py-3">
                 <div
                   className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
-                  style={{ width: 40, height: 40, background: '#3a7bd51a', color: '#3a7bd5', fontWeight: 700 }}
+                  style={{ width: 40, height: 40, background: '#6b9cdb1a', color: '#6b9cdb', fontWeight: 700 }}
                 >
                   {u.display_name?.[0]?.toUpperCase()}
                 </div>

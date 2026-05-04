@@ -11,7 +11,7 @@ const ENCODINGS = [
   { value: 'cp1252', label: 'CP1252' },
 ]
 
-const DTYPE_COLORS = { numeric: '#3a7bd5', date: '#27ae60', text: '#888', unknown: '#aaa' }
+const DTYPE_COLORS = { numeric: '#6b9cdb', date: '#27ae60', text: '#888', unknown: '#aaa' }
 
 export default function CSV() {
   const [file, setFile]         = useState(null)
@@ -102,13 +102,13 @@ export default function CSV() {
               onDrop={onDrop}
               onClick={() => fileRef.current?.click()}
               style={{
-                border: `2px dashed ${dragging ? '#3a7bd5' : '#cdd5e0'}`,
+                border: `2px dashed ${dragging ? '#6b9cdb' : '#cdd5e0'}`,
                 borderRadius: 8, padding: 24, textAlign: 'center',
                 cursor: 'pointer', background: dragging ? '#eef3fc' : '#fafbfc',
                 transition: 'all .15s',
               }}
             >
-              <i className="fas fa-cloud-upload-alt mb-2" style={{ fontSize: '2rem', color: '#3a7bd5' }} />
+              <i className="fas fa-cloud-upload-alt mb-2" style={{ fontSize: '2rem', color: '#6b9cdb' }} />
               <div className="fw-semibold">{file ? `📄 ${file.name}` : 'Drop file or click to browse'}</div>
               <div className="text-muted small mt-1">CSV, XLS, XLSX (max 100MB)</div>
               <input

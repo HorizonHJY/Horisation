@@ -118,7 +118,7 @@ export default function Register() {
 
             <p className="text-center mt-3 mb-0" style={{ fontSize: '.85rem', color: '#666' }}>
               Already have an account?{' '}
-              <Link to="/login" style={{ color: '#3a7bd5', fontWeight: 600 }}>Sign in</Link>
+              <Link to="/login" style={{ color: '#6b9cdb', fontWeight: 600 }}>Sign in</Link>
             </p>
           </div>
         </div>

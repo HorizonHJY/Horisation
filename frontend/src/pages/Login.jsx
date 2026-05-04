@@ -130,7 +130,7 @@ export default function Login() {
 
             <p className="text-center mt-3 mb-0" style={{ fontSize: '.85rem', color: '#666' }}>
               New here?{' '}
-              <Link to="/register" style={{ color: '#3a7bd5', fontWeight: 600 }}>Register with invite code</Link>
+              <Link to="/register" style={{ color: '#6b9cdb', fontWeight: 600 }}>Register with invite code</Link>
             </p>
           </div>
         </div>

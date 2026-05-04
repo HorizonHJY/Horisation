@@ -117,7 +117,7 @@ export default function Profile() {
             ) : (
               <div
                 className="rounded-circle mx-auto mb-3 d-flex align-items-center justify-content-center"
-                style={{ width: 80, height: 80, background: '#3a7bd5', color: '#fff', fontSize: '2rem', fontWeight: 700 }}
+                style={{ width: 80, height: 80, background: '#6b9cdb', color: '#fff', fontSize: '2rem', fontWeight: 700 }}
               >
                 {user.display_name?.[0]?.toUpperCase()}
               </div>

@@ -12,7 +12,7 @@ function Avatar({ display, avatar, size = 40 }) {
   )
   return (
     <div style={{
-      width: size, height: size, borderRadius: '50%', background: '#3a7bd5', color: '#fff',
+      width: size, height: size, borderRadius: '50%', background: '#6b9cdb', color: '#fff',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       fontWeight: 700, fontSize: size * 0.4, flexShrink: 0,
     }}>
@@ -295,7 +295,7 @@ export default function Friends() {
               </div>
               <div className="modal-body px-3 py-2">
                 {[
-                  { icon: 'fas fa-phone',          color: '#3a7bd5', label: 'Phone',    value: contactModal.phone },
+                  { icon: 'fas fa-phone',          color: '#6b9cdb', label: 'Phone',    value: contactModal.phone },
                   { icon: 'fab fa-weixin',          color: '#07c160', label: 'WeChat',   value: contactModal.wechat },
                   { icon: 'fas fa-map-marker-alt',  color: '#e74c3c', label: 'Address',
                     value: [contactModal.address, contactModal.postal_code].filter(Boolean).join('  ') },
@@ -364,7 +364,7 @@ export default function Friends() {
                   <div style={{
                     maxWidth: '70%', padding: '8px 14px',
                     borderRadius: isMe ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-                    background: isMe ? '#3a7bd5' : '#fff',
+                    background: isMe ? '#6b9cdb' : '#fff',
                     color: isMe ? '#fff' : '#333',
                     boxShadow: '0 1px 3px rgba(0,0,0,.08)',
                     fontSize: '.9rem', wordBreak: 'break-word',

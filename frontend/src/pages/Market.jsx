@@ -39,7 +39,7 @@ function SellerAvatar({ username, displayName, avatarUrl, size = 28, onClick }) 
   return (
     <div style={{
       ...style,
-      background: '#3a7bd5', color: '#fff',
+      background: '#6b9cdb', color: '#fff',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       fontWeight: 700, fontSize: size * 0.4,
     }} onClick={onClick}>
