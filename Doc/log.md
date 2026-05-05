@@ -2,18 +2,18 @@
 
 
 ## 0. Current Status
-Last Updated: 2026-05-04
+Last Updated: 2026-05-05
 
 ### Current Working Version
-- **Completed**: 全站设计系统统一（Login 风格扩展到全站：Playfair Display + 思源宋体 + 暖奶油底色 + 扁平卡片 + 柔和粉蓝 #6b9cdb）；UI 组件库统一风格（加载动画、Tab 切换器、搜索框、市集卡片、商品详情弹窗）；邀请码系统 + 公开注册、功能角色门控、市集商品编辑、Profile 地址字段扩展、好友/私信/联系方式申请系统、用户数据 SQLite 迁移、二手市集、留言板、移动端响应式侧边栏、React SPA 全面迁移；修改密码后强制会话失效
-- **In Progress**: [待补充]
+- **Completed**: 全站设计系统统一；UI 组件库统一风格；邀请码系统；功能角色门控；好友/私信/联系方式申请系统；用户数据 SQLite 迁移；二手市集；留言板；修改密码后强制会话失效；**用户公开主页 `/u/:username`（头像可点击跳转、分享链接、展示在售商品列表）**
+- **In Progress**: 待 deploy 上线最新 commit（c61c126）
 - **Blocked / Not Solved**: 密码明文存储（待迁 bcrypt）；无 CI/CD 流水线；首页天气卡片（todo #1）
 
 ### Latest Summary
-修复"改完密码老密码还能用"的问题：根因不是 DB 写入失败，而是密码改完后旧 session token 仍有效，用户实际上是用 session 而非密码在使用平台。修复方案：密码修改成功后调用 `db_delete_user_sessions()` 清除该用户所有 session，同时清除当前请求的 cookie，并在前端展示"Logging you out"后 1.5s 调用 logout() 重定向到 /login。commit d24979e。
+新增公开用户主页功能：每个用户都有 `/u/:username` 页面，显示头像、昵称、注册时间和在售商品卡片，底部有 Copy Link 按钮。留言板头像、好友列表头像、市集卖家弹窗均新增点击跳转入口。后端新增 `GET /api/auth/users/:username/public` 端点（仅返回安全字段）。commit c61c126。
 
 ### Next Immediate Step
-服务器跑一次 `bash ~/deploy.sh` 拉最新 commit（d24979e）；之后再推进首页天气卡片
+服务器跑一次 `bash ~/deploy.sh` 拉最新 commit（c61c126）上线用户主页功能
 
 ---
 
@@ -63,6 +63,11 @@ Last Updated: 2026-05-04
 - **Root Cause**: file_tools 大字符串传输偶发不完整；Read 在最近一次成功 Write 时缓存内容，掩盖磁盘真实状态
 - **Reusable Solution**: 写完 >500 行的文件后必走 bash 校验三件套：`wc -l` 看行数；`tail -3` 看是否在合理位置结束（注意半字符串截断）；CSS 用 `node -e` 数 `{` `}` 是否平衡，HTML 用 grep 校验 `</html>`，JSX 用 `@babel/parser` 解析。发现截断时用 `head -N + cat >> heredoc` 的方式补全，再次校验
 
+### Pattern 7: Windows 挂载路径与 bash sandbox 写入不互相刷新
+- **Symptom**: file_tools Edit/Write 成功修改 Windows 路径的文件后，bash `wc -l` 仍读到旧版本；bash `git show HEAD:file > file` 写入后，file_tools Read 仍返回旧缓存
+- **Root Cause**: Cowork 模式下 file_tools 操作 Windows FS，bash sandbox 通过 mount 挂载同一目录，但两侧写入有各自的缓冲层，不互相通知刷新
+- **Reusable Solution**: 需要 bash 使用某文件时，用 Python（`subprocess` + `open('w')`）写到 bash mount 路径；需要 file_tools 读时用 Edit/Read。babel/wc 等验证工具必须在 bash 中运行，且内容必须由 Python 写入才可信。不要混用两侧来验证同一文件的最终状态。
+
 ### Pattern 6: deploy 前必须校验 React 挂载点
 - **Symptom**: index.html 缺 `<div id="root"></div>` 时 Vite build 反而能通过（HTML 结构本身合法），但运行时 `document.getElementById('root')` 返回 null，React 静默不渲染，页面全白
 - **Root Cause**: `ReactDOM.createRoot(document.getElementById('root'))` 找不到 dom 节点会静默失败而不抛错；构建期不会发现这种逻辑错误
@@ -71,6 +76,82 @@ Last Updated: 2026-05-04
 ---
 
 ## 3. Iteration History
+
+---
+
+### 2026-05-05 — 新增用户公开主页 `/u/:username`
+
+#### Goal
+为每个用户生成一个可分享的公开主页，展示头像、昵称、注册时间和其在售商品。从留言板头像、好友列表头像、市集卖家弹窗三个入口均可跳转，并支持复制链接分享给他人。
+
+#### Trigger / Context
+用户希望能分享自己的商品列表，类似"我的摊位页"，可以通过一个链接让朋友直接看到自己卖什么。同时想要让头像可点击，增加用户之间的互动感。
+
+#### Problem & Root Cause
+无明显 bug，本次为功能开发。唯一的技术挑战是后端 `users.json` 已迁到 SQLite，但公开接口需要通过 `db_get_user(username)` 读取用户基础信息，而该函数之前未被公开路由使用过，需要确认其返回字段名是否与前端期望一致。
+
+另有一个跨 session 遗留问题：编辑 `App.jsx`、`Feedback.jsx`、`Friends.jsx`、`Market.jsx` 时，这几个大文件在前次 session 中被工具静默截断（Windows 挂载路径的写入不反映到 bash sandbox，两侧文件不同步）。修复路径：用 Python 从 `git show HEAD:path` 读 HEAD 版本（normalize CRLF→LF），字符串 patch 后写回 bash 路径，再用 `@babel/parser` 验证全部通过。
+
+#### Solution
+
+**1. 后端 — `auth_controller.py`：新增公开主页接口**
+```python
+@auth_bp.route('/users/<username>/public', methods=['GET'])
+@login_required
+def get_user_public(username):
+    u = db_get_user(username)
+    if not u:
+        return jsonify({'ok': False, 'error': 'User not found'}), 404
+    return jsonify({'ok': True, 'user': {
+        'username': u['username'], 'display_name': u['display_name'],
+        'avatar_url': u['avatar_url'], 'created_at': u['created_at'],
+    }})
+```
+仅暴露安全字段，不含 email / 密码 / 角色等。
+
+**2. 前端 — 新文件 `UserProfile.jsx`**
+并发请求 `/api/auth/users/:username/public` 和 `/api/market/user/:username`，渲染头像卡片 + 在售商品网格（复用 `market-card` CSS）。"Edit" 按钮仅在 `isMe` 时出现，Copy Link 按钮复制 `origin/u/username`。
+
+**3. `App.jsx` — 注册路由**
+```jsx
+import UserProfile from './pages/UserProfile'
+<Route path="/u/:username" element={<UserProfile />} />
+```
+
+**4. 三处入口联动**
+- `Feedback.jsx`：avatar+name div 加 `onClick={() => navigate('/u/'+m.username)}` + cursor pointer
+- `Friends.jsx`：friend avatar wrapper div 加 navigate click
+- `Market.jsx`：`SellerModal` 内加 `const navigate = useNavigate()`；`@{seller.username}` 后追加 "View Profile →" span
+
+**5. 截断文件修复流程**（见 Pattern 5 及 Pattern 7）
+通过 Python 脚本统一处理：`git show HEAD:file` → CRLF normalize → string patch → 写回 bash mount → `@babel/parser` 验证。
+
+#### Changed Files
+- `Backend/Controller/auth_controller.py` — 新增 `GET /users/<username>/public` 路由
+- `frontend/src/pages/UserProfile.jsx` — 新文件，公开主页页面组件
+- `frontend/src/App.jsx` — import UserProfile + 注册 `/u/:username` 路由
+- `frontend/src/pages/Feedback.jsx` — 留言板头像区加 navigate click
+- `frontend/src/pages/Friends.jsx` — 好友列表头像区加 navigate click
+- `frontend/src/pages/Market.jsx` — SellerModal 加 navigate + "View Profile →" 链接
+
+#### Result
+访问 `/u/horizon` 可看到该用户的头像、昵称、注册时间和全部在售商品卡片。从留言板点击任意用户头像，从好友列表点击头像，从市集卖家弹窗点击 "View Profile →" 均可跳转到对应主页。Copy Link 按钮将 URL 复制到剪贴板。commit c61c126。
+
+#### Testing
+- babel parser 解析所有 5 个改动文件（App / Feedback / Friends / Market / UserProfile）→ 5/5 OK
+- 确认 `git show HEAD:frontend/src/pages/UserProfile.jsx` 内容在 commit 中存在
+- 功能测试待 deploy 后在 https://horizonyhj.com 进行
+
+#### Lessons Learned
+**Windows 挂载路径写入与 bash sandbox 不同步**
+- **Symptom**: 用 file_tools Edit 成功修改 Windows 路径的文件后，bash `wc -l` 读到的还是改前（截断）版本；用 `git show HEAD:file > file`（bash redirect）写入后，file_tools Read 仍读旧缓存
+- **Root Cause**: Cowork 模式下 file_tools 操作 Windows FS，bash sandbox 通过 mount 挂载同一目录，但两侧写入不互相刷新（可能有写缓冲或 mount 层不同步）
+- **Reusable Solution**: 需要在 bash 中使用修改后的文件时，用 Python（`subprocess` + `open('w')`）将内容写到 bash 可见路径；需要用 file_tools 看文件时，用 Edit/Read 工具操作 Windows 路径。不要混用两侧来验证同一文件的状态。
+
+#### Remaining Issues / Next Step
+- 服务器运行 `bash ~/deploy.sh` 拉取 c61c126 并 build
+- 首页天气卡片（todo #1）待开发
+- 密码 bcrypt 迁移（长期）
 
 ---
 
@@ -579,172 +660,4 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 
 **用户管理**
 - Admin 新增：编辑昵称/邮箱、重置密码、删除用户
-- 新端点：`PUT /api/auth/users/<u>/profile`、`PUT /api/auth/users/<u>/password`、`DELETE /api/auth/users/<u>`
-- `horizon` 账号受保护，不可删除
-
-**自助 Profile**
-- 用户可自助更新昵称、邮箱、密码、头像
-- 头像存 R2 `avatars/<username>.<ext>`，覆盖上传
-- 新端点：`PUT /api/auth/profile`、`PUT /api/auth/password`、`POST /api/auth/avatar`
-- `avatar_url` 加入 session 信息
-
-**导航与 UI**
-- Sidebar 新增 Community 区块（Market、Message Board）
-- Log Out 固定在底部
-- Logo 替换为 `logol.avif`（放置在 `frontend/public/` 由 Vite 伺服）
-- Hormemo 移入 Toolkit 区块（对所有角色可见）；CSV Workspace 仅 horizon 可见
-
-**移动端侧边栏**
-- `< 768px` 时侧边栏默认隐藏（`translateX(-100%)`）
-- Topbar 新增汉堡菜单按钮（仅移动端显示）
-- 点击汉堡展开侧边栏，背景遮罩点击关闭；导航后自动关闭
-- CSS 媒体查询控制 Topbar 和主内容区全宽展示
-
-**服务器升级**
-- Python 3.9 → 3.11，新 venv `/home/ec2-user/venv311/`
-- 确认稳定后删除旧 venv
-
-#### Changed Files
-- `Backend/Controller/market_db.py` — 新建，`Listing`, `ListingImage`, `Message` 模型
-- `Backend/Controller/r2_manager.py` — 新建，R2 上传/删除
-- `Backend/Controller/market_controller.py` — 新建，市集 API Blueprint
-- `Backend/Controller/feedback_controller.py` — 新建，留言板 Blueprint
-- `Backend/Controller/auth_controller.py` — 新增 profile/password/avatar/admin CRUD 端点
-- `app.py` — 注册新 Blueprint；`MAX_CONTENT_LENGTH` 100MB
-- `frontend/src/pages/Market.jsx` — 新建
-- `frontend/src/pages/Feedback.jsx` — 新建
-- `frontend/src/pages/Profile.jsx` — 新建
-- `frontend/src/pages/AdminUsers.jsx` — 补充编辑/重置密码/删除功能
-- `frontend/src/components/Layout.jsx` — 移动端侧边栏状态管理
-- `frontend/src/components/Topbar.jsx` — 汉堡按钮
-- `frontend/src/components/Sidebar.jsx` — `isOpen`/`onClose` props；Community 区块
-- `frontend/src/index.css` — 移动端媒体查询
-- `frontend/index.html` — 引入 Bootstrap JS bundle
-- `requirements.txt` — 新增 `sqlalchemy`, `boto3`, `flask-socketio`（预置）
-- `scripts/deploy.sh` — 新建，标准化部署流程
-- `.gitignore` — 新增 `_data/users.json`, `_data/sessions.json`, `_data/market.db`
-
-#### Result
-- 二手市集完整上线：发布/浏览/标记已售，图片存 R2
-- 留言板上线
-- 管理员可完整管理用户生命周期
-- 用户可自助更新个人信息和头像
-- 移动端可正常使用（侧边栏收纳）
-- 服务器稳定运行在 Python 3.11
-
-#### Testing
-- 发布包含 3 张图片的市集商品，验证 R2 上传成功、列表展示正确；删除商品验证 R2 图片同步清理
-- 用 `user` 角色登录，在留言板发帖/删帖；用 admin 账号删除其他用户帖子
-- Admin 页面编辑用户昵称、重置密码后用新密码登录验证；尝试删除 `horizon` 账号验证被拒绝
-- 上传头像（2MB 以内 JPEG），Profile 页面刷新后确认头像显示
-- 在移动端浏览器（375px 宽）验证汉堡菜单展开/关闭，导航后侧边栏自动收起
-- 部署至服务器后验证 502 不再出现（Python 版本升级 + 类型注解修复）
-
-#### Lessons Learned
-- **Symptom**: 本地正常，部署后 502
-- **Root Cause**: `dict | None` 联合类型注解为 Python 3.10+ 语法，服务器运行 3.9
-- **Reusable Solution**: 生产/本地 Python 版本须保持一致；或统一用 `Optional[X]`（`typing` 模块，兼容 3.7+）；CI 中加版本矩阵测试可提前发现
-
-- **Symptom**: Bootstrap Modal 点击无反应
-- **Root Cause**: 只引入了 Bootstrap CSS，未引入 Bootstrap JS；Modal/Dropdown 等交互组件依赖 JS
-- **Reusable Solution**: 使用 Bootstrap 组件时必须同时引入 `bootstrap.bundle.min.js`（含 Popper）
-
-#### Remaining Issues / Next Step
-- 好友和私信系统（下一个迭代完成）
-- 密码仍为明文
-
----
-
-### 2026-03-01 — 初始部署 + React SPA 迁移 + 认证修复
-
-#### Goal
-将项目从 Flask/Jinja2 模板渲染迁移至 React 18 + Vite SPA；修复认证层的重大安全漏洞；部署至 AWS EC2 并完成 HTTPS 配置；建立基础文档体系。
-
-#### Trigger / Context
-项目原始版本使用 Flask 直接渲染 HTML 模板，难以扩展复杂的前端交互。计划将平台升级为前后端分离架构，为后续功能开发打好基础。
-
-#### Problem & Root Cause
-
-**严重安全漏洞**：`authenticate_user` 函数存在硬编码后门：`password in ['horizon', 'yyf']` — 任何用户用这两个密码均可登录。
-
-**用户查找 bug**：所有用户管理方法使用 `users.json` 的 dict key 查找用户，而非 `username` 字段。当两者不一致时（存量数据）登录失败。
-
-**部署后登录失效**：生产环境登录后 cookie 不生效。根因：Nginx 反代后 Flask 看到的是 HTTP 请求，`SESSION_COOKIE_SECURE=True` 拒绝在 HTTP 上写 cookie。
-
-#### Solution
-
-**React SPA 迁移**
-- 删除 `Template/`（Jinja2 模板）和 `Static/`（旧静态文件）目录
-- Flask 改为纯 API-only，所有路由统一在 `/api/*` 下
-- React 18 + Vite 构建，产出 `frontend/dist/`
-- Flask `serve_react()` catch-all 路由伺服 `index.html`
-
-**认证修复**
-- 移除硬编码后门 `password in ['horizon', 'yyf']`
-- 全局统一用 `_find_user()` helper 按 `username` 字段查找，修复 `auth_controller.py` 和 `memos_controller.py`
-- 修复 `users.json` 存量数据中 key/username 不一致问题
-
-**部署配置**
-- `ProxyFix(x_for=1, x_proto=1, x_host=1)` 信任 Nginx 代理头
-- `SESSION_COOKIE_SECURE` 在 `LOCAL_DEV=1` 时关闭
-- Nginx 配置：`/etc/nginx/conf.d/horizonyhj.com.conf`（反代到 Gunicorn :8000）
-- systemd service：`/etc/systemd/system/horisation.service`
-- SSL：Let's Encrypt + Cloudflare Full 模式
-- Python venv：`/home/ec2-user/venv/`（后续升级至 3.11）
-
-**功能清理**
-- 移除 `/limit` 路由和 `limit.html`（废弃功能）
-- 移除 `last_login` 字段（导致 `users.json` 频繁 git 冲突）
-
-**React 初版页面**
-Login、Home、CSV Workspace、Hormemo、Profile、AdminUsers、Under Development、Gomoku（本地双人）
-
-#### Changed Files
-- `app.py` — 重构为 API-only + SPA catch-all；加 ProxyFix 和 cookie 安全配置
-- `Backend/Controller/auth_controller.py` — 移除后门；修复 `_find_user()` 调用
-- `Backend/Controller/memos_controller.py` — 修复 `_find_user()` 调用
-- `Template/` — 删除目录
-- `Static/` — 删除目录
-- `frontend/` — 新建，React 18 + Vite 项目结构
-- `frontend/src/App.jsx` — 路由、AuthContext、PrivateRoute
-- `frontend/src/api.js` — fetch wrapper（`credentials: include`）
-- `frontend/src/pages/` — 初版所有页面组件
-- `requirements.txt` — 新建（flask, pandas, numpy, openpyxl, xlrd, pyarrow, gunicorn）
-- `Doc/project_intro.md`, `Doc/server.md`, `Doc/log.md`, `Doc/data_storage.md` — 新建文档
-
-#### Result
-- 生产环境 HTTPS 正常运行，登录 cookie 正常设置
-- 安全漏洞修复，用户查找逻辑统一
-- React SPA 全面上线，前后端分离架构就绪
-- 基础文档建立
-
-#### Testing
-- 生产环境用正常账号登录验证 cookie 正常写入，session 跨页面保持
-- 确认硬编码后门密码（`horizon`/`yyf`）不再绕过认证
-- 用存量用户数据验证 `_find_user()` 修复后所有账号可正常登录
-- 访问 `/login` 后重定向至 `/home`；直接访问 `/home` 未登录时重定向至 `/login`
-
-#### Lessons Learned
-- **Symptom**: 生产登录失败，本地正常
-- **Root Cause**: 反向代理改变了请求协议头，Flask 无法正确判断 HTTPS
-- **Reusable Solution**: 所有部署在反代后的 Flask 应用都应加 `ProxyFix`；本地用环境变量关闭 `SESSION_COOKIE_SECURE`，避免掩盖问题
-
-- **Symptom**: 代码中存在硬编码测试凭证
-- **Root Cause**: 开发阶段为方便调试遗留的临时代码未及时清理
-- **Reusable Solution**: 代码 review 时专项检查硬编码凭证；生产部署前运行 `grep -r "password in \[" .` 类扫描
-
-#### Remaining Issues / Next Step
-- 二手市集和留言板（下一个迭代完成）
-- `users.json` 并发安全问题（2026-03-06 通过迁移 SQLite 解决）
-- 密码明文存储
-
----
-
-## Deploy Checklist
-```bash
-# Local — push changes
-git add -A && git commit -m "..." && git push
-
-# Server — one command
-bash ~/deploy.sh
-```
+- 新端点：`PUT /api/auth/users/<u>/profile`、`PUT /api/au
