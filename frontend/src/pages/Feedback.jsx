@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../App'
 
@@ -12,6 +13,7 @@ function timeAgo(isoStr) {
 
 export default function Feedback() {
   const { user }            = useAuth()
+  const navigate            = useNavigate()
   const [messages, setMsgs] = useState([])
   const [content, setContent] = useState('')
   const [posting, setPosting] = useState(false)
@@ -103,7 +105,12 @@ export default function Feedback() {
             return (
               <div key={m.id} className="card shadow-sm px-4 py-3">
                 <div className="d-flex justify-content-between align-items-start">
-                  <div className="d-flex align-items-center gap-2">
+                  <div
+                    className="d-flex align-items-center gap-2"
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => navigate(`/u/${m.username}`)}
+                    title={`View ${m.display_name}'s profile`}
+                  >
                     {m.avatar_url ? (
                       <img
                         src={m.avatar_url}

@@ -16,6 +16,7 @@ import OnlineGomoku from './pages/fun/OnlineGomoku'
 import Market from './pages/Market'
 import Feedback from './pages/Feedback'
 import Friends from './pages/Friends'
+import UserProfile from './pages/UserProfile'
 
 // ── Theme Context ────────────────────────────────────────────────
 export const ThemeContext = createContext(null)
@@ -159,6 +160,7 @@ export default function App() {
             <Route path="/market"            element={<Market />} />
             <Route path="/feedback"          element={<Feedback />} />
             <Route path="/friends"           element={<Friends />} />
+            <Route path="/u/:username"       element={<UserProfile />} />
           </Route>
 
           {/* Fallback */}

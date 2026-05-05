@@ -393,6 +393,7 @@ function ListingDetailModal({ listing, currentUser, onClose, onSold, onDelete, o
 
 // ── Seller Modal ──────────────────────────────────────────────────────────────
 function SellerModal({ seller, listings, onClose, onReachOut, reachOutStatus }) {
+  const navigate = useNavigate()
   return (
     <div className="modal show d-block" style={{ background: 'rgba(0,0,0,.45)' }} onClick={onClose}>
       <div className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable"
@@ -403,7 +404,15 @@ function SellerModal({ seller, listings, onClose, onReachOut, reachOutStatus }) 
               <SellerAvatar username={seller.username} displayName={seller.display_name} avatarUrl={seller.avatar_url} size={44} />
               <div>
                 <div className="fw-bold">{seller.display_name || seller.username}</div>
-                <div className="text-muted small">@{seller.username}</div>
+                <div className="text-muted small">
+                  @{seller.username} ·{' '}
+                  <span
+                    style={{ color: '#6b9cdb', cursor: 'pointer' }}
+                    onClick={() => { onClose(); navigate(`/u/${seller.username}`) }}
+                  >
+                    View Profile →
+                  </span>
+                </div>
               </div>
               {reachOutStatus === 'friends' ? (
                 <button className="btn btn-sm btn-success ms-2" onClick={() => onReachOut(null)}>

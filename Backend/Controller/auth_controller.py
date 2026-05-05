@@ -427,6 +427,22 @@ def reset_user_password(username):
     return jsonify({'ok': True, 'message': message})
 
 
+@auth_bp.route('/users/<username>/public', methods=['GET'])
+@login_required
+def get_user_public(username):
+    """Return public-safe profile info for any user (no email / contact / password)."""
+    from Backend.Controller.market_db import db_get_user
+    u = db_get_user(username)
+    if not u:
+        return jsonify({'ok': False, 'error': 'User not found'}), 404
+    return jsonify({'ok': True, 'user': {
+        'username':     u['username'],
+        'display_name': u['display_name'],
+        'avatar_url':   u['avatar_url'],
+        'created_at':   u['created_at'],
+    }})
+
+
 @auth_bp.route('/users/<username>', methods=['DELETE'])
 @admin_required
 def delete_user(username):
@@ -436,33 +452,4 @@ def delete_user(username):
     return jsonify({'ok': True, 'message': message})
 
 
-@auth_bp.route('/permissions/check', methods=['POST'])
-@login_required
-def check_permissions():
-    """检查用户权限"""
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({'ok': False, 'error': 'Invalid JSON data'}), 400
-
-        user_info = request.current_user
-        username = user_info['username']
-
-        permission = data.get('permission')
-        sector = data.get('sector')
-
-        result = {}
-
-        if permission:
-            result['has_permission'] = user_manager.check_permission(username, permission)
-
-        if sector:
-            result['has_sector_access'] = user_manager.check_sector_access(username, sector)
-
-        return jsonify({
-            'ok': True,
-            'permissions': result
-        })
-
-    except Exception as e:
-        return jsonify({'ok': False, 'error': f'Permission check failed: {str(e)}'}), 500
+@auth_bp.route('/permissions/check

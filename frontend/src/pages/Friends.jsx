@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { io } from 'socket.io-client'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import HandLoader from '../components/HandLoader'
 import { useAuth, useUnread } from '../App'
@@ -25,6 +25,7 @@ export default function Friends() {
   const { user } = useAuth()
   const { unreadMap, clearUnread, bumpUnread } = useUnread()
   const location      = useLocation()
+  const navigate      = useNavigate()
   const socketRef     = useRef(null)
   const chatEndRef    = useRef(null)
   const activeChatRef = useRef(null)   // mirror of activeChat for socket handler
@@ -440,7 +441,12 @@ export default function Friends() {
                   const sharedReq = sharedContacts.find(r => r.from_user === f.username)
                   return (
                   <div key={f.username} className="card px-3 py-2 d-flex flex-row align-items-center gap-3">
-                    <div className="position-relative">
+                    <div
+                      className="position-relative"
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => navigate(`/u/${f.username}`)}
+                      title={`View ${f.display_name}'s profile`}
+                    >
                       <Avatar display={f.display_name} avatar={f.avatar_url} size={42} />
                       {onlineSet.has(f.username) && (
                         <span style={{
