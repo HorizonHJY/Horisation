@@ -1,7 +1,8 @@
 # Horisation — Development Log
 
+
 ## 0. Current Status
-Last Updated: 2026-05-03
+Last Updated: 2026-05-04
 
 ### Current Working Version
 - **Completed**: 全站设计系统统一（Login 风格扩展到全站：Playfair Display + 思源宋体 + 暖奶油底色 + 扁平卡片 + 柔和粉蓝 #6b9cdb）；UI 组件库统一风格（加载动画、Tab 切换器、搜索框、市集卡片、商品详情弹窗）；邀请码系统 + 公开注册、功能角色门控、市集商品编辑、Profile 地址字段扩展、好友/私信/联系方式申请系统、用户数据 SQLite 迁移、二手市集、留言板、移动端响应式侧边栏、React SPA 全面迁移
@@ -9,10 +10,10 @@ Last Updated: 2026-05-03
 - **Blocked / Not Solved**: 密码明文存储（待迁 bcrypt）；无 CI/CD 流水线；首页天气卡片（todo #1）
 
 ### Latest Summary
-建立全站统一设计系统：以 Login 页为视觉基线，引入 Playfair Display + Noto Serif SC + Inter 字体栈，全局 CSS 变量化（暖奶油底色 #f7f5f0、纯白扁平卡片、柔和粉蓝 accent #6b9cdb），侧边栏改深色为白色扁平 + 蓝色高亮条，Home 加 FlowerCanvas 低饱和度背景。
+修复 commit 5d1db40 推送后服务器 Vite 构建失败（index.html 被工具截断、缺 `<div id="root">` 与闭合标签）。用 bash heredoc 重建 18 行完整版，commit 9f398c4 已推到 origin/main，待服务器跑 deploy.sh 拉取。沉淀两条新 Pattern：大文件 Edit/Write 后的 bash 双重校验流程，以及 React 挂载点的部署前 grep 校验。
 
 ### Next Immediate Step
-首页加天气卡片（OpenWeatherMap + geolocation）
+服务器跑一次 `bash ~/deploy.sh` 拉最新 commit；之后再推进首页天气卡片
 
 ---
 
@@ -57,9 +58,81 @@ Last Updated: 2026-05-03
 - **Root Cause**: `users.json` 的 dict key（如 `"user_001"`）与 `username` 字段值不一致；代码直接用 key 查找
 - **Reusable Solution**: 永远用 `_find_user()` helper 按 `username` 字段搜索，不依赖存储结构的 key
 
+### Pattern 5: 大文件 Edit/Write 后必须用 bash 双重校验
+- **Symptom**: file_tools 的 Edit/Write 显示 "updated successfully"，但磁盘上的文件实际被静默截断到一半（CSS 1092 → 696 行、HTML 18 → 14 行、JSX 102 → 57 行）；Read 工具仍显示完整版（缓存与磁盘不一致）
+- **Root Cause**: file_tools 大字符串传输偶发不完整；Read 在最近一次成功 Write 时缓存内容，掩盖磁盘真实状态
+- **Reusable Solution**: 写完 >500 行的文件后必走 bash 校验三件套：`wc -l` 看行数；`tail -3` 看是否在合理位置结束（注意半字符串截断）；CSS 用 `node -e` 数 `{` `}` 是否平衡，HTML 用 grep 校验 `</html>`，JSX 用 `@babel/parser` 解析。发现截断时用 `head -N + cat >> heredoc` 的方式补全，再次校验
+
+### Pattern 6: deploy 前必须校验 React 挂载点
+- **Symptom**: index.html 缺 `<div id="root"></div>` 时 Vite build 反而能通过（HTML 结构本身合法），但运行时 `document.getElementById('root')` 返回 null，React 静默不渲染，页面全白
+- **Root Cause**: `ReactDOM.createRoot(document.getElementById('root'))` 找不到 dom 节点会静默失败而不抛错；构建期不会发现这种逻辑错误
+- **Reusable Solution**: 在 `deploy.sh` 的 npm build 之前加一行守卫：`grep -q '<div id="root"' frontend/index.html || exit 1`；同理可校验关键 link/script 的存在
+
 ---
 
 ## 3. Iteration History
+
+---
+
+### 2026-05-04 — 修复 Edit/Write 大文件截断引发的 deploy 失败
+
+#### Goal
+排查并修复 commit 5d1db40 推送后服务器端 Vite 构建失败（parse5 报 eof-in-tag），同时把本次 session 反复遇到的"大文件被工具静默截断"问题沉淀成可复用的检查流程。
+
+#### Trigger / Context
+push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时构建失败：`[vite:build-html] Unable to parse HTML; parse5 error code eof-in-tag at /home/ec2-user/Horisation/frontend/index.html:15:28`。本地 git 也被 lock 文件卡住（`HEAD.lock` / `index.lock` 残留，前一次 git commit 操作没正常释放）。
+
+#### Problem & Root Cause
+**直接原因**：`frontend/index.html` 在前一次 session 的 Edit 过程中被工具静默截断到 14 行，最后一行停在 `<script src="https://cd` 半字串处，丢失了：`<div id="root"></div>` 这个 React 挂载点、整个 main.jsx 的 script 标签、`</body>` `</html>` 闭合标签。
+
+**根因**：file_tools（Read / Write / Edit）对大字符串传输有偶发性不完整截断的 bug。同样的问题在本次 session 还命中了 `index.css`（Write 后 1092 → 696 行）和 `Home.jsx`（Write 后 102 → 57 行）。Read 工具会从缓存返回内容，让人误以为文件完整，但 bash 直接读磁盘看到的是真实截断状态。
+
+#### Solution
+
+**1. 重建被截断的 index.html（用 bash heredoc 绕开 file_tools）**
+
+把完整的 18 行 HTML 用 `cat > frontend/index.html << EOF ... EOF` 一次写入，包括 `<div id="root">`、Bootstrap script、main.jsx script、闭合标签。最终：18 行 / 1028 字节。
+
+**2. 同时修复另外两个被截断的文件**
+- `index.css`：用 `head -695 + cat >> heredoc` 补全尾部缺失的 ~395 行；用 `node -e` 校验 `{` `}` 220/220 平衡
+- `Home.jsx`：同样手段补全尾部缺失 ~45 行；用 `@babel/parser` 解析通过
+
+**3. 让用户在 Windows 端清理 git lock 文件 + 重新 commit + push**
+- 手动删 `.git/HEAD.lock` `.git/index.lock` `.git/objects/maintenance.lock`
+- `git commit --amend --no-edit` 把 fix 并入 5d1db40，rewrite 为 9f398c4
+- `git push --force-with-lease`
+
+**4. 服务器跑 deploy.sh 拉取最新 commit**
+- `git fetch + reset --hard origin/main` 拉到 9f398c4
+- npm build 这次能通过 HTML parse
+
+#### Changed Files
+- `frontend/index.html` — 重建 18 行完整版（含 `<div id="root">`）
+- `frontend/src/index.css` — 补全尾部缺失的 ~395 行
+- `frontend/src/pages/Home.jsx` — 补全尾部缺失的 ~45 行
+- `Doc/log.md` — 本次记录 + 新 Pattern 5 / Pattern 6
+
+#### Result
+本地 commit 9f398c4 已 push 到 origin/main，包含修复后的所有文件。三个被截断文件全部用 bash 三件套校验通过：行数、闭合、语法解析。服务器再跑一次 deploy 即可恢复。
+
+#### Testing
+- `node @babel/parser` 解析全部 23 个 jsx 文件 → 全 OK
+- CSS 括号平衡：`node -e "(c.match(/\{/g)||[]).length"` → 220/220 ✓
+- HTML 校验：`grep -q '<div id="root"' && grep -q '</html>'` → 全部存在
+- `wc -l` + `tail -3` + `md5sum` 三重对比磁盘真实状态
+- 服务器端构建结果待 deploy 后确认（已经把诊断信号点告诉用户）
+
+#### Lessons Learned
+本次踩坑沉淀为两条新 Pattern（已加到 Section 2 的 Reusable Patterns）：
+
+**Pattern 5 — 大文件 Edit/Write 后必须用 bash 双重校验**：写完 >500 行的文件后必跑 `wc -l` + `tail -3` + 语法解析三件套；发现截断时用 `head -N + cat >> heredoc` 补全（heredoc 也有截断风险，写完再跑一次校验）
+
+**Pattern 6 — deploy 前必须校验 React 挂载点**：缺 `<div id="root">` 时 Vite build 不报错，但运行时页面全白；在 `deploy.sh` 的 build 前加一行 `grep -q '<div id="root"' frontend/index.html || exit 1`
+
+#### Remaining Issues / Next Step
+- 服务器端跑一次 `bash ~/deploy.sh` 完成上线（拉到 9f398c4）
+- 其余 ~60 个 CRLF/LF 行尾幻象 diff 待清理：加 `.gitattributes` 一劳永逸（`* text=auto eol=lf`）
+- 后续 todo 不变：首页天气卡片、密码 bcrypt 迁移、CI/CD 流水线
 
 ---
 
@@ -612,13 +685,6 @@ Login、Home、CSV Workspace、Hormemo、Profile、AdminUsers、Under Developmen
 ---
 
 ## Deploy Checklist
-```bash
-# Local — push changes
-git add -A && git commit -m "..." && git push
-
-# Server — one command
-bash ~/deploy.sh
-```
 ```bash
 # Local — push changes
 git add -A && git commit -m "..." && git push
