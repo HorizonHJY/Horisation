@@ -5,15 +5,15 @@
 Last Updated: 2026-05-04
 
 ### Current Working Version
-- **Completed**: 全站设计系统统一（Login 风格扩展到全站：Playfair Display + 思源宋体 + 暖奶油底色 + 扁平卡片 + 柔和粉蓝 #6b9cdb）；UI 组件库统一风格（加载动画、Tab 切换器、搜索框、市集卡片、商品详情弹窗）；邀请码系统 + 公开注册、功能角色门控、市集商品编辑、Profile 地址字段扩展、好友/私信/联系方式申请系统、用户数据 SQLite 迁移、二手市集、留言板、移动端响应式侧边栏、React SPA 全面迁移
+- **Completed**: 全站设计系统统一（Login 风格扩展到全站：Playfair Display + 思源宋体 + 暖奶油底色 + 扁平卡片 + 柔和粉蓝 #6b9cdb）；UI 组件库统一风格（加载动画、Tab 切换器、搜索框、市集卡片、商品详情弹窗）；邀请码系统 + 公开注册、功能角色门控、市集商品编辑、Profile 地址字段扩展、好友/私信/联系方式申请系统、用户数据 SQLite 迁移、二手市集、留言板、移动端响应式侧边栏、React SPA 全面迁移；修改密码后强制会话失效
 - **In Progress**: [待补充]
 - **Blocked / Not Solved**: 密码明文存储（待迁 bcrypt）；无 CI/CD 流水线；首页天气卡片（todo #1）
 
 ### Latest Summary
-修复 commit 5d1db40 推送后服务器 Vite 构建失败（index.html 被工具截断、缺 `<div id="root">` 与闭合标签）。用 bash heredoc 重建 18 行完整版，commit 9f398c4 已推到 origin/main，待服务器跑 deploy.sh 拉取。沉淀两条新 Pattern：大文件 Edit/Write 后的 bash 双重校验流程，以及 React 挂载点的部署前 grep 校验。
+修复"改完密码老密码还能用"的问题：根因不是 DB 写入失败，而是密码改完后旧 session token 仍有效，用户实际上是用 session 而非密码在使用平台。修复方案：密码修改成功后调用 `db_delete_user_sessions()` 清除该用户所有 session，同时清除当前请求的 cookie，并在前端展示"Logging you out"后 1.5s 调用 logout() 重定向到 /login。commit d24979e。
 
 ### Next Immediate Step
-服务器跑一次 `bash ~/deploy.sh` 拉最新 commit；之后再推进首页天气卡片
+服务器跑一次 `bash ~/deploy.sh` 拉最新 commit（d24979e）；之后再推进首页天气卡片
 
 ---
 
@@ -71,6 +71,62 @@ Last Updated: 2026-05-04
 ---
 
 ## 3. Iteration History
+
+---
+
+### 2026-05-04 — 修复密码修改后旧密码/旧会话仍可用
+
+#### Goal
+修复用户反馈"改完密码，老密码还能用"的问题。
+
+#### Trigger / Context
+用户在 Profile 页改完密码后，发现仍然可以继续使用平台，误以为旧密码没有生效。
+
+#### Problem & Root Cause
+**直接原因**：密码修改的 DB 写入是正确的（`db_update_user(username, password=new_pass)` → `s.commit()`），数据实际上已更新。
+
+**真正根因**：`change_own_password` 在成功更新密码后，没有使该用户的现有 Session 失效。用户修改密码后仍处于登录状态（session token 仍然有效），其后对平台的所有操作都是凭旧 session token 通过的，并非凭旧密码通过的。用户将"平台仍然可用"误判为"旧密码还有效"。
+
+这也是一个安全漏洞：如果攻击者盗取了 session token，受害者改密码后攻击者的 session 依然有效。
+
+#### Solution
+三个改动联动：
+
+**1. `market_db.py` — 新增 `db_delete_user_sessions(username)`**
+清除指定用户的所有 `UserSession` 行，直接用于密码改完后强制下线。
+
+**2. `auth_controller.py` — `change_own_password` 调用新函数**
+```python
+from Backend.Controller.market_db import db_delete_user_sessions
+db_delete_user_sessions(username)   # 清除所有旧 session
+session.pop('session_token', None)  # 清除当前请求的 cookie
+return jsonify({'ok': True, 'message': 'Password changed. Please log in again...'})
+```
+
+**3. `Profile.jsx` — 密码改成功后前端主动 logout**
+```jsx
+if (d.ok) {
+  flash('Password changed. Logging you out…')
+  setTimeout(() => logout(), 1500)  // 1.5s 后调用 logout() → setUser(null) → 跳转 /login
+}
+```
+
+#### Changed Files
+- `Backend/Controller/market_db.py` — 新增 `db_delete_user_sessions(username: str) -> None`
+- `Backend/Controller/auth_controller.py` — `change_own_password` 末尾调用 `db_delete_user_sessions` + 清 cookie
+- `frontend/src/pages/Profile.jsx` — `useAuth()` 解构新增 `logout`；成功后 flash + `setTimeout(logout, 1500)`
+
+#### Result
+密码改完后所有旧 session 立即失效，用户被重定向到 /login，必须用新密码重新登录。同时解决了 session 劫持场景（攻击者拿到旧 token 在受害者改密码后也无法继续使用）。
+
+#### Testing
+- 改密码 → 看到 "Logging you out…" → 1.5s 后跳转 /login
+- 用新密码登录 → 成功
+- 用旧密码登录 → 失败（401）
+- 在另一个标签中持有旧 session → 下次请求 validate_session 返回 null → 被踢回 /login
+
+#### Lessons Learned
+**密码修改必须同步使所有 session 失效** — 仅更新 DB 中的密码字段是不够的；已发放的 session token 只要不过期就仍然有效。安全正确的实现是：DB 更新密码 → 删除所有该用户的 session → 清除当前 cookie → 前端跳转登录页。这是 OWASP 的标准做法。
 
 ---
 
@@ -625,70 +681,4 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 
 **认证修复**
 - 移除硬编码后门 `password in ['horizon', 'yyf']`
-- 全局统一用 `_find_user()` helper 按 `username` 字段查找，修复 `auth_controller.py` 和 `memos_controller.py`
-- 修复 `users.json` 存量数据中 key/username 不一致问题
-
-**部署配置**
-- `ProxyFix(x_for=1, x_proto=1, x_host=1)` 信任 Nginx 代理头
-- `SESSION_COOKIE_SECURE` 在 `LOCAL_DEV=1` 时关闭
-- Nginx 配置：`/etc/nginx/conf.d/horizonyhj.com.conf`（反代到 Gunicorn :8000）
-- systemd service：`/etc/systemd/system/horisation.service`
-- SSL：Let's Encrypt + Cloudflare Full 模式
-- Python venv：`/home/ec2-user/venv/`（后续升级至 3.11）
-
-**功能清理**
-- 移除 `/limit` 路由和 `limit.html`（废弃功能）
-- 移除 `last_login` 字段（导致 `users.json` 频繁 git 冲突）
-
-**React 初版页面**
-Login、Home、CSV Workspace、Hormemo、Profile、AdminUsers、Under Development、Gomoku（本地双人）
-
-#### Changed Files
-- `app.py` — 重构为 API-only + SPA catch-all；加 ProxyFix 和 cookie 安全配置
-- `Backend/Controller/auth_controller.py` — 移除后门；修复 `_find_user()` 调用
-- `Backend/Controller/memos_controller.py` — 修复 `_find_user()` 调用
-- `Template/` — 删除目录
-- `Static/` — 删除目录
-- `frontend/` — 新建，React 18 + Vite 项目结构
-- `frontend/src/App.jsx` — 路由、AuthContext、PrivateRoute
-- `frontend/src/api.js` — fetch wrapper（`credentials: include`）
-- `frontend/src/pages/` — 初版所有页面组件
-- `requirements.txt` — 新建（flask, pandas, numpy, openpyxl, xlrd, pyarrow, gunicorn）
-- `Doc/project_intro.md`, `Doc/server.md`, `Doc/log.md`, `Doc/data_storage.md` — 新建文档
-
-#### Result
-- 生产环境 HTTPS 正常运行，登录 cookie 正常设置
-- 安全漏洞修复，用户查找逻辑统一
-- React SPA 全面上线，前后端分离架构就绪
-- 基础文档建立
-
-#### Testing
-- 生产环境用正常账号登录验证 cookie 正常写入，session 跨页面保持
-- 确认硬编码后门密码（`horizon`/`yyf`）不再绕过认证
-- 用存量用户数据验证 `_find_user()` 修复后所有账号可正常登录
-- 访问 `/login` 后重定向至 `/home`；直接访问 `/home` 未登录时重定向至 `/login`
-
-#### Lessons Learned
-- **Symptom**: 生产登录失败，本地正常
-- **Root Cause**: 反向代理改变了请求协议头，Flask 无法正确判断 HTTPS
-- **Reusable Solution**: 所有部署在反代后的 Flask 应用都应加 `ProxyFix`；本地用环境变量关闭 `SESSION_COOKIE_SECURE`，避免掩盖问题
-
-- **Symptom**: 代码中存在硬编码测试凭证
-- **Root Cause**: 开发阶段为方便调试遗留的临时代码未及时清理
-- **Reusable Solution**: 代码 review 时专项检查硬编码凭证；生产部署前运行 `grep -r "password in \[" .` 类扫描
-
-#### Remaining Issues / Next Step
-- 二手市集和留言板（下一个迭代完成）
-- `users.json` 并发安全问题（2026-03-06 通过迁移 SQLite 解决）
-- 密码明文存储
-
----
-
-## Deploy Checklist
-```bash
-# Local — push changes
-git add -A && git commit -m "..." && git push
-
-# Server — one command
-bash ~/deploy.sh
-```
+- 全局统一用 `_find_user()` helper 按 `username` 
