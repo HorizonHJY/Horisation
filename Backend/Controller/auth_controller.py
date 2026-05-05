@@ -392,7 +392,11 @@ def change_own_password():
     success, message = user_manager.reset_user_password(username, new_pass)
     if not success:
         return jsonify({'ok': False, 'error': message}), 400
-    return jsonify({'ok': True, 'message': message})
+    # Invalidate all sessions so the user must log in again with the new password
+    from Backend.Controller.market_db import db_delete_user_sessions
+    db_delete_user_sessions(username)
+    session.pop('session_token', None)
+    return jsonify({'ok': True, 'message': 'Password changed. Please log in again with your new password.'})
 
 
 @auth_bp.route('/users/<username>/profile', methods=['PUT'])
@@ -453,12 +457,4 @@ def check_permissions():
             result['has_permission'] = user_manager.check_permission(username, permission)
 
         if sector:
-            result['has_sector_access'] = user_manager.check_sector_access(username, sector)
-
-        return jsonify({
-            'ok': True,
-            'permissions': result
-        })
-
-    except Exception as e:
-        return jsonify({'ok': False, 'error': f'Permission check failed: {str(e)}'}), 500
+            result['has_s

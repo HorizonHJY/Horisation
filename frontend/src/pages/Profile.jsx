@@ -9,7 +9,7 @@ const ROLE_COLORS = {
 }
 
 export default function Profile() {
-  const { user, login } = useAuth()
+  const { user, login, logout } = useAuth()
 
   const [nameForm, setNameForm]     = useState({ display_name: user?.display_name ?? '', email: user?.email ?? '' })
   const [passForm, setPassForm]     = useState({ current_password: '', new_password: '', confirm: '' })
@@ -62,8 +62,8 @@ export default function Profile() {
     })
     setSavingPass(false)
     if (d.ok) {
-      flash('Password changed successfully.')
-      setPassForm({ current_password: '', new_password: '', confirm: '' })
+      flash('Password changed. Logging you out…')
+      setTimeout(() => logout(), 1500)
     } else {
       flash(d.error, 'danger')
     }
@@ -355,3 +355,4 @@ export default function Profile() {
     </>
   )
 }
+                      

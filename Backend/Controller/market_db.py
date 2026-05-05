@@ -303,6 +303,13 @@ def db_cleanup_sessions() -> None:
         s.commit()
 
 
+def db_delete_user_sessions(username: str) -> None:
+    """Delete all sessions for a user (e.g. after password change)."""
+    with Session() as s:
+        s.query(UserSession).filter_by(username=username).delete()
+        s.commit()
+
+
 # ── Serialisers ───────────────────────────────────────────────────────────────
 
 def _listing_to_dict(listing: Listing, seller_user: 'User | None' = None) -> dict:
@@ -1004,10 +1011,4 @@ def delete_invite_code(code_id: int) -> bool:
         return True
 
 
-def validate_invite_code(code: str) -> bool:
-    now = datetime.utcnow()
-    with Session() as s:
-        row = s.query(InviteCode).filter_by(code=code).first()
-        if not row:
-            return False
-        return row.valid_from <= now <= row.valid_to
+def validate_invite_cod
