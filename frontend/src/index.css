@@ -1089,10 +1089,6 @@ textarea.form-control { height: auto; padding: .55rem .85rem; line-height: 1.55;
   .hero-block h2,
   .hero-block .hero-title { font-size: 1.6rem; }
 }
-r: var(--success);
-  color: var(--success);
-  background: rgba(39, 174, 96, 0.08);
-}
 
 /* ═══════════════════════════════════════════════════════════
    Login inputs (preserved — used on Login page)
@@ -1481,8 +1477,5 @@ textarea.form-control { height: auto; padding: .55rem .85rem; line-height: 1.55;
   .page-title { font-size: 1.7rem; }
   .hero-block { padding: 24px 22px; }
   .hero-block h2,
-  .hero-block .hero-title { font-size: 1.6rem; }
-}
-
   .hero-block .hero-title { font-size: 1.6rem; }
 }
