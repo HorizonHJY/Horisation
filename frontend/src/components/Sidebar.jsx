@@ -55,7 +55,7 @@ export default function Sidebar({ isOpen, onClose }) {
         <span className="arch-bay-text" style={{ fontSize: '1.25rem' }}>Arch Bay</span>
       </div>
 
-      <div className="flex-grow-1">
+      <div className="sidebar-nav">
         {nav.map(({ section, items }) => (
           <div className="nav-section" key={section}>
             <div className="nav-title">{section}</div>
@@ -97,4 +97,4 @@ export default function Sidebar({ isOpen, onClose }) {
       </div>
     </div>
   )
-}
+}

@@ -97,7 +97,10 @@ h1, h2, h3, h4, h5, h6,
   color: var(--text-primary);
   border-right: 1px solid var(--border-soft);
   display: flex; flex-direction: column;
-  overflow-y: auto; z-index: 100;
+  overflow: hidden; z-index: 100;
+}
+.sidebar-nav {
+  flex: 1; min-height: 0; overflow-y: auto;
 }
 .sidebar .logo {
   display: flex; align-items: center; gap: 10px;

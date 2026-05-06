@@ -66,6 +66,8 @@ class Listing(Base):
     category         = Column(String(50), nullable=False, default='other')
     contact          = Column(String(200), nullable=False)
     original_price   = Column(Float, nullable=True)
+    delivery_type    = Column(String(20), nullable=False, default='pickup')  # pickup / delivery / both
+    delivery_fee     = Column(Float, nullable=True)
     status           = Column(String(20), nullable=False, default='active')  # active / sold / removed
     created_at       = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     updated_at       = Column(DateTime, nullable=False,
@@ -144,6 +146,8 @@ def _migrate_columns():
     """Idempotently add new columns to existing tables."""
     stmts = [
         "ALTER TABLE listings ADD COLUMN original_price REAL",
+        "ALTER TABLE listings ADD COLUMN delivery_type TEXT NOT NULL DEFAULT 'pickup'",
+        "ALTER TABLE listings ADD COLUMN delivery_fee REAL",
         "ALTER TABLE friend_requests ADD COLUMN message TEXT",
         "ALTER TABLE user ADD COLUMN contact_hidden BOOLEAN DEFAULT 0",
         "ALTER TABLE user ADD COLUMN wechat TEXT",
@@ -322,6 +326,8 @@ def _listing_to_dict(listing: Listing, seller_user: 'User | None' = None) -> dic
         'description':      listing.description,
         'price':            listing.price,
         'original_price':   listing.original_price,
+        'delivery_type':    listing.delivery_type or 'pickup',
+        'delivery_fee':     listing.delivery_fee,
         'category':         listing.category,
         'contact':          listing.contact,
         'status':           listing.status,
@@ -421,7 +427,9 @@ def get_active_listings_by_user(username: str) -> list[dict]:
 
 def create_listing(seller: str, title: str, description: str,
                    price: float, category: str, contact: str,
-                   original_price: float = None) -> str:
+                   original_price: float = None,
+                   delivery_type: str = 'pickup',
+                   delivery_fee: float = None) -> str:
     """Create a listing row and return its id."""
     listing = Listing(
         id=str(uuid.uuid4()),
@@ -430,6 +438,8 @@ def create_listing(seller: str, title: str, description: str,
         description=description,
         price=price,
         original_price=original_price,
+        delivery_type=delivery_type,
+        delivery_fee=delivery_fee,
         category=category,
         contact=contact,
     )
@@ -456,7 +466,7 @@ def add_image(listing_id: str, r2_url: str, r2_key: str, order: int) -> str:
 
 def update_listing(listing_id: str, seller: str, **fields) -> bool:
     """Update allowed text fields. Returns False if not found or wrong seller."""
-    allowed = {'title', 'description', 'price', 'original_price', 'category', 'contact'}
+    allowed = {'title', 'description', 'price', 'original_price', 'category', 'contact', 'delivery_type', 'delivery_fee'}
     with Session() as s:
         row = s.query(Listing).filter_by(id=listing_id, seller_username=seller).first()
         if not row:

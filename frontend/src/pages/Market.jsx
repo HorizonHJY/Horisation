@@ -15,7 +15,7 @@ const CATEGORY_META = {
   other:       { label: 'Other',       icon: 'fa-box' },
 }
 
-const EMPTY_FORM = { title: '', description: '', price: '', original_price: '', category: 'electronics' }
+const EMPTY_FORM = { title: '', description: '', price: '', original_price: '', category: 'electronics', delivery_type: 'pickup', delivery_fee: '' }
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
 function useToast() {
@@ -56,6 +56,8 @@ function EditModal({ listing, onClose, onSave }) {
     price:          String(listing.price),
     original_price: listing.original_price != null ? String(listing.original_price) : '',
     category:       listing.category,
+    delivery_type:  listing.delivery_type || 'pickup',
+    delivery_fee:   listing.delivery_fee != null ? String(listing.delivery_fee) : '',
   })
   const [saving, setSaving] = useState(false)
   const [err, setErr]       = useState('')
@@ -72,6 +74,8 @@ function EditModal({ listing, onClose, onSave }) {
       price:          Number(form.price),
       original_price: form.original_price !== '' ? Number(form.original_price) : '',
       category:       form.category,
+      delivery_type:  form.delivery_type,
+      delivery_fee:   form.delivery_fee !== '' ? Number(form.delivery_fee) : null,
     })
     setSaving(false)
   }
@@ -120,6 +124,26 @@ function EditModal({ listing, onClose, onSave }) {
                   ))}
                 </select>
               </div>
+              <div className="mt-3">
+                <label className="form-label fw-medium">Delivery Options</label>
+                <div className="d-flex gap-3 flex-wrap">
+                  {[['pickup','Self-pickup'],['delivery','Delivery'],['both','Both']].map(([v,lbl]) => (
+                    <div className="form-check" key={v}>
+                      <input className="form-check-input" type="radio" name="edit-delivery"
+                        id={`edit-dt-${v}`} value={v} checked={form.delivery_type === v}
+                        onChange={() => setForm(f => ({ ...f, delivery_type: v }))} />
+                      <label className="form-check-label small" htmlFor={`edit-dt-${v}`}>{lbl}</label>
+                    </div>
+                  ))}
+                </div>
+                {(form.delivery_type === 'delivery' || form.delivery_type === 'both') && (
+                  <div className="mt-2">
+                    <input type="number" className="form-control form-control-sm" min={0} step="0.01"
+                      placeholder="Delivery fee (¥, blank = free)" value={form.delivery_fee}
+                      onChange={e => setForm(f => ({ ...f, delivery_fee: e.target.value }))} />
+                  </div>
+                )}
+              </div>
             </div>
             <div className="modal-footer">
               <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
@@ -156,9 +180,18 @@ function ListingCard({ listing, currentUser, onSold, onDelete, onEdit, onReachOu
       <div className="market-card__title" title={listing.title}
            style={{ cursor: 'pointer' }} onClick={onDetail}>{listing.title}</div>
 
-      {/* Category + sold badge */}
+      {/* Category + delivery + sold badge */}
       <div className="market-card__meta">
         <span className="market-card__category">{listing.category}</span>
+        {(listing.delivery_type === 'delivery' || listing.delivery_type === 'both') ? (
+          <span style={{ fontSize: '.62rem', background: '#e8f0fe', color: '#3b5bdb', borderRadius: 10, padding: '1px 6px', whiteSpace: 'nowrap' }}>
+            <i className="fas fa-truck me-1" />{listing.delivery_type === 'both' ? 'Delivery/Pickup' : 'Delivery'}
+          </span>
+        ) : (
+          <span style={{ fontSize: '.62rem', background: '#f0f0f0', color: '#666', borderRadius: 10, padding: '1px 6px', whiteSpace: 'nowrap' }}>
+            <i className="fas fa-walking me-1" />Pickup
+          </span>
+        )}
         {isSold && <span className="market-card__sold-badge">Sold</span>}
       </div>
 
@@ -299,7 +332,7 @@ function ListingDetailModal({ listing, currentUser, onClose, onSold, onDelete, o
             )}
 
             {/* Price + badges */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <span className="market-card__category">{listing.category}</span>
                 {isSold && <span className="market-card__sold-badge">Sold</span>}
@@ -313,6 +346,27 @@ function ListingDetailModal({ listing, currentUser, onClose, onSold, onDelete, o
                     </span>
                   )}
                 </div>
+              )}
+            </div>
+
+            {/* Delivery info */}
+            <div style={{ marginBottom: 12, fontSize: '.82rem' }}>
+              {listing.delivery_type === 'pickup' && (
+                <span style={{ background: '#f0f0f0', color: '#555', borderRadius: 12, padding: '2px 10px' }}>
+                  <i className="fas fa-walking me-1" />Self-pickup only
+                </span>
+              )}
+              {listing.delivery_type === 'delivery' && (
+                <span style={{ background: '#e8f0fe', color: '#3b5bdb', borderRadius: 12, padding: '2px 10px' }}>
+                  <i className="fas fa-truck me-1" />Delivery{listing.delivery_fee != null ? ` +¥${listing.delivery_fee}` : ' (free)'}
+                </span>
+              )}
+              {listing.delivery_type === 'both' && (
+                <span style={{ background: '#e8f0fe', color: '#3b5bdb', borderRadius: 12, padding: '2px 10px' }}>
+                  <i className="fas fa-truck me-1" />Delivery{listing.delivery_fee != null ? ` +¥${listing.delivery_fee}` : ' (free)'}
+                  <span className="mx-2 text-muted">·</span>
+                  <i className="fas fa-walking me-1" />Self-pickup
+                </span>
               )}
             </div>
 
@@ -990,6 +1044,28 @@ export default function Market() {
                         <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
                       ))}
                     </select>
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="form-label fw-medium">Delivery Options</label>
+                    <div className="d-flex gap-3 flex-wrap">
+                      {[['pickup','Self-pickup only'],['delivery','Delivery only'],['both','Both']].map(([v,lbl]) => (
+                        <div className="form-check" key={v}>
+                          <input className="form-check-input" type="radio" name="delivery_type"
+                            id={`dt-${v}`} value={v} checked={form.delivery_type === v}
+                            onChange={() => setForm(f => ({ ...f, delivery_type: v, delivery_fee: v === 'pickup' ? '' : f.delivery_fee }))} />
+                          <label className="form-check-label" htmlFor={`dt-${v}`}>{lbl}</label>
+                        </div>
+                      ))}
+                    </div>
+                    {(form.delivery_type === 'delivery' || form.delivery_type === 'both') && (
+                      <div className="mt-2">
+                        <input type="number" className="form-control" min={0} step="0.01"
+                          placeholder="Delivery fee (¥, leave blank if free)"
+                          value={form.delivery_fee}
+                          onChange={e => setForm(f => ({ ...f, delivery_fee: e.target.value }))} />
+                      </div>
+                    )}
                   </div>
 
                   <div className="mb-4">

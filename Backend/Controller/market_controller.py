@@ -67,6 +67,19 @@ def create_listing():
         except (ValueError, TypeError):
             pass
 
+    delivery_type = request.form.get('delivery_type', 'pickup').strip()
+    if delivery_type not in ('pickup', 'delivery', 'both'):
+        delivery_type = 'pickup'
+    delivery_fee = None
+    raw_df = request.form.get('delivery_fee', '').strip()
+    if raw_df:
+        try:
+            delivery_fee = float(raw_df)
+            if delivery_fee < 0:
+                delivery_fee = None
+        except (ValueError, TypeError):
+            pass
+
     if not title:
         return jsonify({'ok': False, 'error': 'Title is required.'}), 400
     if not description:
@@ -88,7 +101,12 @@ def create_listing():
                 return jsonify({'ok': False, 'error': err}), 400
 
     # Create listing row
-    listing_id = market_db.create_listing(seller, title, description, price, category, '', original_price)
+    listing_id = market_db.create_listing(
+        seller, title, description, price, category, '',
+        original_price=original_price,
+        delivery_type=delivery_type,
+        delivery_fee=delivery_fee,
+    )
 
     # Upload images to R2
     uploaded_keys = []
@@ -149,6 +167,20 @@ def update_listing(listing_id):
                 fields['original_price'] = float(raw)
             except (ValueError, TypeError):
                 return jsonify({'ok': False, 'error': 'Original price must be a number.'}), 400
+
+    if 'delivery_type' in data:
+        dt = str(data['delivery_type']).strip()
+        if dt in ('pickup', 'delivery', 'both'):
+            fields['delivery_type'] = dt
+    if 'delivery_fee' in data:
+        raw = data['delivery_fee']
+        if raw == '' or raw is None:
+            fields['delivery_fee'] = None
+        else:
+            try:
+                fields['delivery_fee'] = float(raw)
+            except (ValueError, TypeError):
+                return jsonify({'ok': False, 'error': 'Delivery fee must be a number.'}), 400
 
     ok = market_db.update_listing(listing_id, seller, **fields)
     if not ok:
