@@ -452,4 +452,33 @@ def delete_user(username):
     return jsonify({'ok': True, 'message': message})
 
 
-@auth_bp.route('/permissions/check
+@auth_bp.route('/permissions/check', methods=['POST'])
+@login_required
+def check_permissions():
+    """检查用户权限"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'ok': False, 'error': 'Invalid JSON data'}), 400
+
+        user_info = request.current_user
+        username = user_info['username']
+
+        permission = data.get('permission')
+        sector = data.get('sector')
+
+        result = {}
+
+        if permission:
+            result['has_permission'] = user_manager.check_permission(username, permission)
+
+        if sector:
+            result['has_sector_access'] = user_manager.check_sector_access(username, sector)
+
+        return jsonify({
+            'ok': True,
+            'permissions': result
+        })
+
+    except Exception as e:
+        return jsonify({'ok': False, 'error': f'Permission check failed: {str(e)}'}), 500
