@@ -2,18 +2,18 @@
 
 
 ## 0. Current Status
-Last Updated: 2026-05-05
+Last Updated: 2026-05-06
 
 ### Current Working Version
-- **Completed**: 全站设计系统统一；UI 组件库统一风格；邀请码系统；功能角色门控；好友/私信/联系方式申请系统；用户数据 SQLite 迁移；二手市集；留言板；修改密码后强制会话失效；**用户公开主页 `/u/:username`（头像可点击跳转、分享链接、展示在售商品列表）**
-- **In Progress**: 待 deploy 上线最新 commit（c61c126）
+- **Completed**: 全站设计系统统一；UI 组件库统一风格；邀请码系统；功能角色门控；好友/私信/联系方式申请系统；用户数据 SQLite 迁移；二手市集（含配送选项）；留言板；修改密码后强制会话失效；用户公开主页 `/u/:username`；**市集配送/取货标注 + 手机端 Logout 修复**
+- **In Progress**: 待 deploy 上线最新 commit（bdabcd8）
 - **Blocked / Not Solved**: 密码明文存储（待迁 bcrypt）；无 CI/CD 流水线；首页天气卡片（todo #1）
 
 ### Latest Summary
-新增公开用户主页功能：每个用户都有 `/u/:username` 页面，显示头像、昵称、注册时间和在售商品卡片，底部有 Copy Link 按钮。留言板头像、好友列表头像、市集卖家弹窗均新增点击跳转入口。后端新增 `GET /api/auth/users/:username/public` 端点（仅返回安全字段）。commit c61c126。
+市集商品发布/编辑新增配送选项（自提/配送/两者）和配送费字段，全链路覆盖 DB → API → 前端；手机端侧边栏 Logout 按钮始终可见（sidebar-nav 独立滚动）。commit bdabcd8。
 
 ### Next Immediate Step
-服务器跑一次 `bash ~/deploy.sh` 拉最新 commit（c61c126）上线用户主页功能
+服务器跑一次 `bash ~/deploy.sh` 拉最新 commit（bdabcd8）上线
 
 ---
 
@@ -76,6 +76,67 @@ Last Updated: 2026-05-05
 ---
 
 ## 3. Iteration History
+
+---
+
+### 2026-05-06 — 市集配送选项 + 手机端 Logout 按钮修复
+
+#### Goal
+1. 发布商品时可标注取货方式：仅自提 / 仅配送 / 两者都可，配送时可附加配送费
+2. 修复手机端侧边栏 Logout 按钮被导航项遮住、无法点击的问题
+
+#### Trigger / Context
+用户希望在发布二手商品时能说明取货方式和配送费，让买家一目了然。同时反馈在手机上看不到 Logout 按钮。
+
+#### Problem & Root Cause
+
+**配送选项**：Listing 模型缺少对应字段，需从 DB → API → 前端全链路新增。
+
+**手机端 Logout**：`.sidebar` 设置了 `overflow-y: auto`，当导航项较多时 sidebar 整体可滚动，但 Logout 按钮用 `margin-top: auto` 推到底部，在移动端视口高度不足时被滚出可视区。
+
+#### Solution
+
+**1. market_db.py — Listing 模型新增两列**
+```python
+delivery_type = Column(String(20), nullable=False, default='pickup')  # pickup/delivery/both
+delivery_fee  = Column(Float, nullable=True)
+```
+`_migrate_columns()` 新增两条 ALTER TABLE 语句，现有 DB 启动时自动补列。
+`_listing_to_dict()` 新增 `delivery_type` / `delivery_fee`。
+`create_listing()` / `update_listing()` 签名及 allowed set 均更新。
+
+**2. market_controller.py — 解析新字段**
+- `POST /listings`：从 `request.form` 解析 `delivery_type`（枚举校验）和 `delivery_fee`（float，负数丢弃）
+- `PUT /listings/<id>`：从 JSON body 解析同样字段，fee 可传 `null` / `''` 表示清空
+
+**3. Market.jsx — 前端全链路**
+- `EMPTY_FORM` 新增 `delivery_type: 'pickup', delivery_fee: ''`
+- Post form：单选组（Self-pickup only / Delivery only / Both）+ 条件显示配送费输入框
+- EditModal：同上（radio + 条件 fee 输入）；`onSave` payload 含 `delivery_type` / `delivery_fee`
+- `ListingCard`：meta 区增加配送/取货小标签（蓝色 truck = 支持配送，灰色 walking = 仅自提）
+- `ListingDetailModal`：价格行下方新增配送信息展示（自提 / 配送+费用 / 两者）
+
+**4. Sidebar.jsx + index.css — 手机端 Logout 修复**
+- `.sidebar` 改为 `overflow: hidden`（不整体滚动）
+- 新增 `.sidebar-nav { flex: 1; min-height: 0; overflow-y: auto; }` — 只有导航区滚动
+- `Sidebar.jsx`：导航 wrapper div 改用 `className="sidebar-nav"` 替代 `className="flex-grow-1"`
+
+#### Changed Files
+- `Backend/Controller/market_db.py` — Listing 新列、迁移、序列化、CRUD
+- `Backend/Controller/market_controller.py` — create/update 路由解析配送字段
+- `frontend/src/pages/Market.jsx` — Post form、EditModal、ListingCard、ListingDetailModal
+- `frontend/src/components/Sidebar.jsx` — nav wrapper 改用 `.sidebar-nav`
+- `frontend/src/index.css` — `.sidebar` overflow 改为 hidden，新增 `.sidebar-nav` rule
+
+#### Result
+发布商品时可选取货方式和配送费；商品卡片和详情弹窗均显示配送信息；手机端 sidebar 导航区独立滚动，Logout 按钮始终可见。commit bdabcd8。
+
+#### Lessons Learned
+见 Pattern 7（Windows 挂载路径与 bash sandbox 写入不同步）。修复路径：`git show HEAD:file` 取 committed 版本 → Python 字符串 patch → 写回 bash mount 路径 → syntax 验证后重新 stage / `git write-tree` / `git commit-tree` 绕过 HEAD.lock 提交。
+
+#### Remaining Issues / Next Step
+- 首页天气卡片（todo #1）
+- `bash ~/deploy.sh` 上线 bdabcd8
 
 ---
 
