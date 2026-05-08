@@ -736,3 +736,66 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 - `frontend/src/App.jsx` — 新增 `UnreadContext`；注册 `/friends` 路由
 - `frontend/src/pages/Friends.jsx` — 新建，好友/私信/申请页面
 - `frontend/src/pages/Market.jsx` — 卖家 Modal、Reach Out 按钮、Tab 顺序调整
+- `frontend/src/pages/Login.jsx` — 全新设计，使用 FlowerCanvas
+- `frontend/src/components/FlowerCanvas.jsx` — 新建，花瓣动画组件
+- `frontend/src/components/Sidebar.jsx` — Friends 未读 badge
+- `scripts/dev.bat`, `scripts/_flask_local.bat` — 新建
+- `scripts/deploy.sh` — 移除 JSON 备份逻辑
+
+#### Result
+- 用户数据全面迁移至 SQLite，并发安全性大幅提升；旧 `users.json` 自动归档
+- 好友申请、私信、联系方式申请功能完整上线，均支持实时通知
+- 市集社交互动闭环：从看商品到联系卖家一键完成
+- 登录页视觉大幅升级
+- 在线五子棋可在 `horizon`/`horizonadmin`/`vip3` 用户间对战
+- 本地开发一键启动，无需手动配置双进程
+
+#### Testing
+- 在旧有 `users.json` 存在时启动服务，验证迁移脚本执行、文件重命名为 `.migrated`、用户可正常登录
+- 两个账号互相发好友申请、接受、发私信，验证实时通知和未读 badge 更新；刷新页面后验证消息持久化
+- 在市集点击"Reach Out"，验证好友/非好友两种路径的跳转和预填消息
+- 本地执行 `scripts/dev.bat`，验证 Flask `:5000` 和 Vite `:5173` 均正常启动，Socket.IO 连接成功
+
+#### Lessons Learned
+- **Symptom**: 好友关系建立后，目标用户需要刷新页面才能看到新的聊天或联系方式申请
+- **Root Cause**: 前端轮询间隔为 30 秒，实时性不足
+- **Reusable Solution**: 对需要即时感知的事件（好友申请、消息到达）使用 Socket.IO 推送；轮询只作为兜底容错机制
+
+#### Remaining Issues / Next Step
+- 密码仍为明文，需迁 bcrypt
+- `contact_hidden` 功能已上线，但 Profile 页面的说明文案可以更清晰
+- 邀请码系统（下一个迭代完成）
+
+---
+
+### 2026-03-02 — 二手市集、留言板、用户管理完善、移动端适配
+
+#### Goal
+上线二手市集（图片上传到 R2、SQLite 存储商品数据）；上线公共留言板；完善管理员用户管理功能；支持用户自助修改个人信息和头像；优化导航和 UI；适配移动端侧边栏；升级服务器 Python 版本。
+
+#### Trigger / Context
+平台基础框架（React SPA + 登录认证）已稳定，开始构建核心功能模块。二手市集是"朋友圈私密平台"的核心场景；留言板提供轻量级社区互动；管理员之前只能创建用户，无法编辑或删除。
+
+#### Problem & Root Cause
+两个 bug 在此迭代中修复：
+
+1. **服务器 502**：Python 3.9 不支持 `dict | None` 语法（3.10+ 特性），部署后 Flask 启动失败。根因是本地开发用 Python 3.11，未做版本兼容测试。
+2. **Bootstrap Modal 失效**：`index.html` 缺少 Bootstrap JS bundle，Modal 组件无法弹出（Bootstrap 的 JS 交互依赖独立引入）。
+
+#### Solution
+
+**二手市集**
+- 新 Blueprint `market_controller.py`（`/api/market/*`）：CRUD 端点 + sold 标记
+- `market_db.py`：`Listing` + `ListingImage` SQLAlchemy 模型，数据库路径 `_data/market.db`，启动自动创建
+- `r2_manager.py`：封装 boto3 上传/删除，凭证读取自 `Key/r2_config.json`（gitignore）
+- 商品最多 3 张图片；删除商品时同步清理 R2 上的图片文件
+- `Market.jsx`：Browse / Post Listing / My Listings 三 Tab，图片预览，价格格式化
+
+**留言板**
+- `feedback_controller.py`（`/api/feedback/*`）：最新 200 条消息；用户删除自己的消息，管理员删除任意
+- `Feedback.jsx`：相对时间显示，500 字符限制，头像/首字母 fallback
+- `Message` 模型复用 `market.db`
+
+**用户管理**
+- Admin 新增：编辑昵称/邮箱、重置密码、删除用户
+- 新端点：`PUT /api/auth/users/<u>/profile`、`PUT /api/au
