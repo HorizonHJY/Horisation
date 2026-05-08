@@ -85,6 +85,10 @@ export default function Sidebar({ isOpen, onClose }) {
               <i className="fas fa-users-cog" />
               <span>User Management</span>
             </NavLink>
+            <NavLink to="/admin/system" onClick={onClose} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
+              <i className="fas fa-cogs" />
+              <span>System</span>
+            </NavLink>
           </div>
         )}
       </div>

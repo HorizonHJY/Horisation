@@ -12,6 +12,7 @@ import CSV from './pages/CSV'
 import Hormemo from './pages/Hormemo'
 import Profile from './pages/Profile'
 import AdminUsers from './pages/AdminUsers'
+import SystemManagement from './pages/SystemManagement'
 import OnlineGomoku from './pages/fun/OnlineGomoku'
 import Market from './pages/Market'
 import Feedback from './pages/Feedback'
@@ -156,6 +157,7 @@ export default function App() {
             <Route path="/hormemo"           element={<Hormemo />} />
             <Route path="/profile"           element={<Profile />} />
             <Route path="/admin"             element={<AdminUsers />} />
+            <Route path="/admin/system"      element={<SystemManagement />} />
             <Route path="/fun/gomoku-online" element={<FeatureRoute feature="onlineGomoku"><OnlineGomoku /></FeatureRoute>} />
             <Route path="/market"            element={<Market />} />
             <Route path="/feedback"          element={<Feedback />} />

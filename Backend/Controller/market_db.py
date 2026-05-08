@@ -115,6 +115,15 @@ class ListingImage(Base):
     listing = relationship('Listing', back_populates='images')
 
 
+class Category(Base):
+    __tablename__ = 'categories'
+
+    slug   = Column(String(50),  primary_key=True)
+    label  = Column(String(100), nullable=False)
+    order  = Column(Integer,     nullable=False, default=0)
+    active = Column(Boolean,     nullable=False, default=True)
+
+
 class Memo(Base):
     __tablename__ = 'memos'
 
@@ -140,6 +149,7 @@ def init_db():
     Base.metadata.create_all(engine)
     _migrate_from_json()
     _migrate_columns()
+    _seed_categories()
 
 
 def _migrate_columns():
@@ -162,6 +172,25 @@ def _migrate_columns():
                 s.commit()
             except Exception:
                 pass  # column already exists
+
+
+def _seed_categories():
+    """Insert default categories if the table is empty."""
+    defaults = [
+        ('clothing',    '衣服',        1,  True),
+        ('furniture',   '家具',        2,  True),
+        ('kitchen',     '厨具',        3,  True),
+        ('electronics', 'Electronics', 4,  True),
+        ('beauty',      '美妆',        5,  True),
+        ('books',       'Books',       98, False),
+        ('other',       'Other',       99, False),
+    ]
+    with Session() as s:
+        if s.query(Category).count() > 0:
+            return
+        for slug, label, order, active in defaults:
+            s.add(Category(slug=slug, label=label, order=order, active=active))
+        s.commit()
 
 
 def _migrate_from_json():
@@ -393,6 +422,53 @@ def _enrich_listings(rows: list, s) -> list[dict]:
     sellers   = {u.username: u for u in s.query(User).filter(User.username.in_(usernames)).all()}
     return [_listing_to_dict(r, sellers.get(r.seller_username)) for r in rows]
 
+
+# ── Category helpers ─────────────────────────────────────────────────────────
+
+def get_categories(active_only: bool = True) -> list[dict]:
+    """Return categories ordered by .order field."""
+    with Session() as s:
+        q = s.query(Category)
+        if active_only:
+            q = q.filter_by(active=True)
+        rows = q.order_by(Category.order).all()
+        return [{'slug': r.slug, 'label': r.label, 'order': r.order, 'active': r.active} for r in rows]
+
+
+def upsert_category(slug: str, label: str, order: int, active: bool) -> dict:
+    """Create or update a category. Returns the saved dict."""
+    slug = slug.strip().lower().replace(' ', '_')
+    with Session() as s:
+        row = s.query(Category).filter_by(slug=slug).first()
+        if row:
+            row.label  = label
+            row.order  = order
+            row.active = active
+        else:
+            row = Category(slug=slug, label=label, order=order, active=active)
+            s.add(row)
+        s.commit()
+        return {'slug': row.slug, 'label': row.label, 'order': row.order, 'active': row.active}
+
+
+def delete_category(slug: str) -> bool:
+    """Delete a category. Returns False if not found."""
+    with Session() as s:
+        row = s.query(Category).filter_by(slug=slug).first()
+        if not row:
+            return False
+        s.delete(row)
+        s.commit()
+        return True
+
+
+def category_slug_valid(slug: str) -> bool:
+    """Return True if slug exists (active or inactive) in the categories table."""
+    with Session() as s:
+        return s.query(Category).filter_by(slug=slug).count() > 0
+
+
+# ── Listing helpers ───────────────────────────────────────────────────────────
 
 def get_all_listings(status: str = 'active') -> list[dict]:
     with Session() as s:

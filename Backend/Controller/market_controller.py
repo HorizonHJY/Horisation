@@ -7,7 +7,7 @@ Listing metadata is stored in SQLite via market_db.py.
 
 from flask import Blueprint, request, jsonify
 
-from Backend.Controller.auth_controller import login_required
+from Backend.Controller.auth_controller import login_required, admin_required
 from Backend.Controller import market_db, r2_manager
 
 market_bp = Blueprint('market', __name__, url_prefix='/api/market')
@@ -15,7 +15,6 @@ market_bp = Blueprint('market', __name__, url_prefix='/api/market')
 ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png'}
 MAX_IMAGE_SIZE     = 5 * 1024 * 1024   # 5 MB
 MAX_IMAGES         = 3
-VALID_CATEGORIES   = {'electronics', 'clothing', 'books', 'furniture', 'other'}
 
 
 def _validate_image(file):
@@ -30,6 +29,58 @@ def _validate_image(file):
     if size > MAX_IMAGE_SIZE:
         return f"'{file.filename}' exceeds 5 MB limit."
     return None
+
+
+# ── Categories ───────────────────────────────────────────────────────────────
+
+@market_bp.route('/categories', methods=['GET'])
+@login_required
+def list_categories():
+    """Return active categories for create/edit forms."""
+    return jsonify({'ok': True, 'categories': market_db.get_categories(active_only=True)})
+
+
+@market_bp.route('/categories/all', methods=['GET'])
+@admin_required
+def list_all_categories():
+    """Admin: return all categories including inactive ones."""
+    return jsonify({'ok': True, 'categories': market_db.get_categories(active_only=False)})
+
+
+@market_bp.route('/categories', methods=['POST'])
+@admin_required
+def create_category():
+    data   = request.get_json() or {}
+    slug   = data.get('slug', '').strip()
+    label  = data.get('label', '').strip()
+    order  = int(data.get('order', 0))
+    active = bool(data.get('active', True))
+    if not slug or not label:
+        return jsonify({'ok': False, 'error': 'slug and label are required.'}), 400
+    cat = market_db.upsert_category(slug, label, order, active)
+    return jsonify({'ok': True, 'category': cat}), 201
+
+
+@market_bp.route('/categories/<slug>', methods=['PUT'])
+@admin_required
+def update_category(slug):
+    data   = request.get_json() or {}
+    label  = data.get('label', '').strip()
+    order  = int(data.get('order', 0))
+    active = bool(data.get('active', True))
+    if not label:
+        return jsonify({'ok': False, 'error': 'label is required.'}), 400
+    cat = market_db.upsert_category(slug, label, order, active)
+    return jsonify({'ok': True, 'category': cat})
+
+
+@market_bp.route('/categories/<slug>', methods=['DELETE'])
+@admin_required
+def delete_category_route(slug):
+    ok = market_db.delete_category(slug)
+    if not ok:
+        return jsonify({'ok': False, 'error': 'Category not found.'}), 404
+    return jsonify({'ok': True})
 
 
 # ── Browse all active listings ────────────────────────────────────────────────
@@ -84,7 +135,7 @@ def create_listing():
         return jsonify({'ok': False, 'error': 'Title is required.'}), 400
     if not description:
         return jsonify({'ok': False, 'error': 'Description is required.'}), 400
-    if category not in VALID_CATEGORIES:
+    if not market_db.category_slug_valid(category):
         return jsonify({'ok': False, 'error': 'Invalid category.'}), 400
     if price < 0:
         return jsonify({'ok': False, 'error': 'Price cannot be negative.'}), 400
@@ -150,7 +201,7 @@ def update_listing(listing_id):
     if 'title'       in data: fields['title']       = str(data['title']).strip()
     if 'description' in data: fields['description'] = str(data['description']).strip()
     if 'category'    in data:
-        if data['category'] not in VALID_CATEGORIES:
+        if not market_db.category_slug_valid(data['category']):
             return jsonify({'ok': False, 'error': 'Invalid category.'}), 400
         fields['category'] = data['category']
     if 'price' in data:

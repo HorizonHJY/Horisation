@@ -4,18 +4,20 @@ import { api } from '../api'
 import { useAuth } from '../App'
 import HandLoader from '../components/HandLoader'
 
-const CATEGORIES = ['electronics', 'clothing', 'books', 'furniture', 'other']
+const FALLBACK_CATEGORIES = [
+  { slug: 'clothing',    label: '衣服' },
+  { slug: 'furniture',   label: '家具' },
+  { slug: 'kitchen',     label: '厨具' },
+  { slug: 'electronics', label: 'Electronics' },
+  { slug: 'beauty',      label: '美妆' },
+]
 
-const CATEGORY_META = {
-  all:         { label: 'All',         icon: 'fa-border-all' },
-  electronics: { label: 'Electronics', icon: 'fa-laptop' },
-  clothing:    { label: 'Clothing',    icon: 'fa-tshirt' },
-  books:       { label: 'Books',       icon: 'fa-book' },
-  furniture:   { label: 'Furniture',   icon: 'fa-couch' },
-  other:       { label: 'Other',       icon: 'fa-box' },
+const CATEGORY_ICONS = {
+  clothing: 'fa-tshirt', furniture: 'fa-couch', kitchen: 'fa-utensils',
+  electronics: 'fa-laptop', beauty: 'fa-spa', books: 'fa-book', other: 'fa-box',
 }
 
-const EMPTY_FORM = { title: '', description: '', price: '', original_price: '', category: 'electronics', delivery_type: 'pickup', delivery_fee: '' }
+const EMPTY_FORM = { title: '', description: '', price: '', original_price: '', category: 'clothing', delivery_type: 'pickup', delivery_fee: '' }
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
 function useToast() {
@@ -44,13 +46,13 @@ function PriceDisplay({ listing, large = false }) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-          <span style={{ fontSize: bigSz, fontWeight: 600 }}>¥{price}</span>
-          {hasOriginal && <span style={{ fontSize: smSz, color: '#999', textDecoration: 'line-through' }}>¥{original_price}</span>}
+          <span style={{ fontSize: bigSz, fontWeight: 600 }}>${price}</span>
+          {hasOriginal && <span style={{ fontSize: smSz, color: '#999', textDecoration: 'line-through' }}>${original_price}</span>}
           <span style={{ fontSize: labelSz, color: '#888', background: '#f0f0f0', borderRadius: 8, padding: '1px 5px' }}>自提</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-          <span style={{ fontSize: large ? '1.1rem' : '.85rem', fontWeight: 600, color: '#3b5bdb' }}>¥{price + delivery_fee}</span>
-          <span style={{ fontSize: labelSz, color: '#3b5bdb', background: '#e8f0fe', borderRadius: 8, padding: '1px 5px' }}>含¥{delivery_fee}配送</span>
+          <span style={{ fontSize: large ? '1.1rem' : '.85rem', fontWeight: 600, color: '#3b5bdb' }}>${price + delivery_fee}</span>
+          <span style={{ fontSize: labelSz, color: '#3b5bdb', background: '#e8f0fe', borderRadius: 8, padding: '1px 5px' }}>含${delivery_fee}配送</span>
         </div>
       </div>
     )
@@ -60,10 +62,10 @@ function PriceDisplay({ listing, large = false }) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-          <span style={{ fontSize: bigSz, fontWeight: 600, color: '#3b5bdb' }}>¥{price + delivery_fee}</span>
-          {hasOriginal && <span style={{ fontSize: smSz, color: '#999', textDecoration: 'line-through' }}>¥{original_price}</span>}
+          <span style={{ fontSize: bigSz, fontWeight: 600, color: '#3b5bdb' }}>${price + delivery_fee}</span>
+          {hasOriginal && <span style={{ fontSize: smSz, color: '#999', textDecoration: 'line-through' }}>${original_price}</span>}
         </div>
-        <span style={{ fontSize: labelSz, color: '#3b5bdb', background: '#e8f0fe', borderRadius: 8, padding: '1px 5px' }}>含¥{delivery_fee}配送费</span>
+        <span style={{ fontSize: labelSz, color: '#3b5bdb', background: '#e8f0fe', borderRadius: 8, padding: '1px 5px' }}>含${delivery_fee}配送费</span>
       </div>
     )
   }
@@ -71,8 +73,8 @@ function PriceDisplay({ listing, large = false }) {
   if (freeDelivery) {
     return (
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-        <span style={{ fontSize: bigSz, fontWeight: 600 }}>¥{price}</span>
-        {hasOriginal && <span style={{ fontSize: smSz, color: '#999', textDecoration: 'line-through' }}>¥{original_price}</span>}
+        <span style={{ fontSize: bigSz, fontWeight: 600 }}>${price}</span>
+        {hasOriginal && <span style={{ fontSize: smSz, color: '#999', textDecoration: 'line-through' }}>${original_price}</span>}
         <span style={{ fontSize: labelSz, color: '#27ae60', background: '#e8f8f0', borderRadius: 8, padding: '1px 5px' }}>包邮</span>
       </div>
     )
@@ -81,8 +83,8 @@ function PriceDisplay({ listing, large = false }) {
   // pickup only or no fee
   return (
     <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-      <span style={{ fontSize: bigSz, fontWeight: 600 }}>¥{price}</span>
-      {hasOriginal && <span style={{ fontSize: smSz, color: '#999', textDecoration: 'line-through' }}>¥{original_price}</span>}
+      <span style={{ fontSize: bigSz, fontWeight: 600 }}>${price}</span>
+      {hasOriginal && <span style={{ fontSize: smSz, color: '#999', textDecoration: 'line-through' }}>${original_price}</span>}
     </div>
   )
 }
@@ -163,13 +165,13 @@ function EditModal({ listing, onClose, onSave }) {
               </div>
               <div className="row mb-3">
                 <div className="col">
-                  <label className="form-label fw-medium">Original Price (¥)</label>
+                  <label className="form-label fw-medium">Original Price ($)</label>
                   <input type="number" className="form-control" min={0} step="0.01"
                     placeholder="optional" value={form.original_price}
                     onChange={e => setForm(f => ({ ...f, original_price: e.target.value }))} />
                 </div>
                 <div className="col">
-                  <label className="form-label fw-medium">Selling Price (¥)</label>
+                  <label className="form-label fw-medium">Selling Price ($)</label>
                   <input type="number" className="form-control" min={0} step="0.01"
                     value={form.price}
                     onChange={e => setForm(f => ({ ...f, price: e.target.value }))} required />
@@ -179,8 +181,8 @@ function EditModal({ listing, onClose, onSave }) {
                 <label className="form-label fw-medium">Category</label>
                 <select className="form-select" value={form.category}
                   onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
-                  {CATEGORIES.map(c => (
-                    <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
+                  {categories.map(c => (
+                    <option key={c.slug} value={c.slug}>{c.label}</option>
                   ))}
                 </select>
               </div>
@@ -199,7 +201,7 @@ function EditModal({ listing, onClose, onSave }) {
                 {(form.delivery_type === 'delivery' || form.delivery_type === 'both') && (
                   <div className="mt-2">
                     <input type="number" className="form-control form-control-sm" min={0} step="0.01"
-                      placeholder="Delivery fee (¥, blank = free)" value={form.delivery_fee}
+                      placeholder="Delivery fee ($, blank = free)" value={form.delivery_fee}
                       onChange={e => setForm(f => ({ ...f, delivery_fee: e.target.value }))} />
                   </div>
                 )}
@@ -411,12 +413,12 @@ function ListingDetailModal({ listing, currentUser, onClose, onSold, onRestore, 
               )}
               {listing.delivery_type === 'delivery' && (
                 <span style={{ background: '#e8f0fe', color: '#3b5bdb', borderRadius: 12, padding: '2px 10px' }}>
-                  <i className="fas fa-truck me-1" />Delivery{listing.delivery_fee != null ? ` +¥${listing.delivery_fee}` : ' (free)'}
+                  <i className="fas fa-truck me-1" />Delivery{listing.delivery_fee != null ? ` +$${listing.delivery_fee}` : ' (free)'}
                 </span>
               )}
               {listing.delivery_type === 'both' && (
                 <span style={{ background: '#e8f0fe', color: '#3b5bdb', borderRadius: 12, padding: '2px 10px' }}>
-                  <i className="fas fa-truck me-1" />Delivery{listing.delivery_fee != null ? ` +¥${listing.delivery_fee}` : ' (free)'}
+                  <i className="fas fa-truck me-1" />Delivery{listing.delivery_fee != null ? ` +$${listing.delivery_fee}` : ' (free)'}
                   <span className="mx-2 text-muted">·</span>
                   <i className="fas fa-walking me-1" />Self-pickup
                 </span>
@@ -551,24 +553,15 @@ function SellerModal({ seller, listings, onClose, onReachOut, reachOutStatus }) 
                 No active listings.
               </div>
             ) : (
-              <div className="row row-cols-1 row-cols-sm-2 g-3">
+              <div className="row row-cols-2 row-cols-sm-3 g-2">
                 {listings.map(l => (
                   <div className="col" key={l.id}>
-                    <div className="card h-100 p-2">
-                      {l.images?.[0]?.url && (
-                        <img src={l.images[0].url} alt={l.title}
-                          style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 6 }} />
-                      )}
-                      <div className="fw-semibold mt-2 small text-truncate">{l.title}</div>
-                      <div className="text-primary fw-bold">¥{l.price}
-                        {l.original_price > l.price && (
-                          <span style={{ fontSize: '.7rem', color: '#999', textDecoration: 'line-through', marginLeft: 6 }}>
-                            ¥{l.original_price}
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-muted small text-truncate">{l.description}</div>
-                    </div>
+                    <ListingCard
+                      listing={l} currentUser={null}
+                      onSold={() => {}} onRestore={() => {}} onDelete={() => {}}
+                      onEdit={() => {}} onReachOut={() => {}} onSellerClick={() => {}}
+                      onDetail={() => {}} reachOutStatus={null}
+                    />
                   </div>
                 ))}
               </div>
@@ -585,6 +578,7 @@ export default function Market() {
   const { user }    = useAuth()
   const navigate    = useNavigate()
   const [tab, setTab]               = useState('browse')
+  const [categories, setCategories] = useState(FALLBACK_CATEGORIES)
   const [searchQuery, setSearchQuery]   = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [listings, setListings]     = useState([])
@@ -610,6 +604,14 @@ export default function Market() {
   const fileRef = useRef()
   const tabRef  = useRef(tab)
   useEffect(() => { tabRef.current = tab }, [tab])
+
+  // Fetch active categories once on mount
+  useEffect(() => {
+    api.get('/api/market/categories').then(d => {
+      if (d.ok && d.categories?.length)
+        setCategories(d.categories.map(c => ({ slug: c.slug, label: c.label })))
+    })
+  }, [])
 
   // Load listings on tab switch; reset filters on browse
   useEffect(() => {
@@ -796,8 +798,8 @@ export default function Market() {
     return myListings
       .filter(l => l.status === 'active')
       .map((l, i) => {
-        const orig = l.original_price && l.original_price > l.price ? `（原价 ¥${l.original_price}）` : ''
-        return `${i + 1}. ${l.title}  ¥${l.price}${orig}`
+        const orig = l.original_price && l.original_price > l.price ? `（原价 $${l.original_price}）` : ''
+        return `${i + 1}. ${l.title}  $${l.price}${orig}`
       })
       .join('\n')
   }
@@ -957,17 +959,17 @@ export default function Market() {
               {/* Category pills — horizontally scrollable on mobile */}
               <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
                 <div className="d-flex gap-2" style={{ width: 'max-content', paddingBottom: 4 }}>
-                  {['all', ...CATEGORIES].map(cat => {
-                    const meta    = CATEGORY_META[cat]
-                    const active  = categoryFilter === cat
+                  {[{ slug: 'all', label: 'All' }, ...categories].map(cat => {
+                    const icon   = CATEGORY_ICONS[cat.slug] || 'fa-tag'
+                    const active = categoryFilter === cat.slug
                     return (
                       <button
-                        key={cat}
-                        onClick={() => setCategoryFilter(cat)}
+                        key={cat.slug}
+                        onClick={() => setCategoryFilter(cat.slug)}
                         className={`btn btn-sm ${active ? 'btn-primary' : 'btn-outline-secondary'}`}
                         style={{ borderRadius: 20, whiteSpace: 'nowrap' }}
                       >
-                        <i className={`fas ${meta.icon} me-1`} />{meta.label}
+                        <i className={`fas ${icon} me-1`} />{cat.label}
                       </button>
                     )
                   })}
@@ -1080,7 +1082,7 @@ export default function Market() {
 
                   <div className="row mb-3">
                     <div className="col">
-                      <label className="form-label fw-medium">Original Price (¥) <span className="text-muted small">(optional)</span></label>
+                      <label className="form-label fw-medium">Original Price ($) <span className="text-muted small">(optional)</span></label>
                       <input
                         type="number"
                         className="form-control"
@@ -1092,7 +1094,7 @@ export default function Market() {
                       />
                     </div>
                     <div className="col">
-                      <label className="form-label fw-medium">Selling Price (¥) <span className="text-danger">*</span></label>
+                      <label className="form-label fw-medium">Selling Price ($) <span className="text-danger">*</span></label>
                       <input
                         type="number"
                         className="form-control"
@@ -1112,8 +1114,8 @@ export default function Market() {
                       value={form.category}
                       onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
                     >
-                      {CATEGORIES.map(c => (
-                        <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
+                      {categories.map(c => (
+                        <option key={c.slug} value={c.slug}>{c.label}</option>
                       ))}
                     </select>
                   </div>
@@ -1133,7 +1135,7 @@ export default function Market() {
                     {(form.delivery_type === 'delivery' || form.delivery_type === 'both') && (
                       <div className="mt-2">
                         <input type="number" className="form-control" min={0} step="0.01"
-                          placeholder="Delivery fee (¥, leave blank if free)"
+                          placeholder="Delivery fee ($, leave blank if free)"
                           value={form.delivery_fee}
                           onChange={e => setForm(f => ({ ...f, delivery_fee: e.target.value }))} />
                       </div>
