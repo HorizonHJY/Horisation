@@ -82,13 +82,14 @@ Images are stored in Cloudflare R2; only the public URL is kept in the database.
 |---------|-------|-------|-------------|
 | Home | `/home` | All | Personal dashboard with feature overview |
 | Hormemo | `/hormemo` | All | Personal memo / task tracker (CRUD, priority, tags) |
-| Market | `/market` | All | Second-hand trading — browse, post listings with images, Reach Out to sellers, seller profile modal |
+| Market | `/market` | All | Second-hand trading — browse, post listings with images, Reach Out to sellers, seller profile modal. Categories (slug/label/order/active) stored in DB and configurable via System Management. Currency: USD ($). |
 | Message Board | `/feedback` | All | Community message board, all users can post |
 | Friends | `/friends` | All | Friend system: search, add, private chat, contact sharing with approval flow |
 | Profile | `/profile` | All | Update display name, email, password, avatar, contact info (with hide toggle) |
 | Gomoku (Local) | `/fun/gomoku` | All | Local 2-player Five in a Row, 15×15 board |
 | Gomoku (Online) | `/fun/online-gomoku` | horizon, horizonadmin, vip3 | Real-time multiplayer Five in a Row via Socket.IO |
 | Admin | `/admin` | admin+ | User management (create, edit, reset password, delete, role) + invite code management (horizon only) |
+| System Management | `/admin/system` | admin+ | Manage market category list (slug, label, order, active toggle) |
 | CSV Workspace | `/csv` | horizon only | Upload, preview, and summarise CSV / Excel files |
 
 ### Under Development
@@ -189,9 +190,4 @@ Horisation/
 See `Doc/todo.md` for the full prioritised list. Key items:
 
 - [ ] Password hashing (bcrypt) — currently plaintext
-- [ ] Listing image re-upload in Edit flow
-- [ ] Group messaging / group chat
-- [ ] Avalon board game
-- [ ] Data visualisation tools
-- [ ] CI/CD pipeline (GitHub Actions → EC2)
-- [ ] Migrate SQLite → PostgreSQL for concurrent write safety
+- [ ] Listing image re-

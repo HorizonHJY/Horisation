@@ -2,18 +2,18 @@
 
 
 ## 0. Current Status
-Last Updated: 2026-05-07
+Last Updated: 2026-05-08
 
 ### Current Working Version
-- **Completed**: 全站设计系统统一；UI 组件库统一风格；邀请码系统；功能角色门控；好友/私信/联系方式申请系统；用户数据 SQLite 迁移；二手市集（含配送选项 + Restore 按钮）；留言板；修改密码后强制会话失效；用户公开主页 `/u/:username`；**市集已售商品可恢复为在售**
-- **In Progress**: 待 deploy 上线最新 commit（7dfd170）
+- **Completed**: 全站设计系统统一；邀请码系统；功能角色门控；好友/私信系统；SQLite 迁移；二手市集（配送选项 + Restore + 动态分类 + System Management + 价格拆分 + 响应式按钮）；留言板；用户公开主页；**市集分类入 DB，System Management 页面，货币改 $，SellerModal 布局修复**
+- **In Progress**: 待 deploy 上线最新 commit（30cdae3）
 - **Blocked / Not Solved**: 密码明文存储（待迁 bcrypt）；无 CI/CD 流水线；首页天气卡片（todo #1）
 
 ### Latest Summary
-市集 Mark Sold 操作现可撤回：后端新增 `restore_listing()` + `POST /listings/<id>/restore` 接口；前端在已售商品卡片和详情弹窗中增加 Restore 按钮。commit 7dfd170。
+市集分类从硬编码迁移到 DB（Category 表，5 active + 2 inactive legacy）；新增 System Management 页面供 admin 管理分类 slug/label/order/active；货币符号 ¥→$；SellerModal 内商品改用 ListingCard 网格；自提/配送双价格显示；Action 按钮响应式 flex-wrap。commit 30cdae3。
 
 ### Next Immediate Step
-服务器跑一次 `bash ~/deploy.sh` 拉最新 commit（7dfd170）上线
+服务器跑一次 `bash ~/deploy.sh` 拉最新 commit（30cdae3）上线
 
 ---
 
@@ -33,6 +33,7 @@ Last Updated: 2026-05-07
 | 2026-05-03 | Accent 色从 `#3a7bd5` 改为更柔和的 `#6b9cdb`（粉蓝） | 用户反馈原蓝色过于饱和，与新的奶油底 + 衬线字体氛围不搭 | 对比度略降，但仍满足 WCAG AA（4.5:1）；hover 状态用 `#5286c7` 保证可识别 |
 | 2026-05-03 | 中英混排：标题 Playfair Display，中文 fallback 到 Noto Serif SC；正文 Inter fallback 到 Noto Serif SC | 单字体栈无法同时覆盖英文衬线与中文衬线；浏览器字符级 fallback 可让中英文自动用各自最合适的字体 | 需要加载 4 个字体（Cinzel + Playfair + Noto Serif SC + Inter），首屏字体 FOUT 风险增加 |
 | 2026-05-03 | 卡片彻底扁平化（去阴影 + 1px 极淡边框） vs 保留 Login 玻璃拟态 | 工具型页面（Hormemo / Profile / AdminUsers）信息密度高，玻璃拟态会让边界模糊；Login 是营销型页面适合玻璃感 | 失去 Login 与其他页面之间的视觉延续，靠字体和配色串联 |
+| 2026-05-08 | 市集分类存 DB（`categories` 表，slug PK + label + order + active）而非硬编码 | 分类需要支持中英文 label、随时增删改、admin 可配置；硬编码每次改动都要改代码、重部署 | slug 与 `listings.category` 列松耦合（无 FK 约束）——删除分类不会影响已有商品数据，但旧分类在筛选面板不再显示 |
 
 ---
 
@@ -76,6 +77,85 @@ Last Updated: 2026-05-07
 ---
 
 ## 3. Iteration History
+
+---
+
+### 2026-05-08 — 市集分类 DB 化 + System Management + UI 修复
+
+#### Goal
+1. 市集分类从硬编码迁移到数据库，支持 admin 在前端增删改查
+2. 新增 System Management 页面（`/admin/system`）
+3. 货币符号 ¥ 改为 $
+4. 修复 SellerModal 内商品列表布局与主页不一致的问题
+5. 修复 Action 按钮在小屏幕溢出问题
+6. 双价格显示：含配送费时同时展示自提价与配送总价
+
+#### Trigger / Context
+用户希望分类列表可以灵活管理（中文名、新分类、上下线），不必每次改代码重部署；同时反馈货币符号、布局、按钮等 UI 细节。
+
+#### Problem & Root Cause
+无明显 bug，本次为功能开发 + UI 改进。核心问题：分类硬编码在 `CATEGORIES` 常量和 `VALID_CATEGORIES` set 里，修改需要改 3 处代码（db、controller、前端）并重新部署。
+
+#### Solution
+
+**1. market_db.py — 新增 `Category` 模型**
+```python
+class Category(Base):
+    slug   = Column(String(50), primary_key=True)
+    label  = Column(String(100), nullable=False)
+    order  = Column(Integer, nullable=False, default=0)
+    active = Column(Boolean, nullable=False, default=True)
+```
+`_seed_categories()` 在 `init_db()` 时首次运行，插入 7 条默认数据（5 active + books/other inactive）。新增 `get_categories()` / `upsert_category()` / `delete_category()` / `category_slug_valid()` 四个 helper。
+
+**2. market_controller.py — 分类 API + 移除硬编码**
+新增 5 个端点：`GET /categories`（login）、`GET /categories/all`（admin）、`POST /categories`（admin）、`PUT /categories/<slug>`（admin）、`DELETE /categories/<slug>`（admin）。`VALID_CATEGORIES` set 移除，改用 `category_slug_valid()` 查 DB。
+
+**3. Market.jsx — 动态分类 + UI 修复**
+- `CATEGORIES` / `CATEGORY_META` 常量替换为 `FALLBACK_CATEGORIES` + `CATEGORY_ICONS`；`categories` state 从 API 加载
+- 分类筛选 pills 和表单 select 均使用动态 `categories` state
+- SellerModal：商品列表从自定义 `div.card` 改为 `<ListingCard>` 网格（`row-cols-2 row-cols-sm-3`）
+- `PriceDisplay` 组件新增双价格展示逻辑（`showBoth` / `deliveryOnly` / `freeDelivery`）
+- 全部 `¥` 替换为 `$`
+- Action 按钮：`flex-wrap: wrap` + 缩小 padding/font-size，防止小屏幕溢出
+
+**4. SystemManagement.jsx — 新页面**
+表格展示所有分类（含 inactive），每行支持内联编辑 label / order / active toggle，独立 Save / Delete 按钮，顶部 Add Category 表单。
+
+**5. App.jsx + Sidebar.jsx — 路由 + 导航**
+- App.jsx 新增 `/admin/system` 路由
+- Sidebar.jsx Admin 区块新增 System nav item（`fa-cogs`）
+
+#### Changed Files
+- `Backend/Controller/market_db.py` — Category 模型、seed、CRUD helpers
+- `Backend/Controller/market_controller.py` — 分类 API 端点，移除硬编码 VALID_CATEGORIES
+- `frontend/src/pages/Market.jsx` — 动态分类、SellerModal 布局、$、PriceDisplay、按钮响应式
+- `frontend/src/pages/SystemManagement.jsx` — 新建
+- `frontend/src/App.jsx` — 新路由
+- `frontend/src/components/Sidebar.jsx` — System nav item
+- `Doc/data_storage.md` — categories 表文档
+- `Doc/project_intro.md` — System Management 功能条目
+- `CLAUDE.md` — Market API 端点表更新
+
+#### Result
+Admin 可在 `/admin/system` 页面实时增删改分类，无需改代码；市集商品卡片和详情弹窗显示 $USD 价格，含配送费时展示自提/配送双价格；SellerModal 内商品卡片与主页风格一致；Action 按钮在手机两列布局下不再溢出。commit 30cdae3。
+
+#### Testing
+1. 首次启动（空 categories 表）→ 自动 seed 7 条分类，市集 filter pills 显示 5 个中文分类
+2. Admin 进 `/admin/system` → 修改 `clothing` label → Save → 刷新市集页，filter pill 显示新名称
+3. 新增分类 → 立即出现在市集 create form 的 select 里
+4. 设 `active=false` → 不出现在用户侧 filter / create form，已有商品的 category slug 不变
+5. 删除分类 → 已有商品卡片 category 字段保留 slug 显示，无报错
+6. SellerModal：点击头像弹出卡片 → 商品列表为两列 ListingCard 网格
+7. Babel parse Market.jsx OK；brace balance 596/596；¥ count 0
+
+#### Lessons Learned
+- **松耦合设计**：`listings.category` 存 slug 字符串（无 FK 约束）而不是 `category_id` 整型 FK，使得删除/停用分类时老数据不受影响，代价是分类不存在时前端只显示 slug 原始值。适合小型平台，如果需要严格完整性可以后期加 FK + CASCADE。
+- **seed 幂等性**：`_seed_categories()` 用 `count() > 0` 判断跳过，确保多次重启不重复插入，且 admin 手动修改后不会被覆盖。
+
+#### Remaining Issues / Next Step
+- 首页天气卡片（todo #1）
+- `bash ~/deploy.sh` 上线 30cdae3
 
 ---
 
@@ -655,147 +735,4 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 - **Reusable Solution**: 用 `features.js` 维护角色白名单，`useFeature(flag)` hook 同时保护 UI 渲染和路由访问；后端对应端点仍需独立校验，不能只依赖前端门控
 
 #### Remaining Issues / Next Step
-- 密码仍为明文存储，需迁移 bcrypt
-- 邀请码当前为"时间窗口内无限次使用"，若需限制注册人数需加 `max_uses` 字段
-- [待补充下一步优先事项]
-
----
-
-### 2026-03-06 — 用户数据迁移至 SQLite + 好友系统 + 市集升级 + 登录页重设计
-
-#### Goal
-将用户账号和 Session 从 JSON 文件迁移到 SQLite；实现完整的好友系统（好友申请、私信、联系方式申请）；升级市集体验（卖家信息、Reach Out 按钮）；重设计登录页；新增本地开发脚本；实现在线五子棋。
-
-#### Trigger / Context
-`users.json` 非线程安全，随用户量增加存在并发写入风险；多个功能模块都需要更可靠的用户数据层。好友系统是平台"私密社区"定位的核心功能。登录页视觉体验需要提升。
-
-#### Problem & Root Cause
-无明显 bug，本次为大规模功能开发与架构升级。
-
-核心驱动：JSON 文件存储方式已不满足平台需求；好友、私信、联系方式申请是社区功能的基础模块；市集缺少社交互动入口。
-
-#### Solution
-
-**用户/Session 迁移**
-- `users.json` 和 `sessions.json` 完全退役；由 `market.db` 中的 `user` 和 `session` 表接管
-- `User` 模型：自增整数 PK，包含所有原有字段 + `contact_hidden` 布尔值
-- `UserSession` 模型：token PK，含 `expires_at` 过期时间
-- `_migrate_from_json()`：启动时检测 `users.json` 是否存在，完成迁移后重命名为 `.migrated`（幂等）
-- `user_manager.py` 完全重写，公开 API 不变，底层改用 `market_db.py` 的 SQLAlchemy helpers
-- `db_search_users(q)`：ilike 模糊搜索 username + display_name，limit 20
-
-**好友系统**
-- 新模型：`FriendRequest`, `Friendship`, `PrivateChatMessage`（均在 `market_db.py`）
-- 新 Blueprint `friends_controller.py`（`/api/friends/*`），含用户搜索、好友申请 CRUD、好友列表、私信历史等端点
-- `friends_socket.py`：Socket.IO 实时通知（好友申请、接受、联系方式申请）
-- **未读消息**：`ChatRead` 模型追踪每个用户每个聊天室的最后读取时间；`GET /api/friends/unread` 返回未读计数；`UnreadContext` 每 30 秒轮询；Sidebar 显示红色 badge
-- `Friends.jsx`：三 Tab（Friends / Requests / Add）；实时私信（Socket.IO，room key 为排序后的用户名对）；从市集页带参数跳转时自动打开对应聊天
-
-**联系方式申请系统**
-- 新模型 `ContactRequest`：独立于好友关系，记录联系方式查看授权
-- `contact_hidden` 字段：用户可设置"隐藏联系方式"，隐藏后他人无法发申请
-- `GET /<username>/contact` 端点在返回信息前校验 `has_contact_access()`
-- `Friends.jsx` 每位好友显示联系方式状态（申请/待审/已获授权/对方已隐藏）
-- 实时通知：`notify_contact_request()` 在 DB 写入后通过 Socket.IO 推送，目标用户不需要刷新页面
-
-**市集升级**
-- Browse Tab 过滤掉自己的商品
-- Tab 顺序调整：Browse → My Listings → Post Item
-- 商品卡片显示卖家头像 + 昵称
-- 卖家信息 Modal：头像、昵称、全部在售商品、Reach Out / Add Friend 按钮
-- "Reach Out" 按钮：已是好友 → 跳转 `/friends` 并预填聊天消息；非好友 → 自动发送带商品信息的好友申请
-- 新 API `GET /api/market/user/<username>`
-- 列表响应附带 `seller_display`、`seller_avatar`（批量 join 查询，无 N+1）
-- `Listing` 模型新增 `original_price` 字段
-
-**登录页重设计**
-- 新组件 `FlowerCanvas.jsx`：水彩花瓣生长动画，canvas 实现，ResizeObserver 响应窗口变化
-- 登录页：全屏 canvas 背景 + 毛玻璃登录卡片 + Logo + "Arch Bay" 标题 + 左下角中文标语
-- 响应式：`<= 600px` 时 Logo 缩小、标语隐藏
-
-**在线五子棋**
-- 新页面 `/fun/online-gomoku`，实时多人对战
-- `GameRoom` 模型（`market_db.py`）：存储棋盘 JSON、当前落子方、胜者、获胜格子
-- `game_controller.py`：Socket.IO 事件（创建/加入/落子/离开/重置房间）
-- `OnlineGomoku.jsx`：大厅列表 + 游戏棋盘 UI
-
-**本地开发**
-- `scripts/dev.bat`：一键启动 Flask + Vite 双进程
-- `scripts/_flask_local.bat`：注入 `LOCAL_DEV=1` 环境变量
-- `app.py`：`LOCAL_DEV=1` 时 SocketIO 切换为 `threading` 模式，关闭 `SESSION_COOKIE_SECURE`
-
-#### Changed Files
-- `Backend/Controller/market_db.py` — 新增 `User`, `UserSession`, `FriendRequest`, `Friendship`, `PrivateChatMessage`, `ContactRequest`, `ChatRead`, `GameRoom` 模型及所有 helper 函数
-- `Backend/Controller/user_manager.py` — 完全重写，底层改 SQLAlchemy
-- `Backend/Controller/friends_controller.py` — 新建，好友系统 API Blueprint
-- `Backend/Controller/friends_socket.py` — 新建，好友/联系方式实时通知
-- `Backend/Controller/game_controller.py` — 新建，五子棋 Socket.IO 事件
-- `Backend/Controller/socketio_instance.py` — 新建，共享 SocketIO 实例
-- `Backend/Controller/market_controller.py` — 新增卖家信息端点；`_enrich_listings()` 批量 join
-- `app.py` — 注册新 Blueprint；SocketIO 双模式初始化
-- `frontend/src/App.jsx` — 新增 `UnreadContext`；注册 `/friends` 路由
-- `frontend/src/pages/Friends.jsx` — 新建，好友/私信/申请页面
-- `frontend/src/pages/Market.jsx` — 卖家 Modal、Reach Out 按钮、Tab 顺序调整
-- `frontend/src/pages/Login.jsx` — 全新设计，使用 FlowerCanvas
-- `frontend/src/components/FlowerCanvas.jsx` — 新建，花瓣动画组件
-- `frontend/src/components/Sidebar.jsx` — Friends 未读 badge
-- `scripts/dev.bat`, `scripts/_flask_local.bat` — 新建
-- `scripts/deploy.sh` — 移除 JSON 备份逻辑
-
-#### Result
-- 用户数据全面迁移至 SQLite，并发安全性大幅提升；旧 `users.json` 自动归档
-- 好友申请、私信、联系方式申请功能完整上线，均支持实时通知
-- 市集社交互动闭环：从看商品到联系卖家一键完成
-- 登录页视觉大幅升级
-- 在线五子棋可在 `horizon`/`horizonadmin`/`vip3` 用户间对战
-- 本地开发一键启动，无需手动配置双进程
-
-#### Testing
-- 在旧有 `users.json` 存在时启动服务，验证迁移脚本执行、文件重命名为 `.migrated`、用户可正常登录
-- 两个账号互相发好友申请、接受、发私信，验证实时通知和未读 badge 更新；刷新页面后验证消息持久化
-- 在市集点击"Reach Out"，验证好友/非好友两种路径的跳转和预填消息
-- 本地执行 `scripts/dev.bat`，验证 Flask `:5000` 和 Vite `:5173` 均正常启动，Socket.IO 连接成功
-
-#### Lessons Learned
-- **Symptom**: 好友关系建立后，目标用户需要刷新页面才能看到新的聊天或联系方式申请
-- **Root Cause**: 前端轮询间隔为 30 秒，实时性不足
-- **Reusable Solution**: 对需要即时感知的事件（好友申请、消息到达）使用 Socket.IO 推送；轮询只作为兜底容错机制
-
-#### Remaining Issues / Next Step
-- 密码仍为明文，需迁 bcrypt
-- `contact_hidden` 功能已上线，但 Profile 页面的说明文案可以更清晰
-- 邀请码系统（下一个迭代完成）
-
----
-
-### 2026-03-02 — 二手市集、留言板、用户管理完善、移动端适配
-
-#### Goal
-上线二手市集（图片上传到 R2、SQLite 存储商品数据）；上线公共留言板；完善管理员用户管理功能；支持用户自助修改个人信息和头像；优化导航和 UI；适配移动端侧边栏；升级服务器 Python 版本。
-
-#### Trigger / Context
-平台基础框架（React SPA + 登录认证）已稳定，开始构建核心功能模块。二手市集是"朋友圈私密平台"的核心场景；留言板提供轻量级社区互动；管理员之前只能创建用户，无法编辑或删除。
-
-#### Problem & Root Cause
-两个 bug 在此迭代中修复：
-
-1. **服务器 502**：Python 3.9 不支持 `dict | None` 语法（3.10+ 特性），部署后 Flask 启动失败。根因是本地开发用 Python 3.11，未做版本兼容测试。
-2. **Bootstrap Modal 失效**：`index.html` 缺少 Bootstrap JS bundle，Modal 组件无法弹出（Bootstrap 的 JS 交互依赖独立引入）。
-
-#### Solution
-
-**二手市集**
-- 新 Blueprint `market_controller.py`（`/api/market/*`）：CRUD 端点 + sold 标记
-- `market_db.py`：`Listing` + `ListingImage` SQLAlchemy 模型，数据库路径 `_data/market.db`，启动自动创建
-- `r2_manager.py`：封装 boto3 上传/删除，凭证读取自 `Key/r2_config.json`（gitignore）
-- 商品最多 3 张图片；删除商品时同步清理 R2 上的图片文件
-- `Market.jsx`：Browse / Post Listing / My Listings 三 Tab，图片预览，价格格式化
-
-**留言板**
-- `feedback_controller.py`（`/api/feedback/*`）：最新 200 条消息；用户删除自己的消息，管理员删除任意
-- `Feedback.jsx`：相对时间显示，500 字符限制，头像/首字母 fallback
-- `Message` 模型复用 `market.db`
-
-**用户管理**
-- Admin 新增：编辑昵称/邮箱、重置密码、删除用户
-- 新端点：`PUT /api/auth/users/<u>/profile`、`PUT /api/au
+- 密码仍为明文存储�

@@ -129,15 +129,21 @@ bash ~/deploy.sh       # calls scripts/deploy.sh in the project
 All login required. Full CRUD + `/complete`, `/statistics`.
 
 ### Market `/api/market/`
-| Method | Route | Description |
-|--------|-------|-------------|
-| GET | `/listings` | All active listings |
-| POST | `/listings` | Create listing (multipart, up to 3 images) |
-| GET | `/listings/<id>` | Single listing |
-| PUT | `/listings/<id>` | Edit (seller only) |
-| DELETE | `/listings/<id>` | Delete + R2 cleanup (seller only) |
-| POST | `/listings/<id>/sold` | Mark as sold |
-| GET | `/my` | Current user's listings |
+| Method | Route | Auth | Description |
+|--------|-------|------|-------------|
+| GET | `/categories` | login | Active categories for forms |
+| GET | `/categories/all` | admin | All categories incl. inactive |
+| POST | `/categories` | admin | Create category |
+| PUT | `/categories/<slug>` | admin | Update label / order / active |
+| DELETE | `/categories/<slug>` | admin | Delete category |
+| GET | `/listings` | login | All active listings |
+| POST | `/listings` | login | Create listing (multipart, up to 3 images) |
+| GET | `/listings/<id>` | login | Single listing |
+| PUT | `/listings/<id>` | login | Edit (seller only) |
+| DELETE | `/listings/<id>` | login | Delete + R2 cleanup (seller only) |
+| POST | `/listings/<id>/sold` | login | Mark as sold |
+| POST | `/listings/<id>/restore` | login | Restore sold → active |
+| GET | `/my` | login | Current user's listings |
 
 ### Feedback `/api/feedback/`
 | Method | Route | Description |
@@ -186,39 +192,4 @@ api.upload('/api/...', formData)   // for multipart
 
 | Role | Level | Key Permissions |
 |------|-------|----------------|
-| `horizon` | 100 | admin, read, write, delete, user_manage — cannot be deleted |
-| `horizonadmin` | 90 | admin, read, write, delete |
-| `vip1/2/3` | 60–80 | read, write |
-| `user` | 10 | read |
-
----
-
-## Known Limitations / Future Work
-- Passwords stored in plaintext → needs bcrypt
-- `users.json` not thread-safe under concurrent writes → migrate to PostgreSQL
-- Memos stored inside user objects → should be a separate DB table
-- No CI/CD pipeline yet
-
----
-
-## Git Commit (OVERRIDE — Windows environment)
-
-**Never use `git commit` directly.** PyCharm holds file locks on Windows, causing `index file corrupt` and `HEAD.lock` errors. Always use git plumbing:
-
-```bash
-# 1. Stage only the target files
-rm -f .git/index
-GIT_INDEX_FILE=/tmp/commit_index git read-tree HEAD
-GIT_INDEX_FILE=/tmp/commit_index git add <file1> <file2> ...
-TREE=$(GIT_INDEX_FILE=/tmp/commit_index git write-tree)
-
-# 2. Create the commit object and advance the branch
-HEAD_SHA=$(cat .git/refs/heads/main)
-COMMIT=$(git commit-tree $TREE -p $HEAD_SHA -m "type(scope): message")
-echo $COMMIT > .git/refs/heads/main
-
-# 3. ALWAYS restore the default index afterward
-rm -f .git/index && git read-tree HEAD
-```
-
-Skipping step 3 leaves `.git/index` missing — PyCharm then shows every file as "new", making it look like all files were removed and re-added on the next commit.
+| `horizon` | 100
