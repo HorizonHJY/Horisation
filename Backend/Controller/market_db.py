@@ -1108,4 +1108,23 @@ def create_invite_code(code: str, valid_from: datetime, valid_to: datetime, crea
 def get_invite_codes() -> list:
     with Session() as s:
         rows = s.query(InviteCode).order_by(InviteCode.created_at.desc()).all()
-        return [_invite_code_to_dic
+        return [_invite_code_to_dict(r) for r in rows]
+
+
+def delete_invite_code(code_id: int) -> bool:
+    with Session() as s:
+        row = s.query(InviteCode).filter_by(id=code_id).first()
+        if not row:
+            return False
+        s.delete(row)
+        s.commit()
+        return True
+
+
+def validate_invite_code(code: str) -> bool:
+    now = datetime.utcnow()
+    with Session() as s:
+        row = s.query(InviteCode).filter_by(code=code).first()
+        if not row:
+            return False
+        return row.valid_from <= now <= row.valid_to

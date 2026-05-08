@@ -300,4 +300,6 @@ def my_listings():
 
 @market_bp.route('/user/<username>', methods=['GET'])
 @login_required
-def user_listings(username
+def user_listings(username):
+    listings = market_db.get_active_listings_by_user(username)
+    return jsonify({'ok': True, 'listings': listings})
