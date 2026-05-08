@@ -27,6 +27,66 @@ function useToast() {
   return [toast, show]
 }
 
+// ── Price Display ────────────────────────────────────────────────────────────
+function PriceDisplay({ listing, large = false }) {
+  const { price, original_price, delivery_type, delivery_fee } = listing
+  const hasOriginal = original_price && original_price > price
+  const hasFee      = delivery_fee && delivery_fee > 0
+  const showBoth    = delivery_type === 'both' && hasFee
+  const deliveryOnly = delivery_type === 'delivery' && hasFee
+  const freeDelivery = (delivery_type === 'both' || delivery_type === 'delivery') && !hasFee
+
+  const bigSz  = large ? '1.5rem' : undefined
+  const smSz   = large ? '.85rem' : '.75rem'
+  const labelSz = large ? '.78rem' : '.65rem'
+
+  if (showBoth) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+          <span style={{ fontSize: bigSz, fontWeight: 600 }}>¥{price}</span>
+          {hasOriginal && <span style={{ fontSize: smSz, color: '#999', textDecoration: 'line-through' }}>¥{original_price}</span>}
+          <span style={{ fontSize: labelSz, color: '#888', background: '#f0f0f0', borderRadius: 8, padding: '1px 5px' }}>自提</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+          <span style={{ fontSize: large ? '1.1rem' : '.85rem', fontWeight: 600, color: '#3b5bdb' }}>¥{price + delivery_fee}</span>
+          <span style={{ fontSize: labelSz, color: '#3b5bdb', background: '#e8f0fe', borderRadius: 8, padding: '1px 5px' }}>含¥{delivery_fee}配送</span>
+        </div>
+      </div>
+    )
+  }
+
+  if (deliveryOnly) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+          <span style={{ fontSize: bigSz, fontWeight: 600, color: '#3b5bdb' }}>¥{price + delivery_fee}</span>
+          {hasOriginal && <span style={{ fontSize: smSz, color: '#999', textDecoration: 'line-through' }}>¥{original_price}</span>}
+        </div>
+        <span style={{ fontSize: labelSz, color: '#3b5bdb', background: '#e8f0fe', borderRadius: 8, padding: '1px 5px' }}>含¥{delivery_fee}配送费</span>
+      </div>
+    )
+  }
+
+  if (freeDelivery) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+        <span style={{ fontSize: bigSz, fontWeight: 600 }}>¥{price}</span>
+        {hasOriginal && <span style={{ fontSize: smSz, color: '#999', textDecoration: 'line-through' }}>¥{original_price}</span>}
+        <span style={{ fontSize: labelSz, color: '#27ae60', background: '#e8f8f0', borderRadius: 8, padding: '1px 5px' }}>包邮</span>
+      </div>
+    )
+  }
+
+  // pickup only or no fee
+  return (
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+      <span style={{ fontSize: bigSz, fontWeight: 600 }}>¥{price}</span>
+      {hasOriginal && <span style={{ fontSize: smSz, color: '#999', textDecoration: 'line-through' }}>¥{original_price}</span>}
+    </div>
+  )
+}
+
 // ── Seller Avatar ─────────────────────────────────────────────────────────────
 function SellerAvatar({ username, displayName, avatarUrl, size = 28, onClick }) {
   const style = {
@@ -221,12 +281,7 @@ function ListingCard({ listing, currentUser, onSold, onRestore, onDelete, onEdit
         </div>
         {!isSold && (
           <div className="market-card__price">
-            <span>¥{listing.price}</span>
-            {hasOriginal && (
-              <span style={{ fontSize: '.75rem', color: '#999', textDecoration: 'line-through', marginLeft: 6 }}>
-                ¥{listing.original_price}
-              </span>
-            )}
+            <PriceDisplay listing={listing} />
           </div>
         )}
       </div>
@@ -343,14 +398,7 @@ function ListingDetailModal({ listing, currentUser, onClose, onSold, onRestore, 
                 {isSold && <span className="market-card__sold-badge">Sold</span>}
               </div>
               {!isSold && (
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                  <span style={{ fontSize: '1.5rem', fontWeight: 600 }}>¥{listing.price}</span>
-                  {hasOriginal && (
-                    <span style={{ fontSize: '.85rem', color: '#999', textDecoration: 'line-through' }}>
-                      ¥{listing.original_price}
-                    </span>
-                  )}
-                </div>
+                <PriceDisplay listing={listing} large />
               )}
             </div>
 
