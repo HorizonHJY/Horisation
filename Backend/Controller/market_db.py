@@ -69,6 +69,7 @@ class Listing(Base):
     delivery_type    = Column(String(20), nullable=False, default='pickup')  # pickup / delivery / both
     delivery_fee     = Column(Float, nullable=True)
     status           = Column(String(20), nullable=False, default='active')  # active / sold / removed
+    view_count       = Column(Integer,   nullable=False, default=0)
     created_at       = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     updated_at       = Column(DateTime, nullable=False,
                               default=lambda: datetime.now(timezone.utc),
@@ -164,6 +165,7 @@ def _migrate_columns():
         "ALTER TABLE user ADD COLUMN phone TEXT",
         "ALTER TABLE user ADD COLUMN address TEXT",
         "ALTER TABLE user ADD COLUMN postal_code TEXT",
+        "ALTER TABLE listings ADD COLUMN view_count INTEGER NOT NULL DEFAULT 0",
     ]
     with Session() as s:
         for stmt in stmts:
@@ -360,6 +362,7 @@ def _listing_to_dict(listing: Listing, seller_user: 'User | None' = None) -> dic
         'category':         listing.category,
         'contact':          listing.contact,
         'status':           listing.status,
+        'view_count':       listing.view_count or 0,
         'created_at':       listing.created_at.isoformat(),
         'updated_at':       listing.updated_at.isoformat(),
         'images':           [{'id': img.id, 'url': img.r2_url, 'order': img.display_order}
@@ -484,6 +487,15 @@ def get_listing(listing_id: str) -> Optional[dict]:
             return None
         seller = s.query(User).filter_by(username=row.seller_username).first()
         return _listing_to_dict(row, seller)
+
+
+def increment_view_count(listing_id: str) -> None:
+    """Increment view_count for a listing by 1 (best-effort, no error if missing)."""
+    with Session() as s:
+        row = s.query(Listing).filter_by(id=listing_id).first()
+        if row:
+            row.view_count = (row.view_count or 0) + 1
+            s.commit()
 
 
 def get_my_listings(username: str) -> list[dict]:
@@ -1096,23 +1108,4 @@ def create_invite_code(code: str, valid_from: datetime, valid_to: datetime, crea
 def get_invite_codes() -> list:
     with Session() as s:
         rows = s.query(InviteCode).order_by(InviteCode.created_at.desc()).all()
-        return [_invite_code_to_dict(r) for r in rows]
-
-
-def delete_invite_code(code_id: int) -> bool:
-    with Session() as s:
-        row = s.query(InviteCode).filter_by(id=code_id).first()
-        if not row:
-            return False
-        s.delete(row)
-        s.commit()
-        return True
-
-
-def validate_invite_code(code: str) -> bool:
-    now = datetime.utcnow()
-    with Session() as s:
-        row = s.query(InviteCode).filter_by(code=code).first()
-        if not row:
-            return False
-        return row.valid_from <= now <= row.valid_to
+        return [_invite_code_to_dic

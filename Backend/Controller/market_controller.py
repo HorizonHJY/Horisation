@@ -186,6 +186,8 @@ def get_listing(listing_id):
     listing = market_db.get_listing(listing_id)
     if not listing:
         return jsonify({'ok': False, 'error': 'Listing not found.'}), 404
+    market_db.increment_view_count(listing_id)
+    listing['view_count'] += 1   # reflect the increment in this response
     return jsonify({'ok': True, 'listing': listing})
 
 
@@ -298,6 +300,4 @@ def my_listings():
 
 @market_bp.route('/user/<username>', methods=['GET'])
 @login_required
-def user_listings(username):
-    listings = market_db.get_active_listings_by_user(username)
-    return jsonify({'ok': True, 'listings': listings})
+def user_listings(username

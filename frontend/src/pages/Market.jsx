@@ -242,7 +242,7 @@ function ListingCard({ listing, currentUser, onSold, onRestore, onDelete, onEdit
       <div className="market-card__title" title={listing.title}
            style={{ cursor: 'pointer' }} onClick={onDetail}>{listing.title}</div>
 
-      {/* Category + delivery + sold badge */}
+      {/* Category + delivery + sold badge + views */}
       <div className="market-card__meta">
         <span className="market-card__category">{listing.category}</span>
         {(listing.delivery_type === 'delivery' || listing.delivery_type === 'both') ? (
@@ -255,6 +255,11 @@ function ListingCard({ listing, currentUser, onSold, onRestore, onDelete, onEdit
           </span>
         )}
         {isSold && <span className="market-card__sold-badge">Sold</span>}
+        {listing.view_count > 0 && (
+          <span style={{ fontSize: '.62rem', color: '#aaa', whiteSpace: 'nowrap', marginLeft: 'auto' }}>
+            <i className="fas fa-eye me-1" />{listing.view_count}
+          </span>
+        )}
       </div>
 
       {/* Description */}
@@ -451,6 +456,11 @@ function ListingDetailModal({ listing, currentUser, onClose, onSold, onRestore, 
                 </div>
                 <div style={{ fontSize: '.75rem', color: '#888' }}>
                   Posted {new Date(listing.created_at).toLocaleDateString()}
+                  {listing.view_count > 0 && (
+                    <span className="ms-2">
+                      <i className="fas fa-eye me-1" />{listing.view_count} view{listing.view_count !== 1 ? 's' : ''}
+                    </span>
+                  )}
                 </div>
               </div>
               <i className="fas fa-chevron-right ms-auto text-muted" style={{ fontSize: '.75rem' }} />
@@ -761,6 +771,26 @@ export default function Market() {
   }
 
   // Reach Out: friends → navigate to chat; not friends → send friend request
+  async function openDetail(listing) {
+    const key = `viewed_${listing.id}`
+    if (sessionStorage.getItem(key)) {
+      // Already viewed this session — show cached listing, skip increment
+      setDetailListing(listing)
+      return
+    }
+    // First view this session — fetch from API (server increments count)
+    const d = await api.get(`/api/market/listings/${listing.id}`)
+    if (d.ok) {
+      sessionStorage.setItem(key, '1')
+      setDetailListing(d.listing)
+      // Update view_count in the local listings arrays too
+      setListings(prev => prev.map(l => l.id === listing.id ? { ...l, view_count: d.listing.view_count } : l))
+      setMy(prev => prev.map(l => l.id === listing.id ? { ...l, view_count: d.listing.view_count } : l))
+    } else {
+      setDetailListing(listing)
+    }
+  }
+
   async function handleReachOut(listing, sellerUsername) {
     const username = sellerUsername ?? listing?.seller_username
     const title    = listing?.title ?? null
@@ -1037,7 +1067,7 @@ export default function Market() {
                     onEdit={setEditListing}
                     onReachOut={handleReachOut}
                     onSellerClick={openSellerModal}
-                    onDetail={() => setDetailListing(l)}
+                    onDetail={() => openDetail(l)}
                     reachOutStatus={interestedSet[l.seller_username]}
                   />
                 </div>
@@ -1157,40 +1187,4 @@ export default function Market() {
                         {previews.map((src, i) => (
                           <div key={i} className="position-relative">
                             <img
-                              src={src}
-                              alt=""
-                              style={{ width: 90, height: 90, objectFit: 'cover', borderRadius: 6 }}
-                            />
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-danger position-absolute top-0 end-0"
-                              style={{ padding: '1px 5px', fontSize: '0.7rem' }}
-                              onClick={() => removeImage(i)}
-                            >
-                              ×
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <button
-                    type="submit"
-                    className="btn btn-primary w-100"
-                    disabled={submitting}
-                  >
-                    {submitting
-                      ? <><span className="spinner-border spinner-border-sm me-2" />Posting…</>
-                      : <><i className="fas fa-paper-plane me-2" />Post Listing</>
-                    }
-                  </button>
-                </form>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
+                     
