@@ -198,3 +198,27 @@ api.upload('/api/...', formData)   // for multipart
 - `users.json` not thread-safe under concurrent writes → migrate to PostgreSQL
 - Memos stored inside user objects → should be a separate DB table
 - No CI/CD pipeline yet
+
+---
+
+## Git Commit (OVERRIDE — Windows environment)
+
+**Never use `git commit` directly.** PyCharm holds file locks on Windows, causing `index file corrupt` and `HEAD.lock` errors. Always use git plumbing:
+
+```bash
+# 1. Stage only the target files
+rm -f .git/index
+GIT_INDEX_FILE=/tmp/commit_index git read-tree HEAD
+GIT_INDEX_FILE=/tmp/commit_index git add <file1> <file2> ...
+TREE=$(GIT_INDEX_FILE=/tmp/commit_index git write-tree)
+
+# 2. Create the commit object and advance the branch
+HEAD_SHA=$(cat .git/refs/heads/main)
+COMMIT=$(git commit-tree $TREE -p $HEAD_SHA -m "type(scope): message")
+echo $COMMIT > .git/refs/heads/main
+
+# 3. ALWAYS restore the default index afterward
+rm -f .git/index && git read-tree HEAD
+```
+
+Skipping step 3 leaves `.git/index` missing — PyCharm then shows every file as "new", making it look like all files were removed and re-added on the next commit.
