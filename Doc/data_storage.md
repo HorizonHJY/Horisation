@@ -265,4 +265,26 @@ Cloudflare R2 bucket: horisation-market
 
 ---
 
-## PostgreSQL Mi
+## PostgreSQL Migration Path
+
+Change one line in `market_db.py`:
+
+```python
+# Current (SQLite)
+engine = create_engine(f'sqlite:///{DB_PATH}', echo=False)
+
+# Future (PostgreSQL)
+engine = create_engine('postgresql://user:password@host/dbname', echo=False)
+```
+
+All models and helpers are ORM-based and require no further changes.
+
+---
+
+## Known Limitations
+
+| Issue | Impact | Fix |
+|-------|--------|-----|
+| Plaintext passwords | Security risk | bcrypt hashing |
+| SQLite single-writer | Concurrent writes may fail under load | Migrate to PostgreSQL |
+| No soft delete on users | Deleted user data lost | Add `deleted_at` timestamp |

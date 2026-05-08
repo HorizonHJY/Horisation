@@ -190,4 +190,9 @@ Horisation/
 See `Doc/todo.md` for the full prioritised list. Key items:
 
 - [ ] Password hashing (bcrypt) — currently plaintext
-- [ ] Listing image re-
+- [ ] Listing image re-upload in Edit flow
+- [ ] Group messaging / group chat
+- [ ] Avalon board game
+- [ ] Data visualisation tools
+- [ ] CI/CD pipeline (GitHub Actions → EC2)
+- [ ] Migrate SQLite → PostgreSQL for concurrent write safety

@@ -735,4 +735,147 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 - **Reusable Solution**: 用 `features.js` 维护角色白名单，`useFeature(flag)` hook 同时保护 UI 渲染和路由访问；后端对应端点仍需独立校验，不能只依赖前端门控
 
 #### Remaining Issues / Next Step
-- 密码仍为明文存储�
+- 密码仍为明文存储，需迁移 bcrypt
+- 邀请码当前为"时间窗口内无限次使用"，若需限制注册人数需加 `max_uses` 字段
+- [待补充下一步优先事项]
+
+---
+
+### 2026-03-06 — 用户数据迁移至 SQLite + 好友系统 + 市集升级 + 登录页重设计
+
+#### Goal
+将用户账号和 Session 从 JSON 文件迁移到 SQLite；实现完整的好友系统（好友申请、私信、联系方式申请）；升级市集体验（卖家信息、Reach Out 按钮）；重设计登录页；新增本地开发脚本；实现在线五子棋。
+
+#### Trigger / Context
+`users.json` 非线程安全，随用户量增加存在并发写入风险；多个功能模块都需要更可靠的用户数据层。好友系统是平台"私密社区"定位的核心功能。登录页视觉体验需要提升。
+
+#### Problem & Root Cause
+无明显 bug，本次为大规模功能开发与架构升级。
+
+核心驱动：JSON 文件存储方式已不满足平台需求；好友、私信、联系方式申请是社区功能的基础模块；市集缺少社交互动入口。
+
+#### Solution
+
+**用户/Session 迁移**
+- `users.json` 和 `sessions.json` 完全退役；由 `market.db` 中的 `user` 和 `session` 表接管
+- `User` 模型：自增整数 PK，包含所有原有字段 + `contact_hidden` 布尔值
+- `UserSession` 模型：token PK，含 `expires_at` 过期时间
+- `_migrate_from_json()`：启动时检测 `users.json` 是否存在，完成迁移后重命名为 `.migrated`（幂等）
+- `user_manager.py` 完全重写，公开 API 不变，底层改用 `market_db.py` 的 SQLAlchemy helpers
+- `db_search_users(q)`：ilike 模糊搜索 username + display_name，limit 20
+
+**好友系统**
+- 新模型：`FriendRequest`, `Friendship`, `PrivateChatMessage`（均在 `market_db.py`）
+- 新 Blueprint `friends_controller.py`（`/api/friends/*`），含用户搜索、好友申请 CRUD、好友列表、私信历史等端点
+- `friends_socket.py`：Socket.IO 实时通知（好友申请、接受、联系方式申请）
+- **未读消息**：`ChatRead` 模型追踪每个用户每个聊天室的最后读取时间；`GET /api/friends/unread` 返回未读计数；`UnreadContext` 每 30 秒轮询；Sidebar 显示红色 badge
+- `Friends.jsx`：三 Tab（Friends / Requests / Add）；实时私信（Socket.IO，room key 为排序后的用户名对）；从市集页带参数跳转时自动打开对应聊天
+
+**联系方式申请系统**
+- 新模型 `ContactRequest`：独立于好友关系，记录联系方式查看授权
+- `contact_hidden` 字段：用户可设置"隐藏联系方式"，隐藏后他人无法发申请
+- `GET /<username>/contact` 端点在返回信息前校验 `has_contact_access()`
+- `Friends.jsx` 每位好友显示联系方式状态（申请/待审/已获授权/对方已隐藏）
+- 实时通知：`notify_contact_request()` 在 DB 写入后通过 Socket.IO 推送，目标用户不需要刷新页面
+
+**市集升级**
+- Browse Tab 过滤掉自己的商品
+- Tab 顺序调整：Browse → My Listings → Post Item
+- 商品卡片显示卖家头像 + 昵称
+- 卖家信息 Modal：头像、昵称、全部在售商品、Reach Out / Add Friend 按钮
+- "Reach Out" 按钮：已是好友 → 跳转 `/friends` 并预填聊天消息；非好友 → 自动发送带商品信息的好友申请
+- 新 API `GET /api/market/user/<username>`
+- 列表响应附带 `seller_display`、`seller_avatar`（批量 join 查询，无 N+1）
+- `Listing` 模型新增 `original_price` 字段
+
+**登录页重设计**
+- 新组件 `FlowerCanvas.jsx`：水彩花瓣生长动画，canvas 实现，ResizeObserver 响应窗口变化
+- 登录页：全屏 canvas 背景 + 毛玻璃登录卡片 + Logo + "Arch Bay" 标题 + 左下角中文标语
+- 响应式：`<= 600px` 时 Logo 缩小、标语隐藏
+
+**在线五子棋**
+- 新页面 `/fun/online-gomoku`，实时多人对战
+- `GameRoom` 模型（`market_db.py`）：存储棋盘 JSON、当前落子方、胜者、获胜格子
+- `game_controller.py`：Socket.IO 事件（创建/加入/落子/离开/重置房间）
+- `OnlineGomoku.jsx`：大厅列表 + 游戏棋盘 UI
+
+**本地开发**
+- `scripts/dev.bat`：一键启动 Flask + Vite 双进程
+- `scripts/_flask_local.bat`：注入 `LOCAL_DEV=1` 环境变量
+- `app.py`：`LOCAL_DEV=1` 时 SocketIO 切换为 `threading` 模式，关闭 `SESSION_COOKIE_SECURE`
+
+#### Changed Files
+- `Backend/Controller/market_db.py` — 新增 `User`, `UserSession`, `FriendRequest`, `Friendship`, `PrivateChatMessage`, `ContactRequest`, `ChatRead`, `GameRoom` 模型及所有 helper 函数
+- `Backend/Controller/user_manager.py` — 完全重写，底层改 SQLAlchemy
+- `Backend/Controller/friends_controller.py` — 新建，好友系统 API Blueprint
+- `Backend/Controller/friends_socket.py` — 新建，好友/联系方式实时通知
+- `Backend/Controller/game_controller.py` — 新建，五子棋 Socket.IO 事件
+- `Backend/Controller/socketio_instance.py` — 新建，共享 SocketIO 实例
+- `Backend/Controller/market_controller.py` — 新增卖家信息端点；`_enrich_listings()` 批量 join
+- `app.py` — 注册新 Blueprint；SocketIO 双模式初始化
+- `frontend/src/App.jsx` — 新增 `UnreadContext`；注册 `/friends` 路由
+- `frontend/src/pages/Friends.jsx` — 新建，好友/私信/申请页面
+- `frontend/src/pages/Market.jsx` — 卖家 Modal、Reach Out 按钮、Tab 顺序调整
+- `frontend/src/pages/Login.jsx` — 全新设计，使用 FlowerCanvas
+- `frontend/src/components/FlowerCanvas.jsx` — 新建，花瓣动画组件
+- `frontend/src/components/Sidebar.jsx` — Friends 未读 badge
+- `scripts/dev.bat`, `scripts/_flask_local.bat` — 新建
+- `scripts/deploy.sh` — 移除 JSON 备份逻辑
+
+#### Result
+- 用户数据全面迁移至 SQLite，并发安全性大幅提升；旧 `users.json` 自动归档
+- 好友申请、私信、联系方式申请功能完整上线，均支持实时通知
+- 市集社交互动闭环：从看商品到联系卖家一键完成
+- 登录页视觉大幅升级
+- 在线五子棋可在 `horizon`/`horizonadmin`/`vip3` 用户间对战
+- 本地开发一键启动，无需手动配置双进程
+
+#### Testing
+- 在旧有 `users.json` 存在时启动服务，验证迁移脚本执行、文件重命名为 `.migrated`、用户可正常登录
+- 两个账号互相发好友申请、接受、发私信，验证实时通知和未读 badge 更新；刷新页面后验证消息持久化
+- 在市集点击"Reach Out"，验证好友/非好友两种路径的跳转和预填消息
+- 本地执行 `scripts/dev.bat`，验证 Flask `:5000` 和 Vite `:5173` 均正常启动，Socket.IO 连接成功
+
+#### Lessons Learned
+- **Symptom**: 好友关系建立后，目标用户需要刷新页面才能看到新的聊天或联系方式申请
+- **Root Cause**: 前端轮询间隔为 30 秒，实时性不足
+- **Reusable Solution**: 对需要即时感知的事件（好友申请、消息到达）使用 Socket.IO 推送；轮询只作为兜底容错机制
+
+#### Remaining Issues / Next Step
+- 密码仍为明文，需迁 bcrypt
+- `contact_hidden` 功能已上线，但 Profile 页面的说明文案可以更清晰
+- 邀请码系统（下一个迭代完成）
+
+---
+
+### 2026-03-02 — 二手市集、留言板、用户管理完善、移动端适配
+
+#### Goal
+上线二手市集（图片上传到 R2、SQLite 存储商品数据）；上线公共留言板；完善管理员用户管理功能；支持用户自助修改个人信息和头像；优化导航和 UI；适配移动端侧边栏；升级服务器 Python 版本。
+
+#### Trigger / Context
+平台基础框架（React SPA + 登录认证）已稳定，开始构建核心功能模块。二手市集是"朋友圈私密平台"的核心场景；留言板提供轻量级社区互动；管理员之前只能创建用户，无法编辑或删除。
+
+#### Problem & Root Cause
+两个 bug 在此迭代中修复：
+
+1. **服务器 502**：Python 3.9 不支持 `dict | None` 语法（3.10+ 特性），部署后 Flask 启动失败。根因是本地开发用 Python 3.11，未做版本兼容测试。
+2. **Bootstrap Modal 失效**：`index.html` 缺少 Bootstrap JS bundle，Modal 组件无法弹出（Bootstrap 的 JS 交互依赖独立引入）。
+
+#### Solution
+
+**二手市集**
+- 新 Blueprint `market_controller.py`（`/api/market/*`）：CRUD 端点 + sold 标记
+- `market_db.py`：`Listing` + `ListingImage` SQLAlchemy 模型，数据库路径 `_data/market.db`，启动自动创建
+- `r2_manager.py`：封装 boto3 上传/删除，凭证读取自 `Key/r2_config.json`（gitignore）
+- 商品最多 3 张图片；删除商品时同步清理 R2 上的图片文件
+- `Market.jsx`：Browse / Post Listing / My Listings 三 Tab，图片预览，价格格式化
+
+**留言板**
+- `feedback_controller.py`（`/api/feedback/*`）：最新 200 条消息；用户删除自己的消息，管理员删除任意
+- `Feedback.jsx`：相对时间显示，500 字符限制，头像/首字母 fallback
+- `Message` 模型复用 `market.db`
+
+**用户管理**
+- Admin 新增：编辑昵称/邮箱、重置密码、删除用户
+- 新端点：`PUT /api/auth/users/<u>/profile`、`PUT /api/au
