@@ -491,6 +491,18 @@ def mark_sold(listing_id: str, seller: str) -> bool:
         return True
 
 
+def restore_listing(listing_id: str, seller: str) -> bool:
+    """Restore a sold listing back to active. Returns False if not found or wrong seller."""
+    with Session() as s:
+        row = s.query(Listing).filter_by(id=listing_id, seller_username=seller, status='sold').first()
+        if not row:
+            return False
+        row.status     = 'active'
+        row.updated_at = datetime.now(timezone.utc)
+        s.commit()
+        return True
+
+
 # ── Game room helpers ─────────────────────────────────────────────────────────
 
 def _room_to_dict(room: GameRoom) -> dict:

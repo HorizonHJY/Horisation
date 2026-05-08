@@ -220,6 +220,19 @@ def mark_sold(listing_id):
     return jsonify({'ok': True})
 
 
+# ── Restore sold listing (seller only) ───────────────────────────────────────
+
+@market_bp.route('/listings/<listing_id>/restore', methods=['POST'])
+@login_required
+def restore_listing(listing_id):
+    seller = request.current_user['username']
+    ok     = market_db.restore_listing(listing_id, seller)
+    if not ok:
+        return jsonify({'ok': False, 'error': 'Listing not found, not sold, or permission denied.'}), 404
+    listing = market_db.get_listing(listing_id)
+    return jsonify({'ok': True, 'listing': listing})
+
+
 # ── My listings ───────────────────────────────────────────────────────────────
 
 @market_bp.route('/my', methods=['GET'])

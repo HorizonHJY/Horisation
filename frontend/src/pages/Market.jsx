@@ -160,7 +160,7 @@ function EditModal({ listing, onClose, onSave }) {
 }
 
 // ── Listing Card ──────────────────────────────────────────────────────────────
-function ListingCard({ listing, currentUser, onSold, onDelete, onEdit, onReachOut, onSellerClick, onDetail, reachOutStatus }) {
+function ListingCard({ listing, currentUser, onSold, onRestore, onDelete, onEdit, onReachOut, onSellerClick, onDetail, reachOutStatus }) {
   const isMine      = listing.seller_username === currentUser
   const firstImg    = listing.images?.[0]?.url
   const isSold      = listing.status === 'sold'
@@ -244,6 +244,11 @@ function ListingCard({ listing, currentUser, onSold, onDelete, onEdit, onReachOu
               </button>
             </>
           )}
+          {isSold && (
+            <button className="market-card__btn market-card__btn--restore" onClick={() => onRestore(listing.id)}>
+              <i className="fas fa-undo" />Restore
+            </button>
+          )}
           <button className="market-card__btn market-card__btn--danger" onClick={() => onDelete(listing.id)}>
             <i className="fas fa-trash" />Delete
           </button>
@@ -279,7 +284,7 @@ function ListingCard({ listing, currentUser, onSold, onDelete, onEdit, onReachOu
 }
 
 // ── Listing Detail Modal ──────────────────────────────────────────────────────
-function ListingDetailModal({ listing, currentUser, onClose, onSold, onDelete, onEdit, onReachOut, onSellerClick, reachOutStatus }) {
+function ListingDetailModal({ listing, currentUser, onClose, onSold, onRestore, onDelete, onEdit, onReachOut, onSellerClick, reachOutStatus }) {
   const [imgIndex, setImgIndex] = useState(0)
   const isMine      = listing.seller_username === currentUser
   const isSold      = listing.status === 'sold'
@@ -417,6 +422,12 @@ function ListingDetailModal({ listing, currentUser, onClose, onSold, onDelete, o
                       <i className="fas fa-pen" />Edit
                     </button>
                   </>
+                )}
+                {isSold && (
+                  <button className="market-card__btn market-card__btn--restore" style={{ flex: 1 }}
+                    onClick={() => { onRestore(listing.id); onClose() }}>
+                    <i className="fas fa-undo" />Restore
+                  </button>
                 )}
                 <button className="market-card__btn market-card__btn--danger" style={{ flex: 1 }}
                   onClick={() => { onDelete(listing.id); onClose() }}>
@@ -664,6 +675,17 @@ export default function Market() {
     }
   }
 
+  async function handleRestore(id) {
+    const d = await api.post(`/api/market/listings/${id}/restore`)
+    if (d.ok) {
+      showToast('Listing restored to active.')
+      if (tab === 'browse')     loadBrowse()
+      if (tab === 'mylistings') loadMine()
+    } else {
+      showToast(d.error, 'danger')
+    }
+  }
+
   async function handleEditSave(id, fields) {
     const d = await api.put(`/api/market/listings/${id}`, fields)
     if (d.ok) {
@@ -761,6 +783,7 @@ export default function Market() {
           currentUser={user.username}
           onClose={() => setDetailListing(null)}
           onSold={handleSold}
+          onRestore={handleRestore}
           onDelete={handleDelete}
           onEdit={setEditListing}
           onReachOut={handleReachOut}
@@ -959,6 +982,7 @@ export default function Market() {
                     listing={l}
                     currentUser={user.username}
                     onSold={handleSold}
+                    onRestore={handleRestore}
                     onDelete={handleDelete}
                     onEdit={setEditListing}
                     onReachOut={handleReachOut}
