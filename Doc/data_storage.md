@@ -1,6 +1,6 @@
 # Horisation — Data Storage Reference
 
-Last updated: 2026-03-06
+Last updated: 2026-05-08
 
 ---
 
@@ -67,11 +67,25 @@ via `user_manager.py` public API.
 | description | TEXT | Full text |
 | price | REAL | Selling price (non-negative) |
 | original_price | REAL | Optional; shown with strikethrough if > price |
-| category | TEXT | electronics / clothing / books / furniture / other |
+| category | TEXT | Slug referencing `categories.slug` (loosely) |
 | contact | TEXT | Legacy field (kept for compatibility) |
 | status | TEXT | `active` / `sold` / `removed` |
 | created_at | DATETIME | UTC |
 | updated_at | DATETIME | UTC, auto-updates |
+
+---
+
+### Table: `categories`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| slug | TEXT | PK — e.g. `clothing`, `electronics` |
+| label | TEXT | Display name shown in UI — e.g. `衣服`, `Electronics` |
+| order | INTEGER | Sort order for pills / dropdowns (lower = first) |
+| active | BOOLEAN | Inactive categories hidden from create/edit form; preserved on existing listings |
+
+Seeded on first startup with 7 entries: clothing, furniture, kitchen, electronics, beauty (active) + books, other (inactive, legacy).
+Managed via `GET/POST /api/market/categories` and `PUT/DELETE /api/market/categories/<slug>` (admin only).
 
 ---
 
