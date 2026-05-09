@@ -111,7 +111,7 @@ function SellerAvatar({ username, displayName, avatarUrl, size = 28, onClick }) 
 }
 
 // ── Edit Modal ────────────────────────────────────────────────────────────────
-function EditModal({ listing, onClose, onSave }) {
+function EditModal({ listing, onClose, onSave, categories }) {
   const [form, setForm] = useState({
     title:          listing.title,
     description:    listing.description,
@@ -267,30 +267,30 @@ function ListingCard({ listing, currentUser, onSold, onRestore, onDelete, onEdit
 
       <hr className="market-card__divider" />
 
-      {/* Footer: seller + price */}
-      <div className="market-card__footer">
-        <div
-          className="market-card__seller"
-          style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
-          onClick={() => onSellerClick(listing.seller_username)}
-          title={`View ${listing.seller_username}'s listings`}
-        >
-          <SellerAvatar
-            username={listing.seller_username}
-            displayName={listing.seller_display}
-            avatarUrl={listing.seller_avatar}
-            size={26}
-          />
-          <div>
-            <div style={{ fontWeight: 600, fontSize: '.78rem' }}>{listing.seller_display || listing.seller_username}</div>
-            <div style={{ fontSize: '.7rem' }}>{new Date(listing.created_at).toLocaleDateString()}</div>
-          </div>
+      {/* Price row */}
+      {!isSold && (
+        <div className="market-card__price mb-1">
+          <PriceDisplay listing={listing} />
         </div>
-        {!isSold && (
-          <div className="market-card__price">
-            <PriceDisplay listing={listing} />
-          </div>
-        )}
+      )}
+
+      {/* Seller row */}
+      <div
+        className="market-card__seller"
+        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}
+        onClick={() => onSellerClick(listing.seller_username)}
+        title={`View ${listing.seller_username}'s listings`}
+      >
+        <SellerAvatar
+          username={listing.seller_username}
+          displayName={listing.seller_display}
+          avatarUrl={listing.seller_avatar}
+          size={24}
+        />
+        <div>
+          <div style={{ fontWeight: 600, fontSize: '.75rem' }}>{listing.seller_display || listing.seller_username}</div>
+          <div style={{ fontSize: '.68rem' }}>{new Date(listing.created_at).toLocaleDateString()}</div>
+        </div>
       </div>
 
       {/* Owner actions */}
@@ -923,6 +923,7 @@ export default function Market() {
           listing={editListing}
           onClose={() => setEditListing(null)}
           onSave={handleEditSave}
+          categories={categories}
         />
       )}
 
@@ -1188,39 +1189,4 @@ export default function Market() {
                           <div key={i} className="position-relative">
                             <img
                               src={src}
-                              alt=""
-                              style={{ width: 90, height: 90, objectFit: 'cover', borderRadius: 6 }}
-                            />
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-danger position-absolute top-0 end-0"
-                              style={{ padding: '1px 5px', fontSize: '0.7rem' }}
-                              onClick={() => removeImage(i)}
-                            >
-                              ×
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <button
-                    type="submit"
-                    className="btn btn-primary w-100"
-                    disabled={submitting}
-                  >
-                    {submitting
-                      ? <><span className="spinner-border spinner-border-sm me-2" />Posting…</>
-                      : <><i className="fas fa-paper-plane me-2" />Post Listing</>
-                    }
-                  </button>
-                </form>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
+   
