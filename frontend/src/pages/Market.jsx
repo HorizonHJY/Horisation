@@ -5,17 +5,18 @@ import { useAuth } from '../App'
 import HandLoader from '../components/HandLoader'
 
 const FALLBACK_CATEGORIES = [
-  { slug: 'clothing',    label: '衣服' },
-  { slug: 'furniture',   label: '家具' },
-  { slug: 'kitchen',     label: '厨具' },
-  { slug: 'electronics', label: 'Electronics' },
-  { slug: 'beauty',      label: '美妆' },
+  { slug: 'clothing',    label: '衣服',        icon: 'fa-tshirt' },
+  { slug: 'furniture',   label: '家具',        icon: 'fa-couch' },
+  { slug: 'kitchen',     label: '厨具',        icon: 'fa-utensils' },
+  { slug: 'electronics', label: 'Electronics', icon: 'fa-laptop' },
+  { slug: 'beauty',      label: '美妆',        icon: 'fa-spa' },
 ]
 
-const CATEGORY_ICONS = {
-  clothing: 'fa-tshirt', furniture: 'fa-couch', kitchen: 'fa-utensils',
-  electronics: 'fa-laptop', beauty: 'fa-spa', books: 'fa-book', other: 'fa-box',
-}
+const DELIVERY_OPTIONS = [
+  { value: 'pickup',   label: '仅自提',      icon: 'fa-walking' },
+  { value: 'delivery', label: '仅配送',      icon: 'fa-truck' },
+  { value: 'both',     label: '可自提或配送', icon: 'fa-truck' },
+]
 
 const EMPTY_FORM = { title: '', description: '', price: '', original_price: '', category: 'clothing', delivery_type: 'pickup', delivery_fee: '' }
 
@@ -189,7 +190,7 @@ function EditModal({ listing, onClose, onSave, categories }) {
               <div className="mt-3">
                 <label className="form-label fw-medium">Delivery Options</label>
                 <div className="d-flex gap-3 flex-wrap">
-                  {[['pickup','Self-pickup'],['delivery','Delivery'],['both','Both']].map(([v,lbl]) => (
+                  {[['pickup','仅自提'],['delivery','仅配送'],['both','可自提或配送']].map(([v,lbl]) => (
                     <div className="form-check" key={v}>
                       <input className="form-check-input" type="radio" name="edit-delivery"
                         id={`edit-dt-${v}`} value={v} checked={form.delivery_type === v}
@@ -242,22 +243,32 @@ function ListingCard({ listing, currentUser, onSold, onRestore, onDelete, onEdit
       <div className="market-card__title" title={listing.title}
            style={{ cursor: 'pointer' }} onClick={onDetail}>{listing.title}</div>
 
-      {/* Category + delivery + sold badge + views */}
+      {/* Line 1: Category + sold badge + view count */}
       <div className="market-card__meta">
-        <span className="market-card__category">{listing.category}</span>
-        {(listing.delivery_type === 'delivery' || listing.delivery_type === 'both') ? (
-          <span style={{ fontSize: '.62rem', background: '#e8f0fe', color: '#3b5bdb', borderRadius: 10, padding: '1px 6px', whiteSpace: 'nowrap' }}>
-            <i className="fas fa-truck me-1" />{listing.delivery_type === 'both' ? 'Delivery/Pickup' : 'Delivery'}
-          </span>
-        ) : (
-          <span style={{ fontSize: '.62rem', background: '#f0f0f0', color: '#666', borderRadius: 10, padding: '1px 6px', whiteSpace: 'nowrap' }}>
-            <i className="fas fa-walking me-1" />Pickup
-          </span>
-        )}
+        <span className="market-card__category">
+          <i className={`fas ${listing.category_icon || 'fa-tag'} me-1`} />{listing.category}
+        </span>
         {isSold && <span className="market-card__sold-badge">Sold</span>}
         {listing.view_count > 0 && (
           <span style={{ fontSize: '.62rem', color: '#aaa', whiteSpace: 'nowrap', marginLeft: 'auto' }}>
             <i className="fas fa-eye me-1" />{listing.view_count}
+          </span>
+        )}
+      </div>
+
+      {/* Line 2: Delivery type */}
+      <div style={{ marginTop: 3, marginBottom: 2 }}>
+        {listing.delivery_type === 'delivery' ? (
+          <span style={{ fontSize: '.62rem', background: '#e8f0fe', color: '#3b5bdb', borderRadius: 10, padding: '1px 6px' }}>
+            <i className="fas fa-truck me-1" />仅配送
+          </span>
+        ) : listing.delivery_type === 'both' ? (
+          <span style={{ fontSize: '.62rem', background: '#e8f0fe', color: '#3b5bdb', borderRadius: 10, padding: '1px 6px' }}>
+            <i className="fas fa-truck me-1" />可自提或配送
+          </span>
+        ) : (
+          <span style={{ fontSize: '.62rem', background: '#f0f0f0', color: '#666', borderRadius: 10, padding: '1px 6px' }}>
+            <i className="fas fa-walking me-1" />仅自提
           </span>
         )}
       </div>
@@ -413,19 +424,19 @@ function ListingDetailModal({ listing, currentUser, onClose, onSold, onRestore, 
             <div style={{ marginBottom: 12, fontSize: '.82rem' }}>
               {listing.delivery_type === 'pickup' && (
                 <span style={{ background: '#f0f0f0', color: '#555', borderRadius: 12, padding: '2px 10px' }}>
-                  <i className="fas fa-walking me-1" />Self-pickup only
+                  <i className="fas fa-walking me-1" />仅自提
                 </span>
               )}
               {listing.delivery_type === 'delivery' && (
                 <span style={{ background: '#e8f0fe', color: '#3b5bdb', borderRadius: 12, padding: '2px 10px' }}>
-                  <i className="fas fa-truck me-1" />Delivery{listing.delivery_fee != null ? ` +$${listing.delivery_fee}` : ' (free)'}
+                  <i className="fas fa-truck me-1" />仅配送{listing.delivery_fee != null ? `（+$${listing.delivery_fee}）` : '（免运费）'}
                 </span>
               )}
               {listing.delivery_type === 'both' && (
                 <span style={{ background: '#e8f0fe', color: '#3b5bdb', borderRadius: 12, padding: '2px 10px' }}>
-                  <i className="fas fa-truck me-1" />Delivery{listing.delivery_fee != null ? ` +$${listing.delivery_fee}` : ' (free)'}
+                  <i className="fas fa-truck me-1" />配送{listing.delivery_fee != null ? `（+$${listing.delivery_fee}）` : '（免运费）'}
                   <span className="mx-2 text-muted">·</span>
-                  <i className="fas fa-walking me-1" />Self-pickup
+                  <i className="fas fa-walking me-1" />自提
                 </span>
               )}
             </div>
@@ -589,8 +600,9 @@ export default function Market() {
   const navigate    = useNavigate()
   const [tab, setTab]               = useState('browse')
   const [categories, setCategories] = useState(FALLBACK_CATEGORIES)
-  const [searchQuery, setSearchQuery]   = useState('')
-  const [categoryFilter, setCategoryFilter] = useState('all')
+  const [searchQuery, setSearchQuery]       = useState('')
+  const [categoryFilter, setCategoryFilter] = useState(new Set())   // empty = all
+  const [deliveryFilter, setDeliveryFilter] = useState(new Set())   // empty = all
   const [listings, setListings]     = useState([])
   const [myListings, setMy]         = useState([])
   const [loading, setLoading]       = useState(false)
@@ -615,17 +627,22 @@ export default function Market() {
   const tabRef  = useRef(tab)
   useEffect(() => { tabRef.current = tab }, [tab])
 
-  // Fetch active categories once on mount
+  // Fetch active categories once on mount; re-enrich listing icons when resolved
   useEffect(() => {
     api.get('/api/market/categories').then(d => {
-      if (d.ok && d.categories?.length)
-        setCategories(d.categories.map(c => ({ slug: c.slug, label: c.label })))
+      if (d.ok && d.categories?.length) {
+        const cats = d.categories.map(c => ({ slug: c.slug, label: c.label, icon: c.icon || 'fa-tag' }))
+        setCategories(cats)
+        // Re-attach icons now that we have the real category icon data
+        setListings(prev => enrichWithIcon(prev, cats))
+        setMy(prev => enrichWithIcon(prev, cats))
+      }
     })
   }, [])
 
   // Load listings on tab switch; reset filters on browse
   useEffect(() => {
-    if (tab === 'browse')     { loadBrowse(); setSearchQuery(''); setCategoryFilter('all') }
+    if (tab === 'browse')     { loadBrowse(); setSearchQuery(''); setCategoryFilter(new Set()); setDeliveryFilter(new Set()) }
     if (tab === 'mylistings')   loadMine()
   }, [tab])
 
@@ -659,14 +676,19 @@ export default function Market() {
     if (sentRes.ok)     sentRes.requests.filter(r => r.status === 'pending').forEach(r => { map[r.to_user] = 'sent' })
     setInterested(map)
 
-    if (listRes.ok) setListings(listRes.listings)
+    if (listRes.ok) setListings(prev => enrichWithIcon(listRes.listings, categories))
     setLoading(false)
+  }
+
+  function enrichWithIcon(listings, cats) {
+    const iconMap = Object.fromEntries((cats || []).map(c => [c.slug, c.icon || 'fa-tag']))
+    return listings.map(l => ({ ...l, category_icon: iconMap[l.category] || 'fa-tag' }))
   }
 
   async function loadMine() {
     setLoading(true)
     const d = await api.get('/api/market/my')
-    if (d.ok) setMy(d.listings)
+    if (d.ok) setMy(enrichWithIcon(d.listings, categories))
     setLoading(false)
   }
 
@@ -841,16 +863,38 @@ export default function Market() {
     })
   }
 
-  // Browse: filter out own listings, then apply search + category
+  // Browse: filter out own listings, then apply search + category + delivery
   const browseListing = listings.filter(l => l.seller_username !== user.username)
   const filteredBrowse = browseListing.filter(l => {
     const q = searchQuery.trim().toLowerCase()
     const matchesSearch = !q ||
       l.title.toLowerCase().includes(q) ||
       l.description.toLowerCase().includes(q)
-    const matchesCategory = categoryFilter === 'all' || l.category === categoryFilter
-    return matchesSearch && matchesCategory
+    const matchesCategory = categoryFilter.size === 0 || categoryFilter.has(l.category)
+    const matchesDelivery = deliveryFilter.size === 0 || deliveryFilter.has(l.delivery_type)
+    return matchesSearch && matchesCategory && matchesDelivery
   })
+  const hasActiveFilters = searchQuery || categoryFilter.size > 0 || deliveryFilter.size > 0
+
+  function toggleCategory(slug) {
+    setCategoryFilter(prev => {
+      const next = new Set(prev)
+      next.has(slug) ? next.delete(slug) : next.add(slug)
+      return next
+    })
+  }
+  function toggleDelivery(value) {
+    setDeliveryFilter(prev => {
+      const next = new Set(prev)
+      next.has(value) ? next.delete(value) : next.add(value)
+      return next
+    })
+  }
+  function clearAllFilters() {
+    setSearchQuery('')
+    setCategoryFilter(new Set())
+    setDeliveryFilter(new Set())
+  }
   const displayList = tab === 'mylistings' ? myListings : filteredBrowse
 
   return (
@@ -987,20 +1031,40 @@ export default function Market() {
                 )}
               </div>
 
-              {/* Category pills — horizontally scrollable on mobile */}
-              <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-                <div className="d-flex gap-2" style={{ width: 'max-content', paddingBottom: 4 }}>
-                  {[{ slug: 'all', label: 'All' }, ...categories].map(cat => {
-                    const icon   = CATEGORY_ICONS[cat.slug] || 'fa-tag'
-                    const active = categoryFilter === cat.slug
+              {/* Category pills */}
+              <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }} className="mb-2">
+                <div className="d-flex gap-2 align-items-center" style={{ width: 'max-content', paddingBottom: 2 }}>
+                  <span className="text-muted small me-1" style={{ whiteSpace: 'nowrap' }}>分类</span>
+                  {categories.map(cat => {
+                    const active = categoryFilter.has(cat.slug)
                     return (
                       <button
                         key={cat.slug}
-                        onClick={() => setCategoryFilter(cat.slug)}
+                        onClick={() => toggleCategory(cat.slug)}
                         className={`btn btn-sm ${active ? 'btn-primary' : 'btn-outline-secondary'}`}
                         style={{ borderRadius: 20, whiteSpace: 'nowrap' }}
                       >
-                        <i className={`fas ${icon} me-1`} />{cat.label}
+                        <i className={`fas ${cat.icon || 'fa-tag'} me-1`} />{cat.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Delivery pills */}
+              <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                <div className="d-flex gap-2 align-items-center" style={{ width: 'max-content', paddingBottom: 4 }}>
+                  <span className="text-muted small me-1" style={{ whiteSpace: 'nowrap' }}>配送</span>
+                  {DELIVERY_OPTIONS.map(opt => {
+                    const active = deliveryFilter.has(opt.value)
+                    return (
+                      <button
+                        key={opt.value}
+                        onClick={() => toggleDelivery(opt.value)}
+                        className={`btn btn-sm ${active ? 'btn-primary' : 'btn-outline-secondary'}`}
+                        style={{ borderRadius: 20, whiteSpace: 'nowrap' }}
+                      >
+                        <i className={`fas ${opt.icon} me-1`} />{opt.label}
                       </button>
                     )
                   })}
@@ -1008,13 +1072,12 @@ export default function Market() {
               </div>
 
               {/* Active filter summary */}
-              {(searchQuery || categoryFilter !== 'all') && !loading && (
+              {hasActiveFilters && !loading && (
                 <div className="d-flex align-items-center gap-2 mt-2">
                   <span className="text-muted small">
                     {filteredBrowse.length} result{filteredBrowse.length !== 1 ? 's' : ''}
                   </span>
-                  <button className="btn btn-link btn-sm p-0 text-muted"
-                    onClick={() => { setSearchQuery(''); setCategoryFilter('all') }}>
+                  <button className="btn btn-link btn-sm p-0 text-muted" onClick={clearAllFilters}>
                     Clear filters
                   </button>
                 </div>
@@ -1036,11 +1099,10 @@ export default function Market() {
           ) : displayList.length === 0 ? (
             <div className="text-center py-5 text-muted">
               <i className="fas fa-box-open fa-3x mb-3" />
-              {tab === 'browse' && (searchQuery || categoryFilter !== 'all') ? (
+              {tab === 'browse' && hasActiveFilters ? (
                 <>
                   <p>No listings match your search.</p>
-                  <button className="btn btn-outline-secondary btn-sm"
-                    onClick={() => { setSearchQuery(''); setCategoryFilter('all') }}>
+                  <button className="btn btn-outline-secondary btn-sm" onClick={clearAllFilters}>
                     Clear filters
                   </button>
                 </>
@@ -1134,94 +1196,4 @@ export default function Market() {
                         placeholder="0.00"
                         value={form.price}
                         onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="mb-3">
-                    <label className="form-label fw-medium">Category</label>
-                    <select
-                      className="form-select"
-                      value={form.category}
-                      onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
-                    >
-                      {categories.map(c => (
-                        <option key={c.slug} value={c.slug}>{c.label}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="mb-3">
-                    <label className="form-label fw-medium">Delivery Options</label>
-                    <div className="d-flex gap-3 flex-wrap">
-                      {[['pickup','Self-pickup only'],['delivery','Delivery only'],['both','Both']].map(([v,lbl]) => (
-                        <div className="form-check" key={v}>
-                          <input className="form-check-input" type="radio" name="delivery_type"
-                            id={`dt-${v}`} value={v} checked={form.delivery_type === v}
-                            onChange={() => setForm(f => ({ ...f, delivery_type: v, delivery_fee: v === 'pickup' ? '' : f.delivery_fee }))} />
-                          <label className="form-check-label" htmlFor={`dt-${v}`}>{lbl}</label>
-                        </div>
-                      ))}
-                    </div>
-                    {(form.delivery_type === 'delivery' || form.delivery_type === 'both') && (
-                      <div className="mt-2">
-                        <input type="number" className="form-control" min={0} step="0.01"
-                          placeholder="Delivery fee ($, leave blank if free)"
-                          value={form.delivery_fee}
-                          onChange={e => setForm(f => ({ ...f, delivery_fee: e.target.value }))} />
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="mb-4">
-                    <label className="form-label fw-medium">Photos <span className="text-muted">(up to 3, JPEG/PNG, max 5MB each)</span></label>
-                    <input
-                      ref={fileRef}
-                      type="file"
-                      className="form-control"
-                      accept=".jpg,.jpeg,.png"
-                      multiple
-                      onChange={handleFileChange}
-                    />
-                    {previews.length > 0 && (
-                      <div className="d-flex gap-2 mt-2 flex-wrap">
-                        {previews.map((src, i) => (
-                          <div key={i} className="position-relative">
-                            <img
-                              src={src}
-                              alt=""
-                              style={{ width: 90, height: 90, objectFit: 'cover', borderRadius: 6 }}
-                            />
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-danger position-absolute top-0 end-0"
-                              style={{ padding: '1px 5px', fontSize: '0.7rem' }}
-                              onClick={() => removeImage(i)}
-                            >
-                              ×
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <button
-                    type="submit"
-                    className="btn btn-primary w-100"
-                    disabled={submitting}
-                  >
-                    {submitting
-                      ? <><span className="spinner-border spinner-border-sm me-2" />Posting…</>
-                      : <><i className="fas fa-paper-plane me-2" />Post Listing</>
-                    }
-                  </button>
-                </form>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
+                      

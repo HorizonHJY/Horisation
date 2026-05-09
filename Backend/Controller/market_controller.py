@@ -55,9 +55,10 @@ def create_category():
     label  = data.get('label', '').strip()
     order  = int(data.get('order', 0))
     active = bool(data.get('active', True))
+    icon   = data.get('icon', 'fa-tag').strip() or 'fa-tag'
     if not slug or not label:
         return jsonify({'ok': False, 'error': 'slug and label are required.'}), 400
-    cat = market_db.upsert_category(slug, label, order, active)
+    cat = market_db.upsert_category(slug, label, order, active, icon)
     return jsonify({'ok': True, 'category': cat}), 201
 
 
@@ -68,9 +69,10 @@ def update_category(slug):
     label  = data.get('label', '').strip()
     order  = int(data.get('order', 0))
     active = bool(data.get('active', True))
+    icon   = data.get('icon', 'fa-tag').strip() or 'fa-tag'
     if not label:
         return jsonify({'ok': False, 'error': 'label is required.'}), 400
-    cat = market_db.upsert_category(slug, label, order, active)
+    cat = market_db.upsert_category(slug, label, order, active, icon)
     return jsonify({'ok': True, 'category': cat})
 
 
@@ -300,6 +302,4 @@ def my_listings():
 
 @market_bp.route('/user/<username>', methods=['GET'])
 @login_required
-def user_listings(username):
-    listings = market_db.get_active_listings_by_user(username)
-    return jsonify({'ok': True, 'listings': listings})
+def user_listin

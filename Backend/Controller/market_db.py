@@ -123,6 +123,7 @@ class Category(Base):
     label  = Column(String(100), nullable=False)
     order  = Column(Integer,     nullable=False, default=0)
     active = Column(Boolean,     nullable=False, default=True)
+    icon   = Column(String(50),  nullable=False, default='fa-tag')
 
 
 class Memo(Base):
@@ -166,6 +167,7 @@ def _migrate_columns():
         "ALTER TABLE user ADD COLUMN address TEXT",
         "ALTER TABLE user ADD COLUMN postal_code TEXT",
         "ALTER TABLE listings ADD COLUMN view_count INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE categories ADD COLUMN icon TEXT NOT NULL DEFAULT 'fa-tag'",
     ]
     with Session() as s:
         for stmt in stmts:
@@ -179,19 +181,19 @@ def _migrate_columns():
 def _seed_categories():
     """Insert default categories if the table is empty."""
     defaults = [
-        ('clothing',    '衣服',        1,  True),
-        ('furniture',   '家具',        2,  True),
-        ('kitchen',     '厨具',        3,  True),
-        ('electronics', 'Electronics', 4,  True),
-        ('beauty',      '美妆',        5,  True),
-        ('books',       'Books',       98, False),
-        ('other',       'Other',       99, False),
+        ('clothing',    '衣服',        1,  True,  'fa-tshirt'),
+        ('furniture',   '家具',        2,  True,  'fa-couch'),
+        ('kitchen',     '厨具',        3,  True,  'fa-utensils'),
+        ('electronics', 'Electronics', 4,  True,  'fa-laptop'),
+        ('beauty',      '美妆',        5,  True,  'fa-spa'),
+        ('books',       'Books',       98, False, 'fa-book'),
+        ('other',       'Other',       99, False, 'fa-box'),
     ]
     with Session() as s:
         if s.query(Category).count() > 0:
             return
-        for slug, label, order, active in defaults:
-            s.add(Category(slug=slug, label=label, order=order, active=active))
+        for slug, label, order, active, icon in defaults:
+            s.add(Category(slug=slug, label=label, order=order, active=active, icon=icon))
         s.commit()
 
 
@@ -435,23 +437,27 @@ def get_categories(active_only: bool = True) -> list[dict]:
         if active_only:
             q = q.filter_by(active=True)
         rows = q.order_by(Category.order).all()
-        return [{'slug': r.slug, 'label': r.label, 'order': r.order, 'active': r.active} for r in rows]
+        return [{'slug': r.slug, 'label': r.label, 'order': r.order,
+                 'active': r.active, 'icon': r.icon or 'fa-tag'} for r in rows]
 
 
-def upsert_category(slug: str, label: str, order: int, active: bool) -> dict:
+def upsert_category(slug: str, label: str, order: int, active: bool, icon: str = 'fa-tag') -> dict:
     """Create or update a category. Returns the saved dict."""
     slug = slug.strip().lower().replace(' ', '_')
+    icon = icon.strip() or 'fa-tag'
     with Session() as s:
         row = s.query(Category).filter_by(slug=slug).first()
         if row:
             row.label  = label
             row.order  = order
             row.active = active
+            row.icon   = icon
         else:
-            row = Category(slug=slug, label=label, order=order, active=active)
+            row = Category(slug=slug, label=label, order=order, active=active, icon=icon)
             s.add(row)
         s.commit()
-        return {'slug': row.slug, 'label': row.label, 'order': row.order, 'active': row.active}
+        return {'slug': row.slug, 'label': row.label, 'order': row.order,
+                'active': row.active, 'icon': row.icon or 'fa-tag'}
 
 
 def delete_category(slug: str) -> bool:
@@ -1112,19 +1118,4 @@ def get_invite_codes() -> list:
 
 
 def delete_invite_code(code_id: int) -> bool:
-    with Session() as s:
-        row = s.query(InviteCode).filter_by(id=code_id).first()
-        if not row:
-            return False
-        s.delete(row)
-        s.commit()
-        return True
-
-
-def validate_invite_code(code: str) -> bool:
-    now = datetime.utcnow()
-    with Session() as s:
-        row = s.query(InviteCode).filter_by(code=code).first()
-        if not row:
-            return False
-        return row.valid_from <= now <= row.valid_to
+    with Ses
