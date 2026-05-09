@@ -246,4 +246,58 @@ export default function SystemManagement() {
                           onChange={e => updateLocal(cat.slug, 'order', e.target.value)}
                           style={{ width: 56 }}
                         />
-             
+                      </td>
+                      <td className="align-middle">
+                        <div className="form-check form-switch mb-0">
+                          <input
+                            className="form-check-input" type="checkbox"
+                            checked={cat.active}
+                            onChange={e => updateLocal(cat.slug, 'active', e.target.checked)}
+                            id={`active-${cat.slug}`}
+                          />
+                          <label className="form-check-label" htmlFor={`active-${cat.slug}`} />
+                        </div>
+                      </td>
+                      <td className="align-middle">
+                        <div className="d-flex gap-1">
+                          <button
+                            className="btn btn-xs btn-primary"
+                            style={{ fontSize: '.72rem', padding: '2px 8px' }}
+                            disabled={saving === cat.slug}
+                            onClick={() => handleSave(cat)}
+                          >
+                            {saving === cat.slug
+                              ? <span className="spinner-border spinner-border-sm" />
+                              : <><i className="fas fa-save me-1" />Save</>
+                            }
+                          </button>
+                          <button
+                            className="btn btn-xs btn-outline-danger"
+                            style={{ fontSize: '.72rem', padding: '2px 8px' }}
+                            disabled={deleting === cat.slug}
+                            onClick={() => handleDelete(cat)}
+                          >
+                            {deleting === cat.slug
+                              ? <span className="spinner-border spinner-border-sm" />
+                              : <i className="fas fa-trash" />
+                            }
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        <div className="card-footer text-muted small">
+          <i className="fas fa-info-circle me-1" />
+          Inactive categories are hidden from the Market form but preserved on existing listings.
+          Slug cannot be changed after creation.
+        </div>
+      </div>
+    </div>
+  )
+}

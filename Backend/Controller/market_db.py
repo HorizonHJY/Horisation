@@ -1118,4 +1118,19 @@ def get_invite_codes() -> list:
 
 
 def delete_invite_code(code_id: int) -> bool:
-    with Ses
+    with Session() as s:
+        row = s.query(InviteCode).filter_by(id=code_id).first()
+        if not row:
+            return False
+        s.delete(row)
+        s.commit()
+        return True
+
+
+def validate_invite_code(code: str) -> bool:
+    now = datetime.utcnow()
+    with Session() as s:
+        row = s.query(InviteCode).filter_by(code=code).first()
+        if not row:
+            return False
+        return row.valid_from <= now <= row.valid_to

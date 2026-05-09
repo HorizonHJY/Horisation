@@ -1196,4 +1196,94 @@ export default function Market() {
                         placeholder="0.00"
                         value={form.price}
                         onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
-                      
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="form-label fw-medium">Category</label>
+                    <select
+                      className="form-select"
+                      value={form.category}
+                      onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
+                    >
+                      {categories.map(c => (
+                        <option key={c.slug} value={c.slug}>{c.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="form-label fw-medium">Delivery Options</label>
+                    <div className="d-flex gap-3 flex-wrap">
+                      {[['pickup','仅自提'],['delivery','仅配送'],['both','可自提或配送']].map(([v,lbl]) => (
+                        <div className="form-check" key={v}>
+                          <input className="form-check-input" type="radio" name="delivery_type"
+                            id={`dt-${v}`} value={v} checked={form.delivery_type === v}
+                            onChange={() => setForm(f => ({ ...f, delivery_type: v, delivery_fee: v === 'pickup' ? '' : f.delivery_fee }))} />
+                          <label className="form-check-label" htmlFor={`dt-${v}`}>{lbl}</label>
+                        </div>
+                      ))}
+                    </div>
+                    {(form.delivery_type === 'delivery' || form.delivery_type === 'both') && (
+                      <div className="mt-2">
+                        <input type="number" className="form-control" min={0} step="0.01"
+                          placeholder="Delivery fee ($, leave blank if free)"
+                          value={form.delivery_fee}
+                          onChange={e => setForm(f => ({ ...f, delivery_fee: e.target.value }))} />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="form-label fw-medium">Photos <span className="text-muted">(up to 3, JPEG/PNG, max 5MB each)</span></label>
+                    <input
+                      ref={fileRef}
+                      type="file"
+                      className="form-control"
+                      accept=".jpg,.jpeg,.png"
+                      multiple
+                      onChange={handleFileChange}
+                    />
+                    {previews.length > 0 && (
+                      <div className="d-flex gap-2 mt-2 flex-wrap">
+                        {previews.map((src, i) => (
+                          <div key={i} className="position-relative">
+                            <img
+                              src={src}
+                              alt=""
+                              style={{ width: 90, height: 90, objectFit: 'cover', borderRadius: 6 }}
+                            />
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-danger position-absolute top-0 end-0"
+                              style={{ padding: '1px 5px', fontSize: '0.7rem' }}
+                              onClick={() => removeImage(i)}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="btn btn-primary w-100"
+                    disabled={submitting}
+                  >
+                    {submitting
+                      ? <><span className="spinner-border spinner-border-sm me-2" />Posting…</>
+                      : <><i className="fas fa-paper-plane me-2" />Post Listing</>
+                    }
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
