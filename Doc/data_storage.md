@@ -1,6 +1,6 @@
 # Horisation — Data Storage Reference
 
-Last updated: 2026-05-08
+Last updated: 2026-05-09
 
 ---
 
@@ -70,6 +70,9 @@ via `user_manager.py` public API.
 | category | TEXT | Slug referencing `categories.slug` (loosely) |
 | contact | TEXT | Legacy field (kept for compatibility) |
 | status | TEXT | `active` / `sold` / `removed` |
+| delivery_type | TEXT | `pickup` / `delivery` / `both`; default `pickup` |
+| delivery_fee | REAL | Optional delivery fee; null = free |
+| view_count | INTEGER | Incremented on each `GET /listings/<id>`; sessionStorage dedup on frontend |
 | created_at | DATETIME | UTC |
 | updated_at | DATETIME | UTC, auto-updates |
 
@@ -83,6 +86,7 @@ via `user_manager.py` public API.
 | label | TEXT | Display name shown in UI — e.g. `衣服`, `Electronics` |
 | order | INTEGER | Sort order for pills / dropdowns (lower = first) |
 | active | BOOLEAN | Inactive categories hidden from create/edit form; preserved on existing listings |
+| icon | TEXT | FontAwesome class — e.g. `fa-tshirt`; default `fa-tag`. Configurable via System Management. |
 
 Seeded on first startup with 7 entries: clothing, furniture, kitchen, electronics, beauty (active) + books, other (inactive, legacy).
 Managed via `GET/POST /api/market/categories` and `PUT/DELETE /api/market/categories/<slug>` (admin only).
@@ -252,39 +256,4 @@ Each file is a JSON array of note objects: `{ id, title, content, created_at, up
 
 ```
 _data/
-├── market.db            ← all structured data (SQLite, gitignored)
-└── notes/               ← per-user note JSON files (git tracked)
-
-Key/
-└── r2_config.json       ← R2 credentials (gitignored)
-
-Cloudflare R2 bucket: horisation-market
-├── listings/<id>/<img>.jpg
-└── avatars/<username>.jpg
-```
-
----
-
-## PostgreSQL Migration Path
-
-Change one line in `market_db.py`:
-
-```python
-# Current (SQLite)
-engine = create_engine(f'sqlite:///{DB_PATH}', echo=False)
-
-# Future (PostgreSQL)
-engine = create_engine('postgresql://user:password@host/dbname', echo=False)
-```
-
-All models and helpers are ORM-based and require no further changes.
-
----
-
-## Known Limitations
-
-| Issue | Impact | Fix |
-|-------|--------|-----|
-| Plaintext passwords | Security risk | bcrypt hashing |
-| SQLite single-writer | Concurrent writes may fail under load | Migrate to PostgreSQL |
-| No soft delete on users | Deleted user data lost | Add `deleted_at` timestamp |
+├── m
