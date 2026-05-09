@@ -1189,4 +1189,39 @@ export default function Market() {
                           <div key={i} className="position-relative">
                             <img
                               src={src}
-   
+                              alt=""
+                              style={{ width: 90, height: 90, objectFit: 'cover', borderRadius: 6 }}
+                            />
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-danger position-absolute top-0 end-0"
+                              style={{ padding: '1px 5px', fontSize: '0.7rem' }}
+                              onClick={() => removeImage(i)}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="btn btn-primary w-100"
+                    disabled={submitting}
+                  >
+                    {submitting
+                      ? <><span className="spinner-border spinner-border-sm me-2" />Posting…</>
+                      : <><i className="fas fa-paper-plane me-2" />Post Listing</>
+                    }
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
