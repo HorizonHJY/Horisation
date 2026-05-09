@@ -31,7 +31,7 @@ export default function Home() {
       <div style={{ position: 'relative', zIndex: 1 }}>
         <div className="hero-block">
           <h2 className="hero-title">Hello, {user?.display_name}</h2>
-          <p className="hero-sub">欢迎回到圣路易斯私人港湾</p>
+          <p className="hero-sub">欢迎来村里看看!</p>
         </div>
 
         <h5 style={{
