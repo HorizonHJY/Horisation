@@ -706,9 +706,21 @@ export default function Market() {
   }
 
   function handleFileChange(e) {
-    const files = Array.from(e.target.files).slice(0, 3)
-    setImages(files)
-    setPreviews(files.map(f => URL.createObjectURL(f)))
+    const incoming = Array.from(e.target.files)
+    const incomingPreviews = incoming.map(f => URL.createObjectURL(f))
+
+    setImages(prev => [...prev, ...incoming].slice(0, 3))
+    setPreviews(prev => {
+      const combined = [...prev, ...incomingPreviews]
+      // Revoke URLs for any files dropped because we hit the 3-image limit
+      if (combined.length > 3) {
+        combined.slice(3).forEach(url => URL.revokeObjectURL(url))
+      }
+      return combined.slice(0, 3)
+    })
+
+    // Reset so the picker can be opened again to add more
+    if (fileRef.current) fileRef.current.value = ''
   }
 
   function removeImage(idx) {
@@ -1236,13 +1248,22 @@ export default function Market() {
                   </div>
 
                   <div className="mb-4">
-                    <label className="form-label fw-medium">Photos <span className="text-muted">(up to 3, JPEG/PNG, max 5MB each)</span></label>
+                    <label className="form-label fw-medium">
+                      Photos{' '}
+                      <span className="text-muted">
+                        (最多3张，JPEG/PNG，每张不超过5MB
+                        {images.length > 0 && images.length < 3 && ` · 已选 ${images.length} 张，还可添加 ${3 - images.length} 张`}
+                        {images.length >= 3 && ' · 已达上限'}
+                        )
+                      </span>
+                    </label>
                     <input
                       ref={fileRef}
                       type="file"
                       className="form-control"
                       accept=".jpg,.jpeg,.png"
                       multiple
+                      disabled={images.length >= 3}
                       onChange={handleFileChange}
                     />
                     {previews.length > 0 && (
@@ -1257,33 +1278,4 @@ export default function Market() {
                             <button
                               type="button"
                               className="btn btn-sm btn-danger position-absolute top-0 end-0"
-                              style={{ padding: '1px 5px', fontSize: '0.7rem' }}
-                              onClick={() => removeImage(i)}
-                            >
-                              ×
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <button
-                    type="submit"
-                    className="btn btn-primary w-100"
-                    disabled={submitting}
-                  >
-                    {submitting
-                      ? <><span className="spinner-border spinner-border-sm me-2" />Posting…</>
-                      : <><i className="fas fa-paper-plane me-2" />Post Listing</>
-                    }
-                  </button>
-                </form>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
+                              style={{ padding: '1px 5px', fontSiz
