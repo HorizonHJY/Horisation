@@ -256,4 +256,39 @@ Each file is a JSON array of note objects: `{ id, title, content, created_at, up
 
 ```
 _data/
-├── m
+├── market.db            ← all structured data (SQLite, gitignored)
+└── notes/               ← per-user note JSON files (git tracked)
+
+Key/
+└── r2_config.json       ← R2 credentials (gitignored)
+
+Cloudflare R2 bucket: horisation-market
+├── listings/<id>/<img>.jpg
+└── avatars/<username>.jpg
+```
+
+---
+
+## PostgreSQL Migration Path
+
+Change one line in `market_db.py`:
+
+```python
+# Current (SQLite)
+engine = create_engine(f'sqlite:///{DB_PATH}', echo=False)
+
+# Future (PostgreSQL)
+engine = create_engine('postgresql://user:password@host/dbname', echo=False)
+```
+
+All models and helpers are ORM-based and require no further changes.
+
+---
+
+## Known Limitations
+
+| Issue | Impact | Fix |
+|-------|--------|-----|
+| Plaintext passwords | Security risk | bcrypt hashing |
+| SQLite single-writer | Concurrent writes may fail under load | Migrate to PostgreSQL |
+| No soft delete on users | Deleted user data lost | Add `deleted_at` timestamp |
