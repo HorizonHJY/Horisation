@@ -157,11 +157,18 @@ def delete_plan(plan_id, username):
 
 # ── Entry helpers ─────────────────────────────────────────────────────────────
 
-def add_entry(plan_id, day_number, type_, time_start, time_end, name, address, notes, display_order=0):
+def add_entry(plan_id, day_number, type_, time_start, time_end, name, address, notes, display_order=None):
     with Session() as s:
         plan = s.get(TravelPlan, plan_id.upper())
         if not plan:
             return None
+        # Auto-append to end of the day's list when no order is specified
+        if display_order is None:
+            from sqlalchemy import func as _func
+            max_order = s.query(_func.max(TravelEntry.display_order)).filter_by(
+                plan_id=plan_id.upper(), day_number=int(day_number)
+            ).scalar()
+            display_order = (max_order + 1) if max_order is not None else 0
         entry = TravelEntry(
             id=str(uuid.uuid4()),
             plan_id=plan_id.upper(),
@@ -191,18 +198,3 @@ def update_entry(entry_id, plan_id, **kwargs):
                 # Store empty strings as None for optional fields
                 if k in ('time_start', 'time_end', 'address', 'notes') and v == '':
                     setattr(entry, k, None)
-                else:
-                    setattr(entry, k, v)
-        s.commit()
-        s.refresh(entry)
-        return _entry_dict(entry)
-
-
-def delete_entry(entry_id, plan_id):
-    with Session() as s:
-        entry = s.query(TravelEntry).filter_by(id=entry_id, plan_id=plan_id.upper()).first()
-        if not entry:
-            return False
-        s.delete(entry)
-        s.commit()
-        return True
