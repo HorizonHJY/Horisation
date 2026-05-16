@@ -198,3 +198,36 @@ def update_entry(entry_id, plan_id, **kwargs):
                 # Store empty strings as None for optional fields
                 if k in ('time_start', 'time_end', 'address', 'notes') and v == '':
                     setattr(entry, k, None)
+                else:
+                    setattr(entry, k, v)
+        s.commit()
+        s.refresh(entry)
+        return _entry_dict(entry)
+
+
+def reorder_entries(plan_id, orders):
+    """Batch-update display_order for entries in a plan.
+    orders: [{'id': '<uuid>', 'display_order': 0}, ...]
+    """
+    with Session() as s:
+        plan = s.get(TravelPlan, plan_id.upper())
+        if not plan:
+            return False
+        for item in orders:
+            entry = s.query(TravelEntry).filter_by(
+                id=item['id'], plan_id=plan_id.upper()
+            ).first()
+            if entry:
+                entry.display_order = int(item['display_order'])
+        s.commit()
+        return True
+
+
+def delete_entry(entry_id, plan_id):
+    with Session() as s:
+        entry = s.query(TravelEntry).filter_by(id=entry_id, plan_id=plan_id.upper()).first()
+        if not entry:
+            return False
+        s.delete(entry)
+        s.commit()
+        return True

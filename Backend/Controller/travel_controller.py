@@ -111,4 +111,16 @@ def update_entry(plan_id, entry_id):
     kwargs  = {k: v for k, v in data.items() if k in allowed}
     if 'day_number'    in kwargs: kwargs['day_number']    = int(kwargs['day_number'])
     if 'display_order' in kwargs: kwargs['display_order'] = int(kwargs['display_order'])
-    entry = travel_db.update_en
+    entry = travel_db.update_entry(entry_id, plan_id, **kwargs)
+    if entry is None:
+        return jsonify({'ok': False, 'error': 'Entry not found.'}), 404
+    return jsonify({'ok': True, 'entry': entry})
+
+
+@travel_bp.route('/plans/<plan_id>/entries/<entry_id>', methods=['DELETE'])
+@login_required
+def delete_entry(plan_id, entry_id):
+    ok = travel_db.delete_entry(entry_id, plan_id)
+    if not ok:
+        return jsonify({'ok': False, 'error': 'Entry not found.'}), 404
+    return jsonify({'ok': True})
