@@ -709,15 +709,11 @@ export default function TravelPlanner() {
   }
 
   function openPlan(p) {
-    if (!p.entries) {
-      api.get(`/api/travel/plans/${p.id}`).then(d => {
-        if (d.ok) { setPlan(d.plan); setView('plan') }
-        else showToast('加载失败', 'danger')
-      })
-    } else {
-      setPlan(p)
-      setView('plan')
-    }
+    // Always fetch from API — my-plans list returns entries:[] regardless of real data
+    api.get(`/api/travel/plans/${p.id}`).then(d => {
+      if (d.ok) { setPlan(d.plan); setView('plan') }
+      else showToast('加载失败', 'danger')
+    })
   }
 
   return (
