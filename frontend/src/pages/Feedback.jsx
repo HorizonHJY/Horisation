@@ -3,24 +3,46 @@ import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../App'
 
+const CT_ZONE = 'America/Chicago'
+
 function timeAgo(isoStr) {
   const diff = Math.floor((Date.now() - new Date(isoStr)) / 1000)
   if (diff < 60)    return 'just now'
   if (diff < 3600)  return `${Math.floor(diff / 60)}m ago`
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
-  return new Date(isoStr).toLocaleDateString()
+  return new Date(isoStr).toLocaleDateString('en-US', { timeZone: CT_ZONE })
+}
+
+function formatCT(isoStr) {
+  return new Date(isoStr).toLocaleString('en-US', {
+    timeZone:  CT_ZONE,
+    month:     'short',
+    day:       'numeric',
+    hour:      'numeric',
+    minute:    '2-digit',
+    hour12:    true,
+  })
 }
 
 export default function Feedback() {
-  const { user }            = useAuth()
-  const navigate            = useNavigate()
-  const [messages, setMsgs] = useState([])
-  const [content, setContent] = useState('')
-  const [posting, setPosting] = useState(false)
-  const [toast, setToast]   = useState(null)
-  const bottomRef           = useRef()
+  const { user }                = useAuth()
+  const navigate                = useNavigate()
+  const [messages, setMsgs]     = useState([])
+  const [content, setContent]   = useState('')
+  const [posting, setPosting]   = useState(false)
+  const [toast, setToast]       = useState(null)
+  const [pendingDel, setPending] = useState(null)   // { id, msg, timerId }
+  const bottomRef               = useRef()
 
   useEffect(() => { load() }, [])
+
+  // Clean up undo timer on unmount
+  useEffect(() => () => {
+    if (pendingDel) {
+      clearTimeout(pendingDel.timerId)
+      api.delete(`/api/feedback/messages/${pendingDel.id}`)
+    }
+  }, []) // eslint-disable-line
 
   const load = async () => {
     const d = await api.get('/api/feedback/messages')
@@ -29,7 +51,7 @@ export default function Feedback() {
 
   const flash = (msg, type = 'success') => {
     setToast({ msg, type })
-    setTimeout(() => setToast(null), 2500)
+    setTimeout(() => setToast(null), 3000)
   }
 
   const submit = async (e) => {
@@ -46,10 +68,40 @@ export default function Feedback() {
     }
   }
 
-  const remove = async (id) => {
-    const d = await api.delete(`/api/feedback/messages/${id}`)
-    if (d.ok) setMsgs(prev => prev.filter(m => m.id !== id))
-    else flash(d.error, 'danger')
+  // ── Delete with undo ──────────────────────────────────────────────────────────
+  const remove = (id) => {
+    const msg = messages.find(m => m.id === id)
+    if (!msg) return
+
+    // If there's already a pending delete, commit it immediately before starting new one
+    if (pendingDel) {
+      clearTimeout(pendingDel.timerId)
+      api.delete(`/api/feedback/messages/${pendingDel.id}`)
+      setPending(null)
+    }
+
+    // Optimistically remove from UI
+    setMsgs(prev => prev.filter(m => m.id !== id))
+
+    // Schedule the actual API call after 5 s
+    const timerId = setTimeout(() => {
+      api.delete(`/api/feedback/messages/${id}`)
+      setPending(null)
+    }, 5000)
+
+    setPending({ id, msg, timerId })
+  }
+
+  const undoDelete = () => {
+    if (!pendingDel) return
+    clearTimeout(pendingDel.timerId)
+    // Re-insert at the correct position (newest-first order)
+    setMsgs(prev => {
+      const next = [...prev, pendingDel.msg]
+      next.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      return next
+    })
+    setPending(null)
   }
 
   const isAdmin = user?.role_info?.permissions?.includes('admin')
@@ -57,9 +109,27 @@ export default function Feedback() {
   return (
     <div className="container-fluid py-4" style={{ maxWidth: 720 }}>
 
+      {/* Regular toast */}
       {toast && (
         <div className={`alert alert-${toast.type} position-fixed top-0 end-0 m-3`} style={{ zIndex: 9999 }}>
           {toast.msg}
+        </div>
+      )}
+
+      {/* Undo toast */}
+      {pendingDel && (
+        <div
+          className="alert alert-dark d-flex align-items-center gap-3 position-fixed bottom-0 start-50 translate-middle-x mb-4"
+          style={{ zIndex: 9999, minWidth: 280, boxShadow: '0 4px 16px rgba(0,0,0,0.2)' }}
+        >
+          <i className="fas fa-trash-alt" />
+          <span className="flex-grow-1">Message deleted</span>
+          <button
+            className="btn btn-sm btn-outline-light fw-semibold"
+            onClick={undoDelete}
+          >
+            Undo
+          </button>
         </div>
       )}
 
@@ -106,57 +176,4 @@ export default function Feedback() {
               <div key={m.id} className="card shadow-sm px-4 py-3">
                 <div className="d-flex justify-content-between align-items-start">
                   <div
-                    className="d-flex align-items-center gap-2"
-                    style={{ cursor: 'pointer' }}
-                    onClick={() => navigate(`/u/${m.username}`)}
-                    title={`View ${m.display_name}'s profile`}
-                  >
-                    {m.avatar_url ? (
-                      <img
-                        src={m.avatar_url}
-                        alt={m.display_name}
-                        className="rounded-circle flex-shrink-0"
-                        style={{ width: 36, height: 36, objectFit: 'cover' }}
-                      />
-                    ) : (
-                      <div
-                        className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
-                        style={{ width: 36, height: 36, background: '#6b9cdb1a', color: '#6b9cdb', fontWeight: 700, fontSize: '0.9rem' }}
-                      >
-                        {m.display_name?.[0]?.toUpperCase()}
-                      </div>
-                    )}
-                    <div>
-                      <span className="fw-semibold">{m.display_name}</span>
-                      <span className="text-muted ms-1 small">@{m.username}</span>
-                    </div>
-                  </div>
-                  <div className="d-flex align-items-center gap-2">
-                    <span className="text-muted small">{timeAgo(m.created_at)}</span>
-                    {(isMine || isAdmin) && (
-                      <button
-                        className="btn btn-sm btn-link text-danger p-0"
-                        onClick={() => remove(m.id)}
-                        title="Delete"
-                      >
-                        <i className="fas fa-trash-alt" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-                <p className="mb-0 mt-2" style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
-                  {m.content}
-                </p>
-                <div className="text-muted mt-1" style={{ fontSize: '0.72rem' }}>
-                  {new Date(m.created_at).toLocaleString()}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      <div ref={bottomRef} />
-    </div>
-  )
-}
+                    className="d-flex 
