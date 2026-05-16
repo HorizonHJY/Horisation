@@ -18,6 +18,7 @@ const NAV_FUN = [
 
 const NAV_TOOLKIT_BASE = [
   { to: '/hormemo', icon: 'fa-clipboard-list', label: 'Hormemo' },
+  { to: '/travel',  icon: 'fa-route',          label: 'Travel Planner' },
 ]
 
 const NAV_TOOLKIT_HORIZON = [
@@ -96,9 +97,4 @@ export default function Sidebar({ isOpen, onClose }) {
       <div className="nav-section" style={{ marginTop: 'auto' }}>
         <button className="nav-item w-100 border-0 bg-transparent text-start" onClick={handleLogout}>
           <i className="fas fa-sign-out-alt" />
-          <span>Log Out</span>
-        </button>
-      </div>
-    </div>
-  )
-}
+     

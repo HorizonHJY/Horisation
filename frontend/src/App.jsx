@@ -18,6 +18,7 @@ import Market from './pages/Market'
 import Feedback from './pages/Feedback'
 import Friends from './pages/Friends'
 import UserProfile from './pages/UserProfile'
+import TravelPlanner from './pages/TravelPlanner'
 
 // ── Theme Context ────────────────────────────────────────────────
 export const ThemeContext = createContext(null)
@@ -163,6 +164,7 @@ export default function App() {
             <Route path="/feedback"          element={<Feedback />} />
             <Route path="/friends"           element={<Friends />} />
             <Route path="/u/:username"       element={<UserProfile />} />
+            <Route path="/travel"             element={<TravelPlanner />} />
           </Route>
 
           {/* Fallback */}
