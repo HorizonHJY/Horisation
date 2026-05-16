@@ -101,4 +101,6 @@ def request_entity_too_large(_):
 def internal_error(_):
     return jsonify({'ok': False, 'error': 'Internal server error'}), 500
 
-# ── Dev entry point ───────────────────�
+# ── Dev entry point ──────────────────────────────────────────────
+if __name__ == '__main__':
+    socketio.run(app, debug=True, host='0.0.0.0', port=5000)
