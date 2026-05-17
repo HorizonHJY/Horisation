@@ -86,8 +86,19 @@ class Message(Base):
     username     = Column(String(100), nullable=False, index=True)
     display_name = Column(String(100), nullable=False)
     content      = Column(Text, nullable=False)
-    reply_to_id  = Column(String(36), nullable=True)   # id of the message being replied to
+    reply_to_id  = Column(String(36), nullable=True)   # direct parent message id
+    thread_id    = Column(String(36), nullable=True, index=True)  # top-level message id (NULL for top-level)
+    like_count   = Column(Integer, nullable=False, default=0)
     created_at   = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+
+class MessageLike(Base):
+    """Tracks which users liked which messages (prevents double-liking)."""
+    __tablename__ = 'message_likes'
+
+    id         = Column(Integer, primary_key=True, autoincrement=True)
+    message_id = Column(String(36), nullable=False, index=True)
+    username   = Column(String(100), nullable=False)
 
 
 class GameRoom(Base):
@@ -170,6 +181,8 @@ def _migrate_columns():
         "ALTER TABLE listings ADD COLUMN view_count INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE categories ADD COLUMN icon TEXT NOT NULL DEFAULT 'fa-tag'",
         "ALTER TABLE messages ADD COLUMN reply_to_id TEXT",
+        "ALTER TABLE messages ADD COLUMN thread_id TEXT",
+        "ALTER TABLE messages ADD COLUMN like_count INTEGER NOT NULL DEFAULT 0",
     ]
     with Session() as s:
         for stmt in stmts:
@@ -376,66 +389,129 @@ def _listing_to_dict(listing: Listing, seller_user: 'User | None' = None) -> dic
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def get_messages(limit: int = 100) -> list:
+def _msg_dict(r: Message) -> dict:
+    return {
+        'id':           r.id,
+        'username':     r.username,
+        'display_name': r.display_name,
+        'content':      r.content,
+        'created_at':   r.created_at.isoformat(),
+        'like_count':   r.like_count or 0,
+        'reply_to_id':  r.reply_to_id,
+        'thread_id':    r.thread_id,
+        'reply_to':     None,
+    }
+
+
+def get_messages(page: int = 1, per_page: int = 5) -> dict:
+    """Return paginated top-level messages with top-2 replies each."""
+    offset = (page - 1) * per_page
     with Session() as s:
-        rows = s.query(Message).order_by(Message.created_at.desc()).limit(limit).all()
-
-        # Batch-fetch reply targets in one query
-        reply_ids = [r.reply_to_id for r in rows if r.reply_to_id]
-        reply_map = {}
-        if reply_ids:
-            refs = s.query(Message).filter(Message.id.in_(reply_ids)).all()
-            reply_map = {r.id: r for r in refs}
-
+        base_q = s.query(Message).filter(Message.thread_id == None)
+        total  = base_q.count()
+        rows   = base_q.order_by(Message.created_at.desc()).offset(offset).limit(per_page).all()
         result = []
         for r in rows:
-            ref = reply_map.get(r.reply_to_id) if r.reply_to_id else None
-            result.append({
-                'id':           r.id,
-                'username':     r.username,
-                'display_name': r.display_name,
-                'content':      r.content,
-                'created_at':   r.created_at.isoformat(),
-                'reply_to':     {
-                    'id':           ref.id,
-                    'username':     ref.username,
-                    'display_name': ref.display_name,
-                    'content':      ref.content[:200],
-                } if ref else None,
-            })
+            reply_count = s.query(func.count(Message.id)).filter_by(thread_id=r.id).scalar() or 0
+            top_reps    = (s.query(Message)
+                           .filter_by(thread_id=r.id)
+                           .order_by(Message.like_count.desc(), Message.created_at.asc())
+                           .limit(2).all())
+            m = _msg_dict(r)
+            m['reply_count'] = reply_count
+            m['top_replies'] = []
+            for rep in top_reps:
+                rd = _msg_dict(rep)
+                if rep.reply_to_id and rep.reply_to_id != r.id:
+                    ref = s.query(Message).filter_by(id=rep.reply_to_id).first()
+                    rd['reply_to'] = {'id': ref.id, 'username': ref.username,
+                                      'display_name': ref.display_name,
+                                      'content': ref.content[:200]} if ref else None
+                m['top_replies'].append(rd)
+            result.append(m)
+        return {'messages': result, 'total': total, 'page': page, 'per_page': per_page}
+
+
+def get_replies(thread_id: str) -> list:
+    """Return all replies in a thread, ordered by likes desc then time asc."""
+    with Session() as s:
+        rows = (s.query(Message)
+                .filter_by(thread_id=thread_id)
+                .order_by(Message.like_count.desc(), Message.created_at.asc())
+                .all())
+        result = []
+        for r in rows:
+            d = _msg_dict(r)
+            if r.reply_to_id and r.reply_to_id != thread_id:
+                ref = s.query(Message).filter_by(id=r.reply_to_id).first()
+                d['reply_to'] = {'id': ref.id, 'username': ref.username,
+                                 'display_name': ref.display_name,
+                                 'content': ref.content[:200]} if ref else None
+            result.append(d)
         return result
 
 
 def post_message(username: str, display_name: str, content: str,
                  reply_to_id: str = None) -> dict:
-    msg = Message(
-        id=str(uuid.uuid4()),
-        username=username,
-        display_name=display_name,
-        content=content,
-        reply_to_id=reply_to_id or None,
-    )
     with Session() as s:
+        thread_id = None
+        if reply_to_id:
+            parent = s.query(Message).filter_by(id=reply_to_id).first()
+            if parent:
+                thread_id = parent.thread_id or parent.id
+        msg = Message(
+            id=str(uuid.uuid4()),
+            username=username,
+            display_name=display_name,
+            content=content,
+            reply_to_id=reply_to_id or None,
+            thread_id=thread_id,
+        )
         s.add(msg)
         s.commit()
-        return {
-            'id':           msg.id,
-            'username':     msg.username,
-            'display_name': msg.display_name,
-            'content':      msg.content,
-            'created_at':   msg.created_at.isoformat(),
-            'reply_to_id':  msg.reply_to_id,
-        }
+        return _msg_dict(msg)
+
+
+def toggle_like(message_id: str, username: str):
+    """Toggle like. Returns {liked, like_count} or None if not found."""
+    with Session() as s:
+        msg = s.query(Message).filter_by(id=message_id).first()
+        if not msg:
+            return None
+        existing = s.query(MessageLike).filter_by(message_id=message_id, username=username).first()
+        if existing:
+            s.delete(existing)
+            msg.like_count = max(0, (msg.like_count or 0) - 1)
+            liked = False
+        else:
+            s.add(MessageLike(message_id=message_id, username=username))
+            msg.like_count = (msg.like_count or 0) + 1
+            liked = True
+        s.commit()
+        return {'liked': liked, 'like_count': msg.like_count}
+
+
+def get_liked_ids(username: str, message_ids: list) -> set:
+    """Return set of message ids (from given list) that username has liked."""
+    if not message_ids:
+        return set()
+    with Session() as s:
+        rows = s.query(MessageLike.message_id).filter(
+            MessageLike.username == username,
+            MessageLike.message_id.in_(message_ids),
+        ).all()
+        return {r[0] for r in rows}
 
 
 def delete_message(message_id: str, username: str, is_admin: bool = False) -> bool:
-    """Delete a message. Users can only delete their own; admins can delete any."""
+    """Delete a message (and its likes). Users can only delete their own; admins can delete any."""
     with Session() as s:
         row = s.query(Message).filter_by(id=message_id).first()
         if not row:
             return False
         if not is_admin and row.username != username:
             return False
+        s.query(MessageLike).filter_by(message_id=message_id).delete()
         s.delete(row)
         s.commit()
         return True
@@ -1122,48 +1198,4 @@ def get_unread_counts(username: str) -> dict:
 
 # ── Invite code helpers ────────────────────────────────────────────────────────
 
-def _invite_code_to_dict(r: InviteCode) -> dict:
-    return {
-        'id':         r.id,
-        'code':       r.code,
-        'valid_from': r.valid_from.strftime('%Y-%m-%d'),
-        'valid_to':   r.valid_to.strftime('%Y-%m-%d'),
-        'created_by': r.created_by,
-        'created_at': r.created_at.isoformat(),
-    }
-
-
-def create_invite_code(code: str, valid_from: datetime, valid_to: datetime, created_by: str) -> Optional[dict]:
-    with Session() as s:
-        if s.query(InviteCode).filter_by(code=code).first():
-            return None  # duplicate code
-        row = InviteCode(code=code, valid_from=valid_from, valid_to=valid_to, created_by=created_by)
-        s.add(row)
-        s.commit()
-        s.refresh(row)
-        return _invite_code_to_dict(row)
-
-
-def get_invite_codes() -> list:
-    with Session() as s:
-        rows = s.query(InviteCode).order_by(InviteCode.created_at.desc()).all()
-        return [_invite_code_to_dict(r) for r in rows]
-
-
-def delete_invite_code(code_id: int) -> bool:
-    with Session() as s:
-        row = s.query(InviteCode).filter_by(id=code_id).first()
-        if not row:
-            return False
-        s.delete(row)
-        s.commit()
-        return True
-
-
-def validate_invite_code(code: str) -> bool:
-    now = datetime.utcnow()
-    with Session() as s:
-        row = s.query(InviteCode).filter_by(code=code).first()
-        if not row:
-            return False
-        return row.valid_from <= now <= row.valid_to
+def _invite_code_to_dict(r: Inv
