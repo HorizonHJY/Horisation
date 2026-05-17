@@ -242,6 +242,4 @@ def respond_contact(req_id):
 @login_required
 def get_history(username):
     me = request.current_user['username']
-    if not market_db.are_friends(me, username):
-        return jsonify({'ok': False, 'error': 'Not friends'}), 403
     return jsonify({'ok': True, 'messages': market_db.get_chat_history(me, username)})

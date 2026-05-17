@@ -331,25 +331,12 @@ function ListingCard({ listing, currentUser, onSold, onRestore, onDelete, onEdit
       {/* Reach Out for other users' active listings */}
       {!isMine && !isSold && (
         <div className="market-card__action">
-          {reachOutStatus === 'friends' ? (
-            <button
-              className="market-card__btn market-card__btn--reach"
-              onClick={() => onReachOut(listing)}
-            >
-              <i className="fas fa-comment-dots" />Reach Out
-            </button>
-          ) : reachOutStatus === 'sent' ? (
-            <span className="badge bg-warning text-dark px-3 py-2" style={{ fontSize: '.8rem' }}>
-              <i className="fas fa-clock me-1" />Request Sent
-            </span>
-          ) : (
-            <button
-              className="market-card__btn market-card__btn--reach"
-              onClick={() => onReachOut(listing)}
-            >
-              <i className="fas fa-paper-plane" />Reach Out
-            </button>
-          )}
+          <button
+            className="market-card__btn market-card__btn--reach"
+            onClick={() => onReachOut(listing)}
+          >
+            <i className="fas fa-comment-dots" />Message
+          </button>
         </div>
       )}
     </div>
@@ -507,17 +494,10 @@ function ListingDetailModal({ listing, currentUser, onClose, onSold, onRestore, 
               </div>
             ) : !isSold ? (
               <div style={{ display: 'flex', gap: 8, width: '100%' }}>
-                {reachOutStatus === 'sent' ? (
-                  <span className="badge bg-warning text-dark px-3 py-2" style={{ fontSize: '.85rem' }}>
-                    <i className="fas fa-clock me-1" />Request Sent
-                  </span>
-                ) : (
-                  <button className="market-card__btn market-card__btn--reach" style={{ flex: 1 }}
-                    onClick={() => { onReachOut(listing); onClose() }}>
-                    <i className={`fas ${reachOutStatus === 'friends' ? 'fa-comment-dots' : 'fa-paper-plane'}`} />
-                    Reach Out
-                  </button>
-                )}
+                <button className="market-card__btn market-card__btn--reach" style={{ flex: 1 }}
+                  onClick={() => { onReachOut(listing); onClose() }}>
+                  <i className="fas fa-comment-dots" />Message Seller
+                </button>
               </div>
             ) : null}
           </div>
@@ -550,17 +530,9 @@ function SellerModal({ seller, listings, onClose, onReachOut, reachOutStatus }) 
                   </span>
                 </div>
               </div>
-              {reachOutStatus === 'friends' ? (
-                <button className="btn btn-sm btn-success ms-2" onClick={() => onReachOut(null)}>
-                  <i className="fas fa-comment-dots me-1" />Chat
-                </button>
-              ) : reachOutStatus === 'sent' ? (
-                <span className="badge bg-warning text-dark ms-2">Request Sent</span>
-              ) : (
-                <button className="btn btn-sm btn-primary ms-2" onClick={() => onReachOut(null)}>
-                  <i className="fas fa-user-plus me-1" />Add Friend
-                </button>
-              )}
+              <button className="btn btn-sm btn-primary ms-2" onClick={() => onReachOut(null)}>
+                <i className="fas fa-comment-dots me-1" />Message
+              </button>
             </div>
             <button className="btn-close" onClick={onClose} />
           </div>
@@ -825,37 +797,31 @@ export default function Market() {
     }
   }
 
-  async function handleReachOut(listing, sellerUsername) {
+  function handleReachOut(listing, sellerUsername) {
     const username = sellerUsername ?? listing?.seller_username
     const title    = listing?.title ?? null
-    const status   = interestedSet[username]
 
-    if (status === 'friends') {
-      const friend = friendsMap[username]
-      const initialMessage = title
-        ? `嗨！我看到你发布的《${title}》，想聊一聊 😊`
-        : ''
-      // Close seller modal if open
-      setSellerModal(null)
-      navigate('/friends', { state: { openChat: friend, initialMessage } })
-      return
+    // Build chat partner object from any available source
+    let chatPartner = friendsMap[username]
+    if (!chatPartner) {
+      if (listing) {
+        chatPartner = {
+          username,
+          display_name: listing.seller_display || username,
+          avatar_url:   listing.seller_avatar  || null,
+        }
+      } else if (sellerModal && sellerModal.username === username) {
+        chatPartner = { ...sellerModal }
+      } else {
+        chatPartner = { username, display_name: username, avatar_url: null }
+      }
     }
 
-    // Not friends — send friend request
-    const msg = listing
-      ? `Hi! I saw your listing "${listing.title}" and would like to connect!`
-      : `Hi! I'd like to connect with you!`
-    const d = await api.post('/api/friends/requests', { to_user: username, message: msg })
-    if (d.ok) {
-      setInterested(prev => ({ ...prev, [username]: 'sent' }))
-      showToast('Friend request sent!')
-    } else if (d.error === 'Already friends') {
-      setInterested(prev => ({ ...prev, [username]: 'friends' }))
-    } else if (d.error === 'Request already pending') {
-      setInterested(prev => ({ ...prev, [username]: 'sent' }))
-    } else {
-      showToast(d.error, 'danger')
-    }
+    const initialMessage = title
+      ? `嗨！我看到你发布的《${title}》，想聊一聊 😊`
+      : ''
+    setSellerModal(null)
+    navigate('/friends', { state: { openChat: chatPartner, initialMessage } })
   }
 
   function buildExportText() {

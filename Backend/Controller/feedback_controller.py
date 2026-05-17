@@ -38,11 +38,13 @@ def post_message():
     if len(content) > 500:
         return jsonify({'ok': False, 'error': 'Message too long (max 500 characters).'}), 400
 
-    user    = request.current_user
-    message = market_db.post_message(
+    reply_to_id = data.get('reply_to_id') or None
+    user        = request.current_user
+    message     = market_db.post_message(
         username=user['username'],
         display_name=user['display_name'],
         content=content,
+        reply_to_id=reply_to_id,
     )
     message['avatar_url'] = user.get('avatar_url')
     return jsonify({'ok': True, 'message': message}), 201
@@ -55,5 +57,4 @@ def delete_message(message_id):
     is_admin = 'admin' in user.get('role_info', {}).get('permissions', [])
     ok       = market_db.delete_message(message_id, user['username'], is_admin)
     if not ok:
-        return jsonify({'ok': False, 'error': 'Message not found or permission denied.'}), 404
-    return jsonify({'ok': True})
+        return jsonify({'ok': False, 

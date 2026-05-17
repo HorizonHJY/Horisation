@@ -629,16 +629,21 @@ export default function Friends() {
                         <div className="fw-semibold text-truncate">{u.display_name}</div>
                         <div className="text-muted small">{u.username}</div>
                       </div>
-                      <div className="flex-shrink-0">
-                        {isFriend ? (
-                          <span className="badge bg-success">Friends</span>
-                        ) : isPending ? (
-                          <span className="badge bg-warning text-dark">Pending</span>
-                        ) : (
-                          <button className="btn btn-sm btn-primary" onClick={() => sendRequest(u.username)}>
-                            <i className="fas fa-user-plus me-1" />Add
-                          </button>
+                      <div className="flex-shrink-0 d-flex align-items-center gap-2">
+                        {isFriend && <span className="badge bg-success">Friends</span>}
+                        {!isFriend && (isPending
+                          ? <span className="badge bg-warning text-dark">Pending</span>
+                          : <button className="btn btn-sm btn-outline-primary" onClick={() => sendRequest(u.username)}>
+                              <i className="fas fa-user-plus me-1" />Add
+                            </button>
                         )}
+                        <button
+                          className="btn btn-sm btn-primary"
+                          onClick={() => { setTab('friends'); openChat(u) }}
+                          title="Send a message"
+                        >
+                          <i className="fas fa-comment-dots" />
+                        </button>
                       </div>
                     </div>
                   )

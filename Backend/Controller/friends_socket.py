@@ -51,9 +51,6 @@ def on_chat_send(data):
     if len(content) > 1000:
         emit('chat_error', {'message': 'Message too long (max 1000 chars)'})
         return
-    if not market_db.are_friends(sender, to_user):
-        emit('chat_error', {'message': 'Not friends'})
-        return
 
     ua, ub   = market_db._friend_pair(sender, to_user)
     room_key = f'{ua}:{ub}'

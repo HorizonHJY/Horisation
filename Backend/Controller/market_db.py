@@ -86,6 +86,7 @@ class Message(Base):
     username     = Column(String(100), nullable=False, index=True)
     display_name = Column(String(100), nullable=False)
     content      = Column(Text, nullable=False)
+    reply_to_id  = Column(String(36), nullable=True)   # id of the message being replied to
     created_at   = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
 
@@ -168,6 +169,7 @@ def _migrate_columns():
         "ALTER TABLE user ADD COLUMN postal_code TEXT",
         "ALTER TABLE listings ADD COLUMN view_count INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE categories ADD COLUMN icon TEXT NOT NULL DEFAULT 'fa-tag'",
+        "ALTER TABLE messages ADD COLUMN reply_to_id TEXT",
     ]
     with Session() as s:
         for stmt in stmts:
@@ -377,24 +379,41 @@ def _listing_to_dict(listing: Listing, seller_user: 'User | None' = None) -> dic
 def get_messages(limit: int = 100) -> list:
     with Session() as s:
         rows = s.query(Message).order_by(Message.created_at.desc()).limit(limit).all()
-        return [
-            {
+
+        # Batch-fetch reply targets in one query
+        reply_ids = [r.reply_to_id for r in rows if r.reply_to_id]
+        reply_map = {}
+        if reply_ids:
+            refs = s.query(Message).filter(Message.id.in_(reply_ids)).all()
+            reply_map = {r.id: r for r in refs}
+
+        result = []
+        for r in rows:
+            ref = reply_map.get(r.reply_to_id) if r.reply_to_id else None
+            result.append({
                 'id':           r.id,
                 'username':     r.username,
                 'display_name': r.display_name,
                 'content':      r.content,
                 'created_at':   r.created_at.isoformat(),
-            }
-            for r in rows
-        ]
+                'reply_to':     {
+                    'id':           ref.id,
+                    'username':     ref.username,
+                    'display_name': ref.display_name,
+                    'content':      ref.content[:200],
+                } if ref else None,
+            })
+        return result
 
 
-def post_message(username: str, display_name: str, content: str) -> dict:
+def post_message(username: str, display_name: str, content: str,
+                 reply_to_id: str = None) -> dict:
     msg = Message(
         id=str(uuid.uuid4()),
         username=username,
         display_name=display_name,
         content=content,
+        reply_to_id=reply_to_id or None,
     )
     with Session() as s:
         s.add(msg)
@@ -405,6 +424,7 @@ def post_message(username: str, display_name: str, content: str) -> dict:
             'display_name': msg.display_name,
             'content':      msg.content,
             'created_at':   msg.created_at.isoformat(),
+            'reply_to_id':  msg.reply_to_id,
         }
 
 
@@ -1068,69 +1088,38 @@ def mark_chat_read(username: str, room_key: str) -> None:
 
 
 def get_unread_counts(username: str) -> dict:
-    """Return {friend_username: unread_count} for all friends with unread messages."""
+    """Return {other_username: unread_count} for ALL DM rooms (friends and non-friends)."""
+    from sqlalchemy import or_
     with Session() as s:
-        friends = get_friends(username)
+        # Find every room_key this user participates in
+        room_keys = [
+            row[0] for row in
+            s.query(PrivateChatMessage.room_key).filter(
+                or_(
+                    PrivateChatMessage.room_key.like(f'{username}:%'),
+                    PrivateChatMessage.room_key.like(f'%:{username}'),
+                )
+            ).distinct().all()
+        ]
         result = {}
-        for friend in friends:
-            ua, ub    = _friend_pair(username, friend)
-            room_key  = f'{ua}:{ub}'
+        for room_key in room_keys:
+            parts = room_key.split(':', 1)
+            if len(parts) != 2:
+                continue
+            user_a, user_b = parts
+            other     = user_b if user_a == username else user_a
             read_row  = s.query(ChatRead).filter_by(username=username, room_key=room_key).first()
             last_read = read_row.read_at if read_row else datetime(1970, 1, 1)
             count = s.query(func.count(PrivateChatMessage.id)).filter(
                 PrivateChatMessage.room_key == room_key,
-                PrivateChatMessage.sender   == friend,
+                PrivateChatMessage.sender   == other,
                 PrivateChatMessage.created_at > last_read,
             ).scalar() or 0
             if count > 0:
-                result[friend] = count
+                result[other] = count
         return result
 
 
 # ── Invite code helpers ────────────────────────────────────────────────────────
 
-def _invite_code_to_dict(r: InviteCode) -> dict:
-    return {
-        'id':         r.id,
-        'code':       r.code,
-        'valid_from': r.valid_from.strftime('%Y-%m-%d'),
-        'valid_to':   r.valid_to.strftime('%Y-%m-%d'),
-        'created_by': r.created_by,
-        'created_at': r.created_at.isoformat(),
-    }
-
-
-def create_invite_code(code: str, valid_from: datetime, valid_to: datetime, created_by: str) -> Optional[dict]:
-    with Session() as s:
-        if s.query(InviteCode).filter_by(code=code).first():
-            return None  # duplicate code
-        row = InviteCode(code=code, valid_from=valid_from, valid_to=valid_to, created_by=created_by)
-        s.add(row)
-        s.commit()
-        s.refresh(row)
-        return _invite_code_to_dict(row)
-
-
-def get_invite_codes() -> list:
-    with Session() as s:
-        rows = s.query(InviteCode).order_by(InviteCode.created_at.desc()).all()
-        return [_invite_code_to_dict(r) for r in rows]
-
-
-def delete_invite_code(code_id: int) -> bool:
-    with Session() as s:
-        row = s.query(InviteCode).filter_by(id=code_id).first()
-        if not row:
-            return False
-        s.delete(row)
-        s.commit()
-        return True
-
-
-def validate_invite_code(code: str) -> bool:
-    now = datetime.utcnow()
-    with Session() as s:
-        row = s.query(InviteCode).filter_by(code=code).first()
-        if not row:
-            return False
-        return row.valid_from <= now <= row.valid_to
+def _invite_code_to_dict(r: Inv
