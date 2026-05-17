@@ -57,4 +57,5 @@ def delete_message(message_id):
     is_admin = 'admin' in user.get('role_info', {}).get('permissions', [])
     ok       = market_db.delete_message(message_id, user['username'], is_admin)
     if not ok:
-        return jsonify({'ok': False, 
+        return jsonify({'ok': False, 'error': 'Message not found or permission denied.'}), 404
+    return jsonify({'ok': True})
