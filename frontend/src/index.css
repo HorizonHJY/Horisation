@@ -1055,6 +1055,19 @@ textarea.form-control { height: auto; padding: .55rem .85rem; line-height: 1.55;
   max-width: 500px;
   z-index: 1;
 }
+/* iPad / medium screens */
+@media (max-width: 1024px) and (min-width: 601px) {
+  .login-page-overlay {
+    padding-top: 1.5rem;
+    padding-left: clamp(1.5rem, 5vw, 4rem);
+  }
+  .login-logo {
+    width: 280px !important;
+    height: 170px !important;
+    margin-bottom: -3rem !important;
+  }
+  .login-tagline { display: none; }
+}
 @media (max-width: 600px) {
   .login-page-overlay {
     padding-top: 2rem;
@@ -1494,10 +1507,6 @@ textarea.form-control { height: auto; padding: .55rem .85rem; line-height: 1.55;
   .page-content { padding: 22px 18px; }
   .page-title { font-size: 1.7rem; }
   .hero-block { padding: 24px 22px; }
-  .hero-block h2,
-  .hero-block .hero-title { font-size: 1.6rem; }
-}
- padding: 24px 22px; }
   .hero-block h2,
   .hero-block .hero-title { font-size: 1.6rem; }
 }

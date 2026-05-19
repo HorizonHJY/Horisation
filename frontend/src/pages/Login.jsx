@@ -44,6 +44,8 @@ export default function Login() {
         display: 'flex', flexDirection: 'column',
         alignItems: 'flex-start', justifyContent: 'flex-start',
         pointerEvents: 'none',
+        overflowY: 'auto',
+        WebkitOverflowScrolling: 'touch',
       }}>
         {/* Logo + title directly above the card */}
         <div className="login-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', maxWidth: 600 }}>
