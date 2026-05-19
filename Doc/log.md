@@ -2,18 +2,18 @@
 
 
 ## 0. Current Status
-Last Updated: 2026-05-09
+Last Updated: 2026-05-19
 
 ### Current Working Version
-- **Completed**: 全站设计系统统一；邀请码系统；功能角色门控；好友/私信系统；SQLite 迁移；二手市集（配送选项 + Restore + 动态分类 + System Management + 价格拆分 + 响应式按钮 + 浏览量计数 + **分类图标 + 多选 filter + 两行 meta + 中文配送标签 + EditModal 修复**）；留言板；用户公开主页
-- **In Progress**: 待 deploy 上线最新 commit（6cb7df8）
+- **Completed**: 全站设计系统统一；邀请码系统；功能角色门控；好友/私信系统；SQLite 迁移；二手市集（配送选项 + Restore + 动态分类 + System Management + 价格拆分 + 响应式按钮 + 浏览量计数 + 分类图标 + 多选 filter + 两行 meta + 中文配送标签 + EditModal 修复）；**留言板（Weibo 式线程回复 + 点赞 + 翻页）**；用户公开主页；**非好友直接私信**；**Market Reach Out 直接开 DM**；**Login 页 Safari 全面兼容修复**
+- **In Progress**: 待 deploy 最新 commit（e8fb702）
 - **Blocked / Not Solved**: 密码明文存储（待迁 bcrypt）；无 CI/CD 流水线；首页天气卡片（todo #1）
 
 ### Latest Summary
-市集 UI 全面升级：分类支持图标字段（DB + API + System Management 下拉选择）；卡片 meta 分两行（分类 / 配送）；Browse 页新增分类和配送双多选 filter；配送选项全站统一中文标签（仅自提 / 仅配送 / 可自提或配送）；修复 EditModal 白屏 bug（categories prop 未传入）；价格调整至卖家头像上方。commit 6cb7df8。
+Login 页 Safari 三大 bug 根因全部定位并修复：① backdrop-filter 隐式 stacking context 导致文字层叠；② position:fixed + overflow:hidden 导致绝对子元素定位错误；③ pointer-events:none 阻断 overflowY 滚动。最终方案：移除 overflow:hidden、canvas 加 pointer-events:none、form overlay 改 pointer-events:auto、tagline 定位改为 inline style。
 
 ### Next Immediate Step
-服务器跑一次 `bash ~/deploy.sh` 拉最新 commit（6cb7df8）上线；System Management 给现有分类选图标并 Save
+服务器跑 `git push origin main && bash ~/deploy.sh` 上线 commit e8fb702
 
 ---
 
@@ -71,6 +71,21 @@ Last Updated: 2026-05-09
 - **Root Cause**: Cowork 模式下 file_tools 操作 Windows FS，bash sandbox 通过 mount 挂载同一目录，但两侧写入有各自的缓冲层，不互相通知刷新
 - **Reusable Solution**: 需要 bash 使用某文件时，用 Python（`subprocess` + `open('w')`）写到 bash mount 路径；需要 file_tools 读时用 Edit/Read。babel/wc 等验证工具必须在 bash 中运行，且内容必须由 Python 写入才可信。不要混用两侧来验证同一文件的最终状态。
 
+### Pattern 8: Safari 的 pointer-events:none 阻断 overflowY 滚动
+- **Symptom**: 给 `overflowY: auto` 的容器加了 scroll 支持，在 Chrome 正常滚动，Safari 完全无法滚动
+- **Root Cause**: Safari 严格遵守 `pointer-events: none`——容器收不到任何指针事件（包括 scroll 事件），`overflowY: auto` 因此失效；Chrome 对此处理更宽松
+- **Reusable Solution**: 需要滚动的容器必须保留 `pointer-events: auto`（或不设置）。若容器内部有部分区域需要"点击穿透"，在子元素层面设置 `pointer-events: none`，而不是在容器层面
+
+### Pattern 9: Safari 的 position:fixed + overflow:hidden 导致绝对定位子元素错位
+- **Symptom**: `position: fixed; inset: 0; overflow: hidden` 的容器里，`position: absolute; bottom: X; left: Y` 的子元素在 Safari 显示位置与 Chrome 不同（tagline 跑到表单上方而非页面底部）
+- **Root Cause**: Safari 对 `position: fixed` + `overflow: hidden` 组合处理有 bug：包含块（containing block）计算与 Chrome 不一致，子元素的 `bottom/left` 有时相对 viewport 而非父容器解析
+- **Reusable Solution**: 去掉 `overflow: hidden`（fixed 容器不需要它，内容由定位控制）；绝对子元素的 `bottom/left` 写成 inline style 而非 CSS class（Safari 更可靠地解析 inline style）
+
+### Pattern 10: Safari 的 backdrop-filter 隐式创建 stacking context
+- **Symptom**: Login 表单卡片有 `backdrop-filter: blur()`，Safari 下底部 tagline 文字层叠到表单上方，Chrome 正常
+- **Root Cause**: Safari 中 `backdrop-filter`（包括 `-webkit-backdrop-filter`）会为元素创建新的 stacking context，打乱后续兄弟元素的渲染层叠顺序
+- **Reusable Solution**: 凡使用 `backdrop-filter` 的页面，对所有层都加明确 `z-index`（canvas: 0，tagline: 1，form overlay: 2），不要依赖 DOM 顺序决定层叠
+
 ### Pattern 6: deploy 前必须校验 React 挂载点
 - **Symptom**: index.html 缺 `<div id="root"></div>` 时 Vite build 反而能通过（HTML 结构本身合法），但运行时 `document.getElementById('root')` 返回 null，React 静默不渲染，页面全白
 - **Root Cause**: `ReactDOM.createRoot(document.getElementById('root'))` 找不到 dom 节点会静默失败而不抛错；构建期不会发现这种逻辑错误
@@ -79,6 +94,52 @@ Last Updated: 2026-05-09
 ---
 
 ## 3. Iteration History
+
+---
+
+### 2026-05-19 — Login 页 Safari 兼容修复
+
+#### Goal
+修复 Login 页在 Safari（Mac + iPad）上出现的布局错误：tagline 文字叠在表单上、表单被截断无法看到 Sign In 按钮、无法滚动。
+
+#### Trigger / Context
+用户在 Mac mini Safari 上发现 tagline（"St. Louis private harbor."）重叠在 Username 输入框上，且整个表单无法滚动，Sign In 按钮不可见。Chrome 下完全正常。
+
+#### Problem & Root Cause
+
+**Bug 1 — tagline 文字叠在表单上（stacking context）**
+表单卡片有 `backdrop-filter: blur(14px)`。Safari 中 `backdrop-filter` 会隐式为元素创建新的 stacking context，打乱兄弟元素的渲染层叠顺序，使 tagline（DOM 顺序在后）视觉上叠到表单之上。Chrome 对此处理更宽松。
+
+**Bug 2 — tagline 位置错误（containing block 计算 bug）**
+外层容器为 `position: fixed; inset: 0; overflow: hidden`，tagline 为其 `position: absolute` 子元素，CSS class 设 `bottom / left`。Safari 对 `position: fixed + overflow: hidden` 组合有 bug：绝对子元素的 containing block 计算与 Chrome 不一致，`bottom/left` 有时相对 viewport 而非父容器解析，导致 tagline 跑到页面中间而非底部。
+
+**Bug 3 — 表单无法滚动（pointer-events 阻断 overflow scroll）**
+form overlay 容器设了 `overflowY: auto` 以支持小屏滚动，但同时设了 `pointer-events: none`（原意是让背景点击穿透到 canvas）。Safari 严格遵守此属性，容器收不到任何指针事件（包括 scroll），`overflowY: auto` 完全失效。另外 canvas 元素未设 `pointer-events: none`，在 Safari 中会捕获所有触摸事件。
+
+#### Solution
+
+**1. z-index 明确分层（fix Bug 1）**
+在 `index.css` 的 `.login-page-overlay` 加 `z-index: 2`，`.login-tagline` 加 `z-index: 1`，不依赖 DOM 顺序决定层叠。
+
+**2. 重构 Login.jsx 容器结构（fix Bug 2）**
+- 外层 shell 去掉 `overflow: hidden`（fixed 容器不需要，内容由定位控制）
+- form overlay 从 `inset: 0` 改为显式 `top: 0; left: 0; bottom: 0`（无 right），避免 Safari 对 inset 的解析歧义
+- tagline 的 `bottom / left` 从 CSS class 移至 **inline style**，Safari 对 inline style 解析更可靠
+
+**3. 修正 pointer-events 配置（fix Bug 3）**
+- canvas wrapper 加 `pointer-events: none`（纯装饰动画，不需要交互）
+- form overlay 改为 `pointer-events: auto`，保证 overflowY scroll 事件可达
+- iPad 媒体查询（601–1024px）：logo 缩小至 280×170px，padding 减小
+
+#### Changed Files
+- `frontend/src/pages/Login.jsx` — 容器结构重构、pointer-events 修正、tagline 改 inline 定位
+- `frontend/src/index.css` — login-page-overlay/tagline 加 z-index、新增 iPad media query
+
+#### Result
+Safari Mac + iPad 下 Login 页显示正常：tagline 固定在左下角，表单完整可见，小屏可滚动到 Sign In 按钮。Chrome 行为无回归。commits 588612c → 35475a8 → e8fb702。
+
+#### Lessons Learned
+→ 见 Pattern 8（pointer-events:none 阻断 overflowY）、Pattern 9（fixed+overflow:hidden 子元素错位）、Pattern 10（backdrop-filter 隐式 stacking context）
 
 ---
 
