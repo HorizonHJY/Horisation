@@ -5,7 +5,11 @@
 """
 
 import re
-from flask import Blueprint, request, jsonify, session, redirect, url_for
+import os
+import io
+import zipfile
+from datetime import datetime
+from flask import Blueprint, request, jsonify, session, redirect, url_for, send_file
 from functools import wraps
 from .user_manager import user_manager
 
@@ -482,3 +486,60 @@ def check_permissions():
 
     except Exception as e:
         return jsonify({'ok': False, 'error': f'Permission check failed: {str(e)}'}), 500
+
+
+@auth_bp.route('/db-info', methods=['GET'])
+@admin_required
+def db_info():
+    """Return list of database files and their sizes."""
+    try:
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        data_dir = os.path.join(base_dir, '_data')
+
+        files = []
+        if os.path.isdir(data_dir):
+            for fname in sorted(os.listdir(data_dir)):
+                if fname.endswith('.db') or fname.endswith('.sqlite'):
+                    fpath = os.path.join(data_dir, fname)
+                    if os.path.isfile(fpath):
+                        files.append({
+                            'name': fname,
+                            'size': os.path.getsize(fpath),
+                        })
+
+        return jsonify({'ok': True, 'files': files})
+
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@auth_bp.route('/download-db', methods=['GET'])
+@admin_required
+def download_db():
+    """Download all database files as a zip archive."""
+    try:
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        data_dir = os.path.join(base_dir, '_data')
+
+        if not os.path.isdir(data_dir):
+            return jsonify({'ok': False, 'error': 'Database directory not found'}), 500
+
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+            for fname in os.listdir(data_dir):
+                if fname.endswith('.db') or fname.endswith('.sqlite'):
+                    fpath = os.path.join(data_dir, fname)
+                    if os.path.isfile(fpath):
+                        zf.write(fpath, arcname=fname)
+
+        buf.seek(0)
+        timestamp = datetime.now().strftime('%Y%m%d-%H%M%S')
+        return send_file(
+            buf,
+            mimetype='application/zip',
+            as_attachment=True,
+            download_name=f'horisation-db-{timestamp}.zip'
+        )
+
+    except Exception as e:
+        return jsonify({'ok': False, 'error': f'Export failed: {str(e)}'}), 500

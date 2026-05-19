@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
+import { useAuth } from '../App'
 import { api } from '../api'
 
 // Predefined icon options for category picker
@@ -298,6 +299,131 @@ export default function SystemManagement() {
           Slug cannot be changed after creation.
         </div>
       </div>
+
+      {/* ── Database Management ── */}
+      <div className="card shadow-sm mt-4">
+        <div className="card-header py-2">
+          <span className="fw-semibold">
+            <i className="fas fa-database me-2 text-success" />Database Management
+          </span>
+        </div>
+        <div className="card-body">
+          <DatabaseSection />
+        </div>
+      </div>
     </div>
+  )
+}
+
+function DatabaseSection() {
+  const { user } = useAuth()
+  const iframeRef = useRef(null)
+  const [downloading, setDownloading] = useState(false)
+  const [dbInfo, setDbInfo] = useState(null)
+  const [infoLoading, setInfoLoading] = useState(true)
+  const [dbError, setDbError] = useState(null)
+
+  const isAdmin = user?.role_info?.permissions?.includes('admin')
+
+  useEffect(() => {
+    loadDbInfo()
+  }, [])
+
+  async function loadDbInfo() {
+    setInfoLoading(true)
+    setDbError(null)
+    try {
+      const d = await api.get('/api/auth/db-info')
+      if (d.ok) {
+        setDbInfo(d)
+      } else {
+        setDbError(d.error || 'Failed to load DB info')
+      }
+    } catch (e) {
+      setDbError('Network error')
+    }
+    setInfoLoading(false)
+  }
+
+  function formatSize(bytes) {
+    if (!bytes && bytes !== 0) return '—'
+    if (bytes < 1024) return bytes + ' B'
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+    return (bytes / 1024 / 1024).toFixed(2) + ' MB'
+  }
+
+  function handleDownload() {
+    if (!isAdmin) return
+    setDownloading(true)
+
+    // Use an iframe trick to trigger the file download without leaving the page
+    const iframe = iframeRef.current
+    if (iframe) {
+      iframe.src = '/api/auth/download-db'
+    }
+
+    setTimeout(() => setDownloading(false), 3000)
+  }
+
+  return (
+    <>
+      {/* Hidden iframe for download trigger */}
+      <iframe ref={iframeRef} style={{ display: 'none' }} title="db-download" />
+
+      <div className="row g-3 align-items-end">
+        <div className="col-12 col-md-7">
+          <p className="mb-1">
+            <i className="fas fa-info-circle me-1 text-muted" />
+            Download a snapshot of all server database files (.db, .sqlite) as a ZIP archive.
+            Use with tools like DB Browser for SQLite or TablePlus to inspect data locally.
+          </p>
+
+          {infoLoading ? (
+            <div className="text-muted small">
+              <span className="spinner-border spinner-border-sm me-1" />
+              Loading DB info…
+            </div>
+          ) : dbError ? (
+            <div className="text-muted small">
+              <i className="fas fa-exclamation-triangle text-warning me-1" />
+              {dbError}
+            </div>
+          ) : dbInfo ? (
+            <div className="d-flex gap-3 small text-muted flex-wrap">
+              {dbInfo.files?.length > 0 ? (
+                dbInfo.files.map((f, i) => (
+                  <span key={i}>
+                    <i className="fas fa-file-code me-1" />
+                    {f.name} ({formatSize(f.size)})
+                  </span>
+                ))
+              ) : (
+                <span>No database files found</span>
+              )}
+            </div>
+          ) : null}
+        </div>
+
+        <div className="col-12 col-md-5 text-md-end">
+          <button
+            className="btn btn-success"
+            disabled={!isAdmin || downloading}
+            onClick={handleDownload}
+          >
+            {downloading ? (
+              <>
+                <span className="spinner-border spinner-border-sm me-1" />
+                Downloading…
+              </>
+            ) : (
+              <>
+                <i className="fas fa-download me-1" />
+                Download All DB Files
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </>
   )
 }
