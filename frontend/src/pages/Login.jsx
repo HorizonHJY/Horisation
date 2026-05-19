@@ -31,24 +31,36 @@ export default function Login() {
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, overflow: 'hidden' }}>
+    /* Outer shell — no overflow:hidden so Safari correctly positions children */
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>
 
-      {/* Canvas background */}
-      <div style={{ position: 'absolute', inset: 0 }}>
+      {/* Canvas background — behind everything */}
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 0 }}>
         <FlowerCanvas origin="right" />
       </div>
 
-      {/* ── Left: logo + title + login form ──────────────────────────────── */}
-      <div className="login-page-overlay" style={{
-        position: 'absolute', inset: 0,
-        display: 'flex', flexDirection: 'column',
-        alignItems: 'flex-start', justifyContent: 'flex-start',
-        pointerEvents: 'none',
-        overflowY: 'auto',
-        WebkitOverflowScrolling: 'touch',
-      }}>
-        {/* Logo + title directly above the card */}
-        <div className="login-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', maxWidth: 600 }}>
+      {/* ── Form column — explicit TLRB so Safari has no ambiguity ── */}
+      <div
+        className="login-page-overlay"
+        style={{
+          position: 'absolute',
+          top: 0, left: 0, bottom: 0,
+          /* no 'right' — lets it size by padding + children naturally */
+          zIndex: 2,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'flex-start',
+          justifyContent: 'flex-start',
+          overflowY: 'auto',
+          WebkitOverflowScrolling: 'touch',
+          pointerEvents: 'none',
+        }}
+      >
+        {/* Logo + title */}
+        <div
+          className="login-header"
+          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', maxWidth: 600 }}
+        >
           <img
             src="/logo.png"
             alt="Arch Bay"
@@ -67,10 +79,8 @@ export default function Login() {
           </h1>
         </div>
 
-        <div className="login-form-wrap" style={{
-          pointerEvents: 'auto',
-          width: '100%', maxWidth: 600,
-        }}>
+        {/* Form card */}
+        <div className="login-form-wrap" style={{ pointerEvents: 'auto', width: '100%', maxWidth: 600 }}>
           <div style={{
             background: 'rgba(255,255,255,0.80)',
             backdropFilter: 'blur(14px)',
@@ -138,9 +148,13 @@ export default function Login() {
         </div>
       </div>
 
-      {/* ── Bottom-left: tagline ──────────────────────────────────────────── */}
-      <div className="login-tagline" style={{
+      {/* ── Tagline — inline bottom/left so Safari can't misread CSS class ── */}
+      <div style={{
         position: 'absolute',
+        bottom: 'clamp(1.5rem, 3vw, 2.5rem)',
+        left: 'clamp(1.5rem, 3vw, 2.5rem)',
+        maxWidth: 500,
+        zIndex: 1,
         pointerEvents: 'none',
       }}>
         <p style={{
@@ -164,8 +178,8 @@ export default function Login() {
           lineHeight: 1.7,
           margin: 0,
         }}>
-          欢迎来到圣路易斯 让我们把村里的生活变得丰富多彩一些吧 <br />
-          希望你们在这里能买到心仪的物品 延续物品的生命<br />
+          {'欢迎来到圣路易斯 让我们把村里的生活变得丰富多彩一些吧'} <br />
+          {'希望你们在这里能买到心仪的物品 延续物品的生命'}
         </p>
       </div>
     </div>
