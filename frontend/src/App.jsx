@@ -19,6 +19,7 @@ import Feedback from './pages/Feedback'
 import Friends from './pages/Friends'
 import UserProfile from './pages/UserProfile'
 import TravelPlanner from './pages/TravelPlanner'
+import BillSplit from './pages/BillSplit'
 
 // ── Theme Context ────────────────────────────────────────────────
 export const ThemeContext = createContext(null)
@@ -49,7 +50,7 @@ export const useUnread = () => useContext(UnreadContext)
 
 function UnreadProvider({ children }) {
   const { user } = useAuth()
-  const [unreadMap, setUnreadMap] = useState({})   // { username: count }
+  const [unreadMap, setUnreadMap] = useState({})
   const intervalRef = useRef(null)
 
   const refresh = useCallback(async () => {
@@ -86,7 +87,6 @@ function UnreadProvider({ children }) {
 export const AuthContext = createContext(null)
 export const useAuth = () => useContext(AuthContext)
 
-/** Check if the current user can access a feature flag. */
 export function useFeature(feature) {
   const { user } = useContext(AuthContext) ?? {}
   return canAccess(user?.role, feature)
@@ -146,11 +146,9 @@ export default function App() {
       <AuthProvider>
       <UnreadProvider>
         <Routes>
-          {/* Public */}
           <Route path="/login"    element={<PublicOnlyRoute><Login /></PublicOnlyRoute>} />
           <Route path="/register" element={<PublicOnlyRoute><Register /></PublicOnlyRoute>} />
 
-          {/* Protected — all inside Layout */}
           <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
             <Route index element={<Navigate to="/home" replace />} />
             <Route path="/home"              element={<Home />} />
@@ -164,10 +162,10 @@ export default function App() {
             <Route path="/feedback"          element={<Feedback />} />
             <Route path="/friends"           element={<Friends />} />
             <Route path="/u/:username"       element={<UserProfile />} />
-            <Route path="/travel"             element={<TravelPlanner />} />
+            <Route path="/travel"     element={<FeatureRoute feature="travelPlanner"><TravelPlanner /></FeatureRoute>} />
+            <Route path="/bill-split" element={<FeatureRoute feature="billSplit"><BillSplit /></FeatureRoute>} />
           </Route>
 
-          {/* Fallback */}
           <Route path="*" element={<Navigate to="/home" replace />} />
         </Routes>
       </UnreadProvider>

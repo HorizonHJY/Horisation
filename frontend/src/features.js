@@ -1,15 +1,17 @@
 /**
  * Feature flags — controls which roles can see each feature.
- * When a feature matures, add more roles to its array.
- *
- * Roles: 'horizon' | 'horizonadmin' | 'vip1' | 'vip2' | 'vip3' | 'user' | 'test'
+ * Role hierarchy: horizon > admin > svip > vip > user
  */
+
+const VIP_AND_ABOVE = ['horizon', 'admin', 'svip', 'vip']
+
 export const FEATURES = {
-  darkMode:      ['horizon', 'test'],
-  onlineGomoku:  ['horizon', 'horizonadmin', 'vip3'],
+  darkMode:      ['horizon'],
+  onlineGomoku:  ['horizon', 'admin', 'svip'],
+  travelPlanner: VIP_AND_ABOVE,
+  billSplit:     VIP_AND_ABOVE,
 }
 
-/** Returns true if the given role can access a feature. */
 export function canAccess(userRole, feature) {
   return (FEATURES[feature] ?? []).includes(userRole)
 }

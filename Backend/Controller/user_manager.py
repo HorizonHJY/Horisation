@@ -16,7 +16,7 @@ from . import market_db
 class UserManager:
     """用户管理类"""
 
-    # 用户权限等级定义
+    # 用户权限等级定义 (Horizon > Admin > SVIP > VIP > USER)
     USER_ROLES = {
         'horizon': {
             'level': 100,
@@ -24,34 +24,22 @@ class UserManager:
             'sectors': ['all'],
             'permissions': ['admin', 'read', 'write', 'delete', 'user_manage']
         },
-        'horizonadmin': {
+        'admin': {
             'level': 90,
-            'name': 'Horizon管理员',
+            'name': '管理员',
             'sectors': ['horizon', 'admin'],
             'permissions': ['admin', 'read', 'write', 'delete']
         },
-        'vip1': {
-            'level': 80,
-            'name': 'VIP1用户',
-            'sectors': ['vip', 'general'],
-            'permissions': ['read', 'write']
-        },
-        'vip2': {
+        'svip': {
             'level': 70,
-            'name': 'VIP2用户',
+            'name': 'SVIP用户',
             'sectors': ['vip', 'general'],
             'permissions': ['read', 'write']
         },
-        'vip3': {
+        'vip': {
             'level': 60,
-            'name': 'VIP3用户',
+            'name': 'VIP用户',
             'sectors': ['vip', 'general'],
-            'permissions': ['read', 'write']
-        },
-        'test': {
-            'level': 50,
-            'name': '测试用户',
-            'sectors': ['general'],
             'permissions': ['read', 'write']
         },
         'user': {
@@ -79,7 +67,7 @@ class UserManager:
             print("✅ Created admin user: horizon/horizon")
         if not market_db.db_get_user('fanfan0315'):
             market_db.db_create_user(
-                'fanfan0315', 'yyf', 'vip1',
+                'fanfan0315', 'yyf', 'vip',
                 'fanfan0315@horisation.com', 'Fanfan0315'
             )
             print("✅ Created user: fanfan0315/yyf")

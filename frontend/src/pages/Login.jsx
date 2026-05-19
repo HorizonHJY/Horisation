@@ -31,15 +31,15 @@ export default function Login() {
   }
 
   return (
-    /* Outer shell – fixed fullscreen background */
+    /* Outer shell - fixed fullscreen background */
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#f5f4f0' }}>
 
-      {/* Canvas background – behind everything */}
+      {/* Canvas background - behind everything */}
       <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 0, pointerEvents: 'none' }}>
         <FlowerCanvas origin="right" />
       </div>
 
-      {/* Scrollable container – full width, scrollbar on the very right */}
+      {/* Scrollable container - full width, scrollbar on the very right */}
       <div
         style={{
           position: 'absolute',
@@ -49,7 +49,7 @@ export default function Login() {
           WebkitOverflowScrolling: 'touch',
         }}
       >
-        {/* Content wrapper – flex column, min-height to push footer down when needed */}
+        {/* Content wrapper - flex column, min-height to push footer down when needed */}
         <div
           className="login-page-overlay"
           style={{
@@ -62,7 +62,7 @@ export default function Login() {
             boxSizing: 'border-box',
           }}
         >
-          {/* Top spacer – shrinks on very small screens */}
+          {/* Top spacer */}
           <div style={{ flex: '0 1 min(1.5rem, 3vh)', minHeight: '0.5rem' }} />
 
           {/* Logo + Title */}
@@ -93,7 +93,7 @@ export default function Login() {
             <div style={{
               background: 'rgba(255,255,255,0.80)',
               backdropFilter: 'blur(14px)',
-              WebkitBackdropFilter: 'blur(14px)', // Safari support
+              WebkitBackdropFilter: 'blur(14px)',
               borderRadius: 16,
               padding: 'clamp(1rem, 4vw, 2rem) clamp(1rem, 4vw, 2rem) clamp(0.8rem, 3vw, 1.75rem)',
               boxShadow: '0 8px 32px rgba(0,0,0,0.10)',
@@ -156,10 +156,10 @@ export default function Login() {
             </div>
           </div>
 
-          {/* Dynamic spacer that pushes tagline down only when there's extra space */}
+          {/* Dynamic spacer */}
           <div style={{ flex: '1 1 0', minHeight: '1rem' }} />
 
-          {/* Tagline / Footer – sticks to bottom using margin-top: auto */}
+          {/* Tagline / Footer */}
           <div style={{
             marginTop: 'auto',
             width: '100%',

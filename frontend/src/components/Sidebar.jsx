@@ -17,8 +17,9 @@ const NAV_FUN = [
 ]
 
 const NAV_TOOLKIT_BASE = [
-  { to: '/hormemo', icon: 'fa-clipboard-list', label: 'Hormemo' },
-  { to: '/travel',  icon: 'fa-route',          label: 'Travel Planner' },
+  { to: '/hormemo',    icon: 'fa-clipboard-list', label: 'Hormemo' },
+  { to: '/travel',     icon: 'fa-route',           label: 'Travel Planner', feature: 'travelPlanner' },
+  { to: '/bill-split', icon: 'fa-receipt',         label: 'Bill Split',     feature: 'billSplit' },
 ]
 
 const NAV_TOOLKIT_HORIZON = [
@@ -30,17 +31,24 @@ export default function Sidebar({ isOpen, onClose }) {
   const { total: unreadTotal } = useUnread()
   const navigate = useNavigate()
   const canGomoku = useFeature('onlineGomoku')
+  const canTravel = useFeature('travelPlanner')
+  const canBill   = useFeature('billSplit')
 
   const isAdmin   = user?.role_info?.permissions?.includes('admin')
   const isHorizon = user?.role === 'horizon'
 
-  const visibleFun = NAV_FUN.filter(item => !item.feature || canGomoku)
+  const visibleFun     = NAV_FUN.filter(item => !item.feature || canGomoku)
+  const visibleToolkit = NAV_TOOLKIT_BASE.filter(item => {
+    if (item.feature === 'travelPlanner') return canTravel
+    if (item.feature === 'billSplit')     return canBill
+    return true
+  })
 
   const nav = [
     { section: 'Main',      items: NAV_MAIN },
     { section: 'Community', items: NAV_COMMUNITY },
     ...(visibleFun.length > 0 ? [{ section: 'For Fun', items: visibleFun }] : []),
-    { section: 'Toolkit',   items: isHorizon ? [...NAV_TOOLKIT_BASE, ...NAV_TOOLKIT_HORIZON] : NAV_TOOLKIT_BASE },
+    { section: 'Toolkit',   items: isHorizon ? [...visibleToolkit, ...NAV_TOOLKIT_HORIZON] : visibleToolkit },
   ]
 
   function handleLogout() {
