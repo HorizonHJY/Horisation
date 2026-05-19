@@ -35,7 +35,7 @@ export default function Login() {
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>
 
       {/* Canvas background — behind everything */}
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 0 }}>
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 0, pointerEvents: 'none' }}>
         <FlowerCanvas origin="right" />
       </div>
 
@@ -53,7 +53,7 @@ export default function Login() {
           justifyContent: 'flex-start',
           overflowY: 'auto',
           WebkitOverflowScrolling: 'touch',
-          pointerEvents: 'none',
+          pointerEvents: 'auto',
         }}
       >
         {/* Logo + title */}
@@ -80,7 +80,7 @@ export default function Login() {
         </div>
 
         {/* Form card */}
-        <div className="login-form-wrap" style={{ pointerEvents: 'auto', width: '100%', maxWidth: 600 }}>
+        <div className="login-form-wrap" style={{ width: '100%', maxWidth: 600 }}>
           <div style={{
             background: 'rgba(255,255,255,0.80)',
             backdropFilter: 'blur(14px)',
