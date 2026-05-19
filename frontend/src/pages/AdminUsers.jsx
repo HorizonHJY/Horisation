@@ -5,10 +5,10 @@ import HandLoader from '../components/HandLoader'
 import { api } from '../api'
 import { validatePassword } from '../utils'
 
-const ROLES = ['horizon', 'horizonadmin', 'vip1', 'vip2', 'vip3', 'test', 'user']
+const ROLES = ['horizon', 'admin', 'svip', 'vip', 'user']
 const ROLE_COLORS = {
-  horizon: 'role-horizon', horizonadmin: 'role-horizonadmin',
-  vip1: 'role-vip1', vip2: 'role-vip2', vip3: 'role-vip3', user: 'role-user',
+  horizon: 'role-horizon', admin: 'role-horizonadmin',
+  svip: 'role-vip1', vip: 'role-vip2', user: 'role-user',
 }
 
 const EMPTY_NEW       = { username: '', password: '', role: 'user', email: '', display_name: '' }
@@ -206,7 +206,7 @@ export default function AdminUsers() {
         {[
           ['Total Users', users.length,                                                             'fa-users',      'primary'],
           ['Active',      users.filter(u => u.is_active).length,                                    'fa-user-check', 'success'],
-          ['Admins',      users.filter(u => ['horizon','horizonadmin'].includes(u.role)).length,     'fa-user-shield','warning'],
+          ['Admins',      users.filter(u => ['horizon','admin'].includes(u.role)).length,     'fa-user-shield','warning'],
         ].map(([label, val, icon, color]) => (
           <div key={label} className="col-4">
             <div className="stat-card">
