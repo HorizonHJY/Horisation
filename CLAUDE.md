@@ -21,7 +21,7 @@ Browser → Cloudflare → Nginx → Gunicorn (port 8000) → Flask (API only)
 - React 18 + Vite handles all UI. Built to `frontend/dist/`.
 - Flask serves `frontend/dist/index.html` as a catch-all for non-API routes.
 
----
+------
 
 ## Key Files
 
