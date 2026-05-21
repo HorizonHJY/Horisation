@@ -2,6 +2,7 @@ import React from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../App'
 import FlowerCanvas from '../components/FlowerCanvas'
+import WeatherGreeting from '../components/WeatherGreeting'
 
 const FEATURES = [
   { icon: 'fa-clipboard-list', color: '#6b9cdb', title: 'Hormemo',        desc: 'Personal memo and task tracker.',        to: '/hormemo'  },
@@ -29,10 +30,7 @@ export default function Home() {
 
       {/* Foreground content */}
       <div style={{ position: 'relative', zIndex: 1 }}>
-        <div className="hero-block">
-          <h2 className="hero-title">Hello, {user?.display_name}</h2>
-          <p className="hero-sub">欢迎来村里看看!</p>
-        </div>
+        <WeatherGreeting name={user?.display_name} />
 
         <h5 style={{
           fontFamily: "'Playfair Display', serif",
