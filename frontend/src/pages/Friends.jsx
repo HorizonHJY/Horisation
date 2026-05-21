@@ -21,6 +21,20 @@ function Avatar({ display, avatar, size = 40 }) {
   )
 }
 
+// Render message text with clickable links
+function renderContent(text, isMe) {
+  const urlRegex = /(https?:\/\/[^\s]+)/g
+  const parts = text.split(urlRegex)
+  return parts.map((part, i) =>
+    urlRegex.test(part)
+      ? <a key={i} href={part} target="_blank" rel="noopener noreferrer"
+          style={{ color: isMe ? '#d4eaff' : '#3b82f6', textDecoration: 'underline', wordBreak: 'break-all' }}>
+          {part}
+        </a>
+      : part
+  )
+}
+
 export default function Friends() {
   const { user } = useAuth()
   const { unreadMap, clearUnread, bumpUnread } = useUnread()
@@ -370,7 +384,7 @@ export default function Friends() {
                     boxShadow: '0 1px 3px rgba(0,0,0,.08)',
                     fontSize: '.9rem', wordBreak: 'break-word',
                   }}>
-                    {m.content}
+                    {renderContent(m.content, isMe)}
                     <div style={{ fontSize: '.65rem', opacity: .6, marginTop: 3, textAlign: 'right' }}>
                       {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </div>
