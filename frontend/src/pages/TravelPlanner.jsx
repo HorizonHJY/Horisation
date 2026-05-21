@@ -62,7 +62,8 @@ function TypeBadge({ type }) {
 function CopyBadge({ planId }) {
   const [copied, setCopied] = useState(false)
   function copy() {
-    navigator.clipboard.writeText(planId).then(() => {
+    const url = window.location.origin + '/travel?join=' + planId
+    navigator.clipboard.writeText(url).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 1800)
     })
@@ -72,10 +73,10 @@ function CopyBadge({ planId }) {
       onClick={copy}
       className="badge bg-secondary ms-2 user-select-none"
       style={{ cursor: 'pointer', fontSize: '0.85rem', letterSpacing: 2, padding: '5px 10px' }}
-      title="Click to copy Plan ID"
+      title="复制分享链接"
     >
-      <i className={`fas ${copied ? 'fa-check' : 'fa-copy'} me-1`} style={{ fontSize: '0.7rem' }} />
-      {planId}
+      <i className={`fas ${copied ? 'fa-check' : 'fa-share-alt'} me-1`} style={{ fontSize: '0.7rem' }} />
+      {copied ? '已复制链接' : planId}
     </span>
   )
 }
@@ -715,6 +716,16 @@ export default function TravelPlanner() {
       else showToast('加载失败', 'danger')
     })
   }
+
+  // Auto-load if URL contains ?join=CODE
+  useEffect(() => {
+    const code = new URLSearchParams(window.location.search).get('join')
+    if (code) {
+      openPlan({ id: code.toUpperCase() })
+      // Clean the URL without triggering a navigation
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="container-fluid py-4" style={{ maxWidth: 960 }}>

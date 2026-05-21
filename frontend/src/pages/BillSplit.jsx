@@ -386,11 +386,25 @@ export default function BillSplit() {
   }
 
   function copyCode(id) {
-    navigator.clipboard.writeText(id).then(() => {
+    const url = window.location.origin + '/bill-split?join=' + id
+    navigator.clipboard.writeText(url).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     })
   }
+
+  // Auto-load if URL contains ?join=CODE
+  useEffect(() => {
+    const code = new URLSearchParams(window.location.search).get('join')
+    if (code) {
+      const upper = code.toUpperCase()
+      window.history.replaceState({}, '', window.location.pathname)
+      api.get(`/api/bill/bills/${upper}`).then(d => {
+        if (d.ok) { setSelected(d.bill.id); setBill(d.bill); setTab('expenses') }
+        else showToast('找不到该账单，请检查分享链接', 'danger')
+      })
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Bill list view ──────────────────────────────────────────────────────────
   if (!selectedId || !bill) {
@@ -516,7 +530,7 @@ export default function BillSplit() {
         </span>
         <button className="btn btn-sm btn-outline-secondary py-0 px-2" style={{ fontSize: '.75rem' }}
           onClick={() => copyCode(bill.id)}>
-          {copied ? <><i className="fas fa-check me-1" />已复制</> : <><i className="fas fa-copy me-1" />复制</>}
+          {copied ? <><i className="fas fa-check me-1" />已复制链接</> : <><i className="fas fa-share-alt me-1" />复制分享链接</>}
         </button>
       </div>
 
