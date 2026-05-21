@@ -21,7 +21,30 @@ function Avatar({ display, avatar, size = 40 }) {
   )
 }
 
-// Render message text with clickable links
+// ── Message rendering helpers ────────────────────────────────────────────────
+
+// Format date label in Central Time (St. Louis)
+function cstDateLabel(isoStr) {
+  const d = new Date(isoStr)
+  const opts = { timeZone: 'America/Chicago' }
+  const dStr = d.toLocaleDateString('zh-CN', opts)
+  const now = new Date()
+  const nowStr = now.toLocaleDateString('zh-CN', opts)
+  const yest = new Date(now); yest.setDate(yest.getDate() - 1)
+  const yStr = yest.toLocaleDateString('zh-CN', opts)
+  if (dStr === nowStr) return '今天'
+  if (dStr === yStr) return '昨天'
+  return d.toLocaleDateString('zh-CN', { timeZone: 'America/Chicago', month: 'long', day: 'numeric' })
+}
+
+// Detect travel/bill-split join URLs
+function parseJoinUrl(text) {
+  const m = text.match(/https?:\/\/[^\s]*(\/(travel|bill-split))\?join=([A-Z0-9]+)/i)
+  if (!m) return null
+  return { type: m[2], code: m[3].toUpperCase(), url: text.match(/https?:\/\/[^\s]+/)[0] }
+}
+
+// Render text with plain clickable links
 function renderContent(text, isMe) {
   const urlRegex = /(https?:\/\/[^\s]+)/g
   const parts = text.split(urlRegex)
@@ -33,6 +56,40 @@ function renderContent(text, isMe) {
         </a>
       : part
   )
+}
+
+// Render full message content — share card or plain text
+function renderMessageContent(content, isMe) {
+  const join = parseJoinUrl(content)
+  if (join) {
+    const isTravel = join.type === 'travel'
+    return (
+      <a href={join.url} style={{ textDecoration: 'none', display: 'block', minWidth: 200 }}>
+        <div style={{
+          background: isMe ? 'rgba(255,255,255,0.18)' : '#eff6ff',
+          border: `1px solid ${isMe ? 'rgba(255,255,255,0.35)' : '#bfdbfe'}`,
+          borderRadius: 10, padding: '8px 12px',
+        }}>
+          <div className="d-flex align-items-center gap-2">
+            <i className={`fas ${isTravel ? 'fa-route' : 'fa-receipt'}`}
+               style={{ color: isMe ? '#fff' : '#3b82f6', fontSize: '1.2rem', flexShrink: 0 }} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700, fontSize: '.85rem', color: isMe ? '#fff' : '#1e3a5f' }}>
+                {isTravel ? '旅行计划邀请' : '分账邀请'}
+              </div>
+              <div style={{ fontSize: '.72rem', opacity: 0.65, fontFamily: 'monospace', letterSpacing: '.08em' }}>
+                {join.code}
+              </div>
+            </div>
+            <span style={{ fontSize: '.72rem', color: isMe ? '#d4eaff' : '#3b82f6', flexShrink: 0 }}>
+              点击加入 →
+            </span>
+          </div>
+        </div>
+      </a>
+    )
+  }
+  return renderContent(content, isMe)
 }
 
 export default function Friends() {
@@ -372,26 +429,46 @@ export default function Friends() {
                 No messages yet. Say hello!
               </div>
             )}
-            {chatHistory.map(m => {
-              const isMe = m.sender === user.username
-              return (
-                <div key={m.id} className={`d-flex ${isMe ? 'justify-content-end' : 'justify-content-start'}`}>
-                  <div style={{
-                    maxWidth: '70%', padding: '8px 14px',
-                    borderRadius: isMe ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-                    background: isMe ? '#6b9cdb' : '#fff',
-                    color: isMe ? '#fff' : '#333',
-                    boxShadow: '0 1px 3px rgba(0,0,0,.08)',
-                    fontSize: '.9rem', wordBreak: 'break-word',
-                  }}>
-                    {renderContent(m.content, isMe)}
-                    <div style={{ fontSize: '.65rem', opacity: .6, marginTop: 3, textAlign: 'right' }}>
-                      {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            {(() => {
+              let lastDate = null
+              return chatHistory.flatMap(m => {
+                const isMe = m.sender === user.username
+                const dateLabel = cstDateLabel(m.created_at)
+                const items = []
+                if (dateLabel !== lastDate) {
+                  lastDate = dateLabel
+                  items.push(
+                    <div key={`sep-${m.id}`} className="text-center my-1">
+                      <span style={{ background: '#dde3ea', color: '#555', fontSize: '.7rem',
+                        padding: '2px 12px', borderRadius: 10, userSelect: 'none' }}>
+                        {dateLabel}
+                      </span>
+                    </div>
+                  )
+                }
+                const isCard = !!parseJoinUrl(m.content)
+                items.push(
+                  <div key={m.id} className={`d-flex ${isMe ? 'justify-content-end' : 'justify-content-start'}`}>
+                    <div style={{
+                      maxWidth: '70%', padding: isCard ? '6px 8px' : '8px 14px',
+                      borderRadius: isMe ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+                      background: isMe ? '#6b9cdb' : '#fff',
+                      color: isMe ? '#fff' : '#333',
+                      boxShadow: '0 1px 3px rgba(0,0,0,.08)',
+                      fontSize: '.9rem', wordBreak: 'break-word',
+                    }}>
+                      {renderMessageContent(m.content, isMe)}
+                      <div style={{ fontSize: '.65rem', opacity: .6, marginTop: 3, textAlign: 'right' }}>
+                        {new Date(m.created_at).toLocaleTimeString('zh-CN', {
+                          hour: '2-digit', minute: '2-digit', timeZone: 'America/Chicago'
+                        })}
+                      </div>
                     </div>
                   </div>
-                </div>
-              )
-            })}
+                )
+                return items
+              })
+            })()}
             <div ref={chatEndRef} />
           </div>
 
