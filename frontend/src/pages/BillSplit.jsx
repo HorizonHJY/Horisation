@@ -1,24 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react'
-
-// ── localStorage helpers ──────────────────────────────────────────────────────
-const LS_KEY = 'horisation_bills'
-
-function loadBills() {
-  try { return JSON.parse(localStorage.getItem(LS_KEY)) || [] } catch { return [] }
-}
-function saveBills(bills) {
-  localStorage.setItem(LS_KEY, JSON.stringify(bills))
-}
-function uid() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
-}
+import { api } from '../api'
 
 // ── Settlement algorithm ──────────────────────────────────────────────────────
-// Returns [{from, to, amount}] with minimum transactions.
 function calcSettlement(participants, expenses) {
   const net = {}
   participants.forEach(p => (net[p] = 0))
-
   expenses.forEach(({ paidBy, amount, splitAmong }) => {
     const amt = parseFloat(amount) || 0
     const among = splitAmong.filter(p => participants.includes(p))
@@ -27,8 +13,6 @@ function calcSettlement(participants, expenses) {
     net[paidBy] = (net[paidBy] || 0) + amt
     among.forEach(p => { net[p] = (net[p] || 0) - share })
   })
-
-  // Greedy min-transactions
   const creditors = []
   const debtors   = []
   Object.entries(net).forEach(([name, bal]) => {
@@ -38,81 +22,70 @@ function calcSettlement(participants, expenses) {
   })
   creditors.sort((a, b) => b.bal - a.bal)
   debtors.sort((a, b) => a.bal - b.bal)
-
   const txns = []
   let ci = 0, di = 0
   while (ci < creditors.length && di < debtors.length) {
-    const c = creditors[ci]
-    const d = debtors[di]
+    const c = creditors[ci], d = debtors[di]
     const transfer = Math.min(c.bal, -d.bal)
     txns.push({ from: d.name, to: c.name, amount: Math.round(transfer * 100) / 100 })
-    c.bal -= transfer
-    d.bal += transfer
+    c.bal -= transfer; d.bal += transfer
     if (Math.abs(c.bal) < 0.01) ci++
     if (Math.abs(d.bal) < 0.01) di++
   }
   return txns
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 function Toast({ msg, type }) {
   if (!msg) return null
   return (
-    <div
-      className={`alert alert-${type} position-fixed top-0 end-0 m-3 shadow`}
-      style={{ zIndex: 9999, minWidth: 220, fontSize: '.875rem' }}
-    >
+    <div className={`alert alert-${type} position-fixed top-0 end-0 m-3 shadow`}
+      style={{ zIndex: 9999, minWidth: 220, fontSize: '.875rem' }}>
       {msg}
     </div>
   )
 }
 
 function CurrencyBadge({ amount, positive }) {
-  const color = positive ? '#10b981' : '#ef4444'
   return (
-    <span style={{ fontFamily: 'monospace', color, fontWeight: 700 }}>
+    <span style={{ fontFamily: 'monospace', color: positive ? '#10b981' : '#ef4444', fontWeight: 700 }}>
       {positive ? '+' : ''}{Number(amount).toFixed(2)}
     </span>
   )
 }
 
 // ── Participants panel ────────────────────────────────────────────────────────
-function ParticipantsPanel({ bill, onChange }) {
+function ParticipantsPanel({ bill, onRefresh }) {
   const [name, setName] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  function add() {
+  async function add() {
     const n = name.trim()
     if (!n || bill.participants.includes(n)) return
-    onChange({ ...bill, participants: [...bill.participants, n] })
+    setLoading(true)
+    await api.post(`/api/bill/bills/${bill.id}/participants`, { name: n })
     setName('')
+    setLoading(false)
+    onRefresh()
   }
 
-  function remove(p) {
-    // Guard: don't remove if used in expenses
+  async function remove(p) {
     const used = bill.expenses.some(e => e.paidBy === p || e.splitAmong.includes(p))
-    if (used) {
-      alert(`"${p}" 已在账单记录中，无法删除。`)
-      return
-    }
-    onChange({ ...bill, participants: bill.participants.filter(x => x !== p) })
+    if (used) { alert(`"${p}" 已在账单记录中，无法删除。`); return }
+    await api.delete(`/api/bill/bills/${bill.id}/participants/${encodeURIComponent(p)}`)
+    onRefresh()
   }
 
   return (
     <div>
       <div className="d-flex gap-2 mb-3">
-        <input
-          className="form-control form-control-sm"
-          placeholder="添加成员姓名…"
-          value={name}
-          onChange={e => setName(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && add()}
-          style={{ maxWidth: 220 }}
-        />
-        <button className="btn btn-sm btn-primary" onClick={add}>
+        <input className="form-control form-control-sm" placeholder="添加成员姓名…"
+          value={name} onChange={e => setName(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && add()} style={{ maxWidth: 220 }} />
+        <button className="btn btn-sm btn-primary" onClick={add} disabled={loading}>
           <i className="fas fa-plus me-1" />添加
         </button>
       </div>
-
       {bill.participants.length === 0 ? (
         <p className="text-muted small">还没有成员，先添加几个人吧。</p>
       ) : (
@@ -122,11 +95,8 @@ function ParticipantsPanel({ bill, onChange }) {
               style={{ background: '#e2e8f0', color: '#334155', fontSize: '.85rem', padding: '6px 10px', borderRadius: 20 }}>
               <i className="fas fa-user" style={{ fontSize: '.7rem' }} />
               {p}
-              <button
-                onClick={() => remove(p)}
-                className="btn-close btn-close-sm ms-1"
-                style={{ fontSize: '.5rem', opacity: 0.5 }}
-              />
+              <button onClick={() => remove(p)} className="btn-close btn-close-sm ms-1"
+                style={{ fontSize: '.5rem', opacity: 0.5 }} />
             </span>
           ))}
         </div>
@@ -136,30 +106,31 @@ function ParticipantsPanel({ bill, onChange }) {
 }
 
 // ── Expense form ──────────────────────────────────────────────────────────────
-function ExpenseForm({ participants, onAdd, onCancel }) {
+function ExpenseForm({ billId, participants, onAdd, onCancel }) {
   const [form, setForm] = useState({
     desc: '', amount: '', paidBy: participants[0] || '', splitAmong: [...participants]
   })
+  const [loading, setLoading] = useState(false)
 
   function toggleSplit(p) {
     setForm(f => ({
-      ...f,
-      splitAmong: f.splitAmong.includes(p)
-        ? f.splitAmong.filter(x => x !== p)
-        : [...f.splitAmong, p]
+      ...f, splitAmong: f.splitAmong.includes(p) ? f.splitAmong.filter(x => x !== p) : [...f.splitAmong, p]
     }))
   }
 
-  function selectAll() { setForm(f => ({ ...f, splitAmong: [...participants] })) }
-  function clearAll()  { setForm(f => ({ ...f, splitAmong: [] })) }
-
-  function submit() {
+  async function submit() {
     if (!form.desc.trim()) return alert('请填写描述')
     const amt = parseFloat(form.amount)
     if (!amt || amt <= 0) return alert('请填写有效金额')
     if (!form.paidBy) return alert('请选择付款人')
     if (!form.splitAmong.length) return alert('请至少选择一位分摊人')
-    onAdd({ id: uid(), ...form, amount: amt })
+    setLoading(true)
+    const d = await api.post(`/api/bill/bills/${billId}/expenses`, {
+      desc: form.desc.trim(), amount: amt, paidBy: form.paidBy, splitAmong: form.splitAmong
+    })
+    setLoading(false)
+    if (d.ok) onAdd()
+    else alert(d.error || '添加失败')
   }
 
   return (
@@ -177,7 +148,6 @@ function ExpenseForm({ participants, onAdd, onCancel }) {
               value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} />
           </div>
         </div>
-
         <div className="mb-2">
           <label className="form-label small fw-semibold mb-1">付款人</label>
           <select className="form-select form-select-sm"
@@ -185,26 +155,25 @@ function ExpenseForm({ participants, onAdd, onCancel }) {
             {participants.map(p => <option key={p} value={p}>{p}</option>)}
           </select>
         </div>
-
         <div className="mb-3">
           <div className="d-flex align-items-center gap-2 mb-1">
             <label className="form-label small fw-semibold mb-0">分摊人</label>
-            <button className="btn btn-link btn-sm p-0 text-decoration-none" style={{ fontSize: '.75rem' }} onClick={selectAll}>全选</button>
-            <button className="btn btn-link btn-sm p-0 text-decoration-none" style={{ fontSize: '.75rem' }} onClick={clearAll}>清空</button>
+            <button className="btn btn-link btn-sm p-0 text-decoration-none" style={{ fontSize: '.75rem' }}
+              onClick={() => setForm(f => ({ ...f, splitAmong: [...participants] }))}>全选</button>
+            <button className="btn btn-link btn-sm p-0 text-decoration-none" style={{ fontSize: '.75rem' }}
+              onClick={() => setForm(f => ({ ...f, splitAmong: [] }))}>清空</button>
           </div>
           <div className="d-flex flex-wrap gap-2">
             {participants.map(p => (
               <label key={p} className="d-flex align-items-center gap-1 small" style={{ cursor: 'pointer' }}>
-                <input type="checkbox" checked={form.splitAmong.includes(p)}
-                  onChange={() => toggleSplit(p)} />
+                <input type="checkbox" checked={form.splitAmong.includes(p)} onChange={() => toggleSplit(p)} />
                 {p}
               </label>
             ))}
           </div>
         </div>
-
         <div className="d-flex gap-2">
-          <button className="btn btn-primary btn-sm" onClick={submit}>
+          <button className="btn btn-primary btn-sm" onClick={submit} disabled={loading}>
             <i className="fas fa-check me-1" />确认添加
           </button>
           <button className="btn btn-outline-secondary btn-sm" onClick={onCancel}>取消</button>
@@ -215,16 +184,12 @@ function ExpenseForm({ participants, onAdd, onCancel }) {
 }
 
 // ── Expenses panel ────────────────────────────────────────────────────────────
-function ExpensesPanel({ bill, onChange }) {
+function ExpensesPanel({ bill, onRefresh }) {
   const [adding, setAdding] = useState(false)
 
-  function addExpense(expense) {
-    onChange({ ...bill, expenses: [...bill.expenses, expense] })
-    setAdding(false)
-  }
-
-  function deleteExpense(id) {
-    onChange({ ...bill, expenses: bill.expenses.filter(e => e.id !== id) })
+  async function deleteExpense(id) {
+    await api.delete(`/api/bill/bills/${bill.id}/expenses/${id}`)
+    onRefresh()
   }
 
   const total = bill.expenses.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0)
@@ -234,11 +199,9 @@ function ExpensesPanel({ bill, onChange }) {
       {bill.participants.length < 2 && (
         <div className="alert alert-warning py-2 small mb-3">请先在"成员"标签里添加至少 2 位成员。</div>
       )}
-
       <div className="d-flex justify-content-between align-items-center mb-3">
         <span className="text-muted small">
-          共 {bill.expenses.length} 笔 · 总计{' '}
-          <strong style={{ color: '#1a1a1a' }}>${total.toFixed(2)}</strong>
+          共 {bill.expenses.length} 笔 · 总计 <strong style={{ color: '#1a1a1a' }}>${total.toFixed(2)}</strong>
         </span>
         {bill.participants.length >= 2 && !adding && (
           <button className="btn btn-sm btn-primary" onClick={() => setAdding(true)}>
@@ -246,11 +209,10 @@ function ExpensesPanel({ bill, onChange }) {
           </button>
         )}
       </div>
-
       {adding && (
-        <ExpenseForm participants={bill.participants} onAdd={addExpense} onCancel={() => setAdding(false)} />
+        <ExpenseForm billId={bill.id} participants={bill.participants}
+          onAdd={() => { setAdding(false); onRefresh() }} onCancel={() => setAdding(false)} />
       )}
-
       {bill.expenses.length === 0 ? (
         <p className="text-muted small">还没有账单记录。</p>
       ) : (
@@ -261,9 +223,7 @@ function ExpensesPanel({ bill, onChange }) {
               <div key={e.id} className="card border-0 shadow-sm" style={{ borderRadius: 10 }}>
                 <div className="card-body py-2 px-3 d-flex align-items-start gap-3">
                   <div style={{ flex: 1 }}>
-                    <div className="d-flex align-items-center gap-2">
-                      <strong style={{ fontSize: '.9rem' }}>{e.desc}</strong>
-                    </div>
+                    <strong style={{ fontSize: '.9rem' }}>{e.desc}</strong>
                     <div className="text-muted small mt-1">
                       <span className="me-2"><i className="fas fa-user me-1" />{e.paidBy} 付款</span>
                       <span><i className="fas fa-users me-1" />{e.splitAmong.join('、')} 分摊（每人 ${share}）</span>
@@ -291,10 +251,7 @@ function SettlementPanel({ bill }) {
   if (bill.expenses.length === 0) {
     return <p className="text-muted small">添加账单记录后才能计算结算方案。</p>
   }
-
   const txns = calcSettlement(bill.participants, bill.expenses)
-
-  // Also compute per-person summary
   const net = {}
   bill.participants.forEach(p => (net[p] = 0))
   bill.expenses.forEach(({ paidBy, amount, splitAmong }) => {
@@ -308,10 +265,7 @@ function SettlementPanel({ bill }) {
 
   return (
     <div>
-      {/* Per-person balance */}
-      <h6 className="fw-semibold mb-2" style={{ fontSize: '.85rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '.06em' }}>
-        各人余额
-      </h6>
+      <h6 className="fw-semibold mb-2" style={{ fontSize: '.85rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '.06em' }}>各人余额</h6>
       <div className="d-flex flex-wrap gap-2 mb-4">
         {bill.participants.map(p => {
           const bal = Math.round(net[p] * 100) / 100
@@ -327,8 +281,6 @@ function SettlementPanel({ bill }) {
           )
         })}
       </div>
-
-      {/* Transactions */}
       <h6 className="fw-semibold mb-2" style={{ fontSize: '.85rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '.06em' }}>
         最简结算方案（{txns.length} 笔转账）
       </h6>
@@ -359,48 +311,89 @@ function SettlementPanel({ bill }) {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function BillSplit() {
-  const [bills, setBills]         = useState(loadBills)
+  const [bills, setBills]         = useState([])
   const [selectedId, setSelected] = useState(null)
+  const [bill, setBill]           = useState(null)
   const [tab, setTab]             = useState('expenses')
   const [newName, setNewName]     = useState('')
+  const [joinCode, setJoinCode]   = useState('')
   const [creating, setCreating]   = useState(false)
+  const [joining, setJoining]     = useState(false)
+  const [loading, setLoading]     = useState(false)
   const [toast, setToast]         = useState(null)
-
-  // Persist to localStorage whenever bills change
-  useEffect(() => { saveBills(bills) }, [bills])
+  const [copied, setCopied]       = useState(false)
 
   const showToast = useCallback((msg, type = 'success') => {
     setToast({ msg, type })
     setTimeout(() => setToast(null), 2500)
   }, [])
 
-  const selected = bills.find(b => b.id === selectedId) || null
+  const loadMyBills = useCallback(async () => {
+    const d = await api.get('/api/bill/my')
+    if (d.ok) setBills(d.bills)
+  }, [])
 
-  function createBill() {
+  const loadBill = useCallback(async (id) => {
+    const d = await api.get(`/api/bill/bills/${id}`)
+    if (d.ok) setBill(d.bill)
+  }, [])
+
+  useEffect(() => { loadMyBills() }, [loadMyBills])
+  useEffect(() => {
+    if (selectedId) loadBill(selectedId)
+    else setBill(null)
+  }, [selectedId, loadBill])
+
+  async function createBill() {
     const name = newName.trim()
     if (!name) return
-    const bill = { id: uid(), name, createdAt: new Date().toISOString(), participants: [], expenses: [] }
-    const next = [bill, ...bills]
-    setBills(next)
-    setSelected(bill.id)
-    setNewName('')
-    setCreating(false)
-    setTab('participants')
-    showToast(`"${name}" 已创建`)
+    setLoading(true)
+    const d = await api.post('/api/bill/bills', { name })
+    setLoading(false)
+    if (d.ok) {
+      await loadMyBills()
+      setSelected(d.bill.id)
+      setBill(d.bill)
+      setNewName('')
+      setCreating(false)
+      setTab('participants')
+      showToast(`"${name}" 已创建`)
+    }
   }
 
-  function updateBill(updated) {
-    setBills(prev => prev.map(b => b.id === updated.id ? updated : b))
+  async function joinBill() {
+    const code = joinCode.trim().toUpperCase()
+    if (!code) return
+    setLoading(true)
+    const d = await api.get(`/api/bill/bills/${code}`)
+    setLoading(false)
+    if (d.ok) {
+      setSelected(d.bill.id)
+      setBill(d.bill)
+      setJoinCode('')
+      setJoining(false)
+      setTab('expenses')
+    } else {
+      showToast('找不到该账单，请检查分享码', 'danger')
+    }
   }
 
-  function deleteBill(id) {
+  async function deleteBill(id) {
     if (!window.confirm('确认删除这个账单？')) return
-    setBills(prev => prev.filter(b => b.id !== id))
+    await api.delete(`/api/bill/bills/${id}`)
+    await loadMyBills()
     if (selectedId === id) setSelected(null)
   }
 
+  function copyCode(id) {
+    navigator.clipboard.writeText(id).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
   // ── Bill list view ──────────────────────────────────────────────────────────
-  if (!selected) {
+  if (!selectedId || !bill) {
     return (
       <div className="page-content" style={{ maxWidth: 640 }}>
         <Toast {...(toast || { msg: null, type: 'success' })} />
@@ -412,10 +405,28 @@ export default function BillSplit() {
             </h2>
             <p className="text-muted small mb-0">智能分账，最少转账次数结清</p>
           </div>
-          <button className="btn btn-primary btn-sm" onClick={() => setCreating(c => !c)}>
-            <i className="fas fa-plus me-1" />新建账单
-          </button>
+          <div className="d-flex gap-2">
+            <button className="btn btn-outline-secondary btn-sm" onClick={() => setJoining(j => !j)}>
+              <i className="fas fa-link me-1" />输入分享码
+            </button>
+            <button className="btn btn-primary btn-sm" onClick={() => setCreating(c => !c)}>
+              <i className="fas fa-plus me-1" />新建账单
+            </button>
+          </div>
         </div>
+
+        {joining && (
+          <div className="card border-0 shadow-sm mb-3" style={{ borderRadius: 12 }}>
+            <div className="card-body d-flex gap-2 align-items-center">
+              <input className="form-control form-control-sm" placeholder="输入 6 位分享码，如 ABC123"
+                value={joinCode} onChange={e => setJoinCode(e.target.value.toUpperCase())}
+                onKeyDown={e => e.key === 'Enter' && joinBill()}
+                style={{ maxWidth: 200, fontFamily: 'monospace', letterSpacing: '.1em' }} autoFocus />
+              <button className="btn btn-primary btn-sm" onClick={joinBill} disabled={loading}>加载</button>
+              <button className="btn btn-outline-secondary btn-sm" onClick={() => setJoining(false)}>取消</button>
+            </div>
+          </div>
+        )}
 
         {creating && (
           <div className="card border-0 shadow-sm mb-3" style={{ borderRadius: 12 }}>
@@ -423,7 +434,7 @@ export default function BillSplit() {
               <input className="form-control form-control-sm" placeholder="账单名称，如：成都旅游、AA聚餐…"
                 value={newName} onChange={e => setNewName(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && createBill()} autoFocus />
-              <button className="btn btn-primary btn-sm" onClick={createBill}>创建</button>
+              <button className="btn btn-primary btn-sm" onClick={createBill} disabled={loading}>创建</button>
               <button className="btn btn-outline-secondary btn-sm" onClick={() => setCreating(false)}>取消</button>
             </div>
           </div>
@@ -432,7 +443,7 @@ export default function BillSplit() {
         {bills.length === 0 ? (
           <div className="text-center py-5 text-muted">
             <i className="fas fa-receipt fa-2x mb-3 d-block opacity-25" />
-            <p className="small">还没有账单，点击"新建账单"开始吧</p>
+            <p className="small">还没有账单，点击"新建账单"开始，或输入分享码加载好友的账单</p>
           </div>
         ) : (
           <div className="d-flex flex-column gap-2">
@@ -442,7 +453,7 @@ export default function BillSplit() {
               return (
                 <div key={b.id} className="card border-0 shadow-sm"
                   style={{ borderRadius: 12, cursor: 'pointer' }}
-                  onClick={() => { setSelected(b.id); setTab('expenses') }}>
+                  onClick={() => { setSelected(b.id); setBill(b); setTab('expenses') }}>
                   <div className="card-body d-flex align-items-center gap-3 py-3">
                     <div className="d-flex align-items-center justify-content-center rounded-3"
                       style={{ width: 40, height: 40, background: '#dbeafe', flexShrink: 0 }}>
@@ -453,16 +464,15 @@ export default function BillSplit() {
                       <div className="text-muted small">
                         {b.participants.length} 人 · {b.expenses.length} 笔 · 总计 ${total.toFixed(2)}
                         {txns.length > 0 && (
-                          <span className="ms-2 badge bg-warning text-dark" style={{ fontSize: '.65rem' }}>
-                            待结算 {txns.length} 笔
-                          </span>
+                          <span className="ms-2 badge bg-warning text-dark" style={{ fontSize: '.65rem' }}>待结算 {txns.length} 笔</span>
                         )}
                         {txns.length === 0 && b.expenses.length > 0 && (
                           <span className="ms-2 badge bg-success" style={{ fontSize: '.65rem' }}>已平衡</span>
                         )}
                       </div>
                     </div>
-                    <button className="btn btn-link btn-sm text-danger p-0" onClick={ev => { ev.stopPropagation(); deleteBill(b.id) }}>
+                    <button className="btn btn-link btn-sm text-danger p-0"
+                      onClick={ev => { ev.stopPropagation(); deleteBill(b.id) }}>
                       <i className="fas fa-trash" />
                     </button>
                   </div>
@@ -487,16 +497,27 @@ export default function BillSplit() {
       <Toast {...(toast || { msg: null, type: 'success' })} />
 
       {/* Header */}
-      <div className="d-flex align-items-center gap-2 mb-4">
-        <button className="btn btn-link btn-sm p-0 text-secondary" onClick={() => setSelected(null)}>
+      <div className="d-flex align-items-center gap-2 mb-3">
+        <button className="btn btn-link btn-sm p-0 text-secondary" onClick={() => { setSelected(null); loadMyBills() }}>
           <i className="fas fa-arrow-left" />
         </button>
         <div style={{ flex: 1 }}>
-          <h2 className="fw-bold mb-0" style={{ fontSize: '1.4rem' }}>{selected.name}</h2>
-          <span className="text-muted small">
-            {selected.participants.length} 人 · {selected.expenses.length} 笔账单
-          </span>
+          <h2 className="fw-bold mb-0" style={{ fontSize: '1.4rem' }}>{bill.name}</h2>
+          <span className="text-muted small">{bill.participants.length} 人 · {bill.expenses.length} 笔账单</span>
         </div>
+      </div>
+
+      {/* Share code */}
+      <div className="d-flex align-items-center gap-2 mb-4 p-2 rounded-3"
+        style={{ background: '#f1f5f9', width: 'fit-content' }}>
+        <span className="text-muted small">分享码</span>
+        <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '1rem', letterSpacing: '.12em', color: '#3b82f6' }}>
+          {bill.id}
+        </span>
+        <button className="btn btn-sm btn-outline-secondary py-0 px-2" style={{ fontSize: '.75rem' }}
+          onClick={() => copyCode(bill.id)}>
+          {copied ? <><i className="fas fa-check me-1" />已复制</> : <><i className="fas fa-copy me-1" />复制</>}
+        </button>
       </div>
 
       {/* Tabs */}
@@ -511,16 +532,9 @@ export default function BillSplit() {
         ))}
       </div>
 
-      {/* Tab content */}
-      {tab === 'participants' && (
-        <ParticipantsPanel bill={selected} onChange={updateBill} />
-      )}
-      {tab === 'expenses' && (
-        <ExpensesPanel bill={selected} onChange={updateBill} />
-      )}
-      {tab === 'settlement' && (
-        <SettlementPanel bill={selected} />
-      )}
+      {tab === 'participants' && <ParticipantsPanel bill={bill} onRefresh={() => loadBill(bill.id)} />}
+      {tab === 'expenses'     && <ExpensesPanel     bill={bill} onRefresh={() => loadBill(bill.id)} />}
+      {tab === 'settlement'   && <SettlementPanel   bill={bill} />}
     </div>
   )
 }

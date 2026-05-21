@@ -28,6 +28,9 @@ import Backend.Controller.game_controller as _game_ctrl    # registers socket ev
 import Backend.Controller.friends_socket  as _friends_sock  # registers socket events
 from Backend.Controller.game_controller import game_bp
 from Backend.Controller.travel_controller import travel_bp
+from Backend.Controller.bill_db import init_bill_db
+init_bill_db()
+from Backend.Controller.bill_controller import bill_bp
 
 # Paths
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
@@ -65,6 +68,7 @@ app.register_blueprint(feedback_bp)
 app.register_blueprint(friends_bp)
 app.register_blueprint(game_bp)
 app.register_blueprint(travel_bp)
+app.register_blueprint(bill_bp)
 
 # Import user manager for session validation
 from Backend.Controller.user_manager import user_manager
@@ -101,6 +105,4 @@ def request_entity_too_large(_):
 def internal_error(_):
     return jsonify({'ok': False, 'error': 'Internal server error'}), 500
 
-# ── Dev entry point ──────────────────────────────────────────────
-if __name__ == '__main__':
-    socketio.run(app, debug=True, host='0.0.0.0', port=5000)
+# ── Dev entry point ───────────────────�
