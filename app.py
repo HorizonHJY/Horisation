@@ -28,6 +28,7 @@ import Backend.Controller.game_controller as _game_ctrl    # registers socket ev
 import Backend.Controller.friends_socket  as _friends_sock  # registers socket events
 from Backend.Controller.game_controller import game_bp
 from Backend.Controller.travel_controller import travel_bp
+from Backend.Controller.weather_controller import weather_bp
 
 # Paths
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
@@ -65,6 +66,7 @@ app.register_blueprint(feedback_bp)
 app.register_blueprint(friends_bp)
 app.register_blueprint(game_bp)
 app.register_blueprint(travel_bp)
+app.register_blueprint(weather_bp)
 
 # Import user manager for session validation
 from Backend.Controller.user_manager import user_manager
