@@ -30,7 +30,12 @@ from Backend.Controller.game_controller import game_bp
 from Backend.Controller.travel_controller import travel_bp
 from Backend.Controller.bill_db import init_bill_db
 init_bill_db()
+
+from Backend.Controller.market_task_db import init_task_db
+init_task_db()
+
 from Backend.Controller.bill_controller import bill_bp
+from Backend.Controller.market_task_controller import task_bp
 
 # Paths
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
@@ -69,6 +74,7 @@ app.register_blueprint(friends_bp)
 app.register_blueprint(game_bp)
 app.register_blueprint(travel_bp)
 app.register_blueprint(bill_bp)
+app.register_blueprint(task_bp)
 
 # Import user manager for session validation
 from Backend.Controller.user_manager import user_manager

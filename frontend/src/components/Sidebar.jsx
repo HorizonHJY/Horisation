@@ -8,6 +8,7 @@ const NAV_MAIN = [
 
 const NAV_COMMUNITY = [
   { to: '/market',   icon: 'fa-store',        label: 'Market' },
+  { to: '/tasks',    icon: 'fa-bullhorn',     label: 'Tasks' },
   { to: '/feedback', icon: 'fa-comments',     label: 'Message Board' },
   { to: '/friends',  icon: 'fa-user-friends', label: 'Friends' },
 ]

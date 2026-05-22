@@ -20,6 +20,7 @@ import Friends from './pages/Friends'
 import UserProfile from './pages/UserProfile'
 import TravelPlanner from './pages/TravelPlanner'
 import BillSplit from './pages/BillSplit'
+import Tasks from './pages/Tasks'
 
 // ── Theme Context ────────────────────────────────────────────────
 export const ThemeContext = createContext(null)
@@ -164,6 +165,7 @@ export default function App() {
             <Route path="/u/:username"       element={<UserProfile />} />
             <Route path="/travel"     element={<FeatureRoute feature="travelPlanner"><TravelPlanner /></FeatureRoute>} />
             <Route path="/bill-split" element={<FeatureRoute feature="billSplit"><BillSplit /></FeatureRoute>} />
+            <Route path="/tasks" element={<Tasks />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/home" replace />} />
