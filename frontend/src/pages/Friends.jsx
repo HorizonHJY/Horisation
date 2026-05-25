@@ -558,36 +558,38 @@ export default function Friends() {
                       </div>
                       <div className="text-muted small">{f.username}</div>
                     </div>
-                    <div className="d-flex gap-2 flex-shrink-0 flex-wrap justify-content-end">
+                    <div className="d-flex gap-1 flex-shrink-0 flex-wrap justify-content-end">
                       {/* Contact status */}
                       {cStatus === 'approved' ? (
-                        <button className="btn btn-sm btn-outline-success" onClick={() => showContact(f)}>
-                          <i className="fas fa-id-card me-1" />Contact
+                        <button className="btn btn-sm btn-outline-success" onClick={() => showContact(f)}
+                          data-full="Contact" data-icon="fas fa-id-card">
+                          <i className="fas fa-id-card" /> <span className="d-none d-sm-inline">Contact</span>
                         </button>
                       ) : cStatus === 'pending' ? (
-                        <span className="badge bg-warning text-dark align-self-center">
-                          <i className="fas fa-clock me-1" />Pending
+                        <span className="badge bg-warning text-dark align-self-center px-1" title="Contact request pending">
+                          <i className="fas fa-clock" />
                         </span>
                       ) : cStatus === 'hidden' ? (
-                        <span className="badge bg-secondary align-self-center" title="They hid their contact">
-                          <i className="fas fa-eye-slash me-1" />Hidden
+                        <span className="badge bg-secondary align-self-center px-1" title="They hid their contact">
+                          <i className="fas fa-eye-slash" />
                         </span>
                       ) : (
-                        <button className="btn btn-sm btn-outline-primary" onClick={() => requestContact(f.username)}>
-                          <i className="fas fa-address-card me-1" />Request Contact
+                        <button className="btn btn-sm btn-outline-primary px-1" onClick={() => requestContact(f.username)}
+                          title="Request Contact">
+                          <i className="fas fa-address-card" /> <span className="d-none d-sm-inline">Contact</span>
                         </button>
                       )}
-                      <button className="btn btn-sm btn-primary" onClick={() => openChat(f)}>
-                        <i className="fas fa-comment-dots me-1" />Chat
+                      <button className="btn btn-sm btn-primary px-2" onClick={() => openChat(f)}>
+                        <i className="fas fa-comment-dots" /> <span className="d-none d-sm-inline">Chat</span>
                       </button>
                       {sharedReq && (
-                        <button className="btn btn-sm btn-outline-warning"
+                        <button className="btn btn-sm btn-outline-warning px-2"
                           title="Withdraw contact access"
                           onClick={() => revokeContact(sharedReq.id, f.display_name)}>
                           <i className="fas fa-eye-slash" />
                         </button>
                       )}
-                      <button className="btn btn-sm btn-outline-danger" onClick={() => unfriend(f.username)}
+                      <button className="btn btn-sm btn-outline-danger px-2" onClick={() => unfriend(f.username)}
                         title="Unfriend">
                         <i className="fas fa-user-minus" />
                       </button>
@@ -720,16 +722,16 @@ export default function Friends() {
                         <div className="fw-semibold text-truncate">{u.display_name}</div>
                         <div className="text-muted small">{u.username}</div>
                       </div>
-                      <div className="flex-shrink-0 d-flex align-items-center gap-2">
-                        {isFriend && <span className="badge bg-success">Friends</span>}
+                      <div className="flex-shrink-0 d-flex align-items-center gap-1">
+                        {isFriend && <span className="badge bg-success px-1" style={{fontSize:'.7rem'}}>Friends</span>}
                         {!isFriend && (isPending
-                          ? <span className="badge bg-warning text-dark">Pending</span>
-                          : <button className="btn btn-sm btn-outline-primary" onClick={() => sendRequest(u.username)}>
-                              <i className="fas fa-user-plus me-1" />Add
+                          ? <span className="badge bg-warning text-dark px-1" style={{fontSize:'.7rem'}}>Pending</span>
+                          : <button className="btn btn-sm btn-outline-primary px-2" onClick={() => sendRequest(u.username)} title="Add friend">
+                              <i className="fas fa-user-plus" />
                             </button>
                         )}
                         <button
-                          className="btn btn-sm btn-primary"
+                          className="btn btn-sm btn-primary px-2"
                           onClick={() => { setTab('friends'); openChat(u) }}
                           title="Send a message"
                         >
