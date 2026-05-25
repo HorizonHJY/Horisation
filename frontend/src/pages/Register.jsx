@@ -44,8 +44,8 @@ export default function Register() {
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, overflow: 'hidden' }}>
-      <div style={{ position: 'absolute', inset: 0 }}>
+    <div style={{ position: 'fixed', inset: 0 }}>
+      <div style={{ position: 'fixed', inset: 0 }}>
         <FlowerCanvas origin="right" />
       </div>
 
@@ -55,6 +55,8 @@ export default function Register() {
         alignItems: 'flex-start', justifyContent: 'flex-start',
         pointerEvents: 'none',
         overflowY: 'auto',
+        WebkitOverflowScrolling: 'touch',
+        paddingBottom: 'env(safe-area-inset-bottom, 24px)',
       }}>
         <div className="login-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', maxWidth: 600 }}>
           <img src="/logo.png" alt="Arch Bay" className="login-logo" style={{ objectFit: 'contain', opacity: 0.92 }} />
