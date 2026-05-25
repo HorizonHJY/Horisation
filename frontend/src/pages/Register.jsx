@@ -55,15 +55,19 @@ export default function Register() {
         position: 'relative',
         zIndex: 1,
         minHeight: '100vh',
-        display: 'flex', flexDirection: 'column',
-        alignItems: 'center',
-        padding: 'clamp(1.2rem, 4vh, 3.5rem) 1rem',
-        paddingBottom: 'calc(clamp(1.2rem, 4vh, 3.5rem) + env(safe-area-inset-bottom, 16px))',
+        width: '100%',
+        maxWidth: 650,
+        padding: 'clamp(1.2rem, 4vh, 2rem)',
+        paddingBottom: 'calc(clamp(1.2rem, 4vh, 2rem) + env(safe-area-inset-bottom, 16px))',
+        boxSizing: 'border-box',
         pointerEvents: 'none',
       }}>
+        {/* Top spacer */}
+        <div style={{ flex: '0 1 min(1.5rem, 3vh)', minHeight: '0.5rem' }} />
+
         <div style={{
           display: 'flex', flexDirection: 'column',
-          alignItems: 'center', width: '100%', maxWidth: 600,
+          alignItems: 'center', width: '100%',
           pointerEvents: 'auto',
         }}>
           <img src="/logo.png" alt="Arch Bay" className="login-logo"
@@ -71,7 +75,7 @@ export default function Register() {
           <h1 style={{
             fontFamily: "'Playfair Display', serif",
             fontWeight: 800, fontSize: 'clamp(1.6rem, 4vw, 2.8rem)',
-            color: '#1a1a1a', letterSpacing: '-0.02em', margin: '0 0 1.8rem',
+            color: '#1a1a1a', letterSpacing: '-0.02em', margin: '0 0 clamp(1rem, 4vh, 2rem)',
           }}>
             Arch Bay
           </h1>
@@ -81,7 +85,7 @@ export default function Register() {
           <div style={{
             background: 'rgba(255,255,255,0.80)',
             backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
-            borderRadius: 16, padding: '2rem 2rem 1.75rem',
+            borderRadius: 16, padding: 'clamp(1rem, 4vw, 2rem) clamp(1rem, 4vw, 2rem) clamp(0.8rem, 3vw, 1.75rem)',
             boxShadow: '0 8px 32px rgba(0,0,0,0.10)',
             border: '1px solid rgba(255,255,255,0.65)',
           }}>
