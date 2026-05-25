@@ -57,8 +57,8 @@ export default function Register() {
         minHeight: '100vh',
         display: 'flex', flexDirection: 'column',
         alignItems: 'center',
-        padding: 'clamp(2rem, 5vh, 4rem) 1rem',
-        paddingBottom: 'calc(clamp(2rem, 5vh, 4rem) + env(safe-area-inset-bottom, 16px))',
+        padding: 'clamp(1.2rem, 4vh, 3.5rem) 1rem',
+        paddingBottom: 'calc(clamp(1.2rem, 4vh, 3.5rem) + env(safe-area-inset-bottom, 16px))',
         pointerEvents: 'none',
       }}>
         <div style={{
@@ -66,11 +66,12 @@ export default function Register() {
           alignItems: 'center', width: '100%', maxWidth: 600,
           pointerEvents: 'auto',
         }}>
-          <img src="/logo.png" alt="Arch Bay" className="login-logo" style={{ objectFit: 'contain', opacity: 0.92 }} />
+          <img src="/logo.png" alt="Arch Bay" className="login-logo"
+               style={{ objectFit: 'contain', opacity: 0.92 }} />
           <h1 style={{
             fontFamily: "'Playfair Display', serif",
-            fontWeight: 800, fontSize: 'clamp(2rem, 4vw, 2.8rem)',
-            color: '#1a1a1a', letterSpacing: '-0.02em', margin: '0 0 2.5rem',
+            fontWeight: 800, fontSize: 'clamp(1.6rem, 4vw, 2.8rem)',
+            color: '#1a1a1a', letterSpacing: '-0.02em', margin: '0 0 1.8rem',
           }}>
             Arch Bay
           </h1>
