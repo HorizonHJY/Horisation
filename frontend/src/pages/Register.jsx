@@ -54,6 +54,7 @@ export default function Register() {
         display: 'flex', flexDirection: 'column',
         alignItems: 'flex-start', justifyContent: 'flex-start',
         pointerEvents: 'none',
+        overflowY: 'auto',
       }}>
         <div className="login-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', maxWidth: 600 }}>
           <img src="/logo.png" alt="Arch Bay" className="login-logo" style={{ objectFit: 'contain', opacity: 0.92 }} />

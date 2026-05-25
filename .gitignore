@@ -27,3 +27,5 @@ Thumbs.db
 
 # Keys / secrets
 Key/
+_data/market.db-shm
+_data/market.db-wal
