@@ -44,21 +44,28 @@ export default function Register() {
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0 }}>
-      <div style={{ position: 'fixed', inset: 0 }}>
+    <>
+      {/* Fixed background canvas */}
+      <div style={{ position: 'fixed', inset: 0, zIndex: 0 }}>
         <FlowerCanvas origin="right" />
       </div>
 
+      {/* Scrollable content */}
       <div className="login-page-overlay" style={{
-        position: 'absolute', inset: 0,
+        position: 'relative',
+        zIndex: 1,
+        minHeight: '100vh',
         display: 'flex', flexDirection: 'column',
-        alignItems: 'flex-start', justifyContent: 'flex-start',
+        alignItems: 'center',
+        padding: 'clamp(2rem, 5vh, 4rem) 1rem',
+        paddingBottom: 'calc(clamp(2rem, 5vh, 4rem) + env(safe-area-inset-bottom, 16px))',
         pointerEvents: 'none',
-        overflowY: 'auto',
-        WebkitOverflowScrolling: 'touch',
-        paddingBottom: 'env(safe-area-inset-bottom, 24px)',
       }}>
-        <div className="login-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', maxWidth: 600 }}>
+        <div style={{
+          display: 'flex', flexDirection: 'column',
+          alignItems: 'center', width: '100%', maxWidth: 600,
+          pointerEvents: 'auto',
+        }}>
           <img src="/logo.png" alt="Arch Bay" className="login-logo" style={{ objectFit: 'contain', opacity: 0.92 }} />
           <h1 style={{
             fontFamily: "'Playfair Display', serif",
@@ -69,7 +76,7 @@ export default function Register() {
           </h1>
         </div>
 
-        <div className="login-form-wrap" style={{ pointerEvents: 'auto', width: '100%', maxWidth: 600 }}>
+        <div style={{ pointerEvents: 'auto', width: '100%', maxWidth: 600 }}>
           <div style={{
             background: 'rgba(255,255,255,0.80)',
             backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
@@ -127,7 +134,7 @@ export default function Register() {
         </div>
       </div>
 
-      <div className="login-tagline" style={{ position: 'absolute', pointerEvents: 'none' }}>
+      <div className="login-tagline" style={{ position: 'fixed', pointerEvents: 'none', zIndex: 1 }}>
         <p style={{
           fontFamily: "'Playfair Display', serif", fontWeight: 600,
           fontSize: 'clamp(1.3rem, 2.2vw, 1.8rem)', color: '#1a1a1a',
@@ -144,6 +151,6 @@ export default function Register() {
           希望你们在这里能买到心仪的物品 延续物品的生命<br />
         </p>
       </div>
-    </div>
+    </>
   )
 }
