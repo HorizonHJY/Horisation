@@ -8,6 +8,7 @@ Designed for easy migration to PostgreSQL: swap the engine URL only.
 import os
 import json
 import uuid
+import zoneinfo
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List
 
@@ -1045,6 +1046,19 @@ def remove_friend(a: str, b: str) -> bool:
         return True
 
 
+# America/Chicago timezone helper (uses zoneinfo — Python 3.9+ built-in)
+_CT_TZ = zoneinfo.ZoneInfo('America/Chicago')
+
+def _fmt_ct(dt: datetime) -> str:
+    """Return an ISO-8601 str with America/Chicago offset.
+    Handles both timezone-aware and naive datetimes (treats naive as UTC)."""
+    if dt.tzinfo is None:
+        # Legacy data stored as naive UTC
+        dt = dt.replace(tzinfo=timezone.utc)
+    ct = dt.astimezone(_CT_TZ)
+    return ct.isoformat()
+
+
 def get_chat_history(a: str, b: str, limit: int = 100) -> list:
     """Return last N messages between two users, oldest-first."""
     ua, ub   = _friend_pair(a, b)
@@ -1056,7 +1070,7 @@ def get_chat_history(a: str, b: str, limit: int = 100) -> list:
         rows.reverse()
         return [
             {'id': r.id, 'room_key': r.room_key, 'sender': r.sender,
-             'content': r.content, 'created_at': r.created_at.isoformat()}
+             'content': r.content, 'created_at': _fmt_ct(r.created_at)}
             for r in rows
         ]
 
@@ -1066,8 +1080,9 @@ def save_chat_message(room_key: str, sender: str, content: str) -> dict:
     with Session() as s:
         s.add(msg)
         s.commit()
+        s.refresh(msg)
         return {'id': msg.id, 'room_key': msg.room_key, 'sender': msg.sender,
-                'content': msg.content, 'created_at': msg.created_at.isoformat()}
+                'content': msg.content, 'created_at': _fmt_ct(msg.created_at)}
 
 
 # ── Contact request helpers ────────────────────────────────────────────────────
