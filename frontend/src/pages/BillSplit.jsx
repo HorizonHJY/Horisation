@@ -348,6 +348,8 @@ export default function BillSplit() {
   const [loading, setLoading]     = useState(false)
   const [toast, setToast]         = useState(null)
   const [copied, setCopied]       = useState(false)
+  const [editingName, setEditingName] = useState(false)
+  const [editNameVal, setEditNameVal] = useState('')
 
   const showToast = useCallback((msg, type = 'success') => {
     setToast({ msg, type })
@@ -431,6 +433,18 @@ export default function BillSplit() {
       })
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function saveName() {
+    const name = editNameVal.trim()
+    if (!name) { setEditingName(false); return }
+    const d = await api.put(`/api/bill/bills/${bill.id}`, { name })
+    if (d.ok) {
+      setBill(b => ({ ...b, name }))
+    } else {
+      showToast(d.error || '改名失败', 'danger')
+    }
+    setEditingName(false)
+  }
 
   // ── Bill list view ──────────────────────────────────────────────────────────
   if (!selectedId || !bill) {
@@ -542,7 +556,19 @@ export default function BillSplit() {
           <i className="fas fa-arrow-left" />
         </button>
         <div style={{ flex: 1 }}>
-          <h2 className="fw-bold mb-0" style={{ fontSize: '1.4rem' }}>{bill.name}</h2>
+          {editingName ? (
+            <input className="form-control form-control-sm fw-bold" style={{ fontSize: '1.4rem', maxWidth: 300 }}
+              value={editNameVal}
+              onChange={e => setEditNameVal(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') saveName(); if (e.key === 'Escape') setEditingName(false) }}
+              onBlur={saveName}
+              autoFocus />
+          ) : (
+            <h2 className="fw-bold mb-0" style={{ fontSize: '1.4rem', cursor: 'pointer' }}
+              onClick={() => { setEditNameVal(bill.name); setEditingName(true) }}>
+              {bill.name} <i className="fas fa-pen text-muted" style={{ fontSize: '.7rem', opacity: 0.4 }} />
+            </h2>
+          )}
           <span className="text-muted small">{bill.participants.length} 人 · {bill.expenses.length} 笔账单</span>
         </div>
       </div>
