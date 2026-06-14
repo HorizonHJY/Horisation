@@ -3,11 +3,19 @@ import { api } from '../api'
 
 // ── Settlement algorithm ──────────────────────────────────────────────────────
 function calcSettlement(participants, expenses) {
+  // Derive actual participants from expenses (whoever paid or was split among)
+  const actualSet = new Set()
+  expenses.forEach(({ paidBy, splitAmong }) => {
+    if (paidBy) actualSet.add(paidBy)
+    splitAmong.forEach(p => actualSet.add(p))
+  })
+  // Only compute for participants who actually appear in expenses
+  const active = participants.filter(p => actualSet.has(p))
   const net = {}
-  participants.forEach(p => (net[p] = 0))
+  active.forEach(p => (net[p] = 0))
   expenses.forEach(({ paidBy, amount, splitAmong }) => {
     const amt = parseFloat(amount) || 0
-    const among = splitAmong.filter(p => participants.includes(p))
+    const among = splitAmong.filter(p => active.includes(p))
     if (!among.length) return
     const share = amt / among.length
     net[paidBy] = (net[paidBy] || 0) + amt
@@ -248,11 +256,20 @@ function ExpensesPanel({ bill, onRefresh }) {
 
 // ── Settlement panel ──────────────────────────────────────────────────────────
 function SettlementPanel({ bill }) {
+  const [showAll, setShowAll] = useState(false)
+
   if (bill.expenses.length === 0) {
     return <p className="text-muted small">添加账单记录后才能计算结算方案。</p>
   }
   const txns = calcSettlement(bill.participants, bill.expenses)
   const net = {}
+  // Derive actual participants the same way as calcSettlement
+  const actualSet = new Set()
+  bill.expenses.forEach(({ paidBy, splitAmong }) => {
+    if (paidBy) actualSet.add(paidBy)
+    splitAmong.forEach(p => actualSet.add(p))
+  })
+  const displayParticipants = showAll ? bill.participants : bill.participants.filter(p => actualSet.has(p))
   bill.participants.forEach(p => (net[p] = 0))
   bill.expenses.forEach(({ paidBy, amount, splitAmong }) => {
     const amt = parseFloat(amount) || 0
@@ -265,17 +282,26 @@ function SettlementPanel({ bill }) {
 
   return (
     <div>
-      <h6 className="fw-semibold mb-2" style={{ fontSize: '.85rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '.06em' }}>各人余额</h6>
+      <div className="d-flex align-items-center justify-content-between mb-2">
+        <h6 className="fw-semibold mb-0" style={{ fontSize: '.85rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '.06em' }}>
+          各人余额
+        </h6>
+        <label className="small d-flex align-items-center gap-1" style={{ cursor: 'pointer', color: '#64748b' }}>
+          <input type="checkbox" checked={showAll} onChange={() => setShowAll(!showAll)} />
+          查看全员
+        </label>
+      </div>
       <div className="d-flex flex-wrap gap-2 mb-4">
-        {bill.participants.map(p => {
+        {displayParticipants.map(p => {
           const bal = Math.round(net[p] * 100) / 100
+          const isInactive = !actualSet.has(p)
           return (
             <div key={p} className="card border-0 shadow-sm text-center"
-              style={{ borderRadius: 10, minWidth: 100, padding: '8px 14px' }}>
+              style={{ borderRadius: 10, minWidth: 100, padding: '8px 14px', opacity: isInactive ? 0.4 : 1 }}>
               <div style={{ fontSize: '.8rem', color: '#64748b' }}>{p}</div>
               <CurrencyBadge amount={Math.abs(bal)} positive={bal >= 0} />
               <div style={{ fontSize: '.7rem', color: '#94a3b8' }}>
-                {Math.abs(bal) < 0.01 ? '已平衡' : bal > 0 ? '应收' : '应付'}
+                {isInactive ? '未参与' : Math.abs(bal) < 0.01 ? '已平衡' : bal > 0 ? '应收' : '应付'}
               </div>
             </div>
           )
