@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../App'
 import HandLoader from '../components/HandLoader'
+import html2canvas from 'html2canvas'
 
 const FALLBACK_CATEGORIES = [
   { slug: 'clothing',    label: '衣服',        icon: 'fa-tshirt' },
@@ -594,7 +595,8 @@ export default function Market() {
   const [sellerListings, setSellerListings] = useState([])
   const [sellerLoading, setSellerLoading]  = useState(false)
   const [showExport, setShowExport]     = useState(false)
-  const [copied, setCopied]             = useState(false)
+  const [exporting, setExporting]       = useState(false)
+  const exportRef                       = useRef(null)
   const fileRef = useRef()
   const tabRef  = useRef(tab)
   useEffect(() => { tabRef.current = tab }, [tab])
@@ -824,21 +826,27 @@ export default function Market() {
     navigate('/friends', { state: { openChat: chatPartner, initialMessage } })
   }
 
-  function buildExportText() {
-    return myListings
-      .filter(l => l.status === 'active')
-      .map((l, i) => {
-        const orig = l.original_price && l.original_price > l.price ? `（原价 $${l.original_price}）` : ''
-        return `${i + 1}. ${l.title}  $${l.price}${orig}`
+  async function handleExportImage() {
+    if (!exportRef.current) return
+    setExporting(true)
+    try {
+      // Wait a tick for render
+      await new Promise(r => setTimeout(r, 100))
+      const canvas = await html2canvas(exportRef.current, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
       })
-      .join('\n')
-  }
-
-  function handleCopyExport() {
-    navigator.clipboard.writeText(buildExportText()).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    })
+      const link = document.createElement('a')
+      link.download = `my-listings-${new Date().toISOString().slice(0, 10)}.png`
+      link.href = canvas.toDataURL('image/png')
+      link.click()
+    } catch (err) {
+      console.error('Export failed:', err)
+    } finally {
+      setExporting(false)
+    }
   }
 
   // Browse: filter out own listings, then apply search + category + delivery
@@ -909,29 +917,128 @@ export default function Market() {
             <div className="modal-content">
               <div className="modal-header">
                 <h6 className="modal-title fw-semibold">
-                  <i className="fas fa-file-export me-2 text-primary" />Export My Listings
+                  <i className="fas fa-image me-2 text-primary" />导出为图片
                 </h6>
                 <button className="btn-close" onClick={() => setShowExport(false)} />
               </div>
               <div className="modal-body">
-                <textarea
-                  className="form-control font-monospace"
-                  rows={Math.min(myListings.filter(l => l.status === 'active').length + 2, 14)}
-                  readOnly
-                  value={buildExportText()}
-                  style={{ fontSize: '.85rem', resize: 'none' }}
-                  onClick={e => e.target.select()}
-                />
-                <div className="text-muted small mt-2">Click the text area to select all, or use the button below.</div>
+                <p className="text-muted small mb-0">
+                  将你所有 <strong>active</strong> 的商品一键导出为长图，方便分享到朋友圈/群聊。
+                </p>
+                <p className="text-muted small">
+                  共 {myListings.filter(l => l.status === 'active').length} 个商品
+                </p>
+
+                {/* Preview area — renders the same content that will be captured */}
+                <div ref={exportRef} style={{
+                  width: 420,
+                  padding: '20px 24px',
+                  background: '#fff',
+                  borderRadius: 8,
+                  margin: '0 auto',
+                  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                }}>
+                  {/* Header */}
+                  <div style={{ textAlign: 'center', marginBottom: 16, paddingBottom: 12, borderBottom: '2px solid #323232' }}>
+                    <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Horisation Market</div>
+                    <div style={{ fontSize: 13, color: '#888' }}>我的商品列表</div>
+                    <div style={{ fontSize: 12, color: '#aaa', marginTop: 2 }}>
+                      {new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}
+                    </div>
+                  </div>
+
+                  {/* Listings */}
+                  {myListings.filter(l => l.status === 'active').length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '40px 0', color: '#999', fontSize: 14 }}>
+                      暂无商品
+                    </div>
+                  ) : (
+                    myListings.filter(l => l.status === 'active').map((l, i) => (
+                      <div key={l.id} style={{
+                        display: 'flex',
+                        gap: 12,
+                        padding: '12px 0',
+                        borderBottom: i < myListings.filter(x => x.status === 'active').length - 1 ? '1px dashed #e0e0e0' : 'none',
+                      }}>
+                        {/* Image */}
+                        <div style={{
+                          width: 88, height: 88,
+                          borderRadius: 6,
+                          overflow: 'hidden',
+                          flexShrink: 0,
+                          background: '#f5f5f5',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}>
+                          {l.images?.[0]?.url ? (
+                            <img
+                              src={l.images[0].url}
+                              alt={l.title}
+                              crossOrigin="anonymous"
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                              onError={e => { e.target.style.display = 'none'; e.target.parentNode.innerHTML = '<i class=\"fas fa-image\" style=\"font-size:24px;opacity:0.3\"></i>' }}
+                            />
+                          ) : (
+                            <i className="fas fa-image" style={{ fontSize: 24, opacity: 0.3 }} />
+                          )}
+                        </div>
+
+                        {/* Info */}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {l.title}
+                          </div>
+                          <div style={{ color: '#e74c3c', fontWeight: 700, fontSize: 16 }}>
+                            ${l.price}
+                            {l.original_price && l.original_price > l.price && (
+                              <span style={{ color: '#999', textDecoration: 'line-through', fontWeight: 400, fontSize: 12, marginLeft: 6 }}>
+                                ${l.original_price}
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: 11, color: '#999', marginTop: 2 }}>
+                            <span style={{ background: '#f0f0f0', borderRadius: 8, padding: '1px 6px', marginRight: 4 }}>
+                              {categories.find(c => c.slug === l.category)?.label || l.category}
+                            </span>
+                            {l.delivery_type === 'delivery' || l.delivery_type === 'both' ? (
+                              <span style={{ background: '#e8f0fe', borderRadius: 8, padding: '1px 6px' }}>
+                                {l.delivery_fee != null ? `配送+$${l.delivery_fee}` : '包邮'}
+                              </span>
+                            ) : (
+                              <span style={{ background: '#f0f0f0', borderRadius: 8, padding: '1px 6px' }}>
+                                自提
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: 11, color: '#aaa', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {l.description}
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+
+                  {/* Footer */}
+                  <div style={{ textAlign: 'center', marginTop: 16, paddingTop: 12, borderTop: '1px solid #e0e0e0', fontSize: 11, color: '#bbb' }}>
+                    Made with ❤️ on Horisation
+                  </div>
+                </div>
               </div>
               <div className="modal-footer">
-                <button className="btn btn-outline-secondary btn-sm" onClick={() => setShowExport(false)}>Close</button>
+                <button className="btn btn-outline-secondary btn-sm" onClick={() => setShowExport(false)}>
+                  关闭
+                </button>
                 <button
-                  className={`btn btn-sm ${copied ? 'btn-success' : 'btn-primary'}`}
-                  onClick={handleCopyExport}
+                  className="btn btn-primary btn-sm"
+                  onClick={handleExportImage}
+                  disabled={exporting}
                 >
-                  <i className={`fas ${copied ? 'fa-check' : 'fa-copy'} me-1`} />
-                  {copied ? 'Copied!' : 'Copy'}
+                  {exporting ? (
+                    <><span className="spinner-border spinner-border-sm me-1" />导出中…</>
+                  ) : (
+                    <><i className="fas fa-download me-1" />导出图片</>
+                  )}
                 </button>
               </div>
             </div>
@@ -1066,7 +1173,7 @@ export default function Market() {
           {tab === 'mylistings' && myListings.length > 0 && (
             <div className="d-flex justify-content-end mb-3">
               <button className="btn btn-outline-secondary btn-sm" onClick={() => setShowExport(true)}>
-                <i className="fas fa-file-export me-1" />Export List
+                <i className="fas fa-image me-1" />导出长图
               </button>
             </div>
           )}
