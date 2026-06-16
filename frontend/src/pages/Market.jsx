@@ -940,8 +940,7 @@ export default function Market() {
                 }}>
                   {/* Header */}
                   <div style={{ textAlign: 'center', marginBottom: 16, paddingBottom: 12, borderBottom: '2px solid #323232' }}>
-                    <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Horisation Market</div>
-                    <div style={{ fontSize: 13, color: '#888' }}>我的商品列表</div>
+                    <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Arch Bay</div>
                     <div style={{ fontSize: 12, color: '#aaa', marginTop: 2 }}>
                       {new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}
                     </div>
@@ -975,9 +974,8 @@ export default function Market() {
                             <img
                               src={l.images[0].url}
                               alt={l.title}
-                              crossOrigin="anonymous"
                               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                              onError={e => { e.target.style.display = 'none'; e.target.parentNode.innerHTML = '<i class=\"fas fa-image\" style=\"font-size:24px;opacity:0.3\"></i>' }}
+                              onError={e => { e.target.style.display = 'none'; e.target.nextElementSibling.style.display = '' }}
                             />
                           ) : (
                             <i className="fas fa-image" style={{ fontSize: 24, opacity: 0.3 }} />
@@ -1019,10 +1017,6 @@ export default function Market() {
                     ))
                   )}
 
-                  {/* Footer */}
-                  <div style={{ textAlign: 'center', marginTop: 16, paddingTop: 12, borderTop: '1px solid #e0e0e0', fontSize: 11, color: '#bbb' }}>
-                    Made with ❤️ on Horisation
-                  </div>
                 </div>
               </div>
               <div className="modal-footer">
