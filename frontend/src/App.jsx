@@ -17,6 +17,7 @@ import OnlineGomoku from './pages/fun/OnlineGomoku'
 import Market from './pages/Market'
 import Feedback from './pages/Feedback'
 import Friends from './pages/Friends'
+import Groups from './pages/Groups'
 import UserProfile from './pages/UserProfile'
 import TravelPlanner from './pages/TravelPlanner'
 import BillSplit from './pages/BillSplit'
@@ -162,6 +163,7 @@ export default function App() {
             <Route path="/market"            element={<Market />} />
             <Route path="/feedback"          element={<Feedback />} />
             <Route path="/friends"           element={<Friends />} />
+            <Route path="/groups"            element={<Groups />} />
             <Route path="/u/:username"       element={<UserProfile />} />
             <Route path="/travel"     element={<FeatureRoute feature="travelPlanner"><TravelPlanner /></FeatureRoute>} />
             <Route path="/bill-split" element={<FeatureRoute feature="billSplit"><BillSplit /></FeatureRoute>} />

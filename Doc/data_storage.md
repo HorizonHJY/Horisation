@@ -205,6 +205,43 @@ Managed via `GET/POST /api/market/categories` and `PUT/DELETE /api/market/catego
 
 ---
 
+### Table: `groups`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | TEXT (UUID) | PK |
+| name | TEXT | 群名, max 50 chars |
+| owner | TEXT | 建组者 username, indexed |
+| created_at | DATETIME | UTC |
+
+### Table: `group_members`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | TEXT (UUID) | PK |
+| group_id | TEXT (UUID) | FK → groups.id (cascade delete), indexed |
+| username | TEXT | 成员 username, indexed |
+| role | TEXT | `owner` / `member` |
+| joined_at | DATETIME | UTC |
+
+> `group_id + username` 唯一。owner 同时是 member 表里 role=owner 的一行。
+> 独立概念：群组成员 ≠ 好友关系，拉人只校验用户存在，不校验 friendship。
+
+### Table: `group_messages`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | TEXT (UUID) | PK |
+| group_id | TEXT (UUID) | FK → groups.id (cascade delete), indexed |
+| sender | TEXT | 发送者 username |
+| content | TEXT | max 1000 chars |
+| created_at | DATETIME | UTC |
+
+**Managed by:** `Backend/Controller/market_db.py` group helpers + `Backend/Controller/groups_controller.py` (`/api/groups`).
+See `Doc/groups.md` for API design.
+
+---
+
 ## Cloudflare R2 (Object Storage)
 
 Used to store image files. Accessed via `boto3` (S3-compatible API).

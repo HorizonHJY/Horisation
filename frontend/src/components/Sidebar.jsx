@@ -11,6 +11,7 @@ const NAV_COMMUNITY = [
   { to: '/tasks',    icon: 'fa-bullhorn',     label: 'Tasks' },
   { to: '/feedback', icon: 'fa-comments',     label: 'Message Board' },
   { to: '/friends',  icon: 'fa-user-friends', label: 'Friends' },
+  { to: '/groups',   icon: 'fa-users',       label: 'Groups' },
 ]
 
 const NAV_FUN = [

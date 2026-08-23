@@ -23,6 +23,7 @@ from Backend.Controller.memos_controller import memos_bp
 from Backend.Controller.market_controller import market_bp
 from Backend.Controller.feedback_controller import feedback_bp
 from Backend.Controller.friends_controller import friends_bp
+from Backend.Controller.groups_controller import groups_bp
 from Backend.Controller.socketio_instance import socketio
 import Backend.Controller.game_controller as _game_ctrl    # registers socket events
 import Backend.Controller.friends_socket  as _friends_sock  # registers socket events
@@ -72,6 +73,7 @@ app.register_blueprint(memos_bp)
 app.register_blueprint(market_bp)
 app.register_blueprint(feedback_bp)
 app.register_blueprint(friends_bp)
+app.register_blueprint(groups_bp)
 app.register_blueprint(game_bp)
 app.register_blueprint(travel_bp)
 app.register_blueprint(bill_bp)

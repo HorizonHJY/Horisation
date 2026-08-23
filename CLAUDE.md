@@ -36,7 +36,8 @@ Browser → Cloudflare → Nginx → Gunicorn (port 8000) → Flask (API only)
 | `Backend/Controller/notes_controller.py` | `/api/notes/*` — per-user notes |
 | `Backend/Controller/market_controller.py` | `/api/market/*` — marketplace listings |
 | `Backend/Controller/feedback_controller.py` | `/api/feedback/*` — message board |
-| `Backend/Controller/market_db.py` | SQLAlchemy models: Listing, ListingImage, Message |
+| `Backend/Controller/market_db.py` | SQLAlchemy models: Listing, ListingImage, Message, Group, GroupMember, GroupMessage |
+| `Backend/Controller/groups_controller.py` | `/api/groups/*` — 群组：建组/拉人/群聊（独立于好友） |
 | `Backend/Controller/r2_manager.py` | Cloudflare R2 upload/delete via boto3 |
 
 ### Frontend

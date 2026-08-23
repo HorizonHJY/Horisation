@@ -5,8 +5,8 @@
 Last Updated: 2026-05-19
 
 ### Current Working Version
-- **Completed**: 全站设计系统统一；邀请码系统；功能角色门控；好友/私信系统；SQLite 迁移；二手市集（配送选项 + Restore + 动态分类 + System Management + 价格拆分 + 响应式按钮 + 浏览量计数 + 分类图标 + 多选 filter + 两行 meta + 中文配送标签 + EditModal 修复）；**留言板（Weibo 式线程回复 + 点赞 + 翻页）**；用户公开主页；**非好友直接私信**；**Market Reach Out 直接开 DM**；**Login 页 Safari 全面兼容修复**
-- **In Progress**: 待 deploy 最新 commit（e8fb702）
+- **Completed**: 全站设计系统统一；邀请码系统；功能角色门控；好友/私信系统；SQLite 迁移；二手市集（配送选项 + Restore + 动态分类 + System Management + 价格拆分 + 响应式按钮 + 浏览量计数 + 分类图标 + 多选 filter + 两行 meta + 中文配送标签 + EditModal 修复）；**留言板（Weibo 式线程回复 + 点赞 + 翻页）**；用户公开主页；**非好友直接私信**；**Market Reach Out 直接开 DM**；**Login 页 Safari 全面兼容修复**；**群组系统（独立建组 + 按用户名拉人 + 群聊，`/api/groups`）**
+- **In Progress**: 待 deploy 群组模块（2026-08-22）
 - **Blocked / Not Solved**: 密码明文存储（待迁 bcrypt）；无 CI/CD 流水线；首页天气卡片（todo #1）
 
 ### Latest Summary
@@ -36,6 +36,7 @@ Login 页 Safari 三大 bug 根因全部定位并修复：① backdrop-filter �
 | 2026-05-08 | 市集分类存 DB（`categories` 表，slug PK + label + order + active）而非硬编码 | 分类需要支持中英文 label、随时增删改、admin 可配置；硬编码每次改动都要改代码、重部署 | slug 与 `listings.category` 列松耦合（无 FK 约束）——删除分类不会影响已有商品数据，但旧分类在筛选面板不再显示 |
 | 2026-05-09 | 分类图标存 DB（`categories.icon`，FA class 字符串）而非前端硬编码 Map | 用户可新增自定义分类并配图标，硬编码 `CATEGORY_ICONS` map 无法覆盖动态分类 | icon 字段是纯字符串，前端直接渲染 `<i className="fas {icon}" />`，无合法性校验；输入非法 FA class 时图标静默失效 |
 | 2026-05-09 | 多选 filter 用 `Set` state（`new Set()`），空 Set 表示"全选" | 比 `'all'` 字符串更语义清晰；多选状态天然用 Set 表达，toggle 逻辑简单（`has / add / delete`）；空 Set = 不过滤，不需要特殊 "all" 条目 | 每次 toggle 需要 `new Set(prev)` 拷贝才能触发 React re-render；不能用 `prev.add()` 直接 mutate |
+| 2026-08-22 | 群组系统独立成 `groups` / `group_members` / `group_messages` 三张表，与 `friendships` 完全解耦 | 需求明确"建组拉人与好友关系无关"，拉人只校验用户存在；独立概念便于隔离权限（owner/member） | 群里成员彼此不一定是好友；群聊实时性先做轮询（3s），后续可换 Socket |
 
 ---
 

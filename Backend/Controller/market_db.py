@@ -889,6 +889,37 @@ def get_memo_statistics(username: str) -> dict:
         }
 
 
+# ── Group models ───────────────────────────────────────────────────────────────
+
+class Group(Base):
+    __tablename__ = 'groups'
+
+    id         = Column(String(36),  primary_key=True, default=lambda: str(uuid.uuid4()))
+    name       = Column(String(50),  nullable=False)
+    owner      = Column(String(100), nullable=False, index=True)
+    created_at = Column(DateTime,    nullable=False, default=lambda: datetime.now(timezone.utc))
+
+
+class GroupMember(Base):
+    __tablename__ = 'group_members'
+
+    id         = Column(String(36),  primary_key=True, default=lambda: str(uuid.uuid4()))
+    group_id   = Column(String(36), ForeignKey('groups.id', ondelete='CASCADE'), nullable=False, index=True)
+    username   = Column(String(100), nullable=False, index=True)
+    role       = Column(String(20),  nullable=False, default='member')  # owner / member
+    joined_at  = Column(DateTime,    nullable=False, default=lambda: datetime.now(timezone.utc))
+
+
+class GroupMessage(Base):
+    __tablename__ = 'group_messages'
+
+    id         = Column(String(36),   primary_key=True, default=lambda: str(uuid.uuid4()))
+    group_id   = Column(String(36), ForeignKey('groups.id', ondelete='CASCADE'), nullable=False, index=True)
+    sender     = Column(String(100),  nullable=False)
+    content    = Column(Text,         nullable=False)
+    created_at = Column(DateTime,     nullable=False, default=lambda: datetime.now(timezone.utc))
+
+
 # ── Friend / chat models ───────────────────────────────────────────────────────
 
 class FriendRequest(Base):
@@ -956,6 +987,135 @@ class InviteCode(Base):
 
 
 # ── Friend helpers ─────────────────────────────────────────────────────────────
+
+# ── Group helpers ──────────────────────────────────────────────────────────────
+
+def _group_to_dict(g: Group) -> dict:
+    return {
+        'id':         g.id,
+        'name':       g.name,
+        'owner':      g.owner,
+        'created_at': g.created_at.isoformat(),
+    }
+
+
+def _group_msg_to_dict(m: GroupMessage) -> dict:
+    return {
+        'id':         m.id,
+        'group_id':   m.group_id,
+        'sender':     m.sender,
+        'content':    m.content,
+        'created_at': m.created_at.isoformat(),
+    }
+
+
+def create_group(name: str, owner: str) -> Optional[dict]:
+    """Create a group and add owner as its member. Returns group dict or None if name empty."""
+    if not name or not name.strip():
+        return None
+    gid = str(uuid.uuid4())
+    with Session() as s:
+        g = Group(id=gid, name=name.strip(), owner=owner)
+        s.add(g)
+        s.add(GroupMember(id=str(uuid.uuid4()), group_id=gid, username=owner, role='owner'))
+        s.commit()
+        return _group_to_dict(g)
+
+
+def get_my_groups(username: str) -> list:
+    """All groups a user belongs to (as member or owner)."""
+    with Session() as s:
+        rows = s.query(Group).join(GroupMember, GroupMember.group_id == Group.id) \
+                             .filter(GroupMember.username == username) \
+                             .order_by(Group.created_at.desc()).all()
+        return [_group_to_dict(g) for g in rows]
+
+
+def get_group(gid: str) -> Optional[dict]:
+    with Session() as s:
+        g = s.query(Group).filter_by(id=gid).first()
+        return _group_to_dict(g) if g else None
+
+
+def is_group_member(gid: str, username: str, role: str = None) -> bool:
+    """role='owner' restricts to owners only when provided."""
+    with Session() as s:
+        q = s.query(GroupMember).filter_by(group_id=gid, username=username)
+        if role:
+            q = q.filter_by(role=role)
+        return q.first() is not None
+
+
+def get_group_members(gid: str) -> list:
+    """Return list of {username, role, joined_at} for a group."""
+    with Session() as s:
+        rows = s.query(GroupMember).filter_by(group_id=gid) \
+                                   .order_by(GroupMember.joined_at.asc()).all()
+        return [{'username': m.username, 'role': m.role, 'joined_at': m.joined_at.isoformat()} for m in rows]
+
+
+def add_group_member(gid: str, username: str) -> bool:
+    """Add a member. Returns False if already a member."""
+    with Session() as s:
+        if s.query(GroupMember).filter_by(group_id=gid, username=username).first():
+            return False
+        s.add(GroupMember(id=str(uuid.uuid4()), group_id=gid, username=username, role='member'))
+        s.commit()
+        return True
+
+
+def remove_group_member(gid: str, username: str) -> bool:
+    """Remove a member. Returns False if not found. Owner removal is blocked (must delete group)."""
+    with Session() as s:
+        row = s.query(GroupMember).filter_by(group_id=gid, username=username).first()
+        if not row or row.role == 'owner':
+            return False
+        s.delete(row)
+        s.commit()
+        return True
+
+
+def rename_group(gid: str, new_name: str) -> bool:
+    if not new_name or not new_name.strip():
+        return False
+    with Session() as s:
+        g = s.query(Group).filter_by(id=gid).first()
+        if not g:
+            return False
+        g.name = new_name.strip()
+        s.commit()
+        return True
+
+
+def delete_group(gid: str) -> bool:
+    """Delete group + cascade members & messages."""
+    with Session() as s:
+        g = s.query(Group).filter_by(id=gid).first()
+        if not g:
+            return False
+        s.query(GroupMember).filter_by(group_id=gid).delete()
+        s.query(GroupMessage).filter_by(group_id=gid).delete()
+        s.delete(g)
+        s.commit()
+        return True
+
+
+def get_group_messages(gid: str) -> list:
+    with Session() as s:
+        rows = s.query(GroupMessage).filter_by(group_id=gid) \
+                                    .order_by(GroupMessage.created_at.asc()).all()
+        return [_group_msg_to_dict(m) for m in rows]
+
+
+def post_group_message(gid: str, sender: str, content: str) -> Optional[dict]:
+    if not content or not content.strip():
+        return None
+    with Session() as s:
+        m = GroupMessage(id=str(uuid.uuid4()), group_id=gid, sender=sender, content=content.strip())
+        s.add(m)
+        s.commit()
+        return _group_msg_to_dict(m)
+
 
 def _friend_pair(a: str, b: str) -> tuple:
     """Return (user_a, user_b) with user_a <= user_b for consistent storage."""

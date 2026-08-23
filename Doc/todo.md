@@ -18,12 +18,16 @@ Last updated: 2026-05-02
 
 | Item | Notes |
 |------|-------|
-| Group messaging | Group chat rooms for multiple friends |
 | Avalon board game | Social deduction game |
 | More games | Expand "For Fun" section |
 | Data visualisation tools | Charts/graphs in CSV Workspace |
-| CI/CD pipeline | GitHub Actions → auto-deploy to EC2 |
 | Push notifications | Browser push for new messages / friend requests |
+
+## Recently Done
+
+| Item | Date | Notes |
+|------|------|-------|
+| Group messaging（群组） | 2026-08-22 | 独立建组+按用户名拉人+群聊, `/api/groups`, 见 `Doc/groups.md` |
 
 ---
 
