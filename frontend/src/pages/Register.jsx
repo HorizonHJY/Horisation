@@ -70,14 +70,18 @@ export default function Register() {
           alignItems: 'center', width: '100%',
           pointerEvents: 'auto',
         }}>
-          <img src="/logo.png" alt="Arch Bay" className="login-logo"
-               style={{ objectFit: 'contain', opacity: 0.92 }} />
+          <svg viewBox="0 0 160 130" fill="none" xmlns="http://www.w3.org/2000/svg"
+               style={{ width: 'clamp(64px, 10vw, 96px)', height: 'auto', marginBottom: 'clamp(0.5rem, 2vh, 1.25rem)' }}>
+            <path d="M14 118 C14 118 14 34 80 16 C146 34 146 118 146 118 L128 118 C128 118 128 50 80 34 C32 50 32 118 32 118 Z" fill="#2d2d2d"/>
+            <path d="M48 118 C48 92 112 92 112 118 Z" fill="#2d2d2d"/>
+            <ellipse cx="80" cy="120" rx="66" ry="6" fill="#2d2d2d" opacity="0.15"/>
+          </svg>
           <h1 style={{
             fontFamily: "'Playfair Display', serif",
             fontWeight: 800, fontSize: 'clamp(1.6rem, 4vw, 2.8rem)',
             color: '#1a1a1a', letterSpacing: '-0.02em', margin: '0 0 clamp(1rem, 4vh, 2rem)',
           }}>
-            Arch Bay
+            Horisation
           </h1>
         </div>
 
