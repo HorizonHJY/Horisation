@@ -385,6 +385,35 @@ function PlanView({ plan: initPlan, onBack, showToast }) {
     else showToast(d.error || '添加失败', 'danger')
   }
 
+  async function removeDay(day) {
+    if (plan.num_days <= 1) {
+      showToast('至少保留一天', 'warning')
+      return
+    }
+    // 删除该天所有条目
+    const toDelete = plan.entries.filter(e => e.day_number === day)
+    for (const entry of toDelete) {
+      await api.delete(`/api/travel/plans/${plan.id}/entries/${entry.id}`)
+    }
+    // 更新天数
+    const newNum = plan.num_days - 1
+    const d = await api.put(`/api/travel/plans/${plan.id}`, { num_days: newNum })
+    if (d.ok) {
+      // 把后面天的条目往前挪一天
+      for (const e of plan.entries) {
+        if (e.day_number > day) {
+          await api.put(`/api/travel/plans/${plan.id}/entries/${e.id}`, { day_number: e.day_number - 1 })
+        }
+      }
+      setPlan(d.plan)
+      if (activeDay > newNum) setActiveDay(newNum)
+      else if (activeDay === day && activeDay > 1) setActiveDay(activeDay - 1)
+      showToast('已删除第 ' + day + ' 天', 'success')
+    } else {
+      showToast('删除失败', 'danger')
+    }
+  }
+
   function onEntrySaved(entry) {
     setPlan(p => {
       const exists = p.entries.find(e => e.id === entry.id)
@@ -487,11 +516,11 @@ function PlanView({ plan: initPlan, onBack, showToast }) {
         {Array.from({ length: plan.num_days }, (_, i) => i + 1).map(d => {
           const count = plan.entries.filter(e => e.day_number === d).length
           return (
-            <button
+            <div
               key={d}
-              className={`btn btn-sm ${activeDay === d ? 'btn-primary' : 'btn-outline-secondary'}`}
+              className={`btn btn-sm position-relative ${activeDay === d ? 'btn-primary' : 'btn-outline-secondary'}`}
               onClick={() => setActiveDay(d)}
-              style={{ minWidth: 72 }}
+              style={{ minWidth: 72, paddingRight: plan.num_days > 1 ? '22px' : undefined }}
             >
               Day {d}
               {count > 0 && (
@@ -506,7 +535,30 @@ function PlanView({ plan: initPlan, onBack, showToast }) {
                   {count}
                 </span>
               )}
-            </button>
+              {plan.num_days > 1 && (
+                <span
+                  className="position-absolute"
+                  style={{
+                    top: -3, right: -3, width: 16, height: 16,
+                    background: '#ef4444', color: '#fff',
+                    borderRadius: '50%', display: 'flex',
+                    alignItems: 'center', justifyContent: 'center',
+                    cursor: 'pointer', fontSize: '0.55rem',
+                    lineHeight: 1, zIndex: 2,
+                    boxShadow: '0 1px 3px rgba(0,0,0,.3)',
+                  }}
+                  onClick={e => {
+                    e.stopPropagation()
+                    if (window.confirm(`确定要删除 Day ${d}${count > 0 ? '（含 ' + count + ' 个项目）' : ''}吗？`)) {
+                      removeDay(d)
+                    }
+                  }}
+                  title="删除这一天"
+                >
+                  <i className="fas fa-times" style={{ fontSize: '0.5rem' }} />
+                </span>
+              )}
+            </div>
           )
         })}
         {plan.num_days < 30 && (
