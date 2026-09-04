@@ -1,5 +1,5 @@
 import React from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../App'
 import FlowerCanvas from '../components/FlowerCanvas'
 import WeatherGreeting from '../components/WeatherGreeting'
@@ -12,7 +12,6 @@ const FEATURES = [
 
 export default function Home() {
   const { user } = useAuth()
-  const navigate = useNavigate()
 
   return (
     <div style={{ position: 'relative', minHeight: 'calc(100vh - 60px - 64px)' }}>
@@ -55,18 +54,10 @@ export default function Home() {
         <div className="row g-3">
           {FEATURES.map(({ icon, color, title, desc, to }) => (
             <div key={title} className="col-12 col-sm-6 col-lg-4">
-              <div
-                className="card h-100"
-                style={{ cursor: 'pointer', transition: 'border-color .15s, transform .15s' }}
-                onClick={() => navigate(to)}
-                onMouseEnter={e => {
-                  e.currentTarget.style.borderColor = 'var(--border-medium)'
-                  e.currentTarget.style.transform   = 'translateY(-2px)'
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.borderColor = ''
-                  e.currentTarget.style.transform   = ''
-                }}
+              <Link
+                to={to}
+                className="card card-hover h-100 text-decoration-none"
+                style={{ cursor: 'pointer', background: 'var(--bg-surface)' }}
               >
                 <div className="card-body p-4">
                   <div className="d-flex align-items-center gap-3 mb-2">
@@ -81,6 +72,7 @@ export default function Home() {
                       fontWeight: 700,
                       fontSize: '1.1rem',
                       letterSpacing: '-0.01em',
+                      color: 'var(--text-primary)',
                     }}>
                       {title}
                     </div>
@@ -89,7 +81,7 @@ export default function Home() {
                     {desc}
                   </p>
                 </div>
-              </div>
+              </Link>
             </div>
           ))}
         </div>

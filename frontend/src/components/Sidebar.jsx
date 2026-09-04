@@ -64,9 +64,9 @@ export default function Sidebar({ isOpen, onClose }) {
       <div className="logo">
         <svg viewBox="0 0 160 130" fill="none" xmlns="http://www.w3.org/2000/svg"
              style={{ height: 40, width: 'auto' }}>
-          <path d="M14 118 C14 118 14 34 80 16 C146 34 146 118 146 118 L128 118 C128 118 128 50 80 34 C32 50 32 118 32 118 Z" fill="#2d2d2d"/>
-          <path d="M48 118 C48 92 112 92 112 118 Z" fill="#2d2d2d"/>
-          <ellipse cx="80" cy="120" rx="66" ry="6" fill="#2d2d2d" opacity="0.15"/>
+          <path d="M14 118 C14 118 14 34 80 16 C146 34 146 118 146 118 L128 118 C128 118 128 50 80 34 C32 50 32 118 32 118 Z" fill="currentColor"/>
+          <path d="M48 118 C48 92 112 92 112 118 Z" fill="currentColor"/>
+          <ellipse cx="80" cy="120" rx="66" ry="6" fill="currentColor" opacity="0.15"/>
         </svg>
         <span className="arch-bay-text" style={{ fontSize: '1.25rem' }}>Horisation</span>
       </div>
