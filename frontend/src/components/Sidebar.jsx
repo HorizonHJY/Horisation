@@ -19,7 +19,7 @@ const NAV_FUN = [
 ]
 
 const NAV_TOOLKIT_BASE = [
-  { to: '/hormemo',    icon: 'fa-clipboard-list', label: 'Hormemo' },
+  { to: '/hormemo',    icon: 'fa-clipboard-list', label: 'Memo' },
   { to: '/travel',     icon: 'fa-route',           label: 'Travel Planner', feature: 'travelPlanner' },
   { to: '/bill-split', icon: 'fa-receipt',         label: 'Bill Split',     feature: 'billSplit' },
 ]

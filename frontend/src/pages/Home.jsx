@@ -5,7 +5,7 @@ import FlowerCanvas from '../components/FlowerCanvas'
 import WeatherGreeting from '../components/WeatherGreeting'
 
 const FEATURES = [
-  { icon: 'fa-clipboard-list', color: '#6b9cdb', title: 'Hormemo',        desc: 'Personal memo and task tracker.',        to: '/hormemo'  },
+  { icon: 'fa-clipboard-list', color: '#6b9cdb', title: 'Memo',        desc: 'Personal memo and task tracker.',        to: '/hormemo'  },
   { icon: 'fa-store',          color: '#27ae60', title: 'Market',          desc: 'Browse and post second-hand listings.',  to: '/market'   },
   { icon: 'fa-comments',       color: '#d97706', title: 'Message Board',   desc: 'Chat and share with everyone.',          to: '/feedback' },
 ]

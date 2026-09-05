@@ -92,7 +92,7 @@ export default function Hormemo() {
 
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
-          <h4 className="fw-bold mb-0">{user?.display_name}'s Hormemo</h4>
+          <h4 className="fw-bold mb-0">{user?.display_name}'s Memo</h4>
           <span className="text-muted small">Your personal memo board</span>
         </div>
         <button className="btn btn-sm btn-outline-secondary" onClick={() => { loadMemos(filter); loadStats() }}>
