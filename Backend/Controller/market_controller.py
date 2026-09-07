@@ -90,7 +90,19 @@ def delete_category_route(slug):
 @market_bp.route('/listings', methods=['GET'])
 @login_required
 def list_listings():
-    listings = market_db.get_all_listings(status='active')
+    """Browse listings.
+
+    Returns all active listings, plus any RESERVED listing that is currently
+    being bought by the requesting user (so they can still see it and confirm
+    receipt / complete the trade after the seller accepted).
+    """
+    me = request.current_user['username']
+    listings = market_db.get_all_listings(status='active') or []
+    # A reserved listing must stay visible to the buyer who owns the accepted intent.
+    extra = market_db.get_reserved_listings_for_buyer(me)
+    if extra:
+        seen = {l['id'] for l in listings}
+        listings = listings + [l for l in extra if l['id'] not in seen]
     return jsonify({'ok': True, 'listings': listings})
 
 
@@ -305,3 +317,100 @@ def my_listings():
 def user_listings(username):
     listings = market_db.get_active_listings_by_user(username)
     return jsonify({'ok': True, 'listings': listings})
+
+
+# ── Trade-intent flow (意向成单流) ────────────────────────────────────────────
+
+@market_bp.route('/listings/<listing_id>/intent', methods=['POST'])
+@login_required
+def create_intent_route(listing_id):
+    """Buyer expresses 'I want this'. Seller must own an active listing."""
+    me      = request.current_user['username']
+    body    = request.get_json() or {}
+    message = (body.get('message') or '').strip() or None
+
+    # Seller must own an active listing (look it up to get the real seller).
+    listing = market_db.get_listing(listing_id)
+    if not listing or listing['status'] != 'active':
+        return jsonify({'ok': False, 'error': 'Listing not available for purchase.'}), 400
+    if listing['seller_username'] == me:
+        return jsonify({'ok': False, 'error': "You can't buy your own listing."}), 400
+    if market_db.has_active_intent(listing_id, me):
+        return jsonify({'ok': False, 'error': 'You already expressed interest. Wait for the seller.'}), 400
+
+    intent = market_db.create_intent(listing_id, me, listing['seller_username'], message)
+    if not intent:
+        return jsonify({'ok': False, 'error': 'Unable to express interest right now.'}), 400
+
+    from .friends_socket import notify_intent
+    notify_intent('trade_intent', intent)
+    return jsonify({'ok': True, 'intent': intent}), 201
+
+
+@market_bp.route('/intents/outgoing', methods=['GET'])
+@login_required
+def my_intents():
+    """Intents I placed as a buyer."""
+    me = request.current_user['username']
+    return jsonify({'ok': True, 'intents': market_db.get_my_buy_intents(me)})
+
+
+@market_bp.route('/intents/incoming', methods=['GET'])
+@login_required
+def incoming_intents():
+    """Intents buyers placed on my listings."""
+    me = request.current_user['username']
+    return jsonify({'ok': True, 'intents': market_db.get_seller_intents(me)})
+
+
+@market_bp.route('/intents/<intent_id>/accept', methods=['PUT'])
+@login_required
+def accept_intent_route(intent_id):
+    """Seller accepts a pending intent -> listing reserved, other intents declined."""
+    me    = request.current_user['username']
+    res   = market_db.accept_intent(intent_id, me)
+    if not res:
+        return jsonify({'ok': False, 'error': 'Intent not found, or listing/ownership changed.'}), 400
+    from .friends_socket import notify_intent
+    notify_intent('trade_intent_accepted', res)
+    return jsonify({'ok': True, 'intent': res})
+
+
+@market_bp.route('/intents/<intent_id>/decline', methods=['PUT'])
+@login_required
+def decline_intent_route(intent_id):
+    """Seller declines a pending intent."""
+    me  = request.current_user['username']
+    ok  = market_db.decline_intent(intent_id, me)
+    if not ok:
+        return jsonify({'ok': False, 'error': 'Intent not found or not pending.'}), 400
+    intent = market_db.get_intent(intent_id)
+    from .friends_socket import notify_intent
+    notify_intent('trade_intent_declined', intent)
+    return jsonify({'ok': True, 'intent': intent})
+
+
+@market_bp.route('/intents/<intent_id>/cancel', methods=['PUT'])
+@login_required
+def cancel_intent_route(intent_id):
+    """Either party cancels before completion. Frees a reserved listing back to active."""
+    me = request.current_user['username']
+    if not market_db.cancel_intent(intent_id, me):
+        return jsonify({'ok': False, 'error': 'Cannot cancel this intent.'}), 400
+    intent = market_db.get_intent(intent_id)
+    from .friends_socket import notify_intent
+    notify_intent('trade_intent_cancelled', intent)
+    return jsonify({'ok': True, 'intent': intent})
+
+
+@market_bp.route('/intents/<intent_id>/complete', methods=['PUT'])
+@login_required
+def complete_intent_route(intent_id):
+    """Buyer confirms receipt -> listing sold. Only the buyer of an accepted intent may call."""
+    me   = request.current_user['username']
+    res  = market_db.complete_intent(intent_id, me)
+    if not res:
+        return jsonify({'ok': False, 'error': 'Not found, not yours, or listing not reserved.'}), 400
+    from .friends_socket import notify_intent
+    notify_intent('trade_intent_completed', res)
+    return jsonify({'ok': True, 'intent': res})

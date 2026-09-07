@@ -223,12 +223,92 @@ function EditModal({ listing, onClose, onSave, categories }) {
   )
 }
 
+// ── Intent status helper ──────────────────────────────────────────────────────
+const INTENT_STATUS = {
+  pending:   { label: '已表达意向 · 等待卖家回复', color: '#8a6d1e', bg: '#fff8e1' },
+  accepted:  { label: '卖家已谈成 · 确认收到即完成', color: '#9c4d00', bg: '#fff0e0' },
+  completed: { label: '已完成',                    color: '#27ae60', bg: '#e8f8f0' },
+  declined:  { label: '卖家婉拒',                  color: '#999',    bg: '#f2f2f2' },
+  cancelled: { label: '已取消',                    color: '#999',    bg: '#f2f2f2' },
+}
+
+function IntentChip({ status, style }) {
+  const meta = INTENT_STATUS[status] || { label: status, color: '#666', bg: '#f0f0f0' }
+  return (
+    <span style={{
+      fontSize: '.62rem', fontWeight: 600, color: meta.color, background: meta.bg,
+      borderRadius: 10, padding: '2px 8px', whiteSpace: 'nowrap', ...style,
+    }}>
+      {meta.label}
+    </span>
+  )
+}
+
+// ── Want Modal ────────────────────────────────────────────────────────────────
+// Buyer expressing purchase interest in an ACTIVE (not reserved/sold) listing.
+function WantModal({ listing, onClose, onConfirm }) {
+  const [message, setMessage] = useState('')
+  const [sending, setSending] = useState(false)
+  const [err, setErr] = useState('')
+
+  const submit = async (e) => {
+    e.preventDefault()
+    if (sending) return
+    setSending(true)
+    setErr('')
+    await onConfirm(listing, message.trim())
+    setSending(false)
+  }
+
+  return (
+    <div className="modal show d-block" style={{ background: 'rgba(0,0,0,.45)' }} onClick={onClose}>
+      <div className="modal-dialog modal-dialog-centered" onClick={e => e.stopPropagation()}>
+        <div className="modal-content">
+          <div className="modal-header">
+            <h5 className="modal-title fw-semibold" style={{ fontSize: '1rem' }}>
+              <i className="fas fa-hand-pointer me-2 text-primary" />我想要
+            </h5>
+            <button className="btn-close" onClick={onClose} />
+          </div>
+          <form onSubmit={submit}>
+            <div className="modal-body">
+              {err && <div className="alert alert-danger py-2 small">{err}</div>}
+              <p className="small text-muted mb-1">
+                向卖家表达购买意向：<strong className="text-dark">{listing.title}</strong>
+              </p>
+              <div className="text-primary fw-bold mb-2" style={{ fontSize: '1.15rem' }}>${listing.price}</div>
+              <label className="form-label fw-medium small mb-1">留言给卖家（可选）</label>
+              <textarea
+                className="form-control"
+                rows={2}
+                maxLength={300}
+                placeholder="例如：还在吗？方便什么时候自提？"
+                value={message}
+                onChange={e => setMessage(e.target.value)}
+              />
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-secondary" onClick={onClose}>取消</button>
+              <button type="submit" className="btn btn-primary" disabled={sending}>
+                {sending ? <span className="spinner-border spinner-border-sm me-1" /> : <i className="fas fa-hand-pointer me-1" />}
+                {sending ? '提交中…' : '确定想要'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Listing Card ──────────────────────────────────────────────────────────────
-function ListingCard({ listing, currentUser, onSold, onRestore, onDelete, onEdit, onReachOut, onSellerClick, onDetail, reachOutStatus }) {
+function ListingCard({ listing, currentUser, onSold, onRestore, onDelete, onEdit, onReachOut, onSellerClick, onDetail, reachOutStatus, onWant, myIntent, onComplete, onCancelIntent, onShowIntents, incomingCount = 0, onCancelReservation }) {
   const isMine      = listing.seller_username === currentUser
   const firstImg    = listing.images?.[0]?.url
   const isSold      = listing.status === 'sold'
+  const isReserved  = listing.status === 'reserved'
   const hasOriginal = listing.original_price && listing.original_price > listing.price
+  const needNotShow = !currentUser // reused inside SellerModal → show no buyer/seller actions
 
   return (
     <div className="market-card">
@@ -250,6 +330,14 @@ function ListingCard({ listing, currentUser, onSold, onRestore, onDelete, onEdit
           <i className={`fas ${listing.category_icon || 'fa-tag'} me-1`} />{listing.category}
         </span>
         {isSold && <span className="market-card__sold-badge">Sold</span>}
+        {isReserved && !isSold && (
+          <span style={{
+            fontSize: '.62rem', fontWeight: 600, color: '#9c4d00', background: '#fff0e0',
+            borderRadius: 10, padding: '2px 8px', whiteSpace: 'nowrap',
+          }}>
+            已谈成
+          </span>
+        )}
         {listing.view_count > 0 && (
           <span style={{ fontSize: '.62rem', color: '#aaa', whiteSpace: 'nowrap', marginLeft: 'auto' }}>
             <i className="fas fa-eye me-1" />{listing.view_count}
@@ -308,15 +396,42 @@ function ListingCard({ listing, currentUser, onSold, onRestore, onDelete, onEdit
       {/* Owner actions */}
       {isMine && (
         <div className="market-card__action">
-          {!isSold && (
+          {isReserved ? (
             <>
-              <button className="market-card__btn" onClick={() => onSold(listing.id)}>
-                <i className="fas fa-check-circle" />Mark Sold
+              {/* Reserved = seller already accepted a buyer's intent; completion flows through buyer confirm */}
+              <button
+                className="market-card__btn"
+                disabled style={{ opacity: 1, background: '#fff0e0', color: '#9c4d00', borderColor: '#ffd9b3' }}
+                title="买家中"
+              >
+                <i className="fas fa-hourglass-half me-1" />已谈成 · 待买家确认
               </button>
-              <button className="market-card__btn market-card__btn--edit" onClick={() => onEdit(listing)}>
-                <i className="fas fa-pen" />Edit
-              </button>
+              {onCancelReservation && (
+                <button
+                  className="market-card__btn"
+                  style={{ color: '#c0392b', borderColor: '#f0b5ad', background: '#fff0ef' }}
+                  onClick={() => onCancelReservation(listing)}
+                >
+                  <i className="fas fa-times-circle me-1" />取消交易
+                </button>
+              )}
             </>
+          ) : (
+            !isSold && (
+              <>
+                {incomingCount > 0 && (
+                  <button className="market-card__btn" onClick={() => onShowIntents && onShowIntents(listing)} style={{ color: '#6b3fa0', borderColor: '#c9b6ee', background: '#f7f2ff' }}>
+                    <i className="fas fa-hand-heart me-1" />谁想要 ({incomingCount})
+                  </button>
+                )}
+                <button className="market-card__btn" onClick={() => onSold(listing.id)}>
+                  <i className="fas fa-check-circle" />Mark Sold
+                </button>
+                <button className="market-card__btn market-card__btn--edit" onClick={() => onEdit(listing)}>
+                  <i className="fas fa-pen" />Edit
+                </button>
+              </>
+            )
           )}
           {isSold && (
             <button className="market-card__btn market-card__btn--restore" onClick={() => onRestore(listing.id)}>
@@ -329,9 +444,35 @@ function ListingCard({ listing, currentUser, onSold, onRestore, onDelete, onEdit
         </div>
       )}
 
-      {/* Reach Out for other users' active listings */}
-      {!isMine && !isSold && (
+      {/* Buyer actions for other users' listings */}
+      {!isMine && !isSold && !needNotShow && (
         <div className="market-card__action">
+          {/* Per-listing intent status chip for the current buyer */}
+          {myIntent && <IntentChip status={myIntent.status} style={{ display: 'block', textAlign: 'center', marginBottom: 6 }} />}
+          {/* My accepted intent → confirm receipt (completes trade, listing sold) */}
+          {myIntent?.status === 'accepted' && onComplete && (
+            <button className="market-card__btn market-card__btn--reach" style={{ width: '100%', marginBottom: 6, background: '#e8f8f0', color: '#27ae60', borderColor: '#a7dfc3' }}
+              onClick={() => onComplete(myIntent.id)}>
+              <i className="fas fa-check-circle me-1" />确认收到 · 我拿到了
+            </button>
+          )}
+          {listing.status !== 'reserved' && (!myIntent || ['declined','cancelled'].includes(myIntent.status)) && onWant && (
+            <button className="market-card__btn" style={{ width: '100%', marginBottom: 6, color: '#3b5bdb', borderColor: '#a9bdf5', background: '#eef2ff' }}
+              onClick={() => onWant(listing)}>
+              <i className="fas fa-hand-pointer me-1" />我想要
+            </button>
+          )}
+          {listing.status !== 'reserved' && myIntent?.status === 'pending' && onCancelIntent && (
+            <button className="market-card__btn" style={{ width: '100%', marginBottom: 6, color: '#c0392b', borderColor: '#f0b5ad', background: '#fff0ef' }}
+              onClick={() => onCancelIntent(myIntent.id)}>
+              <i className="fas fa-times-circle me-1" />取消意向
+            </button>
+          )}
+          {listing.status === 'reserved' && myIntent?.status !== 'accepted' && (
+            <div style={{ fontSize: '.68rem', color: '#9c4d00', background: '#fff0e0', borderRadius: 8, padding: '3px 8px', textAlign: 'center', marginBottom: 6 }}>
+              已被其他买家预定
+            </div>
+          )}
           <button
             className="market-card__btn market-card__btn--reach"
             onClick={() => onReachOut(listing)}
@@ -345,10 +486,11 @@ function ListingCard({ listing, currentUser, onSold, onRestore, onDelete, onEdit
 }
 
 // ── Listing Detail Modal ──────────────────────────────────────────────────────
-function ListingDetailModal({ listing, currentUser, onClose, onSold, onRestore, onDelete, onEdit, onReachOut, onSellerClick, reachOutStatus }) {
+function ListingDetailModal({ listing, currentUser, onClose, onSold, onRestore, onDelete, onEdit, onReachOut, onSellerClick, reachOutStatus, onWant, myIntent, onComplete, onCancelIntent, incomingCount = 0, onShowIntents, onCancelReservation }) {
   const [imgIndex, setImgIndex] = useState(0)
   const isMine      = listing.seller_username === currentUser
   const isSold      = listing.status === 'sold'
+  const isReserved  = listing.status === 'reserved'
   const hasOriginal = listing.original_price && listing.original_price > listing.price
 
   return (
@@ -402,6 +544,11 @@ function ListingDetailModal({ listing, currentUser, onClose, onSold, onRestore, 
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <span className="market-card__category">{listing.category}</span>
                 {isSold && <span className="market-card__sold-badge">Sold</span>}
+                {isReserved && !isSold && (
+                  <span style={{ fontSize: '.72rem', fontWeight: 600, color: '#9c4d00', background: '#fff0e0', borderRadius: 10, padding: '2px 10px' }}>
+                    已谈成 · 待买家确认
+                  </span>
+                )}
               </div>
               {!isSold && (
                 <PriceDisplay listing={listing} large />
@@ -470,17 +617,37 @@ function ListingDetailModal({ listing, currentUser, onClose, onSold, onRestore, 
           <div className="modal-footer" style={{ borderTop: '1px solid #323232' }}>
             {isMine ? (
               <div style={{ display: 'flex', gap: 8, width: '100%' }}>
-                {!isSold && (
+                {isReserved ? (
                   <>
-                    <button className="market-card__btn" style={{ flex: 1 }}
-                      onClick={() => { onSold(listing.id); onClose() }}>
-                      <i className="fas fa-check-circle" />Mark Sold
+                    <button className="market-card__btn" style={{ flex: 1, background: '#fff0e0', color: '#9c4d00', borderColor: '#ffd9b3' }} disabled>
+                      <i className="fas fa-hourglass-half me-1" />已谈成 · 待买家确认
                     </button>
-                    <button className="market-card__btn market-card__btn--edit" style={{ flex: 1 }}
-                      onClick={() => { onEdit(listing); onClose() }}>
-                      <i className="fas fa-pen" />Edit
-                    </button>
+                    {onCancelReservation && (
+                      <button className="market-card__btn" style={{ flex: 1, color: '#c0392b', borderColor: '#f0b5ad', background: '#fff0ef' }}
+                        onClick={() => { onCancelReservation(listing); onClose() }}>
+                        <i className="fas fa-times-circle me-1" />取消交易
+                      </button>
+                    )}
                   </>
+                ) : (
+                  !isSold && (
+                    <>
+                      {incomingCount > 0 && onShowIntents && (
+                        <button className="market-card__btn" style={{ flex: 1, color: '#6b3fa0', borderColor: '#c9b6ee', background: '#f7f2ff' }}
+                          onClick={() => { onShowIntents(listing); onClose() }}>
+                          <i className="fas fa-hand-heart me-1" />谁想要 ({incomingCount})
+                        </button>
+                      )}
+                      <button className="market-card__btn" style={{ flex: 1 }}
+                        onClick={() => { onSold(listing.id); onClose() }}>
+                        <i className="fas fa-check-circle" />Mark Sold
+                      </button>
+                      <button className="market-card__btn market-card__btn--edit" style={{ flex: 1 }}
+                        onClick={() => { onEdit(listing); onClose() }}>
+                        <i className="fas fa-pen" />Edit
+                      </button>
+                    </>
+                  )
                 )}
                 {isSold && (
                   <button className="market-card__btn market-card__btn--restore" style={{ flex: 1 }}
@@ -493,14 +660,141 @@ function ListingDetailModal({ listing, currentUser, onClose, onSold, onRestore, 
                   <i className="fas fa-trash" />Delete
                 </button>
               </div>
-            ) : !isSold ? (
-              <div style={{ display: 'flex', gap: 8, width: '100%' }}>
-                <button className="market-card__btn market-card__btn--reach" style={{ flex: 1 }}
-                  onClick={() => { onReachOut(listing); onClose() }}>
-                  <i className="fas fa-comment-dots" />Message Seller
-                </button>
-              </div>
+            ) : currentUser ? (
+              !isSold && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, width: '100%' }}>
+                  {/* My intent status on this listing */}
+                  {myIntent && <IntentChip status={myIntent.status} style={{ width: '100%', textAlign: 'center' }} />}
+                  {/* Buyer confirms receipt — completes trade, listing sold */}
+                  {myIntent?.status === 'accepted' && onComplete && (
+                    <button className="market-card__btn market-card__btn--reach" style={{ flex: 1, background: '#e8f8f0', color: '#27ae60', borderColor: '#a7dfc3' }}
+                      onClick={() => { onComplete(myIntent.id); onClose() }}>
+                      <i className="fas fa-check-circle me-1" />确认收到 · 我拿到了
+                    </button>
+                  )}
+                  {/* Express interest on an active listing */}
+                  {listing.status === 'active' && (!myIntent || ['declined','cancelled'].includes(myIntent.status)) && onWant && (
+                    <button className="market-card__btn" style={{ flex: 1, background: '#eef2ff', color: '#3b5bdb', borderColor: '#a9bdf5' }}
+                      onClick={() => { onWant(listing); onClose() }}>
+                      <i className="fas fa-hand-pointer me-1" />我想要
+                    </button>
+                  )}
+                  {listing.status === 'active' && myIntent?.status === 'pending' && onCancelIntent && (
+                    <button className="market-card__btn" style={{ flex: 1, color: '#c0392b', borderColor: '#f0b5ad', background: '#fff0ef' }}
+                      onClick={() => onCancelIntent(myIntent.id)}>
+                      <i className="fas fa-times-circle me-1" />取消意向
+                    </button>
+                  )}
+                  <button className="market-card__btn market-card__btn--reach" style={{ flex: 1 }}
+                    onClick={() => { onReachOut(listing); onClose() }}>
+                    <i className="fas fa-comment-dots" />Message Seller
+                  </button>
+                </div>
+              )
             ) : null}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Incoming Intents Modal (seller: “谁想要” for one listing) ──────────────
+function IncomingModal({ listing, intents, onClose, onAccept, onDecline, onContact, onCancelReservation }) {
+  const [busyId, setBusyId] = useState(null)
+  const run = async (fn, intent) => { if (busyId) return; setBusyId(intent.id); await fn(intent); setBusyId(null) }
+  const accepted = intents.find(i => i.status === 'accepted')
+
+  return (
+    <div className="modal show d-block" style={{ background: 'rgba(0,0,0,.45)' }} onClick={onClose}>
+      <div className="modal-dialog modal-dialog-centered modal-dialog-scrollable" onClick={e => e.stopPropagation()}>
+        <div className="modal-content">
+          <div className="modal-header">
+            <h5 className="modal-title fw-semibold" style={{ fontSize: '1rem' }}>
+              <i className="fas fa-hand-heart me-2 text-primary" />谁想要
+            </h5>
+            <button className="btn-close" onClick={onClose} />
+          </div>
+          <div className="modal-body">
+            <p className="text-muted small mb-3">
+              《<strong className="text-dark">{listing.title}</strong>》的购买意向
+            </p>
+            {listing.status === 'reserved' && accepted && (
+              <div className="alert alert-warning py-2 small">
+                <i className="fas fa-hourglass-half me-1" />
+                已与 <strong>{accepted.buyer_display || accepted.buyer}</strong> 谈成，等待 TA 确认收货后即完成交易。
+              </div>
+            )}
+            {intents.length === 0 ? (
+              <div className="text-center py-4 text-muted">
+                <i className="fas fa-inbox fa-2x d-block opacity-25 mb-2" />
+                暂时没有人表达意向。
+              </div>
+            ) : (
+              <div className="d-flex flex-column gap-2">
+                {intents.map(intent => (
+                  <div key={intent.id} className="border rounded p-2" style={{ background: intent.status === 'accepted' ? '#fff8ef' : intent.status === 'pending' ? '#f7f9ff' : '#fafafa' }}>
+                    <div className="d-flex align-items-center gap-2 mb-1">
+                      <SellerAvatar username={intent.buyer} displayName={intent.buyer_display} avatarUrl={intent.buyer_avatar} size={26} />
+                      <strong style={{ fontSize: '.85rem' }} className="me-auto">{intent.buyer_display || intent.buyer}</strong>
+                      <IntentChip status={intent.status} />
+                    </div>
+                    {intent.message && (
+                      <div style={{ fontSize: '.8rem', color: '#555', background: '#fff', border: '1px solid #eee', borderRadius: 6, padding: '4px 8px', marginBottom: 6, whiteSpace: 'pre-wrap' }}>
+                        “{intent.message}”
+                      </div>
+                    )}
+                    <div style={{ fontSize: '.7rem', color: '#aaa', marginBottom: 6 }}>
+                      {new Date(intent.created_at).toLocaleString()}
+                    </div>
+                    <div className="d-flex gap-2">
+                      {intent.status === 'pending' && (
+                        <>
+                          <button
+                            className="market-card__btn"
+                            style={{ flex: 1, color: '#27ae60', borderColor: '#a7dfc3', background: '#e8f8f0' }}
+                            disabled={busyId === intent.id}
+                            onClick={() => run(onAccept, intent)}
+                          >
+                            <i className="fas fa-check me-1" />接受
+                          </button>
+                          <button
+                            className="market-card__btn"
+                            style={{ flex: 1, color: '#c0392b', borderColor: '#f0b5ad', background: '#fff0ef' }}
+                            disabled={busyId === intent.id}
+                            onClick={() => run(onDecline, intent)}
+                          >
+                            <i className="fas fa-times me-1" />婉拒
+                          </button>
+                        </>
+                      )}
+                      {intent.status === 'accepted' && onCancelReservation && (
+                        <button
+                          className="market-card__btn"
+                          style={{ flex: 1, color: '#c0392b', borderColor: '#f0b5ad', background: '#fff0ef' }}
+                          disabled={busyId === intent.id}
+                          onClick={() => run(onCancelReservation, intent)}
+                        >
+                          <i className="fas fa-times-circle me-1" />取消交易
+                        </button>
+                      )}
+                      {onContact && (
+                        <button
+                          className="market-card__btn market-card__btn--reach"
+                          style={{ flex: 1 }}
+                          onClick={() => onContact(intent)}
+                        >
+                          <i className="fas fa-comment-dots me-1" />联系买家
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="modal-footer">
+            <button className="btn btn-secondary btn-sm" onClick={onClose}>关闭</button>
           </div>
         </div>
       </div>
@@ -596,6 +890,15 @@ export default function Market() {
   const [sellerLoading, setSellerLoading]  = useState(false)
   const [showExport, setShowExport]     = useState(false)
   const [exporting, setExporting]       = useState(false)
+  // ── Trade-intent state ──
+  // outgoingIntents: flat list of intents I placed as buyer (from /intents/outgoing)
+  const [outgoingIntents, setOutgoingIntents] = useState([])
+  // incomingIntents: flat list of intents buyers placed on MY listings (from /intents/incoming)
+  const [incomingIntents, setIncomingIntents] = useState([])
+  // wantModal: listing object currently collecting an “我想要” message | null
+  const [wantListing, setWantListing]   = useState(null)
+  // incomingModalListing: listing id currently viewing its buyers-intents drawer | null
+  const [incomingModalId, setIncomingModalId] = useState(null)
   const exportRef                       = useRef(null)
   const fileRef = useRef()
   const tabRef  = useRef(tab)
@@ -618,6 +921,12 @@ export default function Market() {
   useEffect(() => {
     if (tab === 'browse')     { loadBrowse(); setSearchQuery(''); setCategoryFilter(new Set()); setDeliveryFilter(new Set()) }
     if (tab === 'mylistings')   loadMine()
+  }, [tab])
+
+  // Load both intent directions whenever we land on either trading tab
+  useEffect(() => {
+    refreshIntents()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab])
 
   // Refresh when user returns to this tab
@@ -664,6 +973,27 @@ export default function Market() {
     const d = await api.get('/api/market/my')
     if (d.ok) setMy(enrichWithIcon(d.listings, categories))
     setLoading(false)
+  }
+
+  // Fetch my outgoing (as buyer) + incoming (on my listings) intents in parallel.
+  async function refreshIntents() {
+    try {
+      const [outRes, inRes] = await Promise.all([
+        api.get('/api/market/intents/outgoing'),
+        api.get('/api/market/intents/incoming'),
+      ])
+      if (outRes.ok) setOutgoingIntents(outRes.intents || [])
+      if (inRes.ok)  setIncomingIntents(inRes.intents || [])
+    } catch (e) {
+      console.error('refreshIntents:', e)
+    }
+  }
+
+  // After any intent/list mutation, re-fetch listings for current tab + intents.
+  async function reloadAfterMutation() {
+    if (tabRef.current === 'browse')     loadBrowse()
+    else if (tabRef.current === 'mylistings') loadMine()
+    refreshIntents()
   }
 
   async function openSellerModal(username) {
@@ -778,6 +1108,83 @@ export default function Market() {
     }
   }
 
+  // ── Trade-intent handlers ──────────────────────────────────────────────────
+  // Buyer expresses likely purchase intent on an active listing.
+  async function expressIntent(listing, message) {
+    const d = await api.post(`/api/market/listings/${listing.id}/intent`, { message: message || undefined })
+    if (d.ok) {
+      showToast('已表达购买意向，等待卖家回复。')
+      setWantListing(null)
+      reloadAfterMutation()
+    } else {
+      showToast(d.error || '发送意向失败，请重试。', 'danger')
+    }
+  }
+
+  // Seller accepts a pending intent (listing → reserved; others auto-declined).
+  async function acceptIntent(intent) {
+    const d = await api.put(`/api/market/intents/${intent.id}/accept`)
+    if (d.ok) {
+      showToast(`已接受 ${intent.buyer_display || intent.buyer} 的意向。`)
+      setIncomingModalId(null)
+      reloadAfterMutation()
+    } else showToast(d.error || '接受失败', 'danger')
+  }
+
+  // Seller declines a pending intent.
+  async function declineIntent(intent) {
+    const d = await api.put(`/api/market/intents/${intent.id}/decline`)
+    if (d.ok) {
+      showToast('已婉拒该意向。')
+      reloadAfterMutation()
+    } else showToast(d.error || '操作失败', 'danger')
+  }
+
+  // Either party cancels / aborts an intent (frees a reserved listing back to active).
+  async function cancelIntent(id) {
+    if (!window.confirm('确定取消这个意向 / 交易吗？')) return
+    const d = await api.put(`/api/market/intents/${id}/cancel`)
+    if (d.ok) {
+      showToast('已取消。')
+      setIncomingModalId(null)
+      reloadAfterMutation()
+    } else showToast(d.error || '取消失败', 'danger')
+  }
+
+  // Buyer confirms receipt → intent completed, listing sold.
+  async function completeIntent(id) {
+    const d = await api.put(`/api/market/intents/${id}/complete`)
+    if (d.ok) {
+      showToast('交易完成，谢谢！')
+      setDetailListing(null)
+      reloadAfterMutation()
+    } else showToast(d.error || '确认失败', 'danger')
+  }
+
+  // Seller releases their own reserved listing by cancelling the accepted intent.
+  function cancelReservationByListing(listing) {
+    const accepted = incomingIntents.find(i => i.listing_id === listing.id && i.status === 'accepted')
+    if (!accepted) {
+      // Fallback: treat as generic cancel of any active intent on this listing
+      const anyIntent = incomingIntents.find(i => i.listing_id === listing.id && ['pending','accepted'].includes(i.status))
+      if (anyIntent) return cancelIntent(anyIntent.id)
+      showToast('当前没有可取消的预订。', 'danger')
+      return
+    }
+    cancelIntent(accepted.id)
+  }
+
+  // Sale-seller opens the “谁想要” drawer for one listing.
+  function openIncomingModal(listing) {
+    setIncomingModalId(listing.id)
+  }
+
+  // Contact a buyer straight from the “谁想要” modal.
+  function contactBuyer(intent) {
+    setIncomingModalId(null)
+    handleReachOut({ seller_username: intent.buyer, title: null })
+  }
+
   // Reach Out: friends → navigate to chat; not friends → send friend request
   async function openDetail(listing) {
     const key = `viewed_${listing.id}`
@@ -883,6 +1290,36 @@ export default function Market() {
   }
   const displayList = tab === 'mylistings' ? myListings : filteredBrowse
 
+  // ── Derived intent data ───────────────────────────────────────────────────
+  // All my outgoing intents keyed by listing_id (there can be duplicates across
+  // time per listing); helper returns most relevant one for UI display.
+  const outgoingByListing = {}
+  outgoingIntents.forEach(it => {
+    (outgoingByListing[it.listing_id] = outgoingByListing[it.listing_id] || []).push(it)
+  })
+  // All buyer intents on my listings, keyed by listing_id.
+  const incomingByListing = {}
+  incomingIntents.forEach(it => {
+    (incomingByListing[it.listing_id] = incomingByListing[it.listing_id] || []).push(it)
+  })
+
+  function pickBuyerIntent(list) {
+    const all = (outgoingByListing[list.id] || [])
+    if (!all.length) return null
+    // Prefer the one currently driving the reservation / pending negotiation.
+    const active = all.find(i => i.status === 'pending')
+    if (active) return active
+    const accepted = all.find(i => i.status === 'accepted')
+    if (accepted) return accepted
+    // Fall back to most recent historical record (completed / declined / cancelled)
+    return all.slice().sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at))[0]
+  }
+  function buyerIntentFor(list)      { return list ? pickBuyerIntent(list) : null }
+  function listingIncoming(list)     { return (incomingByListing[list.id] || []).slice() }
+  // Badge should reflect buyers CURRENTLY wanting / negotiating, not declined/completed history.
+  const isLiveIntent = it => it && (it.status === 'pending' || it.status === 'accepted')
+  function incomingCountFor(list)    { return list ? (incomingByListing[list.id] || []).filter(isLiveIntent).length : 0 }
+
   return (
     <div className="container-fluid py-4">
 
@@ -899,8 +1336,41 @@ export default function Market() {
           onReachOut={handleReachOut}
           onSellerClick={openSellerModal}
           reachOutStatus={interestedSet[detailListing.seller_username]}
+          onWant={w => setWantListing(w)}
+          myIntent={buyerIntentFor(detailListing)}
+          onComplete={completeIntent}
+          onCancelIntent={cancelIntent}
+          incomingCount={incomingCountFor(detailListing)}
+          onShowIntents={w => openIncomingModal(w)}
+          onCancelReservation={cancelReservationByListing}
         />
       )}
+
+      {/* Want modal — buyer expresses interest on an ACTIVE listing */}
+      {wantListing && (
+        <WantModal
+          listing={wantListing}
+          onClose={() => setWantListing(null)}
+          onConfirm={expressIntent}
+        />
+      )}
+
+      {/* Incoming intents drawer (seller “谁想要”) — per listing */}
+      {incomingModalId != null && (() => {
+        const target = [...myListings, ...listings].find(l => l.id === incomingModalId)
+        if (!target) return null
+        return (
+          <IncomingModal
+            listing={target}
+            intents={listingIncoming(target)}
+            onClose={() => setIncomingModalId(null)}
+            onAccept={acceptIntent}
+            onDecline={declineIntent}
+            onContact={contactBuyer}
+            onCancelReservation={(intent) => cancelIntent(intent.id)}
+          />
+        )
+      })()}
 
       {/* Toast */}
       {toast && (
@@ -1198,22 +1668,34 @@ export default function Market() {
             </div>
           ) : (
             <div className="row row-cols-2 row-cols-sm-3 row-cols-lg-4 row-cols-xl-5 g-2">
-              {displayList.map(l => (
-                <div className="col" key={l.id}>
-                  <ListingCard
-                    listing={l}
-                    currentUser={user.username}
-                    onSold={handleSold}
-                    onRestore={handleRestore}
-                    onDelete={handleDelete}
-                    onEdit={setEditListing}
-                    onReachOut={handleReachOut}
-                    onSellerClick={openSellerModal}
-                    onDetail={() => openDetail(l)}
-                    reachOutStatus={interestedSet[l.seller_username]}
-                  />
-                </div>
-              ))}
+              {displayList.map(l => {
+                const mineHere = l.seller_username === user.username
+                return (
+                  <div className="col" key={l.id}>
+                    <ListingCard
+                      listing={l}
+                      currentUser={user.username}
+                      onSold={handleSold}
+                      onRestore={handleRestore}
+                      onDelete={handleDelete}
+                      onEdit={setEditListing}
+                      onReachOut={handleReachOut}
+                      onSellerClick={openSellerModal}
+                      onDetail={() => openDetail(l)}
+                      reachOutStatus={interestedSet[l.seller_username]}
+                      /* buyer path (only relevant in browse of others' listings) */
+                      onWant={w => setWantListing(w)}
+                      myIntent={!mineHere ? buyerIntentFor(l) : null}
+                      onComplete={completeIntent}
+                      onCancelIntent={cancelIntent}
+                      /* seller path (only relevant in “My Listings”) */
+                      incomingCount={mineHere ? incomingCountFor(l) : 0}
+                      onShowIntents={openIncomingModal}
+                      onCancelReservation={mineHere ? cancelReservationByListing : null}
+                    />
+                  </div>
+                )
+              })}
             </div>
           )}
         </>

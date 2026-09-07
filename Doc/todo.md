@@ -1,6 +1,6 @@
 # Horisation — To-Do List
 
-Last updated: 2026-05-02
+Last updated: 2026-09-06
 
 ---
 
@@ -28,6 +28,8 @@ Last updated: 2026-05-02
 | Item | Date | Notes |
 |------|------|-------|
 | Group messaging（群组） | 2026-08-22 | 独立建组+按用户名拉人+群聊, `/api/groups`, 见 `Doc/groups.md` |
+| Brand rename → Arch Bay | 2026-09-06 | 可见文案 'Horisation'→'Arch Bay'，提交 f0fc7f6；仓库目录未改名 |
+| Marketplace 意向成单流 | 2026-09-06 | trade_intents + listing reserved/sold + 两段式成交（待 A/B 实测 & merge main） |
 
 ---
 
