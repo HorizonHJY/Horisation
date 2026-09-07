@@ -104,7 +104,7 @@ class UserManager:
         if not u.get('is_active', True):
             return False, None
         if u.get('password') == password:
-            return True, self._public_user_dict(u)
+            return True, self._self_user_dict(u)
         return False, None
 
     def create_session(self, username: str) -> str:
@@ -129,9 +129,7 @@ class UserManager:
             return None
         u = market_db.db_get_user(sess['username'])
         if u:
-            result = self._public_user_dict(u)
-            result['contact_info'] = u.get('contact_info', '')
-            return result
+            return self._self_user_dict(u)
         return None
 
     def logout_user(self, session_token: str) -> bool:
@@ -261,6 +259,19 @@ class UserManager:
             'avatar_url':   u.get('avatar_url'),
             'role_info':    self.USER_ROLES.get(u['role'], {}),
         }
+
+    def _self_user_dict(self, u: dict) -> dict:
+        """Full profile view returned to the logged-in user themselves
+        (login + check-session). Includes contact fields so the Profile
+        page can re-display phone / wechat / address / postal_code after save."""
+        d = self._public_user_dict(u)
+        d['contact_hidden'] = bool(u.get('contact_hidden', False))
+        d['contact_info']   = u.get('contact_info', '') or ''
+        d['wechat']         = u.get('wechat', '') or ''
+        d['phone']          = u.get('phone', '') or ''
+        d['address']        = u.get('address', '') or ''
+        d['postal_code']    = u.get('postal_code', '') or ''
+        return d
 
 
 # 创建全局用户管理器实例
