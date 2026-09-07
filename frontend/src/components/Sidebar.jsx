@@ -68,7 +68,7 @@ export default function Sidebar({ isOpen, onClose }) {
           <path d="M48 118 C48 92 112 92 112 118 Z" fill="currentColor"/>
           <ellipse cx="80" cy="120" rx="66" ry="6" fill="currentColor" opacity="0.15"/>
         </svg>
-        <span className="arch-bay-text" style={{ fontSize: '1.25rem' }}>Horisation</span>
+        <span className="arch-bay-text" style={{ fontSize: '1.25rem' }}>Arch Bay</span>
       </div>
 
       <div className="sidebar-nav">
