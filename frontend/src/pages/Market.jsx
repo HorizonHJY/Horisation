@@ -1934,7 +1934,12 @@ export default function Market() {
                 const mineHere = l.seller_username === user.username
                 return (
                   <div className="col" key={l.id}>
-                    <div style={highlightId === l.id
+                    {/* h-100 is load-bearing: .market-card sizes itself with
+                        height:100% so that .market-card__desc can flex-grow and
+                        absorb different description lengths. Without it this
+                        wrapper collapses to content height and the cards in a
+                        row stop matching. */}
+                    <div className="h-100" style={highlightId === l.id
                       ? { outline: '2px solid var(--accent)', outlineOffset: 3, borderRadius: 'var(--radius-lg)' }
                       : undefined}>
                       <ListingCard
