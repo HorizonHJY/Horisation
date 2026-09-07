@@ -72,7 +72,7 @@ via `user_manager.py` public API.
 | status | TEXT | `active` / `sold` / `removed` |
 | delivery_type | TEXT | `pickup` / `delivery` / `both`; default `pickup` |
 | delivery_fee | REAL | Optional delivery fee; null = free |
-| view_count | INTEGER | Incremented on each `GET /listings/<id>`; sessionStorage dedup on frontend |
+| view_count | INTEGER | Incremented on `GET /listings/<id>` unless the request carries `?track=0`. The frontend sends `track=0` when this browser session has already been counted, so reopening a listing returns fresh price/status without inflating the counter (it used to skip the fetch entirely and serve stale cached data). |
 | created_at | DATETIME | UTC |
 | updated_at | DATETIME | UTC, auto-updates |
 
@@ -83,13 +83,23 @@ via `user_manager.py` public API.
 | Column | Type | Notes |
 |--------|------|-------|
 | slug | TEXT | PK — e.g. `clothing`, `electronics` |
-| label | TEXT | Display name shown in UI — e.g. `衣服`, `Electronics` |
+| label | TEXT | **English** display name — e.g. `Clothing`, `Electronics`. This is what the interface shows. |
+| label_zh | TEXT | Optional Chinese accent rendered beside `label` at smaller size — e.g. `衣服`. May be null. |
 | order | INTEGER | Sort order for pills / dropdowns (lower = first) |
 | active | BOOLEAN | Inactive categories hidden from create/edit form; preserved on existing listings |
 | icon | TEXT | FontAwesome class — e.g. `fa-tshirt`; default `fa-tag`. Configurable via System Management. |
 
 Seeded on first startup with 7 entries: clothing, furniture, kitchen, electronics, beauty (active) + books, other (inactive, legacy).
-Managed via `GET/POST /api/market/categories` and `PUT/DELETE /api/market/categories/<slug>` (admin only).
+Managed via `GET/POST /api/market/categories` and `PUT/DELETE /api/market/categories/<slug>` (admin only);
+both write endpoints accept an optional `label_zh`.
+
+> **Bilingual split (2026-09-07).** `label` previously held whichever language the admin
+> typed, so the card badge rendered the raw slug while the filter pill rendered a Chinese
+> label — the same field showing two different names on one screen. `label` is now English-only
+> and `label_zh` carries the accent, matching the interface-language rule in `PRODUCT.md`.
+> `_migrate_category_labels()` in `market_db.py` repairs existing rows on startup and is
+> idempotent: built-in slugs get their documented pair; an admin-created row whose only name
+> was Chinese keeps it as the accent and gets a slug-derived English name to correct by hand.
 
 ---
 

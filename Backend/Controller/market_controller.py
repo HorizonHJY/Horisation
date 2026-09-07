@@ -50,29 +50,31 @@ def list_all_categories():
 @market_bp.route('/categories', methods=['POST'])
 @admin_required
 def create_category():
-    data   = request.get_json() or {}
-    slug   = data.get('slug', '').strip()
-    label  = data.get('label', '').strip()
-    order  = int(data.get('order', 0))
-    active = bool(data.get('active', True))
-    icon   = data.get('icon', 'fa-tag').strip() or 'fa-tag'
+    data     = request.get_json() or {}
+    slug     = data.get('slug', '').strip()
+    label    = data.get('label', '').strip()
+    label_zh = (data.get('label_zh') or '').strip()
+    order    = int(data.get('order', 0))
+    active   = bool(data.get('active', True))
+    icon     = data.get('icon', 'fa-tag').strip() or 'fa-tag'
     if not slug or not label:
         return jsonify({'ok': False, 'error': 'slug and label are required.'}), 400
-    cat = market_db.upsert_category(slug, label, order, active, icon)
+    cat = market_db.upsert_category(slug, label, order, active, icon, label_zh)
     return jsonify({'ok': True, 'category': cat}), 201
 
 
 @market_bp.route('/categories/<slug>', methods=['PUT'])
 @admin_required
 def update_category(slug):
-    data   = request.get_json() or {}
-    label  = data.get('label', '').strip()
-    order  = int(data.get('order', 0))
-    active = bool(data.get('active', True))
-    icon   = data.get('icon', 'fa-tag').strip() or 'fa-tag'
+    data     = request.get_json() or {}
+    label    = data.get('label', '').strip()
+    label_zh = (data.get('label_zh') or '').strip()
+    order    = int(data.get('order', 0))
+    active   = bool(data.get('active', True))
+    icon     = data.get('icon', 'fa-tag').strip() or 'fa-tag'
     if not label:
         return jsonify({'ok': False, 'error': 'label is required.'}), 400
-    cat = market_db.upsert_category(slug, label, order, active, icon)
+    cat = market_db.upsert_category(slug, label, order, active, icon, label_zh)
     return jsonify({'ok': True, 'category': cat})
 
 
@@ -185,11 +187,18 @@ def create_listing():
 @market_bp.route('/listings/<listing_id>', methods=['GET'])
 @login_required
 def get_listing(listing_id):
+    """Fetch one listing.
+
+    `?track=0` returns fresh data without counting another view. The client
+    sends it when this browser session has already been counted, so reopening
+    a listing shows current price and status without inflating the counter.
+    """
     listing = market_db.get_listing(listing_id)
     if not listing:
         return jsonify({'ok': False, 'error': 'Listing not found.'}), 404
-    market_db.increment_view_count(listing_id)
-    listing['view_count'] += 1   # reflect the increment in this response
+    if request.args.get('track') != '0':
+        market_db.increment_view_count(listing_id)
+        listing['view_count'] += 1   # reflect the increment in this response
     return jsonify({'ok': True, 'listing': listing})
 
 

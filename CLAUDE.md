@@ -36,26 +36,38 @@ Browser → Cloudflare → Nginx → Gunicorn (port 8000) → Flask (API only)
 | `Backend/Controller/notes_controller.py` | `/api/notes/*` — per-user notes |
 | `Backend/Controller/market_controller.py` | `/api/market/*` — marketplace listings |
 | `Backend/Controller/feedback_controller.py` | `/api/feedback/*` — message board |
-| `Backend/Controller/market_db.py` | SQLAlchemy models: Listing, ListingImage, Message, Group, GroupMember, GroupMessage |
+| `Backend/Controller/market_db.py` | SQLAlchemy models + helpers: User, UserSession, Listing, ListingImage, Category, Message, MessageLike, Memo, GameRoom, friends/groups tables. Also owns the additive column migrations (`_migrate_columns`, `_migrate_category_labels`). |
 | `Backend/Controller/groups_controller.py` | `/api/groups/*` — 群组：建组/拉人/群聊（独立于好友） |
+| `Backend/Controller/friends_controller.py` | `/api/friends/*` — search, requests, private chat, contact-sharing approval |
+| `Backend/Controller/friends_socket.py` | Socket.IO events: friend notifications, private chat |
+| `Backend/Controller/game_controller.py` | `/api/game/*` + Socket.IO events: online Gomoku rooms and moves |
+| `Backend/Controller/travel_controller.py` / `travel_db.py` | `/api/travel/*` — multi-day itinerary planner, shareable 6-char plan id |
+| `Backend/Controller/bill_controller.py` / `bill_db.py` | `/api/bill/*` — bill splitting, shareable 6-char bill id |
+| `Backend/Controller/market_task_controller.py` / `market_task_db.py` | `/api/market/tasks/*` — bounty/task board |
+| `Backend/Controller/weather_controller.py` | `/api/weather` — Open-Meteo current weather for St. Louis, 10-min in-memory cache |
 | `Backend/Controller/r2_manager.py` | Cloudflare R2 upload/delete via boto3 |
 
 ### Frontend
 | File | Purpose |
 |------|---------|
-| `frontend/src/App.jsx` | Router, AuthContext, PrivateRoute |
+| `frontend/src/App.jsx` | Router, AuthContext, ThemeContext, UnreadContext, PrivateRoute / FeatureRoute |
 | `frontend/src/api.js` | Fetch wrapper (`credentials: include`) |
+| `frontend/src/features.js` | Per-role feature flags (`canAccess`) — the frontend half of role gating |
+| `frontend/src/index.css` | Global design system: tokens, focus ring, badge pairs, market card, dark theme |
 | `frontend/src/components/Sidebar.jsx` | Navigation sidebar with logout |
+| `frontend/src/components/Modal.jsx` | Shared modal shell (Escape, focus trap, scroll lock, `aria-modal`) + `ConfirmDialog`. **Use this for anything that covers the page — never a bare div, never `window.confirm`.** |
+| `frontend/src/components/EnvRibbon.jsx` | Marks a non-production instance; renders nothing in production |
 | `frontend/src/pages/` | All page components |
 
 ### Data
 | Path | Contents | Git tracked? |
 |------|----------|-------------|
-| `_data/users.json` | User accounts + memos | No (gitignored) |
-| `_data/sessions.json` | Active session tokens | No (gitignored) |
-| `_data/market.db` | SQLite: listings, images, messages | No (gitignored) |
+| `_data/market.db` | SQLite — **all** structured data: users, sessions, listings, images, categories, memos, messages, friends, groups, games, travel, bills, tasks | No (gitignored) |
 | `_data/notes/` | Per-user note JSON files | Yes |
+| `_data/users.json.migrated` | Pre-March-2026 JSON store, migrated into SQLite and renamed | Yes (inert) |
 | `Key/r2_config.json` | Cloudflare R2 credentials | No (gitignored) |
+| `PRODUCT.md` | Confirmed product record (users, positioning, brand, principles) used by the `impeccable` design skill | Yes |
+| `.impeccable/` | Design-detector config + critique snapshots (`hook.cache.json` is gitignored) | Yes, except the cache |
 
 ---
 
@@ -132,14 +144,14 @@ All login required. Full CRUD + `/complete`, `/statistics`.
 ### Market `/api/market/`
 | Method | Route | Auth | Description |
 |--------|-------|------|-------------|
-| GET | `/categories` | login | Active categories for forms |
+| GET | `/categories` | login | Active categories for forms (`slug`, `label`, `label_zh`, `order`, `active`, `icon`) |
 | GET | `/categories/all` | admin | All categories incl. inactive |
-| POST | `/categories` | admin | Create category |
-| PUT | `/categories/<slug>` | admin | Update label / order / active |
+| POST | `/categories` | admin | Create category (`label` = English, optional `label_zh`) |
+| PUT | `/categories/<slug>` | admin | Update label / label_zh / order / active / icon |
 | DELETE | `/categories/<slug>` | admin | Delete category |
 | GET | `/listings` | login | All active listings |
 | POST | `/listings` | login | Create listing (multipart, up to 3 images) |
-| GET | `/listings/<id>` | login | Single listing |
+| GET | `/listings/<id>` | login | Single listing. Increments `view_count` unless `?track=0` |
 | PUT | `/listings/<id>` | login | Edit (seller only) |
 | DELETE | `/listings/<id>` | login | Delete + R2 cleanup (seller only) |
 | POST | `/listings/<id>/sold` | login | Mark as sold |
@@ -191,20 +203,26 @@ api.upload('/api/...', formData)   // for multipart
 
 ## User Roles
 
+Defined in `user_manager.py` `USER_ROLES`. Frontend feature visibility is gated a second
+time by `frontend/src/features.js` — a role can pass the backend check and still not see
+the entry point.
+
 | Role | Level | Key Permissions |
 |------|-------|----------------|
 | `horizon` | 100 | admin, read, write, delete, user_manage — cannot be deleted |
-| `horizonadmin` | 90 | admin, read, write, delete |
-| `vip1/2/3` | 60–80 | read, write |
+| `admin` | 90 | admin, read, write, delete |
+| `svip` | 70 | read, write |
+| `vip` | 60 | read, write |
 | `user` | 10 | read |
 
 ---
 
 ## Known Limitations / Future Work
-- Passwords stored in plaintext → needs bcrypt
-- `users.json` not thread-safe under concurrent writes → migrate to PostgreSQL
-- Memos stored inside user objects → should be a separate DB table
-- No CI/CD pipeline yet
+- **Passwords stored in plaintext** → needs bcrypt. Anyone with `market.db` (including the
+  admin "Download DB" button) has every user's password in the clear. Highest-value fix.
+- `SECRET_KEY` hardcoded in `app.py` → should come from the environment
+- SQLite single-writer under concurrent writes → PostgreSQL when scale warrants
+- CI/CD exists: `.github/workflows/deploy.yml` SSHs to EC2 and runs `~/deploy.sh` on push to `main`
 
 ---
 

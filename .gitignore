@@ -29,3 +29,7 @@ Thumbs.db
 Key/
 _data/market.db-shm
 _data/market.db-wal
+
+# Impeccable design skill — config and critique snapshots are shared, the
+# per-machine hook cache is not.
+.impeccable/hook.cache.json

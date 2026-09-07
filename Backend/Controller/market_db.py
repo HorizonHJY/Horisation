@@ -133,10 +133,14 @@ class Category(Base):
     __tablename__ = 'categories'
 
     slug   = Column(String(50),  primary_key=True)
-    label  = Column(String(100), nullable=False)
-    order  = Column(Integer,     nullable=False, default=0)
-    active = Column(Boolean,     nullable=False, default=True)
-    icon   = Column(String(50),  nullable=False, default='fa-tag')
+    # `label` is the English primary; `label_zh` is the optional Chinese accent.
+    # The interface language is English (see PRODUCT.md), so Chinese renders as
+    # a smaller companion and never as the only name a category has.
+    label    = Column(String(100), nullable=False)
+    label_zh = Column(String(100), nullable=True)
+    order    = Column(Integer,     nullable=False, default=0)
+    active   = Column(Boolean,     nullable=False, default=True)
+    icon     = Column(String(50),  nullable=False, default='fa-tag')
 
 
 class Memo(Base):
@@ -165,6 +169,7 @@ def init_db():
     _migrate_from_json()
     _migrate_columns()
     _seed_categories()
+    _migrate_category_labels()
 
 
 def _migrate_columns():
@@ -181,6 +186,7 @@ def _migrate_columns():
         "ALTER TABLE user ADD COLUMN postal_code TEXT",
         "ALTER TABLE listings ADD COLUMN view_count INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE categories ADD COLUMN icon TEXT NOT NULL DEFAULT 'fa-tag'",
+        "ALTER TABLE categories ADD COLUMN label_zh TEXT",
         "ALTER TABLE messages ADD COLUMN reply_to_id TEXT",
         "ALTER TABLE messages ADD COLUMN thread_id TEXT",
         "ALTER TABLE messages ADD COLUMN like_count INTEGER NOT NULL DEFAULT 0",
@@ -194,23 +200,81 @@ def _migrate_columns():
                 pass  # column already exists
 
 
+# slug -> (English label, Chinese accent). Also used to repair rows seeded
+# before the bilingual split, which stored Chinese in the `label` column.
+DEFAULT_CATEGORY_LABELS = {
+    'clothing':    ('Clothing',    '衣服'),
+    'furniture':   ('Furniture',   '家具'),
+    'kitchen':     ('Kitchen',     '厨具'),
+    'electronics': ('Electronics', '电子产品'),
+    'beauty':      ('Beauty',      '美妆'),
+    'books':       ('Books',       '书籍'),
+    'other':       ('Other',       '其他'),
+}
+
+
 def _seed_categories():
     """Insert default categories if the table is empty."""
     defaults = [
-        ('clothing',    '衣服',        1,  True,  'fa-tshirt'),
-        ('furniture',   '家具',        2,  True,  'fa-couch'),
-        ('kitchen',     '厨具',        3,  True,  'fa-utensils'),
-        ('electronics', 'Electronics', 4,  True,  'fa-laptop'),
-        ('beauty',      '美妆',        5,  True,  'fa-spa'),
-        ('books',       'Books',       98, False, 'fa-book'),
-        ('other',       'Other',       99, False, 'fa-box'),
+        ('clothing',    1,  True),
+        ('furniture',   2,  True),
+        ('kitchen',     3,  True),
+        ('electronics', 4,  True),
+        ('beauty',      5,  True),
+        ('books',       98, False),
+        ('other',       99, False),
     ]
+    icons = {
+        'clothing': 'fa-tshirt', 'furniture': 'fa-couch', 'kitchen': 'fa-utensils',
+        'electronics': 'fa-laptop', 'beauty': 'fa-spa', 'books': 'fa-book', 'other': 'fa-box',
+    }
     with Session() as s:
         if s.query(Category).count() > 0:
             return
-        for slug, label, order, active, icon in defaults:
-            s.add(Category(slug=slug, label=label, order=order, active=active, icon=icon))
+        for slug, order, active in defaults:
+            label, label_zh = DEFAULT_CATEGORY_LABELS[slug]
+            s.add(Category(slug=slug, label=label, label_zh=label_zh,
+                           order=order, active=active, icon=icons.get(slug, 'fa-tag')))
         s.commit()
+
+
+def _has_cjk(value: str) -> bool:
+    return any('一' <= ch <= '鿿' for ch in (value or ''))
+
+
+def _migrate_category_labels():
+    """One-time repair for categories created before `label` became English-only.
+
+    Rows seeded earlier stored Chinese in `label`, which made the card badge and
+    the filter pill disagree on screen. Known slugs get their documented pair;
+    unknown admin-created rows keep their Chinese as the accent and fall back to
+    a readable name derived from the slug, which an admin can then correct.
+    """
+    with Session() as s:
+        rows = s.query(Category).all()
+        changed = False
+        for row in rows:
+            if row.label_zh:
+                continue                      # already migrated or already bilingual
+            known = DEFAULT_CATEGORY_LABELS.get(row.slug)
+            if known:
+                # A built-in category gets its documented pair. The English name
+                # is only overwritten when the column still holds Chinese, so an
+                # admin's own wording survives.
+                known_en, known_zh = known
+                if _has_cjk(row.label):
+                    row.label = known_en
+                row.label_zh = known_zh
+            elif _has_cjk(row.label):
+                # Admin-created row whose only name is Chinese: keep it as the
+                # accent and leave a readable English name to be corrected.
+                row.label_zh = row.label
+                row.label = row.slug.replace('_', ' ').replace('-', ' ').title()
+            else:
+                continue                      # English-only custom category — nothing to do
+            changed = True
+        if changed:
+            s.commit()
 
 
 def _migrate_from_json():
@@ -534,27 +598,34 @@ def get_categories(active_only: bool = True) -> list[dict]:
         if active_only:
             q = q.filter_by(active=True)
         rows = q.order_by(Category.order).all()
-        return [{'slug': r.slug, 'label': r.label, 'order': r.order,
-                 'active': r.active, 'icon': r.icon or 'fa-tag'} for r in rows]
+        return [_category_to_dict(r) for r in rows]
 
 
-def upsert_category(slug: str, label: str, order: int, active: bool, icon: str = 'fa-tag') -> dict:
+def _category_to_dict(r: Category) -> dict:
+    return {'slug': r.slug, 'label': r.label, 'label_zh': r.label_zh or '',
+            'order': r.order, 'active': r.active, 'icon': r.icon or 'fa-tag'}
+
+
+def upsert_category(slug: str, label: str, order: int, active: bool,
+                    icon: str = 'fa-tag', label_zh: str = '') -> dict:
     """Create or update a category. Returns the saved dict."""
     slug = slug.strip().lower().replace(' ', '_')
     icon = icon.strip() or 'fa-tag'
+    label_zh = (label_zh or '').strip() or None
     with Session() as s:
         row = s.query(Category).filter_by(slug=slug).first()
         if row:
-            row.label  = label
-            row.order  = order
-            row.active = active
-            row.icon   = icon
+            row.label    = label
+            row.label_zh = label_zh
+            row.order    = order
+            row.active   = active
+            row.icon     = icon
         else:
-            row = Category(slug=slug, label=label, order=order, active=active, icon=icon)
+            row = Category(slug=slug, label=label, label_zh=label_zh,
+                           order=order, active=active, icon=icon)
             s.add(row)
         s.commit()
-        return {'slug': row.slug, 'label': row.label, 'order': row.order,
-                'active': row.active, 'icon': row.icon or 'fa-tag'}
+        return _category_to_dict(row)
 
 
 def delete_category(slug: str) -> bool:

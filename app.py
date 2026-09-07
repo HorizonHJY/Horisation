@@ -52,6 +52,10 @@ app.config['MAX_CONTENT_LENGTH']      = 100 * 1024 * 1024
 app.config['UPLOAD_FOLDER']           = UPLOAD_DIR
 app.config['SECRET_KEY']              = 'horisation-secret-key-2024'
 _local = os.environ.get('LOCAL_DEV') == '1'
+# Surfaced to the client so the UI can mark itself as a local instance. Local
+# and production both answer on localhost during development, and telling them
+# apart by eye is otherwise impossible.
+app.config['LOCAL_DEV']               = _local
 app.config['SESSION_COOKIE_SECURE']   = not _local
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
@@ -115,4 +119,6 @@ def request_entity_too_large(_):
 def internal_error(_):
     return jsonify({'ok': False, 'error': 'Internal server error'}), 500
 
-# ── Dev entry point ───────────────────�
+# ── Dev entry point ────────────────────────────────
+if __name__ == '__main__':
+    socketio.run(app, debug=True, host='0.0.0.0', port=5000)

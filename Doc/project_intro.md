@@ -1,6 +1,6 @@
 # Horisation — Project Introduction
 
-Last updated: 2026-05-02
+Last updated: 2026-09-07
 
 ---
 
@@ -17,12 +17,16 @@ Access is **invitation-only**. Self-registration is available but requires a val
 
 ## Target Users
 
-| Role | Description |
-|------|-------------|
-| `horizon` | Super-admin (owner), full access, cannot be deleted |
-| `horizonadmin` | Admin, manage users and content |
-| `vip1 / vip2 / vip3` | Trusted friends, access to all features |
-| `user` | General users, read-only access |
+| Role | Level | Description |
+|------|-------|-------------|
+| `horizon` | 100 | Super-admin (owner), full access, cannot be deleted |
+| `admin` | 90 | Admin, manage users and content |
+| `svip` | 70 | Trusted friends, extra features |
+| `vip` | 60 | Trusted friends |
+| `user` | 10 | General users, read-only access |
+
+Canonical definition lives in `user_manager.py` `USER_ROLES`. Feature visibility is gated a
+second time in the frontend by `frontend/src/features.js`.
 
 ---
 
@@ -110,9 +114,12 @@ Horisation/
 ├── app.py                            # Flask entry point (API + React catch-all + SocketIO init)
 ├── requirements.txt
 ├── deploy.sh → scripts/deploy.sh     # Server deploy entry point
+├── PRODUCT.md                        # Confirmed product record (impeccable design skill)
+├── .impeccable/                      # Design detector config + critique snapshots
 ├── scripts/
 │   ├── deploy.sh                     # Full deploy: pull → pip → npm build → restart
 │   ├── dev.bat                       # Windows local dev: Flask + Vite
+│   ├── _resolve_python.bat           # Locates a usable interpreter (HORISATION_PYTHON overrides)
 │   ├── _flask_local.bat              # Sets LOCAL_DEV=1, starts Flask (threading mode)
 │   └── build-run.bat                 # Windows local production test
 ├── _data/                            # Runtime data (gitignored except notes/)
@@ -139,13 +146,17 @@ Horisation/
 │   ├── index.html
 │   ├── vite.config.js
 │   └── src/
-│       ├── App.jsx                   # Router + AuthContext
+│       ├── App.jsx                   # Router + Auth/Theme/Unread contexts
 │       ├── api.js                    # Fetch wrapper
-│       ├── index.css                 # Global styles + responsive rules
+│       ├── features.js               # Per-role feature flags
+│       ├── index.css                 # Design tokens, focus ring, badges, responsive rules
 │       ├── components/
 │       │   ├── Sidebar.jsx
 │       │   ├── Topbar.jsx
 │       │   ├── Layout.jsx
+│       │   ├── Modal.jsx             # Shared modal shell + ConfirmDialog (Escape, focus trap, scroll lock)
+│       │   ├── EnvRibbon.jsx         # LOCAL marker; renders nothing in production
+│       │   ├── WeatherGreeting.jsx   # Home page greeting + Open-Meteo weather
 │       │   ├── FlowerCanvas.jsx      # Watercolor petal animation (canvas, SVG filter)
 │       │   └── HandLoader.jsx        # Loading spinner
 │       └── pages/
@@ -191,8 +202,12 @@ See `Doc/todo.md` for the full prioritised list. Key items:
 
 - [ ] Password hashing (bcrypt) — currently plaintext
 - [ ] Listing image re-upload in Edit flow
-- [ ] Group messaging / group chat
 - [ ] Avalon board game
 - [ ] Data visualisation tools
-- [ ] CI/CD pipeline (GitHub Actions → EC2)
 - [ ] Migrate SQLite → PostgreSQL for concurrent write safety
+- [x] Group messaging / group chat — done 2026-08-22
+- [x] CI/CD pipeline (GitHub Actions → EC2) — done, `.github/workflows/deploy.yml`
+
+> **Note (2026-09-07):** this document's Features and Project Structure sections still predate
+> Travel Planner, Bill Split, Tasks and the weather endpoint. `CLAUDE.md` has the current
+> backend file map; treat code as truth where the two disagree.

@@ -4,6 +4,7 @@ import { api } from './api'
 
 import Layout from './components/Layout'
 import HandLoader from './components/HandLoader'
+import EnvRibbon from './components/EnvRibbon'
 import { canAccess } from './features'
 import Login from './pages/Login'
 import Register from './pages/Register'
@@ -97,11 +98,15 @@ export function useFeature(feature) {
 function AuthProvider({ children }) {
   const [user, setUser]       = useState(null)
   const [loading, setLoading] = useState(true)
+  // Reported by check-session whether or not anyone is signed in, so the
+  // local-instance marker is already correct on the login page.
+  const [backendLocal, setBackendLocal] = useState(false)
 
   useEffect(() => {
     api.get('/api/auth/check-session')
       .then(data => {
         if (data.ok && data.logged_in) setUser(data.user)
+        setBackendLocal(Boolean(data.local_dev))
       })
       .finally(() => setLoading(false))
   }, [])
@@ -115,6 +120,7 @@ function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{ user, login, logout }}>
+      <EnvRibbon backendLocal={backendLocal} />
       {children}
     </AuthContext.Provider>
   )
@@ -160,7 +166,12 @@ export default function App() {
             <Route path="/admin"             element={<AdminUsers />} />
             <Route path="/admin/system"      element={<SystemManagement />} />
             <Route path="/fun/gomoku-online" element={<FeatureRoute feature="onlineGomoku"><OnlineGomoku /></FeatureRoute>} />
-            <Route path="/market"            element={<Market />} />
+            {/* A listing and a seller are addressable, so they can be pasted
+                into a group chat and survive a reload. All three render the
+                same page; Market opens the matching overlay from the params. */}
+            <Route path="/market"                    element={<Market />} />
+            <Route path="/market/l/:listingId"       element={<Market />} />
+            <Route path="/market/u/:sellerUsername"  element={<Market />} />
             <Route path="/feedback"          element={<Feedback />} />
             <Route path="/friends"           element={<Friends />} />
             <Route path="/groups"            element={<Groups />} />

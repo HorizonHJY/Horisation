@@ -1,60 +1,103 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import React, { useState, useEffect, useRef, useCallback, useMemo, useId } from 'react'
+import { useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../App'
 import HandLoader from '../components/HandLoader'
-import html2canvas from 'html2canvas'
+import Modal, { ConfirmDialog } from '../components/Modal'
 
+/* Interface language is English; Chinese rides along as an accent (PRODUCT.md).
+   Categories carry the same pair from the database as `label` / `label_zh`. */
 const FALLBACK_CATEGORIES = [
-  { slug: 'clothing',    label: '衣服',        icon: 'fa-tshirt' },
-  { slug: 'furniture',   label: '家具',        icon: 'fa-couch' },
-  { slug: 'kitchen',     label: '厨具',        icon: 'fa-utensils' },
-  { slug: 'electronics', label: 'Electronics', icon: 'fa-laptop' },
-  { slug: 'beauty',      label: '美妆',        icon: 'fa-spa' },
+  { slug: 'clothing',    label: 'Clothing',    label_zh: '衣服',     icon: 'fa-tshirt' },
+  { slug: 'furniture',   label: 'Furniture',   label_zh: '家具',     icon: 'fa-couch' },
+  { slug: 'kitchen',     label: 'Kitchen',     label_zh: '厨具',     icon: 'fa-utensils' },
+  { slug: 'electronics', label: 'Electronics', label_zh: '电子产品', icon: 'fa-laptop' },
+  { slug: 'beauty',      label: 'Beauty',      label_zh: '美妆',     icon: 'fa-spa' },
 ]
 
 const DELIVERY_OPTIONS = [
-  { value: 'pickup',   label: '仅自提',      icon: 'fa-walking' },
-  { value: 'delivery', label: '仅配送',      icon: 'fa-truck' },
-  { value: 'both',     label: '可自提或配送', icon: 'fa-truck' },
+  { value: 'pickup',   label: 'Pickup only',        label_zh: '仅自提',      icon: 'fa-walking' },
+  { value: 'delivery', label: 'Delivery only',      label_zh: '仅配送',      icon: 'fa-truck' },
+  { value: 'both',     label: 'Pickup or delivery', label_zh: '可自提或配送', icon: 'fa-truck' },
 ]
+const DELIVERY_BY_VALUE = Object.fromEntries(DELIVERY_OPTIONS.map(o => [o.value, o]))
 
-const EMPTY_FORM = { title: '', description: '', price: '', original_price: '', category: 'clothing', delivery_type: 'pickup', delivery_fee: '' }
+const EMPTY_FORM = {
+  title: '', description: '', price: '', original_price: '',
+  category: 'clothing', delivery_type: 'pickup', delivery_fee: '',
+}
+
+/* Prices come back as SQLite REALs, so price + delivery_fee can land on
+   25.000000000000004. Money is always formatted, never printed raw. */
+const money = (n) => `$${(Number(n) || 0).toFixed(2)}`
+
+/** English label with the Chinese accent beside it, when one exists. */
+function Label({ en, zh }) {
+  return <>{en}{zh ? <span className="label-zh">{zh}</span> : null}</>
+}
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
 function useToast() {
   const [toast, setToast] = useState(null)
-  const show = (msg, type = 'success') => {
+  const timer = useRef(null)
+
+  const show = useCallback((msg, type = 'success') => {
+    // Without clearing, a second toast inherits the first one's expiry.
+    if (timer.current) clearTimeout(timer.current)
     setToast({ msg, type })
-    setTimeout(() => setToast(null), 2800)
-  }
+    timer.current = setTimeout(() => setToast(null), 4000)
+  }, [])
+
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current) }, [])
   return [toast, show]
+}
+
+function Toast({ toast }) {
+  if (!toast) return null
+  return (
+    <div className={`alert alert-${toast.type} app-toast`} role="alert" aria-live="assertive">
+      {toast.msg}
+    </div>
+  )
 }
 
 // ── Price Display ────────────────────────────────────────────────────────────
 function PriceDisplay({ listing, large = false }) {
   const { price, original_price, delivery_type, delivery_fee } = listing
-  const hasOriginal = original_price && original_price > price
-  const hasFee      = delivery_fee && delivery_fee > 0
-  const showBoth    = delivery_type === 'both' && hasFee
+  const hasOriginal  = original_price && original_price > price
+  const hasFee       = delivery_fee && delivery_fee > 0
+  const showBoth     = delivery_type === 'both' && hasFee
   const deliveryOnly = delivery_type === 'delivery' && hasFee
   const freeDelivery = (delivery_type === 'both' || delivery_type === 'delivery') && !hasFee
 
-  const bigSz  = large ? '1.5rem' : undefined
-  const smSz   = large ? '.85rem' : '.75rem'
-  const labelSz = large ? '.78rem' : '.65rem'
+  const bigSz = large ? '1.5rem' : undefined
+  const smSz  = large ? '.85rem' : '.78rem'
+
+  /* In a card everything else is left-aligned, so prices are too — otherwise
+     two of the four branches sat flush right and the eye could not run down
+     the column. In the detail modal the price is paired opposite the category,
+     where flush right is correct. */
+  const stackAlign = large ? 'flex-end' : 'flex-start'
+
+  const Struck = () => hasOriginal ? (
+    <span className="tnum" style={{ fontSize: smSz, color: 'var(--text-muted)', textDecoration: 'line-through' }}>
+      {money(original_price)}
+    </span>
+  ) : null
 
   if (showBoth) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-          <span style={{ fontSize: bigSz, fontWeight: 600 }}>${price}</span>
-          {hasOriginal && <span style={{ fontSize: smSz, color: '#999', textDecoration: 'line-through' }}>${original_price}</span>}
-          <span style={{ fontSize: labelSz, color: '#888', background: '#f0f0f0', borderRadius: 8, padding: '1px 5px' }}>自提</span>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: stackAlign, gap: 2 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+          <span className="tnum" style={{ fontSize: bigSz, fontWeight: 600 }}>{money(price)}</span>
+          <Struck />
+          <span className="badge-pill">Pickup</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-          <span style={{ fontSize: large ? '1.1rem' : '.85rem', fontWeight: 600, color: '#3b5bdb' }}>${price + delivery_fee}</span>
-          <span style={{ fontSize: labelSz, color: '#3b5bdb', background: '#e8f0fe', borderRadius: 8, padding: '1px 5px' }}>含${delivery_fee}配送</span>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+          <span className="tnum" style={{ fontSize: large ? '1.1rem' : '.9rem', fontWeight: 600, color: 'var(--badge-info-fg)' }}>
+            {money(Number(price) + Number(delivery_fee))}
+          </span>
+          <span className="badge-pill badge-pill--info">Delivered · {money(delivery_fee)} fee</span>
         </div>
       </div>
     )
@@ -62,12 +105,14 @@ function PriceDisplay({ listing, large = false }) {
 
   if (deliveryOnly) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-          <span style={{ fontSize: bigSz, fontWeight: 600, color: '#3b5bdb' }}>${price + delivery_fee}</span>
-          {hasOriginal && <span style={{ fontSize: smSz, color: '#999', textDecoration: 'line-through' }}>${original_price}</span>}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: stackAlign, gap: 2 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+          <span className="tnum" style={{ fontSize: bigSz, fontWeight: 600, color: 'var(--badge-info-fg)' }}>
+            {money(Number(price) + Number(delivery_fee))}
+          </span>
+          <Struck />
         </div>
-        <span style={{ fontSize: labelSz, color: '#3b5bdb', background: '#e8f0fe', borderRadius: 8, padding: '1px 5px' }}>含${delivery_fee}配送费</span>
+        <span className="badge-pill badge-pill--info">Includes {money(delivery_fee)} delivery</span>
       </div>
     )
   }
@@ -75,40 +120,55 @@ function PriceDisplay({ listing, large = false }) {
   if (freeDelivery) {
     return (
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-        <span style={{ fontSize: bigSz, fontWeight: 600 }}>${price}</span>
-        {hasOriginal && <span style={{ fontSize: smSz, color: '#999', textDecoration: 'line-through' }}>${original_price}</span>}
-        <span style={{ fontSize: labelSz, color: '#27ae60', background: '#e8f8f0', borderRadius: 8, padding: '1px 5px' }}>包邮</span>
+        <span className="tnum" style={{ fontSize: bigSz, fontWeight: 600 }}>{money(price)}</span>
+        <Struck />
+        <span className="badge-pill badge-pill--good">Free delivery</span>
       </div>
     )
   }
 
-  // pickup only or no fee
   return (
     <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-      <span style={{ fontSize: bigSz, fontWeight: 600 }}>${price}</span>
-      {hasOriginal && <span style={{ fontSize: smSz, color: '#999', textDecoration: 'line-through' }}>${original_price}</span>}
+      <span className="tnum" style={{ fontSize: bigSz, fontWeight: 600 }}>{money(price)}</span>
+      <Struck />
     </div>
   )
 }
 
 // ── Seller Avatar ─────────────────────────────────────────────────────────────
-function SellerAvatar({ username, displayName, avatarUrl, size = 28, onClick }) {
-  const style = {
-    width: size, height: size, borderRadius: '50%', flexShrink: 0,
-    cursor: onClick ? 'pointer' : 'default',
+function SellerAvatar({ username, displayName, avatarUrl, size = 28 }) {
+  const style = { width: size, height: size, borderRadius: '50%', flexShrink: 0 }
+  const name = displayName || username || 'Unknown'
+
+  if (avatarUrl) {
+    return <img src={avatarUrl} alt="" style={{ ...style, objectFit: 'cover' }} />
   }
-  if (avatarUrl) return (
-    <img src={avatarUrl} alt={displayName} style={{ ...style, objectFit: 'cover' }} onClick={onClick} />
-  )
   return (
-    <div style={{
-      ...style,
-      background: '#6b9cdb', color: '#fff',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontWeight: 700, fontSize: size * 0.4,
-    }} onClick={onClick}>
-      {(displayName || username)?.[0]?.toUpperCase() || '?'}
-    </div>
+    <span
+      aria-hidden="true"
+      style={{
+        ...style,
+        /* --accent-text, not --accent: white on #6b9cdb is 2.84:1 and this
+           initial stands in for a real person across every module. */
+        background: 'var(--accent-text)', color: '#fff',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontWeight: 700, fontSize: size * 0.42,
+      }}
+    >
+      {name[0]?.toUpperCase() || '?'}
+    </span>
+  )
+}
+
+// ── Delivery badge ────────────────────────────────────────────────────────────
+function DeliveryBadge({ type }) {
+  const opt = DELIVERY_BY_VALUE[type] || DELIVERY_BY_VALUE.pickup
+  const tone = type === 'pickup' ? '' : ' badge-pill--info'
+  return (
+    <span className={`badge-pill${tone}`}>
+      <i className={`fas ${opt.icon}`} aria-hidden="true" />
+      <Label en={opt.label} zh={opt.label_zh} />
+    </span>
   )
 }
 
@@ -145,153 +205,151 @@ function EditModal({ listing, onClose, onSave, categories }) {
   }
 
   return (
-    <div className="modal show d-block" style={{ background: 'rgba(0,0,0,.45)' }} onClick={onClose}>
-      <div className="modal-dialog modal-dialog-centered" onClick={e => e.stopPropagation()}>
-        <div className="modal-content">
-          <form onSubmit={handleSubmit}>
-            <div className="modal-header">
-              <h5 className="modal-title fw-semibold">Edit Listing</h5>
-              <button type="button" className="btn-close" onClick={onClose} />
+    <Modal onClose={onClose} title="Edit Listing" scrollable={false}>
+      {({ titleId }) => (
+        <form onSubmit={handleSubmit}>
+          <div className="modal-header">
+            <h5 className="modal-title fw-semibold" id={titleId}>Edit Listing</h5>
+            <button type="button" className="btn-close" aria-label="Close" onClick={onClose} />
+          </div>
+          <div className="modal-body">
+            {err && <div className="alert alert-danger py-2 small" role="alert">{err}</div>}
+            <div className="mb-3">
+              <label className="form-label fw-medium" htmlFor="edit-title">Title</label>
+              <input id="edit-title" className="form-control" maxLength={100} value={form.title}
+                onChange={e => setForm(f => ({ ...f, title: e.target.value }))} required />
             </div>
-            <div className="modal-body">
-              {err && <div className="alert alert-danger py-2 small">{err}</div>}
-              <div className="mb-3">
-                <label className="form-label fw-medium">Title</label>
-                <input className="form-control" maxLength={100} value={form.title}
-                  onChange={e => setForm(f => ({ ...f, title: e.target.value }))} required />
+            <div className="mb-3">
+              <label className="form-label fw-medium" htmlFor="edit-desc">Description</label>
+              <textarea id="edit-desc" className="form-control" rows={3} value={form.description}
+                onChange={e => setForm(f => ({ ...f, description: e.target.value }))} required />
+            </div>
+            <div className="row g-2 mb-3">
+              <div className="col-12 col-sm-6">
+                <label className="form-label fw-medium" htmlFor="edit-orig">Original Price ($)</label>
+                <input id="edit-orig" type="number" className="form-control" min={0} step="0.01"
+                  placeholder="optional" value={form.original_price}
+                  onChange={e => setForm(f => ({ ...f, original_price: e.target.value }))} />
               </div>
-              <div className="mb-3">
-                <label className="form-label fw-medium">Description</label>
-                <textarea className="form-control" rows={3} value={form.description}
-                  onChange={e => setForm(f => ({ ...f, description: e.target.value }))} required />
+              <div className="col-12 col-sm-6">
+                <label className="form-label fw-medium" htmlFor="edit-price">Selling Price ($)</label>
+                <input id="edit-price" type="number" className="form-control" min={0} step="0.01"
+                  value={form.price}
+                  onChange={e => setForm(f => ({ ...f, price: e.target.value }))} required />
               </div>
-              <div className="row mb-3">
-                <div className="col">
-                  <label className="form-label fw-medium">Original Price ($)</label>
-                  <input type="number" className="form-control" min={0} step="0.01"
-                    placeholder="optional" value={form.original_price}
-                    onChange={e => setForm(f => ({ ...f, original_price: e.target.value }))} />
-                </div>
-                <div className="col">
-                  <label className="form-label fw-medium">Selling Price ($)</label>
-                  <input type="number" className="form-control" min={0} step="0.01"
-                    value={form.price}
-                    onChange={e => setForm(f => ({ ...f, price: e.target.value }))} required />
-                </div>
-              </div>
-              <div className="mb-1">
-                <label className="form-label fw-medium">Category</label>
-                <select className="form-select" value={form.category}
-                  onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
-                  {categories.map(c => (
-                    <option key={c.slug} value={c.slug}>{c.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="mt-3">
-                <label className="form-label fw-medium">Delivery Options</label>
-                <div className="d-flex gap-3 flex-wrap">
-                  {[['pickup','仅自提'],['delivery','仅配送'],['both','可自提或配送']].map(([v,lbl]) => (
-                    <div className="form-check" key={v}>
-                      <input className="form-check-input" type="radio" name="edit-delivery"
-                        id={`edit-dt-${v}`} value={v} checked={form.delivery_type === v}
-                        onChange={() => setForm(f => ({ ...f, delivery_type: v }))} />
-                      <label className="form-check-label small" htmlFor={`edit-dt-${v}`}>{lbl}</label>
-                    </div>
-                  ))}
-                </div>
-                {(form.delivery_type === 'delivery' || form.delivery_type === 'both') && (
-                  <div className="mt-2">
-                    <input type="number" className="form-control form-control-sm" min={0} step="0.01"
-                      placeholder="Delivery fee ($, blank = free)" value={form.delivery_fee}
-                      onChange={e => setForm(f => ({ ...f, delivery_fee: e.target.value }))} />
+            </div>
+            <div className="mb-1">
+              <label className="form-label fw-medium" htmlFor="edit-cat">Category</label>
+              <select id="edit-cat" className="form-select" value={form.category}
+                onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
+                {categories.map(c => (
+                  <option key={c.slug} value={c.slug}>
+                    {c.label}{c.label_zh ? ` · ${c.label_zh}` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <fieldset className="mt-3">
+              <legend className="form-label fw-medium">Delivery Options</legend>
+              <div className="d-flex gap-3 flex-wrap">
+                {DELIVERY_OPTIONS.map(opt => (
+                  <div className="form-check" key={opt.value}>
+                    <input className="form-check-input" type="radio" name="edit-delivery"
+                      id={`edit-dt-${opt.value}`} value={opt.value}
+                      checked={form.delivery_type === opt.value}
+                      onChange={() => setForm(f => ({ ...f, delivery_type: opt.value }))} />
+                    <label className="form-check-label small" htmlFor={`edit-dt-${opt.value}`}>
+                      <Label en={opt.label} zh={opt.label_zh} />
+                    </label>
                   </div>
-                )}
+                ))}
               </div>
-            </div>
-            <div className="modal-footer">
-              <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
-              <button type="submit" className="btn btn-primary" disabled={saving}>
-                {saving ? <span className="spinner-border spinner-border-sm me-1" /> : null}
-                Save Changes
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
+              {(form.delivery_type === 'delivery' || form.delivery_type === 'both') && (
+                <div className="mt-2">
+                  <label className="form-label small" htmlFor="edit-fee">Delivery fee ($) — blank means free</label>
+                  <input id="edit-fee" type="number" className="form-control form-control-sm" min={0} step="0.01"
+                    placeholder="0.00" value={form.delivery_fee}
+                    onChange={e => setForm(f => ({ ...f, delivery_fee: e.target.value }))} />
+                </div>
+              )}
+            </fieldset>
+          </div>
+          <div className="modal-footer">
+            <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn btn-primary" disabled={saving}>
+              {saving ? <span className="spinner-border spinner-border-sm me-1" /> : null}
+              Save Changes
+            </button>
+          </div>
+        </form>
+      )}
+    </Modal>
   )
 }
 
 // ── Listing Card ──────────────────────────────────────────────────────────────
-function ListingCard({ listing, currentUser, onSold, onRestore, onDelete, onEdit, onReachOut, onSellerClick, onDetail, reachOutStatus }) {
-  const isMine      = listing.seller_username === currentUser
-  const firstImg    = listing.images?.[0]?.url
-  const isSold      = listing.status === 'sold'
-  const hasOriginal = listing.original_price && listing.original_price > listing.price
+function ListingCard({
+  listing, currentUser, categoryLabel,
+  onSold, onRestore, onDelete, onEdit, onReachOut, onSellerClick, onDetail,
+}) {
+  const isMine   = listing.seller_username === currentUser
+  const firstImg = listing.images?.[0]?.url
+  const isSold   = listing.status === 'sold'
+  const cat      = categoryLabel(listing.category)
 
   return (
     <div className="market-card">
-      {/* Image — click opens detail */}
-      <div className="market-card__img" onClick={onDetail} style={{ cursor: 'pointer' }}>
-        {firstImg
-          ? <img src={firstImg} alt={listing.title} />
-          : <i className="fas fa-image placeholder-icon" />
-        }
-      </div>
+      {/* Image and title are ONE focusable control. They used to be divs with
+          onClick, which left the grid with no keyboard path into any listing. */}
+      <button
+        type="button"
+        className="market-card__open"
+        onClick={onDetail}
+        aria-label={`Open listing: ${listing.title}`}
+      >
+        <span className="market-card__img">
+          {firstImg
+            ? <img src={firstImg} alt="" />
+            : <i className="fas fa-image placeholder-icon" aria-hidden="true" />
+          }
+        </span>
+        <span className="market-card__title" title={listing.title}>{listing.title}</span>
+      </button>
 
-      {/* Title — click opens detail */}
-      <div className="market-card__title" title={listing.title}
-           style={{ cursor: 'pointer' }} onClick={onDetail}>{listing.title}</div>
-
-      {/* Line 1: Category + sold badge + view count */}
       <div className="market-card__meta">
         <span className="market-card__category">
-          <i className={`fas ${listing.category_icon || 'fa-tag'} me-1`} />{listing.category}
+          <i className={`fas ${listing.category_icon || 'fa-tag'} me-1`} aria-hidden="true" />
+          {cat.label}
         </span>
         {isSold && <span className="market-card__sold-badge">Sold</span>}
         {listing.view_count > 0 && (
-          <span style={{ fontSize: '.62rem', color: '#aaa', whiteSpace: 'nowrap', marginLeft: 'auto' }}>
-            <i className="fas fa-eye me-1" />{listing.view_count}
+          <span className="tnum" style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', whiteSpace: 'nowrap', marginLeft: 'auto' }}>
+            <i className="fas fa-eye me-1" aria-hidden="true" />
+            {listing.view_count}
+            <span className="visually-hidden"> views</span>
           </span>
         )}
       </div>
 
-      {/* Line 2: Delivery type */}
       <div style={{ marginTop: 3, marginBottom: 2 }}>
-        {listing.delivery_type === 'delivery' ? (
-          <span style={{ fontSize: '.62rem', background: '#e8f0fe', color: '#3b5bdb', borderRadius: 10, padding: '1px 6px' }}>
-            <i className="fas fa-truck me-1" />仅配送
-          </span>
-        ) : listing.delivery_type === 'both' ? (
-          <span style={{ fontSize: '.62rem', background: '#e8f0fe', color: '#3b5bdb', borderRadius: 10, padding: '1px 6px' }}>
-            <i className="fas fa-truck me-1" />可自提或配送
-          </span>
-        ) : (
-          <span style={{ fontSize: '.62rem', background: '#f0f0f0', color: '#666', borderRadius: 10, padding: '1px 6px' }}>
-            <i className="fas fa-walking me-1" />仅自提
-          </span>
-        )}
+        <DeliveryBadge type={listing.delivery_type} />
       </div>
 
-      {/* Description */}
       <p className="market-card__desc">{listing.description}</p>
 
       <hr className="market-card__divider" />
 
-      {/* Price row */}
       {!isSold && (
         <div className="market-card__price mb-1">
           <PriceDisplay listing={listing} />
         </div>
       )}
 
-      {/* Seller row */}
-      <div
+      <button
+        type="button"
         className="market-card__seller"
-        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}
         onClick={() => onSellerClick(listing.seller_username)}
-        title={`View ${listing.seller_username}'s listings`}
+        aria-label={`View listings from ${listing.seller_display || listing.seller_username}`}
       >
         <SellerAvatar
           username={listing.seller_username}
@@ -299,44 +357,51 @@ function ListingCard({ listing, currentUser, onSold, onRestore, onDelete, onEdit
           avatarUrl={listing.seller_avatar}
           size={24}
         />
-        <div>
-          <div style={{ fontWeight: 600, fontSize: '.75rem' }}>{listing.seller_display || listing.seller_username}</div>
-          <div style={{ fontSize: '.68rem' }}>{new Date(listing.created_at).toLocaleDateString()}</div>
-        </div>
-      </div>
+        <span>
+          <span style={{ display: 'block', fontWeight: 600, fontSize: '.75rem', color: 'var(--mc-font)' }}>
+            {listing.seller_display || listing.seller_username}
+          </span>
+          <span style={{ display: 'block', fontSize: '.68rem' }}>
+            {new Date(listing.created_at).toLocaleDateString()}
+          </span>
+        </span>
+      </button>
 
-      {/* Owner actions */}
       {isMine && (
         <div className="market-card__action">
           {!isSold && (
             <>
               <button className="market-card__btn" onClick={() => onSold(listing.id)}>
-                <i className="fas fa-check-circle" />Mark Sold
+                <i className="fas fa-check-circle" aria-hidden="true" />Mark Sold
               </button>
               <button className="market-card__btn market-card__btn--edit" onClick={() => onEdit(listing)}>
-                <i className="fas fa-pen" />Edit
+                <i className="fas fa-pen" aria-hidden="true" />Edit
               </button>
             </>
           )}
           {isSold && (
             <button className="market-card__btn market-card__btn--restore" onClick={() => onRestore(listing.id)}>
-              <i className="fas fa-undo" />Restore
+              <i className="fas fa-undo" aria-hidden="true" />Restore
             </button>
           )}
-          <button className="market-card__btn market-card__btn--danger" onClick={() => onDelete(listing.id)}>
-            <i className="fas fa-trash" />Delete
+          <button
+            className="market-card__btn market-card__btn--danger"
+            onClick={() => onDelete(listing)}
+            aria-label={`Delete listing: ${listing.title}`}
+          >
+            <i className="fas fa-trash" aria-hidden="true" />Delete
           </button>
         </div>
       )}
 
-      {/* Reach Out for other users' active listings */}
       {!isMine && !isSold && (
         <div className="market-card__action">
           <button
             className="market-card__btn market-card__btn--reach"
             onClick={() => onReachOut(listing)}
+            aria-label={`Message the seller about ${listing.title}`}
           >
-            <i className="fas fa-comment-dots" />Message
+            <i className="fas fa-comment-dots" aria-hidden="true" />Message
           </button>
         </div>
       )}
@@ -345,103 +410,104 @@ function ListingCard({ listing, currentUser, onSold, onRestore, onDelete, onEdit
 }
 
 // ── Listing Detail Modal ──────────────────────────────────────────────────────
-function ListingDetailModal({ listing, currentUser, onClose, onSold, onRestore, onDelete, onEdit, onReachOut, onSellerClick, reachOutStatus }) {
+function ListingDetailModal({
+  listing, currentUser, categoryLabel, shareUrl,
+  onClose, onSold, onRestore, onDelete, onEdit, onReachOut, onSellerClick, onCopyLink,
+}) {
   const [imgIndex, setImgIndex] = useState(0)
-  const isMine      = listing.seller_username === currentUser
-  const isSold      = listing.status === 'sold'
-  const hasOriginal = listing.original_price && listing.original_price > listing.price
+  const isMine = listing.seller_username === currentUser
+  const isSold = listing.status === 'sold'
+  const cat    = categoryLabel(listing.category)
+  const opt    = DELIVERY_BY_VALUE[listing.delivery_type] || DELIVERY_BY_VALUE.pickup
 
   return (
-    <div className="modal show d-block" style={{ background: 'rgba(0,0,0,.55)' }} onClick={onClose}>
-      <div className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable"
-           onClick={e => e.stopPropagation()}>
-        <div className="modal-content"
-             style={{ border: '2px solid #323232', borderRadius: 6, boxShadow: '6px 6px #323232' }}>
-
-          {/* Header */}
-          <div className="modal-header" style={{ borderBottom: '1px solid #323232' }}>
-            <h5 className="modal-title fw-semibold" style={{ fontSize: '1rem' }}>{listing.title}</h5>
-            <button className="btn-close" onClick={onClose} />
+    <Modal onClose={onClose} title={listing.title} size="modal-lg">
+      {({ titleId }) => (
+        <>
+          <div className="modal-header">
+            <h5 className="modal-title fw-semibold" id={titleId}
+                style={{ fontSize: '1.15rem', fontFamily: 'var(--font-display)' }}>
+              {listing.title}
+            </h5>
+            <button type="button" className="btn-close" aria-label="Close" onClick={onClose} />
           </div>
 
           <div className="modal-body">
-            {/* Images */}
             {listing.images?.length > 0 && (
               <div className="mb-3">
                 <img
                   src={listing.images[imgIndex].url}
-                  alt={listing.title}
+                  alt={`${listing.title} — photo ${imgIndex + 1} of ${listing.images.length}`}
                   style={{
-                    width: '100%', maxHeight: 380,
-                    objectFit: 'contain',
-                    background: '#f5f5f5',
-                    borderRadius: 4,
-                    border: '1px solid #e0e0e0',
+                    width: '100%', maxHeight: 380, objectFit: 'contain',
+                    background: 'var(--bg-page)',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border-soft)',
                   }}
                 />
                 {listing.images.length > 1 && (
-                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }} role="group" aria-label="Photos">
                     {listing.images.map((img, i) => (
-                      <img
-                        key={img.id} src={img.url}
+                      <button
+                        key={img.id}
+                        type="button"
                         onClick={() => setImgIndex(i)}
+                        aria-label={`Show photo ${i + 1}`}
+                        aria-pressed={i === imgIndex}
                         style={{
-                          width: 58, height: 58, objectFit: 'cover',
-                          border: i === imgIndex ? '2px solid #323232' : '2px solid #e0e0e0',
-                          borderRadius: 4, cursor: 'pointer',
+                          padding: 0, lineHeight: 0, cursor: 'pointer',
+                          background: 'none',
+                          border: i === imgIndex ? '2px solid var(--accent)' : '1px solid var(--border-medium)',
+                          borderRadius: 'var(--radius-sm)',
                         }}
-                      />
+                      >
+                        <img src={img.url} alt="" style={{ width: 58, height: 58, objectFit: 'cover', borderRadius: 3 }} />
+                      </button>
                     ))}
                   </div>
                 )}
               </div>
             )}
 
-            {/* Price + badges */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 10, flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <span className="market-card__category">{listing.category}</span>
+                <span className="market-card__category">{cat.label}</span>
                 {isSold && <span className="market-card__sold-badge">Sold</span>}
               </div>
-              {!isSold && (
-                <PriceDisplay listing={listing} large />
-              )}
+              {!isSold && <PriceDisplay listing={listing} large />}
             </div>
 
-            {/* Delivery info */}
-            <div style={{ marginBottom: 12, fontSize: '.82rem' }}>
-              {listing.delivery_type === 'pickup' && (
-                <span style={{ background: '#f0f0f0', color: '#555', borderRadius: 12, padding: '2px 10px' }}>
-                  <i className="fas fa-walking me-1" />仅自提
-                </span>
-              )}
-              {listing.delivery_type === 'delivery' && (
-                <span style={{ background: '#e8f0fe', color: '#3b5bdb', borderRadius: 12, padding: '2px 10px' }}>
-                  <i className="fas fa-truck me-1" />仅配送{listing.delivery_fee != null ? `（+$${listing.delivery_fee}）` : '（免运费）'}
-                </span>
-              )}
-              {listing.delivery_type === 'both' && (
-                <span style={{ background: '#e8f0fe', color: '#3b5bdb', borderRadius: 12, padding: '2px 10px' }}>
-                  <i className="fas fa-truck me-1" />配送{listing.delivery_fee != null ? `（+$${listing.delivery_fee}）` : '（免运费）'}
-                  <span className="mx-2 text-muted">·</span>
-                  <i className="fas fa-walking me-1" />自提
-                </span>
-              )}
+            <div style={{ marginBottom: 12 }}>
+              <span className={`badge-pill${listing.delivery_type === 'pickup' ? '' : ' badge-pill--info'}`}>
+                <i className={`fas ${opt.icon}`} aria-hidden="true" />
+                <Label en={opt.label} zh={opt.label_zh} />
+                {listing.delivery_type !== 'pickup' && (
+                  <span className="tnum">
+                    {listing.delivery_fee != null && listing.delivery_fee > 0
+                      ? ` · ${money(listing.delivery_fee)}`
+                      : ' · free'}
+                  </span>
+                )}
+              </span>
             </div>
 
             <hr className="market-card__divider" />
 
-            {/* Description */}
-            <p style={{ fontSize: '.9rem', color: '#555', lineHeight: 1.7, whiteSpace: 'pre-wrap', marginBottom: 16 }}>
+            <p style={{ fontSize: '.9rem', color: 'var(--text-secondary)', lineHeight: 1.7, whiteSpace: 'pre-wrap', margin: '16px 0' }}>
               {listing.description}
             </p>
 
             <hr className="market-card__divider" />
 
-            {/* Seller */}
-            <div
-              style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', marginTop: 12 }}
-              onClick={() => { onSellerClick(listing.seller_username); onClose() }}
+            <button
+              type="button"
+              onClick={() => onSellerClick(listing.seller_username)}
+              aria-label={`View listings from ${listing.seller_display || listing.seller_username}`}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+                marginTop: 12, padding: '6px 0',
+                background: 'none', border: 'none', font: 'inherit', textAlign: 'left', cursor: 'pointer',
+              }}
             >
               <SellerAvatar
                 username={listing.seller_username}
@@ -449,236 +515,518 @@ function ListingDetailModal({ listing, currentUser, onClose, onSold, onRestore, 
                 avatarUrl={listing.seller_avatar}
                 size={34}
               />
-              <div>
-                <div style={{ fontWeight: 600, fontSize: '.85rem' }}>
+              <span>
+                <span style={{ display: 'block', fontWeight: 600, fontSize: '.9rem', color: 'var(--text-primary)' }}>
                   {listing.seller_display || listing.seller_username}
-                </div>
-                <div style={{ fontSize: '.75rem', color: '#888' }}>
+                </span>
+                <span style={{ display: 'block', fontSize: '.75rem', color: 'var(--text-muted)' }}>
                   Posted {new Date(listing.created_at).toLocaleDateString()}
                   {listing.view_count > 0 && (
-                    <span className="ms-2">
-                      <i className="fas fa-eye me-1" />{listing.view_count} view{listing.view_count !== 1 ? 's' : ''}
+                    <span className="ms-2 tnum">
+                      <i className="fas fa-eye me-1" aria-hidden="true" />
+                      {listing.view_count} view{listing.view_count !== 1 ? 's' : ''}
                     </span>
                   )}
-                </div>
-              </div>
-              <i className="fas fa-chevron-right ms-auto text-muted" style={{ fontSize: '.75rem' }} />
-            </div>
+                </span>
+              </span>
+              <i className="fas fa-chevron-right ms-auto" aria-hidden="true" style={{ fontSize: '.75rem', color: 'var(--text-muted)' }} />
+            </button>
           </div>
 
-          {/* Footer actions */}
-          <div className="modal-footer" style={{ borderTop: '1px solid #323232' }}>
+          <div className="modal-footer" style={{ gap: 8 }}>
+            {/* The whole point of a shared friend graph: hand someone the item. */}
+            <button className="market-card__btn" style={{ flex: '0 0 auto' }}
+              onClick={() => onCopyLink(shareUrl)}>
+              <i className="fas fa-link" aria-hidden="true" />Copy link
+            </button>
+
             {isMine ? (
-              <div style={{ display: 'flex', gap: 8, width: '100%' }}>
+              <div style={{ display: 'flex', gap: 8, flex: 1 }}>
                 {!isSold && (
                   <>
                     <button className="market-card__btn" style={{ flex: 1 }}
                       onClick={() => { onSold(listing.id); onClose() }}>
-                      <i className="fas fa-check-circle" />Mark Sold
+                      <i className="fas fa-check-circle" aria-hidden="true" />Mark Sold
                     </button>
                     <button className="market-card__btn market-card__btn--edit" style={{ flex: 1 }}
                       onClick={() => { onEdit(listing); onClose() }}>
-                      <i className="fas fa-pen" />Edit
+                      <i className="fas fa-pen" aria-hidden="true" />Edit
                     </button>
                   </>
                 )}
                 {isSold && (
                   <button className="market-card__btn market-card__btn--restore" style={{ flex: 1 }}
                     onClick={() => { onRestore(listing.id); onClose() }}>
-                    <i className="fas fa-undo" />Restore
+                    <i className="fas fa-undo" aria-hidden="true" />Restore
                   </button>
                 )}
                 <button className="market-card__btn market-card__btn--danger" style={{ flex: 1 }}
-                  onClick={() => { onDelete(listing.id); onClose() }}>
-                  <i className="fas fa-trash" />Delete
+                  onClick={() => onDelete(listing)}>
+                  <i className="fas fa-trash" aria-hidden="true" />Delete
                 </button>
               </div>
             ) : !isSold ? (
-              <div style={{ display: 'flex', gap: 8, width: '100%' }}>
-                <button className="market-card__btn market-card__btn--reach" style={{ flex: 1 }}
-                  onClick={() => { onReachOut(listing); onClose() }}>
-                  <i className="fas fa-comment-dots" />Message Seller
-                </button>
-              </div>
+              <button className="market-card__btn market-card__btn--reach" style={{ flex: 1 }}
+                onClick={() => onReachOut(listing)}>
+                <i className="fas fa-comment-dots" aria-hidden="true" />Message Seller
+              </button>
             ) : null}
           </div>
-        </div>
+        </>
+      )}
+    </Modal>
+  )
+}
+
+// ── Seller Modal ──────────────────────────────────────────────────────────────
+/* Read-only summary card. The old version reused ListingCard with every
+   callback stubbed to () => {}, so it rendered a grid of buttons that looked
+   live and did nothing. */
+function SellerListingCard({ listing, categoryLabel, onOpen }) {
+  const firstImg = listing.images?.[0]?.url
+  const cat = categoryLabel(listing.category)
+  return (
+    <div className="market-card">
+      <button
+        type="button"
+        className="market-card__open"
+        onClick={onOpen}
+        aria-label={`Open listing: ${listing.title}`}
+      >
+        <span className="market-card__img">
+          {firstImg
+            ? <img src={firstImg} alt="" />
+            : <i className="fas fa-image placeholder-icon" aria-hidden="true" />
+          }
+        </span>
+        <span className="market-card__title" title={listing.title}>{listing.title}</span>
+      </button>
+      <div className="market-card__meta">
+        <span className="market-card__category">{cat.label}</span>
+      </div>
+      <div className="market-card__price mb-1">
+        <PriceDisplay listing={listing} />
       </div>
     </div>
   )
 }
 
-// ── Seller Modal ──────────────────────────────────────────────────────────────
-function SellerModal({ seller, listings, onClose, onReachOut, reachOutStatus }) {
-  const navigate = useNavigate()
+function SellerModal({ seller, listings, loading, categoryLabel, onClose, onReachOut, onOpenListing, onViewProfile }) {
   return (
-    <div className="modal show d-block" style={{ background: 'rgba(0,0,0,.45)' }} onClick={onClose}>
-      <div className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable"
-        onClick={e => e.stopPropagation()}>
-        <div className="modal-content">
+    <Modal onClose={onClose} title={seller.display_name || seller.username} size="modal-lg">
+      {({ titleId }) => (
+        <>
           <div className="modal-header">
-            <div className="d-flex align-items-center gap-3">
+            <div className="d-flex align-items-center gap-3 flex-wrap">
               <SellerAvatar username={seller.username} displayName={seller.display_name} avatarUrl={seller.avatar_url} size={44} />
               <div>
-                <div className="fw-bold">{seller.display_name || seller.username}</div>
-                <div className="text-muted small">
+                <div className="fw-bold" id={titleId}>{seller.display_name || seller.username}</div>
+                <div className="small" style={{ color: 'var(--text-muted)' }}>
                   @{seller.username} ·{' '}
-                  <span
-                    style={{ color: '#6b9cdb', cursor: 'pointer' }}
-                    onClick={() => { onClose(); navigate(`/u/${seller.username}`) }}
+                  <button
+                    type="button"
+                    onClick={() => onViewProfile(seller.username)}
+                    style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', color: 'var(--accent-text)', cursor: 'pointer' }}
                   >
                     View Profile →
-                  </span>
+                  </button>
                 </div>
               </div>
               <button className="btn btn-sm btn-primary ms-2" onClick={() => onReachOut(null)}>
-                <i className="fas fa-comment-dots me-1" />Message
+                <i className="fas fa-comment-dots me-1" aria-hidden="true" />Message
               </button>
             </div>
-            <button className="btn-close" onClick={onClose} />
+            <button type="button" className="btn-close" aria-label="Close" onClick={onClose} />
           </div>
+
           <div className="modal-body">
-            <p className="text-muted small mb-3">
-              <i className="fas fa-store me-1" />{listings.length} active listing{listings.length !== 1 ? 's' : ''}
+            {loading ? (
+              <div className="text-center py-4"><HandLoader /></div>
+            ) : (
+              <>
+                <p className="small mb-3" style={{ color: 'var(--text-muted)' }}>
+                  <i className="fas fa-store me-1" aria-hidden="true" />
+                  {listings.length} active listing{listings.length !== 1 ? 's' : ''}
+                </p>
+                {listings.length === 0 ? (
+                  <div className="text-center py-4" style={{ color: 'var(--text-muted)' }}>
+                    <i className="fas fa-box-open fa-2x mb-2 d-block opacity-25" aria-hidden="true" />
+                    No active listings.
+                  </div>
+                ) : (
+                  <div className="row row-cols-2 row-cols-sm-3 g-2">
+                    {listings.map(l => (
+                      <div className="col" key={l.id}>
+                        <SellerListingCard
+                          listing={l}
+                          categoryLabel={categoryLabel}
+                          onOpen={() => onOpenListing(l.id)}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </>
+      )}
+    </Modal>
+  )
+}
+
+// ── Export Modal ──────────────────────────────────────────────────────────────
+/* Exporting your own listings for sharing outside the circle is a confirmed
+   product need (PRODUCT.md, 2026-09-07). It has to work on iOS Safari, where
+   a scripted click on a data: URL silently does nothing — so the rendered
+   image is always shown in-page and can be saved by long-press. */
+function ExportModal({ listings, categoryLabel, onClose, showToast }) {
+  const exportRef = useRef(null)
+  const [rendering, setRendering] = useState(false)
+  const [rendered, setRendered]   = useState(null)
+  const active = listings.filter(l => l.status === 'active')
+  const stamp  = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+
+  async function handleRender() {
+    if (!exportRef.current) return
+    setRendering(true)
+    try {
+      // Only loaded when someone actually exports — it used to be a top-level
+      // import paid for on every Market mount.
+      const { default: html2canvas } = await import('html2canvas')
+      await new Promise(r => setTimeout(r, 100))
+      const canvas = await html2canvas(exportRef.current, {
+        scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff',
+      })
+      setRendered(canvas.toDataURL('image/png'))
+    } catch (err) {
+      showToast('Could not render the image. Some photos may be blocked from export.', 'danger')
+    } finally {
+      setRendering(false)
+    }
+  }
+
+  return (
+    <Modal onClose={onClose} title="Export as image">
+      {({ titleId }) => (
+        <>
+          <div className="modal-header">
+            <h6 className="modal-title fw-semibold" id={titleId}>
+              <i className="fas fa-image me-2" aria-hidden="true" />Export as image
+            </h6>
+            <button type="button" className="btn-close" aria-label="Close" onClick={onClose} />
+          </div>
+
+          <div className="modal-body">
+            <p className="small mb-1" style={{ color: 'var(--text-secondary)' }}>
+              Turns your {active.length} active listing{active.length !== 1 ? 's' : ''} into one
+              tall image you can share anywhere.
             </p>
-            {listings.length === 0 ? (
-              <div className="text-center py-4 text-muted">
-                <i className="fas fa-box-open fa-2x mb-2 d-block opacity-25" />
-                No active listings.
+            <p className="small" style={{ color: 'var(--text-muted)' }}>
+              常用功能 — 一张长图，随手分享
+            </p>
+
+            {rendered ? (
+              <div className="text-center">
+                <img
+                  src={rendered}
+                  alt="Your listings, rendered for sharing"
+                  style={{ maxWidth: '100%', border: '1px solid var(--border-soft)', borderRadius: 'var(--radius-md)' }}
+                />
+                <p className="small mt-2 mb-0" style={{ color: 'var(--text-muted)' }}>
+                  On a phone, press and hold the image to save it.
+                </p>
               </div>
             ) : (
-              <div className="row row-cols-2 row-cols-sm-3 g-2">
-                {listings.map(l => (
-                  <div className="col" key={l.id}>
-                    <ListingCard
-                      listing={l} currentUser={null}
-                      onSold={() => {}} onRestore={() => {}} onDelete={() => {}}
-                      onEdit={() => {}} onReachOut={() => {}} onSellerClick={() => {}}
-                      onDetail={() => {}} reachOutStatus={null}
-                    />
+              /* Preview scales down instead of overflowing a ~343px dialog. */
+              <div style={{ overflowX: 'auto' }}>
+                <div ref={exportRef} style={{
+                  width: 420, padding: '20px 24px', background: '#fff',
+                  borderRadius: 8, margin: '0 auto', color: '#1a1a1a',
+                  fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+                }}>
+                  <div style={{ textAlign: 'center', marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid #d8d3c8' }}>
+                    <div style={{ fontSize: 22, fontWeight: 700, fontFamily: 'Playfair Display, Georgia, serif', letterSpacing: '-0.01em' }}>
+                      Horisation
+                    </div>
+                    <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>{stamp}</div>
                   </div>
-                ))}
+
+                  {active.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '40px 0', color: '#666', fontSize: 14 }}>
+                      No active listings yet.
+                    </div>
+                  ) : active.map((l, i) => (
+                    <div key={l.id} style={{
+                      display: 'flex', gap: 12, padding: '12px 0',
+                      borderBottom: i < active.length - 1 ? '1px solid #ece8e0' : 'none',
+                    }}>
+                      <div style={{
+                        width: 88, height: 88, borderRadius: 6, overflow: 'hidden', flexShrink: 0,
+                        background: '#f5f5f5', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        {l.images?.[0]?.url
+                          ? <img src={l.images[0].url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          : <i className="fas fa-image" style={{ fontSize: 24, opacity: 0.3 }} aria-hidden="true" />
+                        }
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {l.title}
+                        </div>
+                        <div style={{ color: '#a5321f', fontWeight: 700, fontSize: 16 }}>
+                          {money(l.price)}
+                          {l.original_price && l.original_price > l.price && (
+                            <span style={{ color: '#666', textDecoration: 'line-through', fontWeight: 400, fontSize: 12, marginLeft: 6 }}>
+                              {money(l.original_price)}
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: 11, color: '#5a6270', marginTop: 3 }}>
+                          <span style={{ background: '#eef1f5', borderRadius: 8, padding: '1px 6px', marginRight: 4 }}>
+                            {categoryLabel(l.category).label}
+                          </span>
+                          <span style={{ background: '#eef1f5', borderRadius: 8, padding: '1px 6px' }}>
+                            {l.delivery_type === 'pickup'
+                              ? 'Pickup'
+                              : (l.delivery_fee != null && l.delivery_fee > 0
+                                  ? `Delivery ${money(l.delivery_fee)}`
+                                  : 'Free delivery')}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: 11, color: '#666', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {l.description}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
-        </div>
-      </div>
-    </div>
+
+          <div className="modal-footer">
+            <button className="btn btn-outline-secondary btn-sm" onClick={onClose}>Close</button>
+            {rendered ? (
+              <a className="btn btn-primary btn-sm" href={rendered}
+                 download={`horisation-listings-${new Date().toISOString().slice(0, 10)}.png`}>
+                <i className="fas fa-download me-1" aria-hidden="true" />Download
+              </a>
+            ) : (
+              <button className="btn btn-primary btn-sm" onClick={handleRender} disabled={rendering || active.length === 0}>
+                {rendering
+                  ? <><span className="spinner-border spinner-border-sm me-1" />Rendering…</>
+                  : <><i className="fas fa-wand-magic-sparkles me-1" aria-hidden="true" />Create image</>
+                }
+              </button>
+            )}
+          </div>
+        </>
+      )}
+    </Modal>
   )
 }
 
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function Market() {
-  const { user }    = useAuth()
-  const navigate    = useNavigate()
-  const [tab, setTab]               = useState('browse')
+  const { user }   = useAuth()
+  const navigate   = useNavigate()
+  const location   = useLocation()
+  const { listingId, sellerUsername } = useParams()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const formErrId = useId()
+
   const [categories, setCategories] = useState(FALLBACK_CATEGORIES)
-  const [searchQuery, setSearchQuery]       = useState('')
-  const [categoryFilter, setCategoryFilter] = useState(new Set())   // empty = all
-  const [deliveryFilter, setDeliveryFilter] = useState(new Set())   // empty = all
   const [listings, setListings]     = useState([])
   const [myListings, setMy]         = useState([])
   const [loading, setLoading]       = useState(false)
   const [form, setForm]             = useState(EMPTY_FORM)
+  const [fieldErrors, setFieldErrors] = useState({})
   const [images, setImages]         = useState([])
   const [previews, setPreviews]     = useState([])
   const [submitting, setSub]        = useState(false)
   const [toast, showToast]          = useToast()
-  // interestedSet: { [seller_username]: 'sent' | 'friends' }
-  const [interestedSet, setInterested] = useState({})
-  // friendsMap: { [username]: { username, display_name, avatar_url } }
   const [friendsMap, setFriendsMap] = useState({})
-  const [editListing, setEditListing]   = useState(null)
-  const [detailListing, setDetailListing] = useState(null)
-  // sellerModal: { username, display_name, avatar_url } | null
-  const [sellerModal, setSellerModal]   = useState(null)
+  const [editListing, setEditListing]       = useState(null)
+  const [detailListing, setDetailListing]   = useState(null)
+  const [sellerInfo, setSellerInfo]         = useState(null)
   const [sellerListings, setSellerListings] = useState([])
-  const [sellerLoading, setSellerLoading]  = useState(false)
-  const [showExport, setShowExport]     = useState(false)
-  const [exporting, setExporting]       = useState(false)
-  const exportRef                       = useRef(null)
-  const fileRef = useRef()
-  const tabRef  = useRef(tab)
+  const [sellerLoading, setSellerLoading]   = useState(false)
+  const [showExport, setShowExport]   = useState(false)
+  const [pendingDelete, setPendingDelete] = useState(null)
+  const [deleting, setDeleting]       = useState(false)
+  const [highlightId, setHighlightId] = useState(null)
+
+  const fileRef  = useRef()
+  const titleRef = useRef()
+  const descRef  = useRef()
+  const priceRef = useRef()
+
+  // ── URL is the source of truth for tab and filters ──────────────────────────
+  const tab            = searchParams.get('tab') || 'browse'
+  const searchQuery    = searchParams.get('q') || ''
+  const categoryFilter = useMemo(
+    () => new Set((searchParams.get('cat') || '').split(',').filter(Boolean)), [searchParams])
+  const deliveryFilter = useMemo(
+    () => new Set((searchParams.get('del') || '').split(',').filter(Boolean)), [searchParams])
+
+  const patchParams = useCallback((patch, opts = {}) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      Object.entries(patch).forEach(([k, v]) => {
+        if (v === '' || v == null) next.delete(k)
+        else next.set(k, v)
+      })
+      return next
+    }, { replace: opts.replace ?? true })
+  }, [setSearchParams])
+
+  const setTab = useCallback((t) => patchParams({ tab: t === 'browse' ? '' : t }, { replace: false }), [patchParams])
+  const setSearchQuery = useCallback((q) => patchParams({ q }), [patchParams])
+
+  const tabRef = useRef(tab)
   useEffect(() => { tabRef.current = tab }, [tab])
 
-  // Fetch active categories once on mount; re-enrich listing icons when resolved
+  const categoryLabel = useCallback((slug) => {
+    const c = categories.find(x => x.slug === slug)
+    return c || { slug, label: slug, label_zh: '', icon: 'fa-tag' }
+  }, [categories])
+
+  // ── Categories ──────────────────────────────────────────────────────────────
   useEffect(() => {
     api.get('/api/market/categories').then(d => {
       if (d.ok && d.categories?.length) {
-        const cats = d.categories.map(c => ({ slug: c.slug, label: c.label, icon: c.icon || 'fa-tag' }))
+        const cats = d.categories.map(c => ({
+          slug: c.slug, label: c.label, label_zh: c.label_zh || '', icon: c.icon || 'fa-tag',
+        }))
         setCategories(cats)
-        // Re-attach icons now that we have the real category icon data
         setListings(prev => enrichWithIcon(prev, cats))
         setMy(prev => enrichWithIcon(prev, cats))
       }
     })
   }, [])
 
-  // Load listings on tab switch; reset filters on browse
+  // Filters are no longer wiped on every return to Browse — they live in the URL.
   useEffect(() => {
-    if (tab === 'browse')     { loadBrowse(); setSearchQuery(''); setCategoryFilter(new Set()); setDeliveryFilter(new Set()) }
-    if (tab === 'mylistings')   loadMine()
+    if (tab === 'browse')     loadBrowse()
+    if (tab === 'mylistings') loadMine()
   }, [tab])
 
-  // Refresh when user returns to this tab
   useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState !== 'visible') return
-      if (tabRef.current === 'browse')      loadBrowse()
+      if (tabRef.current === 'browse')          loadBrowse()
       else if (tabRef.current === 'mylistings') loadMine()
     }
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [])
 
+  function enrichWithIcon(list, cats) {
+    const iconMap = Object.fromEntries((cats || []).map(c => [c.slug, c.icon || 'fa-tag']))
+    return list.map(l => ({ ...l, category_icon: iconMap[l.category] || 'fa-tag' }))
+  }
+
   async function loadBrowse() {
     setLoading(true)
-    const [listRes, friendsRes, sentRes] = await Promise.all([
+    const [listRes, friendsRes] = await Promise.all([
       api.get('/api/market/listings'),
       api.get('/api/friends/list'),
-      api.get('/api/friends/requests/sent'),
     ])
 
-    // Build friendsMap
     const fMap = {}
     if (friendsRes.ok) friendsRes.friends.forEach(f => { fMap[f.username] = f })
     setFriendsMap(fMap)
 
-    // Build interestedSet
-    const map = {}
-    if (friendsRes.ok)  friendsRes.friends.forEach(f => { map[f.username] = 'friends' })
-    if (sentRes.ok)     sentRes.requests.filter(r => r.status === 'pending').forEach(r => { map[r.to_user] = 'sent' })
-    setInterested(map)
+    if (listRes.ok) setListings(enrichWithIcon(listRes.listings, categories))
+    // A failed fetch used to fall through to "No listings yet. Be the first to
+    // post!", making an outage look like an empty market.
+    else showToast(listRes.error || 'Could not load listings.', 'danger')
 
-    if (listRes.ok) setListings(prev => enrichWithIcon(listRes.listings, categories))
     setLoading(false)
-  }
-
-  function enrichWithIcon(listings, cats) {
-    const iconMap = Object.fromEntries((cats || []).map(c => [c.slug, c.icon || 'fa-tag']))
-    return listings.map(l => ({ ...l, category_icon: iconMap[l.category] || 'fa-tag' }))
   }
 
   async function loadMine() {
     setLoading(true)
     const d = await api.get('/api/market/my')
     if (d.ok) setMy(enrichWithIcon(d.listings, categories))
+    else showToast(d.error || 'Could not load your listings.', 'danger')
     setLoading(false)
   }
 
-  async function openSellerModal(username) {
-    // Don't show modal for own profile
-    if (username === user.username) return
-    const friend = friendsMap[username]
-    const sellerInfo = friend ?? { username, display_name: username, avatar_url: null }
-    setSellerModal(sellerInfo)
-    setSellerListings([])
-    setSellerLoading(true)
-    const d = await api.get(`/api/market/user/${username}`)
-    if (d.ok) setSellerListings(d.listings)
-    setSellerLoading(false)
+  // ── Route-driven overlays ───────────────────────────────────────────────────
+  useEffect(() => {
+    if (!listingId) { setDetailListing(null); return }
+    let cancelled = false
+    ;(async () => {
+      const key = `viewed_${listingId}`
+      const alreadyCounted = sessionStorage.getItem(key)
+      // Always fetch so price and status are current; only count the first view.
+      const d = await api.get(`/api/market/listings/${listingId}${alreadyCounted ? '?track=0' : ''}`)
+      if (cancelled) return
+      if (d.ok) {
+        if (!alreadyCounted) sessionStorage.setItem(key, '1')
+        setDetailListing(d.listing)
+        setListings(prev => prev.map(l => l.id === listingId ? { ...l, view_count: d.listing.view_count } : l))
+        setMy(prev => prev.map(l => l.id === listingId ? { ...l, view_count: d.listing.view_count } : l))
+      } else {
+        showToast(d.error || 'That listing is no longer available.', 'danger')
+        navigate(`/market${location.search}`, { replace: true })
+      }
+    })()
+    return () => { cancelled = true }
+  }, [listingId])
+
+  useEffect(() => {
+    if (!sellerUsername) { setSellerInfo(null); setSellerListings([]); return }
+    if (sellerUsername === user.username) {
+      navigate(`/market?tab=mylistings`, { replace: true })
+      return
+    }
+    let cancelled = false
+    ;(async () => {
+      // Seed from whatever real identity we already hold, so the avatar and
+      // display name never degrade to a grey initial on the way in.
+      const known = friendsMap[sellerUsername]
+      const fromListing = [...listings, ...myListings].find(l => l.seller_username === sellerUsername)
+      setSellerInfo(known ?? {
+        username: sellerUsername,
+        display_name: fromListing?.seller_display || sellerUsername,
+        avatar_url: fromListing?.seller_avatar || null,
+      })
+      setSellerLoading(true)
+      const [profileRes, listRes] = await Promise.all([
+        api.get(`/api/auth/users/${sellerUsername}/public`),
+        api.get(`/api/market/user/${sellerUsername}`),
+      ])
+      if (cancelled) return
+      // Canonical profile wins, so Market, Friends and /u/:username agree.
+      if (profileRes.ok && profileRes.user) {
+        setSellerInfo(prev => ({ ...prev, ...profileRes.user, username: sellerUsername }))
+      }
+      if (listRes.ok) setSellerListings(enrichWithIcon(listRes.listings, categories))
+      setSellerLoading(false)
+    })()
+    return () => { cancelled = true }
+  }, [sellerUsername])
+
+  // ── Navigation helpers ──────────────────────────────────────────────────────
+  const openDetail  = (id) => navigate(`/market/l/${id}${location.search}`)
+  const openSeller  = (username) => navigate(`/market/u/${username}${location.search}`)
+  const closeOverlay = () => navigate(`/market${location.search}`)
+
+  const shareUrlFor = (id) => `${window.location.origin}/market/l/${id}`
+
+  async function handleCopyLink(url) {
+    try {
+      await navigator.clipboard.writeText(url)
+      showToast('Link copied — paste it anywhere.')
+    } catch {
+      showToast(url, 'info')
+    }
   }
 
+  // ── Images ──────────────────────────────────────────────────────────────────
   function handleFileChange(e) {
     const incoming = Array.from(e.target.files)
     const incomingPreviews = incoming.map(f => URL.createObjectURL(f))
@@ -686,31 +1034,47 @@ export default function Market() {
     setImages(prev => [...prev, ...incoming].slice(0, 3))
     setPreviews(prev => {
       const combined = [...prev, ...incomingPreviews]
-      // Revoke URLs for any files dropped because we hit the 3-image limit
-      if (combined.length > 3) {
-        combined.slice(3).forEach(url => URL.revokeObjectURL(url))
-      }
+      if (combined.length > 3) combined.slice(3).forEach(url => URL.revokeObjectURL(url))
       return combined.slice(0, 3)
     })
-
-    // Reset so the picker can be opened again to add more
     if (fileRef.current) fileRef.current.value = ''
   }
 
   function removeImage(idx) {
-    const newFiles    = images.filter((_, i) => i !== idx)
-    const newPreviews = previews.filter((_, i) => i !== idx)
     URL.revokeObjectURL(previews[idx])
-    setImages(newFiles)
-    setPreviews(newPreviews)
+    setImages(prev => prev.filter((_, i) => i !== idx))
+    setPreviews(prev => prev.filter((_, i) => i !== idx))
+  }
+
+  // ── Create ──────────────────────────────────────────────────────────────────
+  function validateForm() {
+    const errs = {}
+    if (!form.title.trim())       errs.title = 'Give your item a title.'
+    if (!form.description.trim()) errs.description = 'Describe the condition so people know what to expect.'
+    if (!form.price || isNaN(form.price) || Number(form.price) < 0) {
+      errs.price = 'Enter a price, using numbers only.'
+    } else if (form.original_price && Number(form.original_price) > 0 &&
+               Number(form.original_price) <= Number(form.price)) {
+      // Otherwise the strikethrough silently vanishes with no explanation.
+      errs.original_price = 'The original price should be higher than what you are asking.'
+    }
+    return errs
   }
 
   async function handleCreate(e) {
     e.preventDefault()
-    if (!form.title.trim())       return showToast('Title is required.', 'danger')
-    if (!form.description.trim()) return showToast('Description is required.', 'danger')
-    if (!form.price || isNaN(form.price) || Number(form.price) < 0)
-                                  return showToast('Enter a valid price.', 'danger')
+    const errs = validateForm()
+    setFieldErrors(errs)
+
+    if (Object.keys(errs).length > 0) {
+      // A toast alone fires off-screen when the submit button is at the bottom
+      // of a scrolled phone form — take the user to the field instead.
+      const first = errs.title ? titleRef : errs.description ? descRef : priceRef
+      first.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      first.current?.focus({ preventScroll: true })
+      showToast('Check the highlighted field.', 'danger')
+      return
+    }
 
     setSub(true)
     const fd = new FormData()
@@ -721,89 +1085,69 @@ export default function Market() {
     setSub(false)
 
     if (d.ok) {
-      showToast('Listing posted!')
+      showToast('Listing posted.')
       setForm(EMPTY_FORM)
+      setFieldErrors({})
+      previews.forEach(url => URL.revokeObjectURL(url))
       setImages([])
       setPreviews([])
       if (fileRef.current) fileRef.current.value = ''
-      setTab('browse')
+      // Browse hides your own listings, so landing there after posting showed
+      // the seller a market without the thing they had just posted.
+      setHighlightId(d.listing?.id || null)
+      setTab('mylistings')
     } else {
-      showToast(d.error || 'Failed to post listing.', 'danger')
+      showToast(d.error || 'Could not post the listing.', 'danger')
     }
+  }
+
+  useEffect(() => {
+    if (!highlightId) return
+    const t = setTimeout(() => setHighlightId(null), 2600)
+    return () => clearTimeout(t)
+  }, [highlightId])
+
+  // ── Listing mutations ───────────────────────────────────────────────────────
+  async function refreshCurrent() {
+    if (tab === 'browse')     await loadBrowse()
+    if (tab === 'mylistings') await loadMine()
   }
 
   async function handleSold(id) {
     const d = await api.post(`/api/market/listings/${id}/sold`)
-    if (d.ok) {
-      showToast('Marked as sold.')
-      if (tab === 'browse')     loadBrowse()
-      if (tab === 'mylistings') loadMine()
-    } else {
-      showToast(d.error, 'danger')
-    }
+    if (d.ok) { showToast('Marked as sold.'); refreshCurrent() }
+    else showToast(d.error || 'Could not update the listing.', 'danger')
   }
 
   async function handleRestore(id) {
     const d = await api.post(`/api/market/listings/${id}/restore`)
-    if (d.ok) {
-      showToast('Listing restored to active.')
-      if (tab === 'browse')     loadBrowse()
-      if (tab === 'mylistings') loadMine()
-    } else {
-      showToast(d.error, 'danger')
-    }
+    if (d.ok) { showToast('Listing is active again.'); refreshCurrent() }
+    else showToast(d.error || 'Could not restore the listing.', 'danger')
   }
 
   async function handleEditSave(id, fields) {
     const d = await api.put(`/api/market/listings/${id}`, fields)
-    if (d.ok) {
-      showToast('Listing updated.')
-      setEditListing(null)
-      if (tab === 'browse')     loadBrowse()
-      if (tab === 'mylistings') loadMine()
-    } else {
-      showToast(d.error, 'danger')
-    }
+    if (d.ok) { showToast('Listing updated.'); setEditListing(null); refreshCurrent() }
+    else showToast(d.error || 'Could not save your changes.', 'danger')
   }
 
-  async function handleDelete(id) {
-    if (!window.confirm('Delete this listing?')) return
-    const d = await api.delete(`/api/market/listings/${id}`)
+  async function confirmDelete() {
+    if (!pendingDelete) return
+    setDeleting(true)
+    const d = await api.delete(`/api/market/listings/${pendingDelete.id}`)
+    setDeleting(false)
+    setPendingDelete(null)
     if (d.ok) {
       showToast('Listing deleted.')
-      if (tab === 'browse')     loadBrowse()
-      if (tab === 'mylistings') loadMine()
+      if (listingId === pendingDelete.id) navigate(`/market${location.search}`, { replace: true })
+      refreshCurrent()
     } else {
-      showToast(d.error, 'danger')
+      showToast(d.error || 'Could not delete the listing.', 'danger')
     }
   }
 
-  // Reach Out: friends → navigate to chat; not friends → send friend request
-  async function openDetail(listing) {
-    const key = `viewed_${listing.id}`
-    if (sessionStorage.getItem(key)) {
-      // Already viewed this session — show cached listing, skip increment
-      setDetailListing(listing)
-      return
-    }
-    // First view this session — fetch from API (server increments count)
-    const d = await api.get(`/api/market/listings/${listing.id}`)
-    if (d.ok) {
-      sessionStorage.setItem(key, '1')
-      setDetailListing(d.listing)
-      // Update view_count in the local listings arrays too
-      setListings(prev => prev.map(l => l.id === listing.id ? { ...l, view_count: d.listing.view_count } : l))
-      setMy(prev => prev.map(l => l.id === listing.id ? { ...l, view_count: d.listing.view_count } : l))
-    } else {
-      setDetailListing(listing)
-    }
-  }
-
-  function handleReachOut(listing, sellerUsername) {
-    const username = sellerUsername ?? listing?.seller_username
-    const title    = listing?.title ?? null
-
-    // Build chat partner object from any available source
+  function handleReachOut(listing, sellerName) {
+    const username = sellerName ?? listing?.seller_username
     let chatPartner = friendsMap[username]
     if (!chatPartner) {
       if (listing) {
@@ -812,44 +1156,22 @@ export default function Market() {
           display_name: listing.seller_display || username,
           avatar_url:   listing.seller_avatar  || null,
         }
-      } else if (sellerModal && sellerModal.username === username) {
-        chatPartner = { ...sellerModal }
+      } else if (sellerInfo && sellerInfo.username === username) {
+        chatPartner = { ...sellerInfo }
       } else {
         chatPartner = { username, display_name: username, avatar_url: null }
       }
     }
 
-    const initialMessage = title
-      ? `嗨！我看到你发布的《${title}》，想聊一聊 😊`
+    // English, because it is put in the user's own mouth and they must be able
+    // to read it. It carries a real link now, instead of naming the item.
+    const initialMessage = listing
+      ? `Hi! Is "${listing.title}" still available? ${shareUrlFor(listing.id)}`
       : ''
-    setSellerModal(null)
     navigate('/friends', { state: { openChat: chatPartner, initialMessage } })
   }
 
-  async function handleExportImage() {
-    if (!exportRef.current) return
-    setExporting(true)
-    try {
-      // Wait a tick for render
-      await new Promise(r => setTimeout(r, 100))
-      const canvas = await html2canvas(exportRef.current, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-      })
-      const link = document.createElement('a')
-      link.download = `my-listings-${new Date().toISOString().slice(0, 10)}.png`
-      link.href = canvas.toDataURL('image/png')
-      link.click()
-    } catch (err) {
-      console.error('Export failed:', err)
-    } finally {
-      setExporting(false)
-    }
-  }
-
-  // Browse: filter out own listings, then apply search + category + delivery
+  // ── Filters ─────────────────────────────────────────────────────────────────
   const browseListing = listings.filter(l => l.seller_username !== user.username)
   const filteredBrowse = browseListing.filter(l => {
     const q = searchQuery.trim().toLowerCase()
@@ -860,187 +1182,51 @@ export default function Market() {
     const matchesDelivery = deliveryFilter.size === 0 || deliveryFilter.has(l.delivery_type)
     return matchesSearch && matchesCategory && matchesDelivery
   })
-  const hasActiveFilters = searchQuery || categoryFilter.size > 0 || deliveryFilter.size > 0
+  const hasActiveFilters = Boolean(searchQuery) || categoryFilter.size > 0 || deliveryFilter.size > 0
 
-  function toggleCategory(slug) {
-    setCategoryFilter(prev => {
-      const next = new Set(prev)
-      next.has(slug) ? next.delete(slug) : next.add(slug)
-      return next
-    })
+  const toggleIn = (set, key, param) => {
+    const next = new Set(set)
+    next.has(key) ? next.delete(key) : next.add(key)
+    patchParams({ [param]: [...next].join(',') })
   }
-  function toggleDelivery(value) {
-    setDeliveryFilter(prev => {
-      const next = new Set(prev)
-      next.has(value) ? next.delete(value) : next.add(value)
-      return next
-    })
-  }
-  function clearAllFilters() {
-    setSearchQuery('')
-    setCategoryFilter(new Set())
-    setDeliveryFilter(new Set())
-  }
+  const clearAllFilters = () => patchParams({ q: '', cat: '', del: '' })
+
   const displayList = tab === 'mylistings' ? myListings : filteredBrowse
 
   return (
     <div className="container-fluid py-4">
+      <Toast toast={toast} />
 
-      {/* Listing Detail Modal */}
       {detailListing && (
         <ListingDetailModal
           listing={detailListing}
           currentUser={user.username}
-          onClose={() => setDetailListing(null)}
+          categoryLabel={categoryLabel}
+          shareUrl={shareUrlFor(detailListing.id)}
+          onClose={closeOverlay}
           onSold={handleSold}
           onRestore={handleRestore}
-          onDelete={handleDelete}
+          onDelete={setPendingDelete}
           onEdit={setEditListing}
           onReachOut={handleReachOut}
-          onSellerClick={openSellerModal}
-          reachOutStatus={interestedSet[detailListing.seller_username]}
+          onSellerClick={openSeller}
+          onCopyLink={handleCopyLink}
         />
       )}
 
-      {/* Toast */}
-      {toast && (
-        <div className={`alert alert-${toast.type} alert-dismissible position-fixed top-0 end-0 m-3`}
-             style={{ zIndex: 9999 }}>
-          {toast.msg}
-        </div>
+      {sellerInfo && (
+        <SellerModal
+          seller={sellerInfo}
+          listings={sellerListings}
+          loading={sellerLoading}
+          categoryLabel={categoryLabel}
+          onClose={closeOverlay}
+          onReachOut={(listing) => handleReachOut(listing, sellerInfo.username)}
+          onOpenListing={openDetail}
+          onViewProfile={(username) => navigate(`/u/${username}`)}
+        />
       )}
 
-      {/* Export modal */}
-      {showExport && (
-        <div className="modal show d-block" style={{ background: 'rgba(0,0,0,.45)' }} onClick={() => setShowExport(false)}>
-          <div className="modal-dialog modal-dialog-centered" onClick={e => e.stopPropagation()}>
-            <div className="modal-content">
-              <div className="modal-header">
-                <h6 className="modal-title fw-semibold">
-                  <i className="fas fa-image me-2 text-primary" />导出为图片
-                </h6>
-                <button className="btn-close" onClick={() => setShowExport(false)} />
-              </div>
-              <div className="modal-body">
-                <p className="text-muted small mb-0">
-                  将你所有 <strong>active</strong> 的商品一键导出为长图，方便分享到朋友圈/群聊。
-                </p>
-                <p className="text-muted small">
-                  共 {myListings.filter(l => l.status === 'active').length} 个商品
-                </p>
-
-                {/* Preview area — renders the same content that will be captured */}
-                <div ref={exportRef} style={{
-                  width: 420,
-                  padding: '20px 24px',
-                  background: '#fff',
-                  borderRadius: 8,
-                  margin: '0 auto',
-                  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                }}>
-                  {/* Header */}
-                  <div style={{ textAlign: 'center', marginBottom: 16, paddingBottom: 12, borderBottom: '2px solid #323232' }}>
-                    <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Arch Bay</div>
-                    <div style={{ fontSize: 12, color: '#aaa', marginTop: 2 }}>
-                      {new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}
-                    </div>
-                  </div>
-
-                  {/* Listings */}
-                  {myListings.filter(l => l.status === 'active').length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '40px 0', color: '#999', fontSize: 14 }}>
-                      暂无商品
-                    </div>
-                  ) : (
-                    myListings.filter(l => l.status === 'active').map((l, i) => (
-                      <div key={l.id} style={{
-                        display: 'flex',
-                        gap: 12,
-                        padding: '12px 0',
-                        borderBottom: i < myListings.filter(x => x.status === 'active').length - 1 ? '1px dashed #e0e0e0' : 'none',
-                      }}>
-                        {/* Image */}
-                        <div style={{
-                          width: 88, height: 88,
-                          borderRadius: 6,
-                          overflow: 'hidden',
-                          flexShrink: 0,
-                          background: '#f5f5f5',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}>
-                          {l.images?.[0]?.url ? (
-                            <img
-                              src={l.images[0].url}
-                              alt={l.title}
-                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                              onError={e => { e.target.style.display = 'none'; e.target.nextElementSibling.style.display = '' }}
-                            />
-                          ) : (
-                            <i className="fas fa-image" style={{ fontSize: 24, opacity: 0.3 }} />
-                          )}
-                        </div>
-
-                        {/* Info */}
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {l.title}
-                          </div>
-                          <div style={{ color: '#e74c3c', fontWeight: 700, fontSize: 16 }}>
-                            ${l.price}
-                            {l.original_price && l.original_price > l.price && (
-                              <span style={{ color: '#999', textDecoration: 'line-through', fontWeight: 400, fontSize: 12, marginLeft: 6 }}>
-                                ${l.original_price}
-                              </span>
-                            )}
-                          </div>
-                          <div style={{ fontSize: 11, color: '#999', marginTop: 2 }}>
-                            <span style={{ background: '#f0f0f0', borderRadius: 8, padding: '1px 6px', marginRight: 4 }}>
-                              {categories.find(c => c.slug === l.category)?.label || l.category}
-                            </span>
-                            {l.delivery_type === 'delivery' || l.delivery_type === 'both' ? (
-                              <span style={{ background: '#e8f0fe', borderRadius: 8, padding: '1px 6px' }}>
-                                {l.delivery_fee != null ? `配送+$${l.delivery_fee}` : '包邮'}
-                              </span>
-                            ) : (
-                              <span style={{ background: '#f0f0f0', borderRadius: 8, padding: '1px 6px' }}>
-                                自提
-                              </span>
-                            )}
-                          </div>
-                          <div style={{ fontSize: 11, color: '#aaa', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {l.description}
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  )}
-
-                </div>
-              </div>
-              <div className="modal-footer">
-                <button className="btn btn-outline-secondary btn-sm" onClick={() => setShowExport(false)}>
-                  关闭
-                </button>
-                <button
-                  className="btn btn-primary btn-sm"
-                  onClick={handleExportImage}
-                  disabled={exporting}
-                >
-                  {exporting ? (
-                    <><span className="spinner-border spinner-border-sm me-1" />导出中…</>
-                  ) : (
-                    <><i className="fas fa-download me-1" />导出图片</>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Edit listing modal */}
       {editListing && (
         <EditModal
           listing={editListing}
@@ -1050,24 +1236,32 @@ export default function Market() {
         />
       )}
 
-      {/* Seller modal */}
-      {sellerModal && (
-        <SellerModal
-          seller={sellerModal}
-          listings={sellerLoading ? [] : sellerListings}
-          onClose={() => setSellerModal(null)}
-          onReachOut={(listing) => handleReachOut(listing, sellerModal.username)}
-          reachOutStatus={interestedSet[sellerModal.username]}
+      {pendingDelete && (
+        <ConfirmDialog
+          title="Delete this listing?"
+          itemName={pendingDelete.title}
+          message="The listing and its photos are removed for good. This cannot be undone."
+          confirmLabel="Delete listing"
+          busy={deleting}
+          onConfirm={confirmDelete}
+          onClose={() => setPendingDelete(null)}
         />
       )}
 
-      <div className="d-flex align-items-center mb-4">
-        <i className="fas fa-store fa-lg me-2 text-primary" />
-        <h4 className="mb-0 fw-bold">Market</h4>
-        <span className="text-muted ms-2 small">Second-hand trading</span>
+      {showExport && (
+        <ExportModal
+          listings={myListings}
+          categoryLabel={categoryLabel}
+          onClose={() => setShowExport(false)}
+          showToast={showToast}
+        />
+      )}
+
+      <div className="mb-4">
+        <h1 className="page-title mb-0">Market</h1>
+        <p className="page-subtitle mb-0">二手好物 — 朋友之间</p>
       </div>
 
-      {/* Tabs — Browse → My Listings → Post Item */}
       <div className="radio-inputs mb-4">
         {[
           { key: 'browse',     label: 'Browse' },
@@ -1086,78 +1280,96 @@ export default function Market() {
         ))}
       </div>
 
-      {/* ── Browse / My Listings ── */}
       {(tab === 'browse' || tab === 'mylistings') && (
         <>
-          {/* Search + Category filter — browse only */}
           {tab === 'browse' && (
             <div className="mb-4">
-              {/* Search bar */}
               <div className="search mb-3">
+                <label className="visually-hidden" htmlFor="market-search">Search listings</label>
                 <input
+                  id="market-search"
                   className="search__input"
+                  type="search"
                   placeholder="Search listings…"
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                 />
-                <button className="search__button" onClick={() => {}}>
+                <span className="search__button" aria-hidden="true">
                   <i className="fas fa-search" />
-                </button>
+                </span>
                 {searchQuery && (
-                  <button className="search__clear" onClick={() => setSearchQuery('')}>
-                    <i className="fas fa-times" />
+                  <button className="search__clear" onClick={() => setSearchQuery('')} aria-label="Clear search">
+                    <i className="fas fa-times" aria-hidden="true" />
                   </button>
                 )}
               </div>
 
-              {/* Category pills */}
               <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }} className="mb-2">
-                <div className="d-flex gap-2 align-items-center" style={{ width: 'max-content', paddingBottom: 2 }}>
-                  <span className="text-muted small me-1" style={{ whiteSpace: 'nowrap' }}>分类</span>
+                <div className="d-flex gap-2 align-items-center" style={{ width: 'max-content', paddingBottom: 2 }}
+                     role="group" aria-label="Filter by category">
+                  <span className="small me-1" style={{ whiteSpace: 'nowrap', color: 'var(--text-muted)' }}>Category</span>
                   {categories.map(cat => {
                     const active = categoryFilter.has(cat.slug)
                     return (
                       <button
                         key={cat.slug}
-                        onClick={() => toggleCategory(cat.slug)}
+                        onClick={() => toggleIn(categoryFilter, cat.slug, 'cat')}
+                        aria-pressed={active}
                         className={`btn btn-sm ${active ? 'btn-primary' : 'btn-outline-secondary'}`}
                         style={{ borderRadius: 20, whiteSpace: 'nowrap' }}
                       >
-                        <i className={`fas ${cat.icon || 'fa-tag'} me-1`} />{cat.label}
+                        <i className={`fas ${cat.icon || 'fa-tag'} me-1`} aria-hidden="true" />
+                        <Label en={cat.label} zh={cat.label_zh} />
                       </button>
                     )
                   })}
                 </div>
               </div>
 
-              {/* Delivery pills */}
               <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-                <div className="d-flex gap-2 align-items-center" style={{ width: 'max-content', paddingBottom: 4 }}>
-                  <span className="text-muted small me-1" style={{ whiteSpace: 'nowrap' }}>配送</span>
+                <div className="d-flex gap-2 align-items-center" style={{ width: 'max-content', paddingBottom: 4 }}
+                     role="group" aria-label="Filter by delivery">
+                  <span className="small me-1" style={{ whiteSpace: 'nowrap', color: 'var(--text-muted)' }}>Delivery</span>
                   {DELIVERY_OPTIONS.map(opt => {
                     const active = deliveryFilter.has(opt.value)
                     return (
                       <button
                         key={opt.value}
-                        onClick={() => toggleDelivery(opt.value)}
+                        onClick={() => toggleIn(deliveryFilter, opt.value, 'del')}
+                        aria-pressed={active}
                         className={`btn btn-sm ${active ? 'btn-primary' : 'btn-outline-secondary'}`}
                         style={{ borderRadius: 20, whiteSpace: 'nowrap' }}
                       >
-                        <i className={`fas ${opt.icon} me-1`} />{opt.label}
+                        <i className={`fas ${opt.icon} me-1`} aria-hidden="true" />
+                        <Label en={opt.label} zh={opt.label_zh} />
                       </button>
                     )
                   })}
                 </div>
               </div>
 
-              {/* Active filter summary */}
               {hasActiveFilters && !loading && (
-                <div className="d-flex align-items-center gap-2 mt-2">
-                  <span className="text-muted small">
+                <div className="d-flex align-items-center gap-2 mt-2 flex-wrap">
+                  <span className="small" style={{ color: 'var(--text-muted)' }}>
                     {filteredBrowse.length} result{filteredBrowse.length !== 1 ? 's' : ''}
                   </span>
-                  <button className="btn btn-link btn-sm p-0 text-muted" onClick={clearAllFilters}>
-                    Clear filters
+                  {[...categoryFilter].map(slug => (
+                    <button key={slug} className="badge-pill" style={{ border: 'none', cursor: 'pointer' }}
+                            onClick={() => toggleIn(categoryFilter, slug, 'cat')}>
+                      {categoryLabel(slug).label} <i className="fas fa-times" aria-hidden="true" />
+                      <span className="visually-hidden">Remove filter</span>
+                    </button>
+                  ))}
+                  {[...deliveryFilter].map(v => (
+                    <button key={v} className="badge-pill badge-pill--info" style={{ border: 'none', cursor: 'pointer' }}
+                            onClick={() => toggleIn(deliveryFilter, v, 'del')}>
+                      {(DELIVERY_BY_VALUE[v] || {}).label} <i className="fas fa-times" aria-hidden="true" />
+                      <span className="visually-hidden">Remove filter</span>
+                    </button>
+                  ))}
+                  <button className="btn btn-link btn-sm p-0" onClick={clearAllFilters}
+                          style={{ color: 'var(--text-muted)' }}>
+                    Clear all
                   </button>
                 </div>
               )}
@@ -1167,17 +1379,16 @@ export default function Market() {
           {tab === 'mylistings' && myListings.length > 0 && (
             <div className="d-flex justify-content-end mb-3">
               <button className="btn btn-outline-secondary btn-sm" onClick={() => setShowExport(true)}>
-                <i className="fas fa-image me-1" />导出长图
+                <i className="fas fa-image me-1" aria-hidden="true" />Export as image
               </button>
             </div>
           )}
+
           {loading ? (
-            <div className="text-center py-5">
-              <HandLoader />
-            </div>
+            <div className="text-center py-5"><HandLoader /></div>
           ) : displayList.length === 0 ? (
-            <div className="text-center py-5 text-muted">
-              <i className="fas fa-box-open fa-3x mb-3" />
+            <div className="text-center py-5" style={{ color: 'var(--text-muted)' }}>
+              <i className="fas fa-box-open fa-3x mb-3" aria-hidden="true" />
               {tab === 'browse' && hasActiveFilters ? (
                 <>
                   <p>No listings match your search.</p>
@@ -1187,12 +1398,12 @@ export default function Market() {
                 </>
               ) : (
                 <>
-                  <p>{tab === 'mylistings' ? "You haven't posted anything yet." : 'No listings yet. Be the first to post!'}</p>
-                  {tab === 'mylistings' && (
-                    <button className="btn btn-primary" onClick={() => setTab('create')}>
-                      Post a Listing
-                    </button>
-                  )}
+                  <p>{tab === 'mylistings'
+                    ? "You haven't posted anything yet."
+                    : 'Nothing up for grabs right now.'}</p>
+                  <button className="btn btn-primary" onClick={() => setTab('create')}>
+                    Post a Listing
+                  </button>
                 </>
               )}
             </div>
@@ -1200,18 +1411,22 @@ export default function Market() {
             <div className="row row-cols-2 row-cols-sm-3 row-cols-lg-4 row-cols-xl-5 g-2">
               {displayList.map(l => (
                 <div className="col" key={l.id}>
-                  <ListingCard
-                    listing={l}
-                    currentUser={user.username}
-                    onSold={handleSold}
-                    onRestore={handleRestore}
-                    onDelete={handleDelete}
-                    onEdit={setEditListing}
-                    onReachOut={handleReachOut}
-                    onSellerClick={openSellerModal}
-                    onDetail={() => openDetail(l)}
-                    reachOutStatus={interestedSet[l.seller_username]}
-                  />
+                  <div style={highlightId === l.id
+                    ? { outline: '2px solid var(--accent)', outlineOffset: 3, borderRadius: 'var(--radius-lg)' }
+                    : undefined}>
+                    <ListingCard
+                      listing={l}
+                      currentUser={user.username}
+                      categoryLabel={categoryLabel}
+                      onSold={handleSold}
+                      onRestore={handleRestore}
+                      onDelete={setPendingDelete}
+                      onEdit={setEditListing}
+                      onReachOut={handleReachOut}
+                      onSellerClick={openSeller}
+                      onDetail={() => openDetail(l.id)}
+                    />
+                  </div>
                 </div>
               ))}
             </div>
@@ -1219,112 +1434,166 @@ export default function Market() {
         </>
       )}
 
-      {/* ── Create Form ── */}
       {tab === 'create' && (
         <div className="row justify-content-center">
           <div className="col-lg-7">
-            <div className="card shadow-sm">
+            <div className="card">
               <div className="card-body p-4">
                 <h5 className="card-title mb-4 fw-semibold">
-                  <i className="fas fa-tag me-2 text-primary" />Post a Listing
+                  <i className="fas fa-tag me-2 text-primary" aria-hidden="true" />Post a Listing
                 </h5>
 
-                <form onSubmit={handleCreate}>
+                <form onSubmit={handleCreate} noValidate>
                   <div className="mb-3">
-                    <label className="form-label fw-medium">Title <span className="text-danger">*</span></label>
+                    <label className="form-label fw-medium" htmlFor="new-title">
+                      Title <span className="text-danger" aria-hidden="true">*</span>
+                    </label>
                     <input
+                      id="new-title"
+                      ref={titleRef}
                       className="form-control"
                       maxLength={100}
+                      required
+                      aria-required="true"
+                      aria-invalid={fieldErrors.title ? 'true' : undefined}
+                      aria-describedby={fieldErrors.title ? `${formErrId}-title` : undefined}
                       placeholder="e.g. iPhone 13 128GB"
                       value={form.title}
                       onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
                     />
+                    {fieldErrors.title && (
+                      <p className="field-error" id={`${formErrId}-title`}>
+                        <i className="fas fa-circle-exclamation" aria-hidden="true" />{fieldErrors.title}
+                      </p>
+                    )}
                   </div>
 
                   <div className="mb-3">
-                    <label className="form-label fw-medium">Description <span className="text-danger">*</span></label>
+                    <label className="form-label fw-medium" htmlFor="new-desc">
+                      Description <span className="text-danger" aria-hidden="true">*</span>
+                    </label>
                     <textarea
+                      id="new-desc"
+                      ref={descRef}
                       className="form-control"
                       rows={4}
-                      placeholder="Condition, reason for selling, included accessories..."
+                      required
+                      aria-required="true"
+                      aria-invalid={fieldErrors.description ? 'true' : undefined}
+                      aria-describedby={fieldErrors.description ? `${formErrId}-desc` : undefined}
+                      placeholder="Condition, reason for selling, included accessories…"
                       value={form.description}
                       onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
                     />
+                    {fieldErrors.description && (
+                      <p className="field-error" id={`${formErrId}-desc`}>
+                        <i className="fas fa-circle-exclamation" aria-hidden="true" />{fieldErrors.description}
+                      </p>
+                    )}
                   </div>
 
-                  <div className="row mb-3">
-                    <div className="col">
-                      <label className="form-label fw-medium">Original Price ($) <span className="text-muted small">(optional)</span></label>
+                  {/* col-12 col-sm-6: bare `col` never stacked, so on a 375px
+                      phone these were two ~150px inputs with 3-line labels. */}
+                  <div className="row g-2 mb-3">
+                    <div className="col-12 col-sm-6">
+                      <label className="form-label fw-medium" htmlFor="new-orig">
+                        Original Price ($) <span style={{ color: 'var(--text-muted)' }} className="small">(optional)</span>
+                      </label>
                       <input
-                        type="number"
-                        className="form-control"
-                        min={0}
-                        step="0.01"
-                        placeholder="e.g. 5000.00"
+                        id="new-orig"
+                        type="number" className="form-control" min={0} step="0.01"
+                        aria-invalid={fieldErrors.original_price ? 'true' : undefined}
+                        aria-describedby={fieldErrors.original_price ? `${formErrId}-orig` : undefined}
+                        placeholder="e.g. 500.00"
                         value={form.original_price}
                         onChange={e => setForm(f => ({ ...f, original_price: e.target.value }))}
                       />
+                      {fieldErrors.original_price && (
+                        <p className="field-error" id={`${formErrId}-orig`}>
+                          <i className="fas fa-circle-exclamation" aria-hidden="true" />{fieldErrors.original_price}
+                        </p>
+                      )}
                     </div>
-                    <div className="col">
-                      <label className="form-label fw-medium">Selling Price ($) <span className="text-danger">*</span></label>
+                    <div className="col-12 col-sm-6">
+                      <label className="form-label fw-medium" htmlFor="new-price">
+                        Selling Price ($) <span className="text-danger" aria-hidden="true">*</span>
+                      </label>
                       <input
-                        type="number"
-                        className="form-control"
-                        min={0}
-                        step="0.01"
+                        id="new-price"
+                        ref={priceRef}
+                        type="number" className="form-control" min={0} step="0.01"
+                        required
+                        aria-required="true"
+                        aria-invalid={fieldErrors.price ? 'true' : undefined}
+                        aria-describedby={fieldErrors.price ? `${formErrId}-price` : undefined}
                         placeholder="0.00"
                         value={form.price}
                         onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
                       />
+                      {fieldErrors.price && (
+                        <p className="field-error" id={`${formErrId}-price`}>
+                          <i className="fas fa-circle-exclamation" aria-hidden="true" />{fieldErrors.price}
+                        </p>
+                      )}
                     </div>
                   </div>
 
                   <div className="mb-3">
-                    <label className="form-label fw-medium">Category</label>
+                    <label className="form-label fw-medium" htmlFor="new-cat">Category</label>
                     <select
+                      id="new-cat"
                       className="form-select"
                       value={form.category}
                       onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
                     >
                       {categories.map(c => (
-                        <option key={c.slug} value={c.slug}>{c.label}</option>
+                        <option key={c.slug} value={c.slug}>
+                          {c.label}{c.label_zh ? ` · ${c.label_zh}` : ''}
+                        </option>
                       ))}
                     </select>
                   </div>
 
-                  <div className="mb-3">
-                    <label className="form-label fw-medium">Delivery Options</label>
+                  <fieldset className="mb-3">
+                    <legend className="form-label fw-medium">Delivery Options</legend>
                     <div className="d-flex gap-3 flex-wrap">
-                      {[['pickup','仅自提'],['delivery','仅配送'],['both','可自提或配送']].map(([v,lbl]) => (
-                        <div className="form-check" key={v}>
+                      {DELIVERY_OPTIONS.map(opt => (
+                        <div className="form-check" key={opt.value}>
                           <input className="form-check-input" type="radio" name="delivery_type"
-                            id={`dt-${v}`} value={v} checked={form.delivery_type === v}
-                            onChange={() => setForm(f => ({ ...f, delivery_type: v, delivery_fee: v === 'pickup' ? '' : f.delivery_fee }))} />
-                          <label className="form-check-label" htmlFor={`dt-${v}`}>{lbl}</label>
+                            id={`dt-${opt.value}`} value={opt.value}
+                            checked={form.delivery_type === opt.value}
+                            onChange={() => setForm(f => ({
+                              ...f, delivery_type: opt.value,
+                              delivery_fee: opt.value === 'pickup' ? '' : f.delivery_fee,
+                            }))} />
+                          <label className="form-check-label" htmlFor={`dt-${opt.value}`}>
+                            <Label en={opt.label} zh={opt.label_zh} />
+                          </label>
                         </div>
                       ))}
                     </div>
                     {(form.delivery_type === 'delivery' || form.delivery_type === 'both') && (
                       <div className="mt-2">
-                        <input type="number" className="form-control" min={0} step="0.01"
-                          placeholder="Delivery fee ($, leave blank if free)"
+                        <label className="form-label small" htmlFor="new-fee">
+                          Delivery fee ($) — leave blank if free
+                        </label>
+                        <input id="new-fee" type="number" className="form-control" min={0} step="0.01"
+                          placeholder="0.00"
                           value={form.delivery_fee}
                           onChange={e => setForm(f => ({ ...f, delivery_fee: e.target.value }))} />
                       </div>
                     )}
-                  </div>
+                  </fieldset>
 
                   <div className="mb-4">
-                    <label className="form-label fw-medium">
-                      Photos{' '}
-                      <span className="text-muted">
-                        (最多3张，JPEG/PNG，每张不超过5MB
-                        {images.length > 0 && images.length < 3 && ` · 已选 ${images.length} 张，还可添加 ${3 - images.length} 张`}
-                        {images.length >= 3 && ' · 已达上限'}
-                        )
-                      </span>
-                    </label>
+                    <label className="form-label fw-medium" htmlFor="new-photos">Photos</label>
+                    <p className="small mb-2" style={{ color: 'var(--text-muted)' }}>
+                      Up to 3 photos · JPEG or PNG · 5 MB each
+                      {images.length > 0 && images.length < 3 && ` — ${images.length} added, ${3 - images.length} to go`}
+                      {images.length >= 3 && ' — limit reached'}
+                    </p>
                     <input
+                      id="new-photos"
                       ref={fileRef}
                       type="file"
                       className="form-control"
@@ -1334,21 +1603,23 @@ export default function Market() {
                       onChange={handleFileChange}
                     />
                     {previews.length > 0 && (
-                      <div className="d-flex gap-2 mt-2 flex-wrap">
+                      <div className="d-flex gap-3 mt-3 flex-wrap">
                         {previews.map((src, i) => (
-                          <div key={i} className="position-relative">
+                          <div key={src} className="position-relative">
                             <img
                               src={src}
-                              alt=""
-                              style={{ width: 90, height: 90, objectFit: 'cover', borderRadius: 6 }}
+                              alt={`Selected photo ${i + 1}`}
+                              style={{ width: 90, height: 90, objectFit: 'cover', borderRadius: 'var(--radius-md)' }}
                             />
+                            {/* Was ~18x16px sitting on the thumbnail corner. */}
                             <button
                               type="button"
-                              className="btn btn-sm btn-danger position-absolute top-0 end-0"
-                              style={{ padding: '1px 5px', fontSize: '0.7rem' }}
+                              className="btn btn-danger position-absolute d-flex align-items-center justify-content-center"
+                              style={{ width: 30, height: 30, padding: 0, borderRadius: '50%', top: -10, right: -10 }}
                               onClick={() => removeImage(i)}
+                              aria-label={`Remove photo ${i + 1}`}
                             >
-                              ×
+                              <i className="fas fa-times" aria-hidden="true" />
                             </button>
                           </div>
                         ))}
@@ -1356,14 +1627,10 @@ export default function Market() {
                     )}
                   </div>
 
-                  <button
-                    type="submit"
-                    className="btn btn-primary w-100"
-                    disabled={submitting}
-                  >
+                  <button type="submit" className="btn btn-primary w-100" disabled={submitting}>
                     {submitting
                       ? <><span className="spinner-border spinner-border-sm me-2" />Posting…</>
-                      : <><i className="fas fa-paper-plane me-2" />Post Listing</>
+                      : <><i className="fas fa-paper-plane me-2" aria-hidden="true" />Post Listing</>
                     }
                   </button>
                 </form>

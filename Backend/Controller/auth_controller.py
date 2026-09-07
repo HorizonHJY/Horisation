@@ -9,7 +9,7 @@ import os
 import io
 import zipfile
 from datetime import datetime
-from flask import Blueprint, request, jsonify, session, redirect, url_for, send_file
+from flask import Blueprint, request, jsonify, session, redirect, url_for, send_file, current_app
 from functools import wraps
 from .user_manager import user_manager
 
@@ -243,19 +243,26 @@ def get_profile():
 def check_session():
     """检查会话状态"""
     try:
+        # Reported whether or not anyone is signed in, because the client needs
+        # to badge a local instance before login too.
+        local_dev = bool(current_app.config.get('LOCAL_DEV', False))
+
         session_token = session.get('session_token')
         if not session_token:
-            return jsonify({'ok': False, 'logged_in': False, 'error': 'No session'})
+            return jsonify({'ok': False, 'logged_in': False, 'error': 'No session',
+                            'local_dev': local_dev})
 
         user_info = user_manager.validate_session(session_token)
         if not user_info:
             session.pop('session_token', None)
-            return jsonify({'ok': False, 'logged_in': False, 'error': 'Invalid session'})
+            return jsonify({'ok': False, 'logged_in': False, 'error': 'Invalid session',
+                            'local_dev': local_dev})
 
         return jsonify({
             'ok': True,
             'logged_in': True,
-            'user': user_info
+            'user': user_info,
+            'local_dev': local_dev
         })
 
     except Exception as e:

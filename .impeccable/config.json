@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "bounce-easing",
+        "value": "cubic-bezier(.65, 1.35, .5, 1)",
+        "files": [
+          "frontend/src/index.css"
+        ],
+        "createdAt": "2026-09-07T06:05:15.734Z",
+        "reason": "Claude's call, not the user's: the value drives the skeuomorphic physical toggle lever in Topbar.jsx (rotation + specular bar slide). Overshoot is the lever snapping between detents, i.e. literal motion, not decoration. The one copy on an opacity transition was fixed rather than ignored."
+      }
+    ]
+  }
+}

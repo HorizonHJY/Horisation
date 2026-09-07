@@ -56,7 +56,7 @@ export default function SystemManagement() {
   const [saving, setSaving]           = useState(null)
   const [deleting, setDeleting]       = useState(null)
   const [toast, setToast]             = useState(null)
-  const [newRow, setNewRow]           = useState({ slug: '', label: '', order: 0, active: true, icon: 'fa-tag' })
+  const [newRow, setNewRow]           = useState({ slug: '', label: '', label_zh: '', order: 0, active: true, icon: 'fa-tag' })
   const [addingNew, setAddingNew]     = useState(false)
 
   function showToast(msg, type = 'success') {
@@ -80,7 +80,8 @@ export default function SystemManagement() {
   async function handleSave(cat) {
     setSaving(cat.slug)
     const d = await api.put(`/api/market/categories/${cat.slug}`, {
-      label: cat.label, order: Number(cat.order), active: cat.active, icon: cat.icon || 'fa-tag',
+      label: cat.label, label_zh: cat.label_zh || '',
+      order: Number(cat.order), active: cat.active, icon: cat.icon || 'fa-tag',
     })
     setSaving(null)
     if (d.ok) showToast(`"${cat.label}" saved.`)
@@ -97,14 +98,15 @@ export default function SystemManagement() {
   }
 
   async function handleAddNew() {
-    const { slug, label, order, active, icon } = newRow
+    const { slug, label, label_zh, order, active, icon } = newRow
     if (!slug.trim() || !label.trim()) { showToast('Slug and label are required.', 'warning'); return }
     const d = await api.post('/api/market/categories', {
-      slug: slug.trim(), label: label.trim(), order: Number(order), active, icon: icon || 'fa-tag',
+      slug: slug.trim(), label: label.trim(), label_zh: (label_zh || '').trim(),
+      order: Number(order), active, icon: icon || 'fa-tag',
     })
     if (d.ok) {
       showToast(`Category "${label}" created.`)
-      setNewRow({ slug: '', label: '', order: 0, active: true, icon: 'fa-tag' })
+      setNewRow({ slug: '', label: '', label_zh: '', order: 0, active: true, icon: 'fa-tag' })
       setAddingNew(false)
       loadCategories()
     } else {
@@ -150,13 +152,22 @@ export default function SystemManagement() {
                     onChange={e => setNewRow(r => ({ ...r, slug: e.target.value.toLowerCase().replace(/\s/g, '_') }))}
                   />
                 </div>
-                <div className="col-12 col-sm-3">
-                  <label className="form-label small fw-medium mb-1">Label <span className="text-danger">*</span></label>
+                <div className="col-12 col-sm-2">
+                  <label className="form-label small fw-medium mb-1">Label (EN) <span className="text-danger">*</span></label>
                   <input
                     className="form-control form-control-sm"
-                    placeholder="Display name"
+                    placeholder="Sports"
                     value={newRow.label}
                     onChange={e => setNewRow(r => ({ ...r, label: e.target.value }))}
+                  />
+                </div>
+                <div className="col-12 col-sm-2">
+                  <label className="form-label small fw-medium mb-1">中文 <span className="text-muted">(optional)</span></label>
+                  <input
+                    className="form-control form-control-sm"
+                    placeholder="运动"
+                    value={newRow.label_zh}
+                    onChange={e => setNewRow(r => ({ ...r, label_zh: e.target.value }))}
                   />
                 </div>
                 <div className="col-12 col-sm-3">
@@ -209,7 +220,8 @@ export default function SystemManagement() {
                   <tr>
                     <th style={{ width: 36 }}></th>
                     <th style={{ width: 120 }}>Slug</th>
-                    <th style={{ minWidth: 120 }}>Label</th>
+                    <th style={{ minWidth: 110 }}>Label (EN)</th>
+                    <th style={{ minWidth: 100 }}>中文</th>
                     <th style={{ minWidth: 160 }}>Icon</th>
                     <th style={{ width: 72 }}>Order</th>
                     <th style={{ width: 72 }}>Active</th>
@@ -228,8 +240,18 @@ export default function SystemManagement() {
                       <td className="align-middle">
                         <input
                           className="form-control form-control-sm"
+                          aria-label={`English label for ${cat.slug}`}
                           value={cat.label}
                           onChange={e => updateLocal(cat.slug, 'label', e.target.value)}
+                        />
+                      </td>
+                      <td className="align-middle">
+                        <input
+                          className="form-control form-control-sm"
+                          aria-label={`Chinese label for ${cat.slug}`}
+                          placeholder="—"
+                          value={cat.label_zh || ''}
+                          onChange={e => updateLocal(cat.slug, 'label_zh', e.target.value)}
                         />
                       </td>
                       <td className="align-middle">
@@ -296,7 +318,8 @@ export default function SystemManagement() {
         <div className="card-footer text-muted small">
           <i className="fas fa-info-circle me-1" />
           Inactive categories are hidden from the Market form but preserved on existing listings.
-          Slug cannot be changed after creation.
+          Slug cannot be changed after creation. The English label is what the interface shows;
+          the Chinese label rides along beneath it as an accent and may be left blank.
         </div>
       </div>
 

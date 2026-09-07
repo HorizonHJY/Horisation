@@ -2,7 +2,7 @@
 
 
 ## 0. Current Status
-Last Updated: 2026-05-19
+Last Updated: 2026-09-07
 
 ### Current Working Version
 - **Completed**: 全站设计系统统一；邀请码系统；功能角色门控；好友/私信系统；SQLite 迁移；二手市集（配送选项 + Restore + 动态分类 + System Management + 价格拆分 + 响应式按钮 + 浏览量计数 + 分类图标 + 多选 filter + 两行 meta + 中文配送标签 + EditModal 修复）；**留言板（Weibo 式线程回复 + 点赞 + 翻页）**；用户公开主页；**非好友直接私信**；**Market Reach Out 直接开 DM**；**Login 页 Safari 全面兼容修复**；**群组系统（独立建组 + 按用户名拉人 + 群聊，`/api/groups`）**
@@ -10,10 +10,15 @@ Last Updated: 2026-05-19
 - **Blocked / Not Solved**: 密码明文存储（待迁 bcrypt）；无 CI/CD 流水线；首页天气卡片（todo #1）
 
 ### Latest Summary
-Login 页 Safari 三大 bug 根因全部定位并修复：① backdrop-filter 隐式 stacking context 导致文字层叠；② position:fixed + overflow:hidden 导致绝对子元素定位错误；③ pointer-events:none 阻断 overflowY 滚动。最终方案：移除 overflow:hidden、canvas 加 pointer-events:none、form overlay 改 pointer-events:auto、tagline 定位改为 inline style。
+以 `impeccable` 设计技能对 Market 页做了一次完整 critique（14/40），并按 5 条 Priority Issues 全部整改：
+键盘可达 + 全站对比度达 AA；卖家身份不再降级、卖家页去除死按钮；发布流程内联校验 + 成功后落到 My Listings；
+listing 变为可寻址路由 `/market/l/:id`、筛选进 query string、统一 Modal（Escape / focus trap / 滚动锁）；
+分类拆成 `label` + `label_zh` 双语并做幂等迁移。另修复三处阻塞/既有缺陷：`app.py` 提交态截断、
+`FlowerCanvas` 每次加载抛 InvalidStateError、dev 脚本硬编码已删除的 Python env。新增 LOCAL 环境标识。
 
 ### Next Immediate Step
-服务器跑 `git push origin main && bash ~/deploy.sh` 上线 commit e8fb702
+本地已验证通过（构建 + 用户手动走查）。待 `git push origin main` 触发 GitHub Actions 部署。
+部署后需确认生产库的 `_migrate_category_labels()` 正确回填了 7 个分类的 `label_zh`。
 
 ---
 
@@ -37,6 +42,11 @@ Login 页 Safari 三大 bug 根因全部定位并修复：① backdrop-filter �
 | 2026-05-09 | 分类图标存 DB（`categories.icon`，FA class 字符串）而非前端硬编码 Map | 用户可新增自定义分类并配图标，硬编码 `CATEGORY_ICONS` map 无法覆盖动态分类 | icon 字段是纯字符串，前端直接渲染 `<i className="fas {icon}" />`，无合法性校验；输入非法 FA class 时图标静默失效 |
 | 2026-05-09 | 多选 filter 用 `Set` state（`new Set()`），空 Set 表示"全选" | 比 `'all'` 字符串更语义清晰；多选状态天然用 Set 表达，toggle 逻辑简单（`has / add / delete`）；空 Set = 不过滤，不需要特殊 "all" 条目 | 每次 toggle 需要 `new Set(prev)` 拷贝才能触发 React re-render；不能用 `prev.add()` 直接 mutate |
 | 2026-08-22 | 群组系统独立成 `groups` / `group_members` / `group_messages` 三张表，与 `friendships` 完全解耦 | 需求明确"建组拉人与好友关系无关"，拉人只校验用户存在；独立概念便于隔离权限（owner/member） | 群里成员彼此不一定是好友；群聊实时性先做轮询（3s），后续可换 Socket |
+| 2026-09-07 | 分类拆成 `label`（英文，界面主体）+ `label_zh`（中文点缀）两列，而非继续用单个 `label` | 单列时卡片 badge 渲染 slug、筛选 pill 渲染中文 label，同一字段同屏显示两个名字；`PRODUCT.md` 确认界面语言为英文、中文只作点缀 | 需要一次性迁移回填，且 admin 建的自定义分类若原本只有中文，英文名只能由 slug 推导，需人工校正 |
+| 2026-09-07 | listing / 卖家改为可寻址路由 `/market/l/:id`、`/market/u/:username`，筛选与 tab 进 query string | 产品定位是"共享同一份好友图谱、一键之遥"，但商品无法发给朋友；且每次回到 Browse 都清空筛选、关闭 modal 后丢失位置 | `/market` 现在由三条路由共用同一组件，需从 `useParams` 派生弹层状态；深链会触发一次额外 fetch |
+| 2026-09-07 | 浏览量去重从"跳过请求"改为"请求带 `?track=0`" | 原方案第二次打开走本地缓存，价格/状态可能已过期；新方案永远取最新数据，只是不计数 | 每次打开都有一次网络请求，比原来多；后端多一个查询参数分支 |
+| 2026-09-07 | 非生产实例加 LOCAL 标识（紫色条纹带 + 徽章 + 标题前缀），双信号判定 | 本地与线上都在 localhost 上应答，肉眼无法区分——本次就发生了"在一个浏览器登录、期待另一个生效" | 多一个 `local_dev` 字段暴露在公开的 check-session 上（生产恒为 false）；视觉上刻意跳出配色，属有意为之 |
+| 2026-09-07 | `--text-muted` 由 `#8a8a8a` 调深到 `#666`，并引入成对定义的 badge 配色变量 | 原值在白/奶油/subtle 三种背景上分别只有 3.45 / 3.17 / 2.88，全部跌破自己设定的 AA 底线；badge 前景色与色底是分别手挑的，五组里没有一组达标 | 视觉上比原来重一点，"次要文字"的层次感略降；换来全站可读性达标 |
 
 ---
 
@@ -87,6 +97,16 @@ Login 页 Safari 三大 bug 根因全部定位并修复：① backdrop-filter �
 - **Root Cause**: Safari 中 `backdrop-filter`（包括 `-webkit-backdrop-filter`）会为元素创建新的 stacking context，打乱后续兄弟元素的渲染层叠顺序
 - **Reusable Solution**: 凡使用 `backdrop-filter` 的页面，对所有层都加明确 `z-index`（canvas: 0，tagline: 1，form overlay: 2），不要依赖 DOM 顺序决定层叠
 
+### Pattern 11: Windows 上两个进程可以同时 LISTEN 同一端口
+- **Symptom**: 改了后端代码、重启服务，接口返回的仍是旧行为；日志看起来一切正常
+- **Root Cause**: Windows 不像 Linux 那样默认独占端口。`netstat -ano | findstr :5000` 显示**两条** LISTENING 记录（旧进程没杀干净 + 新进程），请求被内核在两者间分发，一半打到旧代码。这也会让 session 看起来"时有时无"——它只存在于其中一个进程里
+- **Reusable Solution**: 重启前先枚举并杀干净：`netstat -ano | grep ":5000" | grep LISTENING | awk '{print $5}' | sort -u`，逐个 `taskkill //F //PID`，确认端口为空后再启动。只杀"我记得的那个 PID"是不够的
+
+### Pattern 12: 本地与生产在 localhost 上无法区分
+- **Symptom**: 在一个浏览器里登录成功，在另一个浏览器/标签里却始终未登录；或对着本地实例验证了半天，以为在看线上
+- **Root Cause**: 本地 dev（Vite :5173）、本地生产测试（Flask :5000）、线上，三者界面完全一致，浏览器标签标题也一样。cookie 是 per-browser 的，视觉上没有任何线索提示"你现在看的不是你以为的那个"
+- **Reusable Solution**: 非生产实例必须自带视觉标识。双信号判定最稳：`import.meta.env.DEV`（Vite dev）**或**后端下发的 `local_dev`（覆盖构建产物由 Flask 直接服务的场景，此时前端信号为 false）。标识用刻意跳出产品配色的颜色，并改写 `document.title`——多窗口时标签标题往往是唯一可见的线索
+
 ### Pattern 6: deploy 前必须校验 React 挂载点
 - **Symptom**: index.html 缺 `<div id="root"></div>` 时 Vite build 反而能通过（HTML 结构本身合法），但运行时 `document.getElementById('root')` 返回 null，React 静默不渲染，页面全白
 - **Root Cause**: `ReactDOM.createRoot(document.getElementById('root'))` 找不到 dom 节点会静默失败而不抛错；构建期不会发现这种逻辑错误
@@ -95,6 +115,88 @@ Login 页 Safari 三大 bug 根因全部定位并修复：① backdrop-filter �
 ---
 
 ## 3. Iteration History
+
+---
+
+### 2026-09-07 — Market 页设计审查整改 + 三处阻塞缺陷
+
+#### Goal
+用 `impeccable` 设计技能对 `Market.jsx`（1377 行）做完整 critique，并按结论整改。
+
+#### Trigger / Context
+安装 `impeccable` skill（pbakaus/impeccable，Apache-2.0）后，以 Market 为首个目标跑
+`/impeccable init` + `critique`。双子代理评估：设计评审与确定性检测器互相隔离。
+
+#### Findings
+Design Health Score **14/40**（十项 Nielsen 全部适用）。三个根因占了约一半扣分：
+inline 硬编码绕过 token 系统、视图状态存在组件 state 而非 URL、中英文混排无治理。
+
+值得记住的一点：**检测器对 `Market.jsx` 本身零命中**（61 条规则全部未触发），但设计评审给出 14/40。
+两者不矛盾——检测器抓的是视觉 slop（渐变、bounce、卡中卡、装饰色条），而 Market 的问题在
+a11y、状态管理、身份连续性和双语治理上，确定性规则看不见这些。**不能用"检测器干净"证明设计没问题。**
+
+#### Solution
+
+**[P0] 无障碍与对比度**
+- 卡片图片+标题合并为单个 `<button class="market-card__open">`，卖家行改真按钮。此前全部是
+  `<div onClick>`，键盘与读屏用户**打不开任何商品**，却能 Tab 到自己商品的 Delete
+- `--text-muted` `#8a8a8a` → `#666`；删除七处硬编码灰（`#999` / `#aaa` / `#888`）
+- 头像底色 `#6b9cdb` → `--accent-text` `#4373b3`（白字 2.84:1 → 4.84:1）
+- 新增成对定义的 `.badge-pill` 三档（neutral / info / good），替掉五组各自不达标的内联配色
+- 全局 `:focus-visible` 环、`::selection`、caret、滚动条主题化；`prefers-reduced-motion` 缩短而非移除动效
+- `--text-xs` 0.75rem 下限（原 0.62rem ≈ 9.9px）；触屏按钮 44px，Delete 独占一行
+
+**[P1] 卖家身份与死控件** — `openSellerModal` 曾丢弃 listing 自带的头像/显示名改从 `friendsMap`
+重建，非好友直接降级为灰底字母。改为先用 listing 数据兜底、再以 `/users/<u>/public` 规范 profile 覆盖。
+`SellerModal` 原先复用 `ListingCard` 但把回调全 stub 成 `() => {}`，渲染出一堆点不动的按钮——
+改为专用只读 `SellerListingCard`。加载中渲染 `HandLoader`，不再先闪 "No active listings"。
+
+**[P1] 发布流程** — `required` + `aria-invalid` + 内联错误 + 滚动到首个错误字段；toast 加
+`role="alert"` 并走 `env(safe-area-inset-*)`，≤600px 改底部（原先固定 `top-0 end-0`，手机上在
+屏幕外触发，用户表现为"点了没反应"）；成功后落到 My Listings 并高亮（原先落到 Browse，
+而 Browse 过滤掉自己的商品，等于刚发的东西看不见）；价格双输入框 `col-12 col-sm-6`。
+
+**[P2] 状态与 URL** — 新增 `/market/l/:id`、`/market/u/:username`；筛选/tab 进 query string，
+不再无条件清空；新增 `components/Modal.jsx`（Escape / focus trap / `aria-modal` / iOS 安全的滚动锁）
+与 `ConfirmDialog`，取代 `window.confirm`（原先不说删的是哪一件，且发起删除的 modal 已关闭）；
+详情页加 Copy link，私信预填改英文并携带真实链接。
+
+**[P2] 双语与品牌** — `categories` 加 `label_zh` 列 + 幂等迁移；管理页可编辑中英双标签；
+卡片 badge 改渲染 label（与筛选 pill 一致）；导出图 `Arch Bay` → Horisation、改英文主体、
+`html2canvas` 改动态 import、**iOS 修复**（`link.click()` 对 data: URL 在 Safari 上静默失败，
+改为渲染后直接呈现 `<img>` 供长按保存）。首次启用闲置的 `.page-title` / `.page-subtitle`。
+
+**范围外但阻塞的三处**
+- `app.py` 自 commit `0e91080` 起在**提交态**就是截断的：结尾停在 `# ── Dev entry point ───` 加一个
+  U+FFFD，没有 `__main__` 块。`python app.py` 会导入一切、建库、然后 exit 0 不绑定端口，
+  `scripts/dev.bat` 因此完全不可用。即 Pattern 5 记录过的静默截断，当时没跑 bash 校验
+- `FlowerCanvas.jsx` 每次加载 Login/Home/Register 抛 `InvalidStateError`：`ResizeObserver` 在
+  `observe()` 时立即投递初始观测，早于 300ms 的 `init()`，此时 `prevW/prevH` 仍是 `undefined`，
+  快照画布为 0×0。加 `started` 标志 + 尺寸钳位 + 空尺寸早退
+- `dev.bat` / `_flask_local.bat` 硬编码 `D:\Anaconda\envs\Horisation`（已不存在）→ 新增
+  `_resolve_python.bat` 自动解析，支持 `HORISATION_PYTHON` 覆盖
+
+#### Files
+`frontend/src/pages/Market.jsx`（重写）、`index.css`、`App.jsx`、`SystemManagement.jsx`、
+`FlowerCanvas.jsx`、`Sidebar.jsx`；新增 `components/Modal.jsx`、`components/EnvRibbon.jsx`；
+`Backend/Controller/market_db.py`、`market_controller.py`、`auth_controller.py`；`app.py`；
+`scripts/dev.bat`、`_flask_local.bat`、新增 `_resolve_python.bat`；新增 `PRODUCT.md`。
+
+#### Verification
+`@babel/parser` 解析全部 JSX、`ast.parse` 校验全部 Python、`npm run build` 通过
+（`html2canvas` 已拆为独立 201 kB 分块，证明动态 import 生效）；CSS 括号平衡校验；
+对比度数值独立复算；分类迁移逐行核对且重跑幂等；`impeccable detect` 新代码零命中；
+LOCAL 标识三种场景实测（Vite dev / 构建产物+LOCAL_DEV / 生产——生产确认无标识）；
+`FlowerCanvas` 在干净标签页 + mobile↔desktop 缩放循环下控制台零错误；
+Market 页面交互由用户手动走查确认（键盘、Esc、Copy link、筛选保持、内联错误、导出图）。
+
+#### Follow-ups (未做)
+- `Feedback.jsx:40/344` 与 `Hormemo.jsx:181` 的 `side-tab` 检测命中未处理（前者判为误报——
+  是引用块左竖线；后者颜色编码优先级，属语义）
+- Register 页 375px 下 tagline 压在表单上：隐藏它的媒体查询是 `(max-width:1024px) and (min-width:601px)`，
+  375px 落在区间外
+- Login 页对 401 是否有可见提示未核实（本次排查中用户连试 5 次错误密码）
+- 密码明文存储（bcrypt）仍未做
 
 ---
 

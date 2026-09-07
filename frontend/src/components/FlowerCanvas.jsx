@@ -24,7 +24,12 @@ export default function FlowerCanvas({ children, origin = 'spread' }) {
     paintCtx.lineCap  = 'round'
     paintCtx.lineJoin = 'round'
 
-    let width, height, animationId, resizeRafId = null
+    // A canvas sized 0 makes every later drawImage throw InvalidStateError, so
+    // sizes are always clamped to at least MIN_SIZE and start at 0 rather than
+    // undefined. `started` marks that init() has laid out a real scene.
+    const MIN_SIZE = 1
+    let width = 0, height = 0, animationId, resizeRafId = null
+    let started = false
     let stems = [], flowers = []
 
     const PALETTE = {
@@ -45,10 +50,19 @@ export default function FlowerCanvas({ children, origin = 'spread' }) {
       return FLOWER_TYPE_COUNT - 1
     }
 
-    function resize() {
+    /** Container box, unclamped — 0 here means "not laid out or hidden". */
+    function containerSize() {
       const container = displayCanvas.parentElement
-      width  = container ? container.clientWidth  : 400
-      height = container ? container.clientHeight : 600
+      return {
+        w: container ? container.clientWidth  : 400,
+        h: container ? container.clientHeight : 600,
+      }
+    }
+
+    function resize() {
+      const { w, h } = containerSize()
+      width  = Math.max(MIN_SIZE, w)
+      height = Math.max(MIN_SIZE, h)
       displayCanvas.width  = width
       displayCanvas.height = height
       paintCanvas.width    = width
@@ -58,6 +72,7 @@ export default function FlowerCanvas({ children, origin = 'spread' }) {
     }
 
     function renderFrame() {
+      if (!width || !height) return
       displayCtx.clearRect(0, 0, width, height)
       displayCtx.filter = COMPOSITE_FILTER
       displayCtx.drawImage(paintCanvas, 0, 0)
@@ -74,7 +89,23 @@ export default function FlowerCanvas({ children, origin = 'spread' }) {
     }
 
     function preserveOnResize() {
+      // ResizeObserver delivers an initial observation the moment it starts
+      // observing, which lands well before the 300ms init(). There is nothing
+      // painted to carry over yet, and the old code snapshotted an undefined
+      // size into a 0x0 canvas, which threw on the next drawImage.
+      if (!started) return
+
+      const { w, h } = containerSize()
+      if (w <= 0 || h <= 0) return          // hidden or detached — keep what we have
+
       const prevW = width, prevH = height
+      if (prevW <= MIN_SIZE || prevH <= MIN_SIZE) {
+        // We laid the scene out into a collapsed box; growing from that cannot
+        // be preserved meaningfully, so plant it again at the real size.
+        init()
+        return
+      }
+
       const snapshot = document.createElement('canvas')
       snapshot.width = prevW; snapshot.height = prevH
       snapshot.getContext('2d').drawImage(paintCanvas, 0, 0)
@@ -304,6 +335,7 @@ export default function FlowerCanvas({ children, origin = 'spread' }) {
     function init() {
       cancelAnimationFrame(animationId)
       resize()
+      started = true
       paintCtx.clearRect(0, 0, width, height)
       renderFrame()
       brush   = new Brush(paintCtx)
