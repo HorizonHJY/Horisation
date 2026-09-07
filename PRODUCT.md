@@ -21,7 +21,7 @@ Roles are real and enforced, not decorative: `horizon` (owner, level 100), `admi
 
 ## Product Purpose
 
-Horisation gives one private group of friends a single place to do everything they already do
+Arch Bay gives one private group of friends a single place to do everything they already do
 together — trade second-hand goods, split bills, plan trips, post bounties, chat one-to-one and in
 groups, leave messages on a shared board, and keep personal notes.
 
@@ -66,14 +66,25 @@ Technical constraints future work must respect:
 Explicitly undecided: dark mode exists but is gated to `horizon` only, so it is not yet a committed
 product surface for anyone else.
 
+Confirmed 2026-09-07: the marketplace uses a two-step trade flow rather than a bare
+active/sold toggle. A buyer expresses interest, the seller accepts (the listing becomes
+reserved and every other pending interest is auto-declined), and the buyer confirms receipt
+to complete the sale. Its interface strings follow the language rule below: English primary,
+Chinese accent.
+
 Confirmed 2026-09-07: exporting one's own listings as a shareable image, for posting outside the
 circle (e.g. WeChat Moments), is a real product need and not a leftover. It must work on iOS Safari,
 which is where it is used most.
 
 ## Brand Commitments
 
-- **Name:** Horisation — a blend of "Horizon" and "-isation", meaning an ever-expanding personal space.
-  Earlier working name "Arch Bay" is retired; surviving references to it are drift, not brand.
+- **Name in the interface: Arch Bay.** Settled 2026-09-07. The name has flipped twice — the
+  repository, the domain (horizonyhj.com) and this document's earlier drafts all said
+  "Horisation", and commit `0e195b1` renamed Arch Bay → Horisation before `f0fc7f6` renamed it
+  back. The visible product is **Arch Bay**; "Horisation" survives only as the repository and
+  host name, which are not user-facing and are not worth churning. Anything a member reads
+  says Arch Bay. The CSS class carrying the wordmark is deliberately named `brand-wordmark`
+  rather than after either name, so the next rename does not have to touch the stylesheet.
 - **Mark:** an arch, drawn as inline SVG (a nod to the St. Louis Gateway Arch).
 - **Tagline in use:** "St. Louis private harbor."
 - **Type:** Playfair Display and Cinzel for display, Inter for body, Noto Serif SC for Chinese, all

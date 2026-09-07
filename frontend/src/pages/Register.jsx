@@ -81,7 +81,7 @@ export default function Register() {
             fontWeight: 800, fontSize: 'clamp(1.6rem, 4vw, 2.8rem)',
             color: '#1a1a1a', letterSpacing: '-0.02em', margin: '0 0 clamp(1rem, 4vh, 2rem)',
           }}>
-            Horisation
+            Arch Bay
           </h1>
         </div>
 

@@ -5,20 +5,30 @@
 Last Updated: 2026-09-07
 
 ### Current Working Version
-- **Completed**: 全站设计系统统一；邀请码系统；功能角色门控；好友/私信系统；SQLite 迁移；二手市集（配送选项 + Restore + 动态分类 + System Management + 价格拆分 + 响应式按钮 + 浏览量计数 + 分类图标 + 多选 filter + 两行 meta + 中文配送标签 + EditModal 修复）；**留言板（Weibo 式线程回复 + 点赞 + 翻页）**；用户公开主页；**非好友直接私信**；**Market Reach Out 直接开 DM**；**Login 页 Safari 全面兼容修复**；**群组系统（独立建组 + 按用户名拉人 + 群聊，`/api/groups`）**
-- **In Progress**: 待 deploy 群组模块（2026-08-22）
-- **Blocked / Not Solved**: 密码明文存储（待迁 bcrypt）；无 CI/CD 流水线；首页天气卡片（todo #1）
+- **Completed**: 全站设计系统统一；邀请码系统；功能角色门控；好友/私信系统；SQLite 迁移；二手市集（配送选项 + Restore + 动态分类 + System Management + 价格拆分 + 响应式按钮 + 浏览量计数 + 分类图标 + 多选 filter + 两行 meta + 中文配送标签 + EditModal 修复）；**留言板（Weibo 式线程回复 + 点赞 + 翻页）**；用户公开主页；**非好友直接私信**；**Market Reach Out 直接开 DM**；**Login 页 Safari 全面兼容修复**；**群组系统（独立建组 + 按用户名拉人 + 群聊，`/api/groups`）**；**品牌改名 Arch Bay（可见文案 'Horisation'→'Arch Bay'，提交 f0fc7f6）**；**市集意向成单流（trade_intents）**
+- **In Progress**: 意向成单流代码已完成并前后端 build/import 验证通过，但尚未 A/B 实测 & 未 merge 到 main 部署（2026-09-06）
+- **Blocked / Not Solved**: 密码明文存储（待迁 bcrypt）；首页天气卡片（todo #1）
 
 ### Latest Summary
-以 `impeccable` 设计技能对 Market 页做了一次完整 critique（14/40），并按 5 条 Priority Issues 全部整改：
-键盘可达 + 全站对比度达 AA；卖家身份不再降级、卖家页去除死按钮；发布流程内联校验 + 成功后落到 My Listings；
-listing 变为可寻址路由 `/market/l/:id`、筛选进 query string、统一 Modal（Escape / focus trap / 滚动锁）；
-分类拆成 `label` + `label_zh` 双语并做幂等迁移。另修复三处阻塞/既有缺陷：`app.py` 提交态截断、
-`FlowerCanvas` 每次加载抛 InvalidStateError、dev 脚本硬编码已删除的 Python env。新增 LOCAL 环境标识。
+两条线在 2026-09-07 合流：
+
+1. **意向成单流（trade_intents）** — 买家对他人 active 商品点 "I want this"（可留言）→ 卖家在自己的商品上
+   看到 "Who wants this (N)" 并接受/婉拒 → 接受后意向转 accepted、商品转 reserved、其余 pending 自动婉拒
+   → 买家看到 "Deal agreed"，点 "Confirm received" 成交、商品转 sold。实时经 socketio 推 trade_intent
+   系列事件到 `user_<username>` 房间。`trade_intents` 表 + listing 状态扩展（active/reserved/sold）
+   + 6 条 `/api/market` 新路由 + 前端四块 UI（IntentChip / WantModal / IncomingModal / 状态徽标）。
+2. **Market 设计审查整改** — `/impeccable critique` 14/40，5 条 Priority Issues 全部整改：键盘可达 +
+   全站 AA 对比度；卖家身份不再降级、卖家页去除死按钮；发布流程内联校验 + 成功后落到 My Listings；
+   listing 可寻址路由 `/market/l/:id`、筛选进 query string、统一 Modal（Escape / focus trap / 滚动锁）；
+   分类拆 `label` + `label_zh` 双语并做幂等迁移。另修 `app.py` 提交态截断、`FlowerCanvas` 每次加载抛
+   InvalidStateError、dev 脚本硬编码已删除的 Python env。新增 LOCAL 环境标识。
+
+合并时两处方向性决定：品牌以 `f0fc7f6` 为准定为 **Arch Bay**；意向流文案按 `PRODUCT.md` 的
+"英文为主、中文点缀" 改为英文主体。
 
 ### Next Immediate Step
-本地已验证通过（构建 + 用户手动走查）。待 `git push origin main` 触发 GitHub Actions 部署。
-部署后需确认生产库的 `_migrate_category_labels()` 正确回填了 7 个分类的 `label_zh`。
+`git push origin main` 触发 GitHub Actions 部署。部署后确认两件事：
+生产库 `_migrate_category_labels()` 正确回填了 7 个分类的 `label_zh`；意向成单流用 A/B 两号实测全流程。
 
 ---
 
@@ -47,6 +57,7 @@ listing 变为可寻址路由 `/market/l/:id`、筛选进 query string、统一 
 | 2026-09-07 | 浏览量去重从"跳过请求"改为"请求带 `?track=0`" | 原方案第二次打开走本地缓存，价格/状态可能已过期；新方案永远取最新数据，只是不计数 | 每次打开都有一次网络请求，比原来多；后端多一个查询参数分支 |
 | 2026-09-07 | 非生产实例加 LOCAL 标识（紫色条纹带 + 徽章 + 标题前缀），双信号判定 | 本地与线上都在 localhost 上应答，肉眼无法区分——本次就发生了"在一个浏览器登录、期待另一个生效" | 多一个 `local_dev` 字段暴露在公开的 check-session 上（生产恒为 false）；视觉上刻意跳出配色，属有意为之 |
 | 2026-09-07 | `--text-muted` 由 `#8a8a8a` 调深到 `#666`，并引入成对定义的 badge 配色变量 | 原值在白/奶油/subtle 三种背景上分别只有 3.45 / 3.17 / 2.88，全部跌破自己设定的 AA 底线；badge 前景色与色底是分别手挑的，五组里没有一组达标 | 视觉上比原来重一点，"次要文字"的层次感略降；换来全站可读性达标 |
+| 2026-09-06 | 成交用意向单（`trade_intents`）+ listing 中间态 `reserved` 代替只有 active/sold | 避免多人同时抢货撞单；成交走买家确认收到两段式，状态才真实 | 多一个表 + 两段交互；reserved 商品需保证仍在发起买家 Browse 可见 |
 
 ---
 
@@ -197,6 +208,58 @@ Market 页面交互由用户手动走查确认（键盘、Esc、Copy link、筛�
   375px 落在区间外
 - Login 页对 401 是否有可见提示未核实（本次排查中用户连试 5 次错误密码）
 - 密码明文存储（bcrypt）仍未做
+### 2026-09-06 — 市集意向成单流（trade_intents）＋ 品牌改名 Arch Bay
+
+#### Goal
+为二手市集打通“从看中到成交”的低门槛闭环：买家无需先开聊天，一键表达“我想要”，卖家统一处理意向；成交采用两段式（卖家同意 → 买家确认收到 → 才算 sold），避免双方扑同一件货、也保证成交信息真实无误。
+
+#### Trigger / Context
+平台是“朋友圈私密熟人”市场，之前的 reach-out 流程要把买家导向好友/私信聊天，成交路径散。参照闲鱼“我想要”的低门槛 + FB Marketplace“in negotiation/已谈成”的防撞单状态，叠加已有的好友系统：好友能直接进群私信（保留 reach-out 作为并行路径），陌生/未加好友也能先表达意向，成交细节再走聊天。
+
+#### Problem & Root Cause
+- 商品只有 active/sold 两态，没有“已被某人谈定、别来抢”的中间态 → 多人同时表示要买会撞单。
+- 成交只有卖家单方面 Mark Sold，无法确认买家真的到手 → 状态可能与事实不符。
+- 此前成交动机依赖强制的聊天动作，门槛高，弱意向买家容易流失。
+
+#### Solution
+**数据层（market_db.py）**
+- 新增 `TradeIntent` 模型（`trade_intents` 表）：id/listing_id/buyer/seller/status/message/created_at/updated_at。status ∈ pending → accepted（→ listing reserved）→ completed（listing sold）；cancelled 可由任何一方在完成前发起；declined＝卖家婉拒。
+- listing.status 扩展为 `active / reserved / sold`。
+- 11 个辅助函数：`create_intent / accept_intent / decline_intent / cancel_intent / complete_intent / get_intent / get_my_buy_intents / get_seller_intents / has_active_intent / count_active_intents / listing_status`，外加 `get_reserved_listings_for_buyer`。同一买家对同一商品只允许一条 live(pending/accepted) 意向。
+- `accept_intent`：把该人意向置 accepted、listing 置 reserved，并自动把同商品其它 pending 意向批量置 declined。
+- `cancel_intent`（accepted 时）= 卖家取消交易 → 释放 listing 回 active。
+- `complete_intent`：仅该 accepted 意向的 buyer 可触发 → listing 置 sold。（保留原卖家手动 Mark Sold/Restore 作为覆盖通道。）
+
+**API（market_controller.py，前缀 `/api/market`）**
+- `POST /listings/<id>/intent`、`GET /intents/outgoing`、`GET /intents/incoming`、`PUT /intents/<id>/accept|decline|cancel|complete`，全部 `@login_required`。
+- `GET /listings` 现在除 active 外，还会附带“当前用户正在买（持有 accepted 意向）的 reserved 商品” —— 否则卖家一接受、该商品从 Browse 消失，买家就找不到入口点“确认收到”了。
+
+**实时（friends_socket.py）**
+- 新增 `notify_intent(event, intent)`：`trade_intent`/`trade_intent_completed` 推给卖家房间，`trade_intent_accepted/declined/cancelled` 推给买家房间（复用 `user_<username>` 房间机制）。
+
+**前端（Market.jsx）**
+- 新增组件：`IntentChip`（状态药丸）、`WantModal`（我想要，可留留言）、`IncomingModal`（卖家“谁想要”抽屉：买家+留言+状态+接受/婉拒/取消交易/联系买家）。
+- ListingCard / ListingDetailModal：新增可选 props，默认 no-op，供 SellerModal 复用安全。owner 视图 active 显示“谁想要(N)”，reserved 隐藏 Mark Sold/Edit 改显“已谈成 · 待买家确认”＋“取消交易”；买家视图：他人 active 商品显“我想要”（+ Message 保留），pending 可“取消意向”，accepted 显“确认收到 · 我拿到了”，reserved 被他人预定显“已被其他买家预定”。
+- Market()：新增 `outgoingIntents/incomingIntents/wantListing/incomingModalId` state + `refreshIntents()` + 各 handlers，每次变更后 re-fetch 当前列表与意向并 toast。
+
+#### Changed Files
+- `Backend/Controller/market_db.py`（TradeIntent + 意向辅助函数 + get_reserved_listings_for_buyer）
+- `Backend/Controller/market_controller.py`（6 路由 + browse 附带 reserved-for-buyer）
+- `Backend/Controller/friends_socket.py`（新增 notify_intent 实时推送）
+- `frontend/src/pages/Market.jsx`
+- 另：`frontend/{index.html,Sidebar.jsx,Login.jsx,Register.jsx}`（品牌改名 Arch Bay，提交 f0fc7f6）
+
+#### Result
+三个后端文件 ast.parse + 包级 import 全通过；`npx vite build` 成功（95 modules）。前后端 API/UI 状态机与事件名一致。
+
+#### Testing
+尚未做 A/B 两号实测（计划：跑本地 Flask/后端，买家表达意向→卖家看“谁想要”接受→买家看“已谈成”确认收到→变 sold；再看被婉拒买家能否重新表达、卖家取消交易是否释放回 active）。
+
+#### Remaining Issues / Next Step
+A/B 实测通过后 commit 并推送；生产仅从 main 经 GitHub Actions 部署（feature 分支 push 不会自动 deploy，需 merge 到 main）。
+
+#### Lessons Learned
+成交流程的“中间态”必须可被发起人重新看到——把 accepted 意向对应的 reserved 商品带进 Browse，否则买家会因商品消失而无法完成确认动作。
 
 ---
 

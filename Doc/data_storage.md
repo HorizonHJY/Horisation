@@ -1,6 +1,6 @@
 # Horisation — Data Storage Reference
 
-Last updated: 2026-05-09
+Last updated: 2026-09-06
 
 ---
 
@@ -69,7 +69,7 @@ via `user_manager.py` public API.
 | original_price | REAL | Optional; shown with strikethrough if > price |
 | category | TEXT | Slug referencing `categories.slug` (loosely) |
 | contact | TEXT | Legacy field (kept for compatibility) |
-| status | TEXT | `active` / `sold` / `removed` |
+| status | TEXT | `active` / `reserved` / `sold`（另保留 legacy `removed`）。`reserved`＝卖家已接受某买家意向、待买家确认收到；`sold`＝成交 |
 | delivery_type | TEXT | `pickup` / `delivery` / `both`; default `pickup` |
 | delivery_fee | REAL | Optional delivery fee; null = free |
 | view_count | INTEGER | Incremented on `GET /listings/<id>` unless the request carries `?track=0`. The frontend sends `track=0` when this browser session has already been counted, so reopening a listing returns fresh price/status without inflating the counter (it used to skip the fetch entirely and serve stale cached data). |
@@ -249,6 +249,28 @@ both write endpoints accept an optional `label_zh`.
 
 **Managed by:** `Backend/Controller/market_db.py` group helpers + `Backend/Controller/groups_controller.py` (`/api/groups`).
 See `Doc/groups.md` for API design.
+
+---
+
+### Table: `trade_intents` (市集意向成单流)
+
+> Added 2026-09-06. Auto-created at startup alongside other tables (`Base.metadata.create_all`).
+> 买家“我想要”→ pending；卖家接受 → accepted 且 listing 转 `reserved`；买家确认收到 → completed 且 listing 转 `sold`。
+> 任一方在完成前可取消（cancelled）；卖家婉拒 → declined。
+> 同一买家对同一 listing 仅允许一条 live（pending/accepted）意向。
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | TEXT (UUID) | PK |
+| listing_id | TEXT (UUID) | → listings.id, indexed |
+| buyer | TEXT | 买家 username, indexed |
+| seller | TEXT | 卖家 username, indexed（冗余，便于按卖家拉取） |
+| status | TEXT | `pending` / `accepted` / `completed` / `cancelled` / `declined` |
+| message | TEXT | 可选，买家给卖家的留言 |
+| created_at | DATETIME | UTC |
+| updated_at | DATETIME | UTC, auto-updates |
+
+**Managed by:** `Backend/Controller/market_db.py` 意向辅助函数；API 见 `POST /api/market/listings/<id>/intent`、`GET /intents/outgoing|incoming`、`PUT /intents/<id>/accept|decline|cancel|complete`。
 
 ---
 

@@ -53,6 +53,10 @@
   --badge-info-fg:    #3355b5;   /* 5.90:1 */
   --badge-good-bg:    #e8f8f0;
   --badge-good-fg:    #1e7e3c;   /* 4.66:1 */
+  --badge-warn-bg:    #fdf0dd;
+  --badge-warn-fg:    #8a5200;   /* 5.68:1 — trade in progress */
+  --badge-interest-bg:#f2ecfb;
+  --badge-interest-fg:#5c3391;   /* 7.77:1 — buyers waiting on a listing */
 
   /* Focus */
   --focus-ring:     0 0 0 3px rgba(107, 156, 219, 0.45);
@@ -746,6 +750,9 @@ h1, h2, h3, h4, h5, h6,
 }
 .badge-pill--info { background: var(--badge-info-bg); color: var(--badge-info-fg); }
 .badge-pill--good { background: var(--badge-good-bg); color: var(--badge-good-fg); }
+.badge-pill--warn { background: var(--badge-warn-bg); color: var(--badge-warn-fg); }
+.badge-pill--interest { background: var(--badge-interest-bg); color: var(--badge-interest-fg); }
+.badge-pill--block { display: flex; justify-content: center; width: 100%; }
 .badge-pill--muted { background: transparent; color: var(--text-muted); padding-left: 0; padding-right: 0; }
 .market-card__desc {
   font-size: 0.83rem; color: var(--mc-muted);
@@ -1215,6 +1222,10 @@ textarea.form-control { height: auto; padding: .55rem .85rem; line-height: 1.55;
   --badge-info-fg:    #a9c7ee;
   --badge-good-bg:    rgba(39, 174, 96, 0.18);
   --badge-good-fg:    #7fd4a3;
+  --badge-warn-bg:    rgba(217, 119, 6, 0.20);
+  --badge-warn-fg:    #f0c48a;
+  --badge-interest-bg:rgba(140, 90, 200, 0.22);
+  --badge-interest-fg:#d9b8f5;
   --focus-outline:    #93b9e8;
 }
 [data-theme="dark"] .field-error { color: #f0a094; }

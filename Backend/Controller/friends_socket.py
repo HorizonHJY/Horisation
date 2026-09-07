@@ -79,3 +79,26 @@ def notify_friend_accepted(acceptor: str, req_id: str) -> None:
                 {'from_user': acceptor},
                 room=f'user_{row.from_user}',
             )
+
+
+# ── Trade-intent push helpers (意向成单流) ───────────────────────────────────
+
+def notify_intent(event: str, intent: dict) -> None:
+    """Push a realtime trade-intent event to the persons who care.
+
+    event: 'trade_intent' (buyer -> seller),
+           'trade_intent_accepted' (seller -> buyer),
+           'trade_intent_completed' (buyer -> seller),
+           'trade_intent_cancelled' (either -> other),
+           'trade_intent_declined' (seller -> buyer)
+    """
+    if not intent:
+        return
+    buyer  = intent.get('buyer')
+    seller = intent.get('seller')
+    if event == 'trade_intent':
+        socketio.emit(event, intent, room=f'user_{seller}')
+    elif event == 'trade_intent_completed':
+        socketio.emit(event, intent, room=f'user_{seller}')
+    else:  # accepted / declined / cancelled -> notify the buyer
+        socketio.emit(event, intent, room=f'user_{buyer}')

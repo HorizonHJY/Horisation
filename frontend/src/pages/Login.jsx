@@ -84,7 +84,7 @@ export default function Login() {
               letterSpacing: '-0.02em',
               margin: '0 0 clamp(1rem, 4vh, 2rem)',
             }}>
-              Horisation
+              Arch Bay
             </h1>
           </div>
 

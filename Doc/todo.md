@@ -35,6 +35,8 @@ Last updated: 2026-09-07
 | `app.py` 提交态截断修复 | 2026-09-07 | 自 `0e91080` 起缺 `__main__` 块，本地 dev 完全跑不起来 |
 | 本地/生产环境标识 | 2026-09-07 | 非生产实例显示 LOCAL 带子 + 标题前缀，见 Pattern 12 |
 | CI/CD (GitHub Actions → EC2) | — | `.github/workflows/deploy.yml`，push 到 main 自动部署 |
+| Brand rename → Arch Bay | 2026-09-06 | 可见文案 'Horisation'→'Arch Bay'，提交 f0fc7f6；仓库目录未改名 |
+| Marketplace 意向成单流 | 2026-09-06 | trade_intents + listing reserved/sold + 两段式成交（待 A/B 实测 & merge main） |
 
 ---
 

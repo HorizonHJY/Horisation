@@ -21,7 +21,7 @@ export default function EnvRibbon({ backendLocal }) {
   // The browser tab is often the only thing visible when several windows are
   // open — that is exactly when the two instances get confused.
   useEffect(() => {
-    const base = 'Horisation'
+    const base = 'Arch Bay'
     document.title = isLocal ? `[LOCAL] ${base}` : base
   }, [isLocal])
 
