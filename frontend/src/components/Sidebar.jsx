@@ -1,6 +1,6 @@
 import React from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { useAuth, useUnread, useFeature } from '../App'
+import { useAuth, useNotifications, useFeature } from '../App'
 
 const NAV_MAIN = [
   { to: '/home', icon: 'fa-home', label: 'Home' },
@@ -30,7 +30,8 @@ const NAV_TOOLKIT_HORIZON = [
 
 export default function Sidebar({ isOpen, onClose }) {
   const { user, logout } = useAuth()
-  const { total: unreadTotal } = useUnread()
+  // Messages you have not read plus people waiting on an answer from you.
+  const { badgeTotal } = useNotifications()
   const navigate = useNavigate()
   const canGomoku = useFeature('onlineGomoku')
   const canTravel = useFeature('travelPlanner')
@@ -84,9 +85,9 @@ export default function Sidebar({ isOpen, onClose }) {
               >
                 <i className={`fas ${icon}`} />
                 <span>{label}</span>
-                {to === '/friends' && unreadTotal > 0 && (
+                {to === '/friends' && badgeTotal > 0 && (
                   <span className="badge bg-danger ms-auto" style={{ fontSize: '.65rem', minWidth: 18 }}>
-                    {unreadTotal > 99 ? '99+' : unreadTotal}
+                    {badgeTotal > 99 ? '99+' : badgeTotal}
                   </span>
                 )}
               </NavLink>

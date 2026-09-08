@@ -1588,14 +1588,21 @@ def get_contact_requests_sent(username: str) -> list:
         return [_contact_req_to_dict(r) for r in rows]
 
 
-def respond_contact_request(req_id: int, to_user: str, accept: bool) -> bool:
+def respond_contact_request(req_id: int, to_user: str, accept: bool) -> Optional[str]:
+    """Answer a pending contact request.
+
+    Returns the requester's username so the caller can push the outcome to
+    them, or None when there was no pending request to answer. Callers that
+    only need success can keep testing the result for truthiness.
+    """
     with Session() as s:
         req = s.query(ContactRequest).filter_by(id=req_id, to_user=to_user, status='pending').first()
         if not req:
-            return False
+            return None
         req.status = 'approved' if accept else 'declined'
+        requester = req.from_user
         s.commit()
-        return True
+        return requester
 
 
 def has_contact_access(from_user: str, to_user: str) -> bool:

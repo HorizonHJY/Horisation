@@ -196,6 +196,36 @@ def get_unread():
     return jsonify({'ok': True, 'total': sum(by_friend.values()), 'by_friend': by_friend})
 
 
+def _with_sender_identity(reqs: list) -> list:
+    """Attach display name and avatar for each request's sender."""
+    users = user_manager._load_users()
+    for r in reqs:
+        _, u = user_manager._find_user(users, r['from_user'])
+        r['from_display'] = u.get('display_name', r['from_user']) if u else r['from_user']
+        r['from_avatar']  = u.get('avatar_url') if u else None
+    return reqs
+
+
+@friends_bp.route('/notifications', methods=['GET'])
+@login_required
+def get_notifications():
+    """Everything the badge and the banners need, in one round trip.
+
+    The client asks for this when its socket connects and on a slow fallback
+    timer. Socket events keep it current in between; this is what makes the
+    state self-heal after a reconnect, rather than depending on having caught
+    every event while the tab was asleep.
+    """
+    me        = request.current_user['username']
+    by_friend = market_db.get_unread_counts(me)
+    return jsonify({
+        'ok': True,
+        'unread': {'total': sum(by_friend.values()), 'by_friend': by_friend},
+        'friend_requests':  _with_sender_identity(market_db.get_pending_requests(me)),
+        'contact_requests': _with_sender_identity(market_db.get_contact_requests_received(me)),
+    })
+
+
 @friends_bp.route('/<username>/read', methods=['POST'])
 @login_required
 def mark_read(username):
@@ -232,9 +262,12 @@ def respond_contact(req_id):
         return jsonify({'ok': True})
     if action not in ('approve', 'decline'):
         return jsonify({'ok': False, 'error': 'action must be approve, decline, or revoke'}), 400
-    ok = market_db.respond_contact_request(req_id, me, accept=(action == 'approve'))
-    if not ok:
+    requester = market_db.respond_contact_request(req_id, me, accept=(action == 'approve'))
+    if not requester:
         return jsonify({'ok': False, 'error': 'Request not found or not yours'}), 404
+
+    from .friends_socket import notify_contact_resolved
+    notify_contact_resolved(req_id, me, requester, action)
     return jsonify({'ok': True})
 
 

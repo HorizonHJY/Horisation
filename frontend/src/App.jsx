@@ -5,6 +5,7 @@ import { api } from './api'
 import Layout from './components/Layout'
 import HandLoader from './components/HandLoader'
 import EnvRibbon from './components/EnvRibbon'
+import SocketProvider, { useSocket } from './components/SocketProvider'
 import { canAccess } from './features'
 import Login from './pages/Login'
 import Register from './pages/Register'
@@ -47,27 +48,85 @@ function ThemeProvider({ children }) {
   )
 }
 
-// ── Unread Context ───────────────────────────────────────────────
-export const UnreadContext = createContext(null)
-export const useUnread = () => useContext(UnreadContext)
+// ── Notifications Context ────────────────────────────────────────
+/* Everything that can put a badge or a banner in front of you: unread private
+   messages, pending friend requests, and pending contact requests. It lives
+   above the router so it stays correct on every page, is fed by the global
+   socket, and re-syncs from one snapshot endpoint whenever that socket
+   connects — a reconnect repairs the state instead of leaving it stale. */
+export const NotificationsContext = createContext(null)
+export const useNotifications = () => useContext(NotificationsContext)
 
-function UnreadProvider({ children }) {
+// Kept so older call sites reading only the message counts still work.
+export const useUnread = useNotifications
+
+/* Snapshot fallback. Socket events are the fast path; this only exists to
+   catch anything missed while the tab was suspended or offline, so it is
+   deliberately slow — it used to run every 30s and was the *only* path. */
+const SNAPSHOT_INTERVAL_MS = 5 * 60 * 1000
+
+function NotificationsProvider({ children }) {
   const { user } = useAuth()
-  const [unreadMap, setUnreadMap] = useState({})
-  const intervalRef = useRef(null)
+  const { socket } = useSocket()
+  const [unreadMap, setUnreadMap]           = useState({})
+  const [friendRequests, setFriendRequests] = useState([])
+  const [contactRequests, setContactRequests] = useState([])
 
   const refresh = useCallback(async () => {
     if (!user) return
-    const d = await api.get('/api/friends/unread')
-    if (d.ok) setUnreadMap(d.by_friend)
+    const d = await api.get('/api/friends/notifications')
+    if (!d.ok) return
+    setUnreadMap(d.unread?.by_friend || {})
+    setFriendRequests(d.friend_requests || [])
+    setContactRequests(d.contact_requests || [])
   }, [user])
 
   useEffect(() => {
-    if (!user) { setUnreadMap({}); return }
+    if (!user) {
+      setUnreadMap({}); setFriendRequests([]); setContactRequests([])
+      return
+    }
     refresh()
-    intervalRef.current = setInterval(refresh, 30000)
-    return () => clearInterval(intervalRef.current)
+    const id = setInterval(refresh, SNAPSHOT_INTERVAL_MS)
+    return () => clearInterval(id)
   }, [user, refresh])
+
+  // Live updates. Registered here rather than on a page so they arrive
+  // wherever the user happens to be.
+  useEffect(() => {
+    if (!socket || !user) return
+
+    const onConnect = () => refresh()   // re-sync after any (re)connect
+    const onFriendRequest  = (req) => setFriendRequests(prev =>
+      prev.some(r => r.id === req.id) ? prev : [req, ...prev])
+    const onContactRequest = (req) => setContactRequests(prev =>
+      prev.some(r => r.id === req.id) ? prev : [req, ...prev])
+    const onContactResolved = ({ id }) => setContactRequests(prev =>
+      prev.filter(r => r.id !== id))
+    const onChatMessage = (msg) => {
+      if (!msg || msg.sender === user.username) return
+      // The open conversation clears itself; anything else becomes a badge.
+      if (window.__hzActiveChatWith === msg.sender) return
+      setUnreadMap(prev => ({ ...prev, [msg.sender]: (prev[msg.sender] || 0) + 1 }))
+    }
+    const onFriendAccepted = () => refresh()
+
+    socket.on('connect', onConnect)
+    socket.on('friend_request_incoming', onFriendRequest)
+    socket.on('contact_request_incoming', onContactRequest)
+    socket.on('contact_request_resolved', onContactResolved)
+    socket.on('chat_message', onChatMessage)
+    socket.on('friend_accepted', onFriendAccepted)
+
+    return () => {
+      socket.off('connect', onConnect)
+      socket.off('friend_request_incoming', onFriendRequest)
+      socket.off('contact_request_incoming', onContactRequest)
+      socket.off('contact_request_resolved', onContactResolved)
+      socket.off('chat_message', onChatMessage)
+      socket.off('friend_accepted', onFriendAccepted)
+    }
+  }, [socket, user, refresh])
 
   const clearUnread = useCallback((username) => {
     setUnreadMap(prev => { const n = { ...prev }; delete n[username]; return n })
@@ -77,12 +136,34 @@ function UnreadProvider({ children }) {
     setUnreadMap(prev => ({ ...prev, [username]: (prev[username] || 0) + 1 }))
   }, [])
 
+  /** Drop a contact request locally, right after answering it. */
+  const dismissContactRequest = useCallback((id) => {
+    setContactRequests(prev => prev.filter(r => r.id !== id))
+  }, [])
+
+  const dismissFriendRequest = useCallback((id) => {
+    setFriendRequests(prev => prev.filter(r => r.id !== id))
+  }, [])
+
+  /** The pending contact request from one person, if there is one. */
+  const contactRequestFrom = useCallback(
+    (username) => contactRequests.find(r => r.from_user === username) || null,
+    [contactRequests])
+
   const total = Object.values(unreadMap).reduce((a, b) => a + b, 0)
+  // What the sidebar shows: messages you have not read plus people waiting on
+  // an answer from you. A pending request is as actionable as a message.
+  const badgeTotal = total + friendRequests.length + contactRequests.length
 
   return (
-    <UnreadContext.Provider value={{ unreadMap, total, refresh, clearUnread, bumpUnread }}>
+    <NotificationsContext.Provider value={{
+      unreadMap, total, badgeTotal,
+      friendRequests, contactRequests,
+      refresh, clearUnread, bumpUnread,
+      dismissContactRequest, dismissFriendRequest, contactRequestFrom,
+    }}>
       {children}
-    </UnreadContext.Provider>
+    </NotificationsContext.Provider>
   )
 }
 
@@ -146,13 +227,25 @@ function FeatureRoute({ feature, children }) {
   return children
 }
 
+/* Both of these need the signed-in user, so they sit inside AuthProvider.
+   The socket is created only while someone is signed in, and notifications
+   sit inside it because they are fed by its events. */
+function SessionProviders({ children }) {
+  const { user } = useAuth()
+  return (
+    <SocketProvider enabled={Boolean(user)}>
+      <NotificationsProvider>{children}</NotificationsProvider>
+    </SocketProvider>
+  )
+}
+
 // ── App ───────────────────────────────────────────────────────────
 export default function App() {
   return (
     <BrowserRouter>
       <ThemeProvider>
       <AuthProvider>
-      <UnreadProvider>
+      <SessionProviders>
         <Routes>
           <Route path="/login"    element={<PublicOnlyRoute><Login /></PublicOnlyRoute>} />
           <Route path="/register" element={<PublicOnlyRoute><Register /></PublicOnlyRoute>} />
@@ -183,7 +276,7 @@ export default function App() {
 
           <Route path="*" element={<Navigate to="/home" replace />} />
         </Routes>
-      </UnreadProvider>
+      </SessionProviders>
       </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>

@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { io } from 'socket.io-client'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { api } from '../api'
+import { useSocket, useSocketEvent } from '../components/SocketProvider'
 import HandLoader from '../components/HandLoader'
-import { useAuth, useUnread } from '../App'
+import { useAuth, useNotifications } from '../App'
 
 function Avatar({ display, avatar, size = 40 }) {
   if (avatar) return (
@@ -94,17 +94,21 @@ function renderMessageContent(content, isMe) {
 
 export default function Friends() {
   const { user } = useAuth()
-  const { unreadMap, clearUnread, bumpUnread } = useUnread()
+  const {
+    unreadMap, clearUnread,
+    friendRequests: pending, contactRequests: contactReqs,
+    dismissFriendRequest, dismissContactRequest, contactRequestFrom,
+    refresh: refreshNotifications,
+  } = useNotifications()
+  const { socket } = useSocket()
   const location      = useLocation()
   const navigate      = useNavigate()
-  const socketRef     = useRef(null)
   const chatEndRef    = useRef(null)
   const activeChatRef = useRef(null)   // mirror of activeChat for socket handler
   const tabRef        = useRef('friends')
 
   const [tab, setTab]               = useState('friends')
   const [friends, setFriends]       = useState([])
-  const [pending, setPending]       = useState([])
   const [searchQuery, setSearchQuery]   = useState('')
   const [searchResults, setSearchResults] = useState([])
   const [searching, setSearching]   = useState(false)
@@ -117,7 +121,6 @@ export default function Friends() {
   const [sharedContacts, setSharedContacts] = useState([])  // approved contact reqs where I am to_user
   // contactStatusMap: { [username]: 'pending' | 'approved' | 'declined' }
   const [contactStatusMap, setContactStatusMap] = useState({})
-  const [contactReqs, setContactReqs]     = useState([])  // incoming contact requests
   const [toast, setToast]           = useState(null)
   const [loading, setLoading]       = useState(false)
 
@@ -127,46 +130,55 @@ export default function Friends() {
   }
 
   // ── Socket ──────────────────────────────────────────────────────────────────
+  /* The connection itself is owned by SocketProvider and lives for the whole
+     session; this page only attaches the handlers it needs and detaches them
+     on unmount. It must never disconnect the socket — other pages and the
+     notification badge are listening on the same one.
+
+     Friend and contact requests are handled in NotificationsProvider so they
+     arrive wherever the user is; what stays here is presence, the open
+     conversation, and send errors. */
   useEffect(() => {
-    const socket = io({ withCredentials: true })
-    socketRef.current = socket
+    if (!socket) return
 
-    socket.on('connect', () => socket.emit('friends_get_online'))
-    socket.on('online_list', ({ online }) => setOnlineSet(new Set(online)))
-
-    socket.on('friend_request_incoming', (req) => {
-      setPending(prev => [req, ...prev])
-      flash('New friend request!', 'info')
-    })
-    socket.on('contact_request_incoming', (req) => {
-      setContactReqs(prev => [req, ...prev])
-      flash('New contact request!', 'info')
-    })
-    socket.on('friend_accepted', ({ from_user }) => {
+    const askOnline  = () => socket.emit('friends_get_online')
+    const onOnline   = ({ online }) => setOnlineSet(new Set(online))
+    const onAccepted = ({ from_user }) => {
       flash(`${from_user} accepted your friend request!`, 'success')
       loadFriends()
-    })
-    socket.on('chat_message', (msg) => {
+    }
+    const onChatMessage = (msg) => {
       const chat = activeChatRef.current
-      if (chat) {
-        const [ua, ub] = [user.username, chat.username].sort()
-        if (msg.room_key === `${ua}:${ub}`) {
-          setChatHistory(h => [...h, msg])
-          if (msg.sender !== user.username) {
-            api.post(`/api/friends/${chat.username}/read`)
-          }
-          return
-        }
-      }
-      // Message not in currently open chat — bump unread badge
+      if (!chat) return
+      const [ua, ub] = [user.username, chat.username].sort()
+      if (msg.room_key !== `${ua}:${ub}`) return
+      setChatHistory(h => (h.some(m => m.id && m.id === msg.id) ? h : [...h, msg]))
       if (msg.sender !== user.username) {
-        bumpUnread(msg.sender)
+        api.post(`/api/friends/${chat.username}/read`)
       }
-    })
-    socket.on('chat_error', ({ message }) => flash(message, 'danger'))
+    }
+    const onChatError = ({ message }) => flash(message, 'danger')
 
-    return () => socket.disconnect()
-  }, [])
+    if (socket.connected) askOnline()
+    socket.on('connect', askOnline)
+    socket.on('online_list', onOnline)
+    socket.on('friend_accepted', onAccepted)
+    socket.on('chat_message', onChatMessage)
+    socket.on('chat_error', onChatError)
+
+    return () => {
+      socket.off('connect', askOnline)
+      socket.off('online_list', onOnline)
+      socket.off('friend_accepted', onAccepted)
+      socket.off('chat_message', onChatMessage)
+      socket.off('chat_error', onChatError)
+    }
+  }, [socket, user.username])
+
+  // Toast the requests that NotificationsProvider received, but only while
+  // this page is the one on screen.
+  useSocketEvent('friend_request_incoming', () => flash('New friend request!', 'info'))
+  useSocketEvent('contact_request_incoming', () => flash('New contact request!', 'info'))
 
   // Auto-scroll chat
   useEffect(() => {
@@ -229,14 +241,11 @@ export default function Friends() {
 
   async function loadPending() {
     setLoading(true)
-    const [fRes, cRes, sRes] = await Promise.all([
-      api.get('/api/friends/requests/pending'),
-      api.get('/api/friends/contact/requests'),
-      api.get('/api/friends/contact/shared'),
-    ])
-    if (fRes.ok) setPending(fRes.requests)
-    if (cRes.ok) setContactReqs(cRes.requests)
+    // Both request lists come from NotificationsProvider, which keeps them
+    // live over the socket; only "shared with" is local to this page.
+    const sRes = await api.get('/api/friends/contact/shared')
     if (sRes.ok) setSharedContacts(sRes.requests)
+    refreshNotifications()
     setLoading(false)
   }
 
@@ -267,7 +276,7 @@ export default function Friends() {
   const respond = async (reqId, action) => {
     const d = await api.put(`/api/friends/requests/${reqId}`, { action })
     if (d.ok) {
-      setPending(prev => prev.filter(r => r.id !== reqId))
+      dismissFriendRequest(reqId)
       if (action === 'accept') { flash('Friend added!'); loadFriends() }
     } else flash(d.error, 'danger')
   }
@@ -280,6 +289,9 @@ export default function Friends() {
 
   const openChat = async (friend) => {
     activeChatRef.current = friend
+    // NotificationsProvider listens for every message app-wide; this tells it
+    // not to raise a badge for the conversation already on screen.
+    window.__hzActiveChatWith = friend.username
     setActiveChat(friend)
     setChatHistory([])
     clearUnread(friend.username)
@@ -291,13 +303,17 @@ export default function Friends() {
 
   const closeChat = () => {
     activeChatRef.current = null
+    window.__hzActiveChatWith = null
     setActiveChat(null)
     setChatHistory([])
   }
 
+  // Leaving the page entirely counts as closing the conversation.
+  useEffect(() => () => { window.__hzActiveChatWith = null }, [])
+
   const sendMessage = () => {
     if (!chatInput.trim() || !activeChat) return
-    socketRef.current?.emit('chat_send', { to_user: activeChat.username, content: chatInput.trim() })
+    socket?.emit('chat_send', { to_user: activeChat.username, content: chatInput.trim() })
     setChatInput('')
   }
 
@@ -337,7 +353,7 @@ export default function Friends() {
         const req = contactReqs.find(r => r.id === reqId)
         if (req) setSharedContacts(prev => [...prev, req])
       }
-      setContactReqs(prev => prev.filter(r => r.id !== reqId))
+      dismissContactRequest(reqId)
       flash(action === 'approve' ? 'Contact shared!' : 'Request declined.')
     } else flash(d.error, 'danger')
   }
@@ -420,6 +436,34 @@ export default function Friends() {
               </button>
             )}
           </div>
+
+          {/* Someone asked to see your contact details and is waiting. It used
+              to live only in the Requests tab, so you could be mid-conversation
+              with them and never know. Answerable right here. */}
+          {(() => {
+            const req = contactRequestFrom(activeChat.username)
+            if (!req) return null
+            return (
+              <div className="alert alert-warning d-flex align-items-center gap-3 py-2 mb-3"
+                   role="status" style={{ fontSize: '.88rem' }}>
+                <i className="fas fa-address-card" aria-hidden="true" />
+                <div className="flex-grow-1">
+                  <strong>{activeChat.display_name}</strong> asked to see your contact details
+                  <span className="label-zh">想看你的联系方式</span>
+                </div>
+                <div className="d-flex gap-2 flex-shrink-0">
+                  <button className="btn btn-sm btn-success"
+                          onClick={() => respondContact(req.id, 'approve', req.from_user)}>
+                    <i className="fas fa-check me-1" aria-hidden="true" />Share
+                  </button>
+                  <button className="btn btn-sm btn-outline-secondary"
+                          onClick={() => respondContact(req.id, 'decline', req.from_user)}>
+                    Decline
+                  </button>
+                </div>
+              </div>
+            )
+          })()}
 
           {/* Messages */}
           <div className="flex-grow-1 overflow-auto border rounded p-3 d-flex flex-column gap-2"

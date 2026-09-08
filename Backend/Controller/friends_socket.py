@@ -70,6 +70,18 @@ def notify_contact_request(to_user: str, req_dict: dict) -> None:
     socketio.emit('contact_request_incoming', req_dict, room=f'user_{to_user}')
 
 
+def notify_contact_resolved(req_id: int, responder: str, requester: str, action: str) -> None:
+    """A contact request stopped being pending.
+
+    Both sides are told: the requester so they learn the answer, and the
+    responder so their *other* open tabs drop the pending banner instead of
+    offering to answer something that is already answered.
+    """
+    payload = {'id': req_id, 'action': action, 'responder': responder, 'requester': requester}
+    socketio.emit('contact_request_resolved', payload, room=f'user_{responder}')
+    socketio.emit('contact_request_resolved', payload, room=f'user_{requester}')
+
+
 def notify_friend_accepted(acceptor: str, req_id: str) -> None:
     with market_db.Session() as s:
         row = s.query(market_db.FriendRequest).filter_by(id=req_id).first()
