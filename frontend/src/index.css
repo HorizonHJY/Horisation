@@ -663,9 +663,12 @@ h1, h2, h3, h4, h5, h6,
   height: 100%;
   transition: border-color .15s, box-shadow .15s;
 }
+/* The old hover went from 6% to 12% black — 1.13:1 against white to 1.27:1,
+   which nobody can see. Feedback has to be a colour change, not a darker
+   shade of invisible. --accent works in both themes without an override. */
 .market-card:hover,
 .market-card:focus-within {
-  border-color: var(--border-medium);
+  border-color: var(--accent);
   box-shadow: var(--shadow-md);
 }
 
