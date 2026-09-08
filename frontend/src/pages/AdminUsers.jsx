@@ -39,6 +39,7 @@ export default function AdminUsers() {
   const [editTarget, setEditTarget] = useState(null)
   const [editForm, setEditForm]     = useState({ display_name: '', email: '', password: '' })
   const [saving, setSaving]         = useState(false)
+  const [editErr, setEditErr]       = useState(null)
 
   // Invite codes state (horizon only)
   const [codes, setCodes]           = useState([])
@@ -137,6 +138,7 @@ export default function AdminUsers() {
   // ── Edit (open modal) ─────────────────────────────────────────────
   const openEdit = (u) => {
     setEditTarget(u)
+    setEditErr(null)
     setEditForm({ display_name: u.display_name, email: u.email, password: '' })
   }
 
@@ -144,6 +146,20 @@ export default function AdminUsers() {
   const saveEdit = async (e) => {
     e.preventDefault()
     if (!editTarget) return
+    setEditErr(null)
+
+    // Validate locally and surface the message INSIDE the modal. Page-level
+    // flash() sits behind the Bootstrap modal z-index, so earlier failures
+    // rendered invisibly => "Save changes does nothing".
+    if (!editForm.display_name.trim()) {
+      setEditErr('Display name cannot be empty.')
+      return
+    }
+    const emailVal = editForm.email.trim()
+    if (emailVal && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)) {
+      setEditErr('Please enter a valid email address (or leave it blank).')
+      return
+    }
     setSaving(true)
 
     const username = editTarget.username
@@ -156,26 +172,29 @@ export default function AdminUsers() {
 
     if (profileChanged) {
       const d = await api.put(`/api/auth/users/${username}/profile`, {
-        display_name: editForm.display_name,
-        email:        editForm.email,
+        display_name: editForm.display_name.trim(),
+        email:        emailVal,
       })
-      if (!d.ok) { flash(d.error, 'danger'); ok = false }
+      if (!d.ok) { setEditErr(d.error || 'Could not update profile.'); ok = false }
     }
 
     // Reset password (only if filled in)
     if (ok && editForm.password) {
       const pwErr = validatePassword(editForm.password)
-      if (pwErr) { flash(pwErr, 'danger'); setSaving(false); return }
+      if (pwErr) { setEditErr(pwErr); setSaving(false); return }
       const d = await api.put(`/api/auth/users/${username}/password`, {
         password: editForm.password,
       })
-      if (!d.ok) { flash(d.error, 'danger'); ok = false }
+      if (!d.ok) { setEditErr(d.error || 'Could not reset password.'); ok = false }
     }
 
     setSaving(false)
     if (ok) {
-      flash(`${username} updated.`)
       document.getElementById('editModal').querySelector('[data-bs-dismiss="modal"]').click()
+      setEditForm({ display_name: '', email: '', password: '' })
+      setEditTarget(null)
+      setEditErr(null)
+      flash(`${username} updated.`)
       load()
     }
   }
@@ -415,7 +434,7 @@ export default function AdminUsers() {
       <div className="modal fade" id="editModal" tabIndex="-1">
         <div className="modal-dialog">
           <div className="modal-content">
-            <form onSubmit={saveEdit}>
+            <form onSubmit={saveEdit} noValidate>
               <div className="modal-header">
                 <h5 className="modal-title">
                   Edit User — <span className="text-muted fw-normal">@{editTarget?.username}</span>
@@ -423,6 +442,9 @@ export default function AdminUsers() {
                 <button type="button" className="btn-close" data-bs-dismiss="modal" />
               </div>
               <div className="modal-body">
+                {editErr && (
+                  <div className="alert alert-danger py-2">{editErr}</div>
+                )}
                 <div className="mb-3">
                   <label className="form-label">Display Name</label>
                   <input
