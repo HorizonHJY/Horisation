@@ -86,7 +86,21 @@ function NotificationsProvider({ children }) {
     }
     refresh()
     const id = setInterval(refresh, SNAPSHOT_INTERVAL_MS)
-    return () => clearInterval(id)
+
+    /* Browsers throttle and eventually suspend sockets in a background tab —
+       phones especially — so events can be missed while you are away and the
+       badge goes quietly stale. Re-syncing the moment the tab comes back is
+       what stops that needing a manual refresh; the slow timer alone would
+       leave it wrong for minutes. */
+    const onVisible = () => { if (document.visibilityState === 'visible') refresh() }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', onVisible)
+
+    return () => {
+      clearInterval(id)
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', onVisible)
+    }
   }, [user, refresh])
 
   // Live updates. Registered here rather than on a page so they arrive
@@ -95,6 +109,9 @@ function NotificationsProvider({ children }) {
     if (!socket || !user) return
 
     const onConnect = () => refresh()   // re-sync after any (re)connect
+    // io() starts connecting immediately, so the first 'connect' can fire
+    // before this listener exists. Catch that case explicitly.
+    if (socket.connected) refresh()
     const onFriendRequest  = (req) => setFriendRequests(prev =>
       prev.some(r => r.id === req.id) ? prev : [req, ...prev])
     const onContactRequest = (req) => setContactRequests(prev =>

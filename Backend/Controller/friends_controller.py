@@ -18,6 +18,21 @@ def _enrich_user(u: dict) -> dict:
         'avatar_url':   u.get('avatar_url'),
     }
 
+def _with_sender_identity(reqs: list) -> list:
+    """Attach display name and avatar for each request's sender.
+
+    Applied to pushed requests as well as fetched ones. Without it a request
+    that arrives over the socket renders as a bare username with no avatar
+    until something re-fetches it, which looks like the notification "did not
+    work" even though it did.
+    """
+    users = user_manager._load_users()
+    for r in reqs:
+        _, u = user_manager._find_user(users, r['from_user'])
+        r['from_display'] = u.get('display_name', r['from_user']) if u else r['from_user']
+        r['from_avatar']  = u.get('avatar_url') if u else None
+    return reqs
+
 
 @friends_bp.route('/users', methods=['GET'])
 @login_required
@@ -58,7 +73,9 @@ def send_request():
         return jsonify({'ok': False, 'error': 'Request already pending'}), 400
 
     from .friends_socket import notify_friend_request
-    notify_friend_request(to_user, row)
+    # Push the same shape the snapshot endpoint returns, so a pushed request
+    # renders identically to a fetched one.
+    notify_friend_request(to_user, _with_sender_identity([dict(row)])[0])
     return jsonify({'ok': True, 'request': row}), 201
 
 
@@ -66,12 +83,7 @@ def send_request():
 @login_required
 def get_pending():
     me   = request.current_user['username']
-    reqs = market_db.get_pending_requests(me)
-    users = user_manager._load_users()
-    for r in reqs:
-        _, u = user_manager._find_user(users, r['from_user'])
-        r['from_display'] = u.get('display_name', r['from_user']) if u else r['from_user']
-        r['from_avatar']  = u.get('avatar_url') if u else None
+    reqs = _with_sender_identity(market_db.get_pending_requests(me))
     return jsonify({'ok': True, 'requests': reqs})
 
 
@@ -162,7 +174,7 @@ def request_contact(username):
         return jsonify({'ok': False, 'error': 'Request already sent or approved'}), 400
 
     from .friends_socket import notify_contact_request
-    notify_contact_request(username, row)
+    notify_contact_request(username, _with_sender_identity([dict(row)])[0])
     return jsonify({'ok': True, 'request': row}), 201
 
 
@@ -171,12 +183,7 @@ def request_contact(username):
 def get_contact_requests():
     """Pending contact requests I need to respond to."""
     me   = request.current_user['username']
-    reqs = market_db.get_contact_requests_received(me)
-    users = user_manager._load_users()
-    for r in reqs:
-        _, u = user_manager._find_user(users, r['from_user'])
-        r['from_display'] = u.get('display_name', r['from_user']) if u else r['from_user']
-        r['from_avatar']  = u.get('avatar_url') if u else None
+    reqs = _with_sender_identity(market_db.get_contact_requests_received(me))
     return jsonify({'ok': True, 'requests': reqs})
 
 
@@ -194,16 +201,6 @@ def get_unread():
     me       = request.current_user['username']
     by_friend = market_db.get_unread_counts(me)
     return jsonify({'ok': True, 'total': sum(by_friend.values()), 'by_friend': by_friend})
-
-
-def _with_sender_identity(reqs: list) -> list:
-    """Attach display name and avatar for each request's sender."""
-    users = user_manager._load_users()
-    for r in reqs:
-        _, u = user_manager._find_user(users, r['from_user'])
-        r['from_display'] = u.get('display_name', r['from_user']) if u else r['from_user']
-        r['from_avatar']  = u.get('avatar_url') if u else None
-    return reqs
 
 
 @friends_bp.route('/notifications', methods=['GET'])

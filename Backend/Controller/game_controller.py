@@ -2,14 +2,15 @@
 game_controller.py
 Online Gomoku — room management + real-time moves via Socket.IO.
 
-Auth strategy: cache the user in _connected_users at connect time
-(flask session is unreliable in eventlet socket context).
+Auth strategy: the app's single 'connect' handler (friends_socket) records the
+user in socketio_instance's shared registry; this module reads it by sid,
+because the flask session is unreliable in an eventlet socket context.
 """
 
-from flask import Blueprint, session, request
+from flask import Blueprint, request
 from flask_socketio import emit, join_room, leave_room
 
-from Backend.Controller.socketio_instance import socketio
+from Backend.Controller.socketio_instance import socketio, user_for_sid
 from Backend.Controller.market_db import (
     get_game_rooms, get_game_room, create_game_room, update_game_room, delete_game_room,
 )
@@ -19,28 +20,16 @@ game_bp = Blueprint('game', __name__, url_prefix='/api/game')
 
 SIZE = 15
 
-# sid → user dict (per-worker, matches socket routing with Redis)
-_connected_users: dict = {}
-
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
-
-@socketio.on('connect')
-def on_connect():
-    token = session.get('session_token')
-    if token:
-        user = user_manager.validate_session(token)
-        if user:
-            _connected_users[request.sid] = user
-
-
-@socketio.on('disconnect')
-def on_disconnect():
-    _connected_users.pop(request.sid, None)
-
+# There is exactly one 'connect' handler for the whole app, in friends_socket;
+# it fills the shared registry this reads. This module used to declare its own
+# 'connect', which python-socketio silently replaced with the later one, so the
+# cache behind _get_user() was never written and every game event ran without a
+# user.
 
 def _get_user():
-    return _connected_users.get(request.sid)
+    return user_for_sid(request.sid)
 
 
 # ── Enrich room dict with display names + avatars ─────────────────────────────

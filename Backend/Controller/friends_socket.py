@@ -6,7 +6,9 @@ Socket.IO events: personal notification rooms, real-time chat, online presence.
 from flask import session, request
 from flask_socketio import join_room
 
-from Backend.Controller.socketio_instance import socketio
+from Backend.Controller.socketio_instance import (
+    socketio, remember_connection, forget_connection,
+)
 from Backend.Controller.user_manager import user_manager
 from Backend.Controller import market_db
 
@@ -16,19 +18,28 @@ _online: dict = {}
 
 @socketio.on('connect')
 def _on_connect_friends():
-    """Join user_{username} room so the server can push notifications."""
+    """The app's single connect handler.
+
+    python-socketio keys handlers by event name, so a second @socketio.on
+    ('connect') anywhere would replace this one rather than run alongside it.
+    Everything that needs to happen per connection happens here: join the
+    personal notification room, and record the user for modules that cannot
+    read the flask session from an eventlet socket context.
+    """
     token = session.get('session_token')
     if token:
         user = user_manager.validate_session(token)
         if user:
             username = user['username']
             _online[request.sid] = username
+            remember_connection(request.sid, user)
             join_room(f'user_{username}')
 
 
 @socketio.on('disconnect')
 def _on_disconnect_friends():
     _online.pop(request.sid, None)
+    forget_connection(request.sid)
 
 
 @socketio.on('friends_get_online')
