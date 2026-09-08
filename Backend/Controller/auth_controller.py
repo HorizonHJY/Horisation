@@ -9,7 +9,7 @@ import os
 import io
 import zipfile
 from datetime import datetime
-from flask import Blueprint, request, jsonify, session, redirect, url_for, send_file, current_app
+from flask import Blueprint, request, jsonify, session, send_file, current_app
 from functools import wraps
 from .user_manager import user_manager
 

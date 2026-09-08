@@ -13,7 +13,7 @@ import React, { useEffect } from 'react'
  *   - local_dev from /api/auth/check-session — Flask started with LOCAL_DEV=1,
  *     which also covers scripts/build-run.bat, where Vite is not involved
  */
-export const IS_VITE_DEV = Boolean(import.meta.env?.DEV)
+const IS_VITE_DEV = Boolean(import.meta.env?.DEV)
 
 export default function EnvRibbon({ backendLocal }) {
   const isLocal = IS_VITE_DEV || Boolean(backendLocal)

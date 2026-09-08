@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { api } from './api'
 
@@ -57,8 +57,6 @@ function ThemeProvider({ children }) {
 export const NotificationsContext = createContext(null)
 export const useNotifications = () => useContext(NotificationsContext)
 
-// Kept so older call sites reading only the message counts still work.
-export const useUnread = useNotifications
 
 /* Snapshot fallback. Socket events are the fast path; this only exists to
    catch anything missed while the tab was suspended or offline, so it is

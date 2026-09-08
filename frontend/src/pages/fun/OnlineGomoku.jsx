@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react'
-import { io } from 'socket.io-client'
+import React, { useState, useEffect } from 'react'
 import { useAuth } from '../../App'
+import { useSocket } from '../../components/SocketProvider'
 
 const SIZE = 15
 
@@ -43,7 +43,7 @@ function StoneIndicator({ color }) {
 
 export default function OnlineGomoku() {
   const { user } = useAuth()
-  const socketRef = useRef(null)
+  const { socket } = useSocket()
 
   const [view, setView]         = useState('lobby')
   const [rooms, setRooms]       = useState([])
@@ -58,31 +58,42 @@ export default function OnlineGomoku() {
   }
 
   // ── Socket lifecycle ──────────────────────────────────────────────
+  /* The connection belongs to SocketProvider and is shared with the rest of
+     the app, so this page joins and leaves the lobby but never disconnects —
+     doing so would also kill the notification badge and private chat. */
   useEffect(() => {
-    const socket = io({ withCredentials: true })
-    socketRef.current = socket
+    if (!socket) return
 
-    socket.on('connect', () => {
-      socket.emit('game_join_lobby')
-    })
-    socket.on('rooms_updated', ({ rooms }) => setRooms(rooms))
-    socket.on('game_state',    (r) => { setRoom(r); setView('game') })
-    socket.on('game_dissolved', () => {
+    const joinLobby   = () => socket?.emit('game_join_lobby')
+    const onRooms     = ({ rooms }) => setRooms(rooms)
+    const onState     = (r) => { setRoom(r); setView('game') }
+    const onDissolved = () => {
       setRoom(null)
       setView('lobby')
       flash('The room was closed by the host.', 'warning')
-    })
-    socket.on('game_error', ({ message }) => flash(message))
+    }
+    const onError = ({ message }) => flash(message)
+
+    if (socket.connected) joinLobby()
+    socket.on('connect', joinLobby)
+    socket.on('rooms_updated', onRooms)
+    socket.on('game_state', onState)
+    socket.on('game_dissolved', onDissolved)
+    socket.on('game_error', onError)
 
     return () => {
-      socket.emit('game_leave_lobby')
-      socket.disconnect()
+      socket?.emit('game_leave_lobby')
+      socket.off('connect', joinLobby)
+      socket.off('rooms_updated', onRooms)
+      socket.off('game_state', onState)
+      socket.off('game_dissolved', onDissolved)
+      socket.off('game_error', onError)
     }
-  }, [])
+  }, [socket])
 
   useEffect(() => {
     const onUnload = () => {
-      if (room) socketRef.current?.emit('game_leave', { room_id: room.id })
+      if (room) socket?.emit('game_leave', { room_id: room.id })
     }
     window.addEventListener('beforeunload', onUnload)
     return () => window.removeEventListener('beforeunload', onUnload)
@@ -98,22 +109,22 @@ export default function OnlineGomoku() {
   // ── Actions ───────────────────────────────────────────────────────
   const createRoom = () => {
     const name = roomName.trim() || `${user.display_name}'s Game`
-    socketRef.current.emit('game_create', { name })
+    socket?.emit('game_create', { name })
     setCreating(false)
     setRoomName('')
   }
-  const joinRoom  = (room_id, role) => socketRef.current.emit('game_join', { room_id, role })
+  const joinRoom  = (room_id, role) => socket?.emit('game_join', { room_id, role })
   const makeMove  = (index) => {
     if (!isMyTurn || room.board[index] !== null) return
-    socketRef.current.emit('game_move', { room_id: room.id, index })
+    socket?.emit('game_move', { room_id: room.id, index })
   }
-  const kick      = () => socketRef.current.emit('game_kick',    { room_id: room.id })
-  const rematch   = () => socketRef.current.emit('game_rematch', { room_id: room.id })
+  const kick      = () => socket?.emit('game_kick',    { room_id: room.id })
+  const rematch   = () => socket?.emit('game_rematch', { room_id: room.id })
   const leaveRoom = () => {
-    socketRef.current.emit('game_leave', { room_id: room.id })
+    socket?.emit('game_leave', { room_id: room.id })
     setRoom(null)
     setView('lobby')
-    socketRef.current.emit('game_join_lobby')
+    socket?.emit('game_join_lobby')
   }
 
   const Toast = toast && (

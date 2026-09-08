@@ -5,12 +5,10 @@ Database lives in the same _data/market.db as the rest of the market.
 """
 
 import uuid
-import os
 from datetime import datetime, timezone
 from typing import Optional
 
-from sqlalchemy import Column, String, Text, Float, Integer, DateTime, create_engine, inspect
-from sqlalchemy.orm import Session as DbSession
+from sqlalchemy import Column, String, Text, Float, DateTime, inspect
 
 from Backend.Controller.market_db import Base, engine, Session, User
 

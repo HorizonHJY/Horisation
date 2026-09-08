@@ -7,7 +7,6 @@ grocery runs, airport pickups, and other tasks with a bounty (悬赏金额).
 from flask import Blueprint, request, jsonify
 
 from Backend.Controller.auth_controller import login_required
-from Backend.Controller import market_db
 from Backend.Controller.market_task_db import (
     get_all_tasks, get_task, get_my_tasks,
     get_tasks_by_category, get_tasks_by_user,
