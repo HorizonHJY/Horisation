@@ -496,11 +496,12 @@ function IncomingModal({ listing, intents, onClose, onAccept, onDecline, onConta
 
 // ── Listing Card ──────────────────────────────────────────────────────────────
 function ListingCard({
-  listing, currentUser, categoryLabel,
+  listing, currentUser, categoryLabel, isAdmin = false,
   onSold, onRestore, onDelete, onEdit, onReachOut, onSellerClick, onDetail,
   onWant, myIntent, onComplete, onCancelIntent, onShowIntents, incomingCount = 0, onCancelReservation,
 }) {
   const isMine     = listing.seller_username === currentUser
+  const canModerate = isAdmin && !isMine
   const firstImg   = listing.images?.[0]?.url
   const isSold     = listing.status === 'sold'
   const isReserved = listing.status === 'reserved'
@@ -630,6 +631,18 @@ function ListingCard({
             className="market-card__btn market-card__btn--danger"
             onClick={() => onDelete(listing)}
             aria-label={`Delete listing: ${listing.title}`}
+          >
+            <i className="fas fa-trash" aria-hidden="true" />Delete
+          </button>
+        </div>
+      )}
+
+      {canModerate && (
+        <div className="market-card__action">
+          <button
+            className="market-card__btn market-card__btn--danger"
+            onClick={() => onDelete(listing)}
+            aria-label={`Delete (as admin): ${listing.title}`}
           >
             <i className="fas fa-trash" aria-hidden="true" />Delete
           </button>
@@ -1182,6 +1195,7 @@ function ExportModal({ listings, categoryLabel, onClose, showToast }) {
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function Market() {
   const { user }   = useAuth()
+  const isAdmin    = user ? ['horizon', 'admin'].includes(user.role) : false
   const navigate   = useNavigate()
   const location   = useLocation()
   const { listingId, sellerUsername } = useParams()
@@ -1780,7 +1794,6 @@ export default function Market() {
 
       <div className="mb-4">
         <h1 className="page-title mb-0">Market</h1>
-        <p className="page-subtitle mb-0">二手好物 — 朋友之间</p>
       </div>
 
       <div className="radio-inputs mb-4">
@@ -1946,6 +1959,7 @@ export default function Market() {
                         listing={l}
                         currentUser={user.username}
                         categoryLabel={categoryLabel}
+                        isAdmin={isAdmin}
                         onSold={handleSold}
                         onRestore={handleRestore}
                         onDelete={setPendingDelete}

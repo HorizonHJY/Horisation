@@ -9,6 +9,7 @@ from flask import Blueprint, request, jsonify
 
 from Backend.Controller.auth_controller import login_required, admin_required
 from Backend.Controller import market_db, r2_manager
+from Backend.Controller.user_manager import user_manager
 
 market_bp = Blueprint('market', __name__, url_prefix='/api/market')
 
@@ -271,8 +272,9 @@ def update_listing(listing_id):
 @market_bp.route('/listings/<listing_id>', methods=['DELETE'])
 @login_required
 def delete_listing(listing_id):
-    seller   = request.current_user['username']
-    r2_keys  = market_db.delete_listing(listing_id, seller)
+    me       = request.current_user['username']
+    is_admin = user_manager.check_permission(me, 'admin')
+    r2_keys  = market_db.delete_listing(listing_id, me, allow_any=is_admin)
 
     if r2_keys is None:
         return jsonify({'ok': False, 'error': 'Listing not found or permission denied.'}), 404

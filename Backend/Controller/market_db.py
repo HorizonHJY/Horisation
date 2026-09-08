@@ -844,13 +844,17 @@ def delete_game_room(room_id: str) -> bool:
         return True
 
 
-def delete_listing(listing_id: str, seller: str) -> Optional[List[str]]:
+def delete_listing(listing_id: str, seller: str, allow_any: bool = False) -> Optional[List[str]]:
     """
     Delete a listing and its image records.
-    Returns list of r2_keys that must be deleted from R2, or None if not found/wrong seller.
+    Returns list of r2_keys that must be deleted from R2, or None if not found/permission denied.
+    allow_any=True lets an admin delete any listing regardless of seller.
     """
     with Session() as s:
-        row = s.query(Listing).filter_by(id=listing_id, seller_username=seller).first()
+        if allow_any:
+            row = s.query(Listing).filter_by(id=listing_id).first()
+        else:
+            row = s.query(Listing).filter_by(id=listing_id, seller_username=seller).first()
         if not row:
             return None
         r2_keys = [img.r2_key for img in row.images]
