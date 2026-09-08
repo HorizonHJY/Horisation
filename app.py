@@ -38,6 +38,7 @@ init_task_db()
 from Backend.Controller.bill_controller import bill_bp
 from Backend.Controller.market_task_controller import task_bp
 from Backend.Controller.weather_controller import weather_bp
+from Backend.Controller.tarot_controller import tarot_bp
 
 # Paths
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
@@ -83,6 +84,7 @@ app.register_blueprint(travel_bp)
 app.register_blueprint(bill_bp)
 app.register_blueprint(task_bp)
 app.register_blueprint(weather_bp)
+app.register_blueprint(tarot_bp)
 
 # Import user manager for session validation
 from Backend.Controller.user_manager import user_manager

@@ -1,6 +1,7 @@
 import React from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { useAuth, useNotifications, useFeature } from '../App'
+import { useAuth, useNotifications } from '../App'
+import { canAccess } from '../features'
 
 const NAV_MAIN = [
   { to: '/home', icon: 'fa-home', label: 'Home' },
@@ -16,6 +17,7 @@ const NAV_COMMUNITY = [
 
 const NAV_FUN = [
   { to: '/fun/gomoku-online', icon: 'fa-globe', label: 'Online Gomoku', feature: 'onlineGomoku' },
+  { to: '/tarot',             icon: 'fa-moon',  label: 'Tarot',         feature: 'tarot' },
 ]
 
 const NAV_TOOLKIT_BASE = [
@@ -33,19 +35,19 @@ export default function Sidebar({ isOpen, onClose }) {
   // Messages you have not read plus people waiting on an answer from you.
   const { badgeTotal } = useNotifications()
   const navigate = useNavigate()
-  const canGomoku = useFeature('onlineGomoku')
-  const canTravel = useFeature('travelPlanner')
-  const canBill   = useFeature('billSplit')
 
   const isAdmin   = user?.role_info?.permissions?.includes('admin')
   const isHorizon = user?.role === 'horizon'
 
-  const visibleFun     = NAV_FUN.filter(item => !item.feature || canGomoku)
-  const visibleToolkit = NAV_TOOLKIT_BASE.filter(item => {
-    if (item.feature === 'travelPlanner') return canTravel
-    if (item.feature === 'billSplit')     return canBill
-    return true
-  })
+  /* Each item is gated on its own flag. This used to hardcode one flag per
+     section, which held only while a section had a single gated entry —
+     adding Tarot next to Online Gomoku would have shown it to everyone who
+     could see Gomoku. `canAccess` reads the same FEATURES map the routes do,
+     so the sidebar and FeatureRoute can no longer disagree. */
+  const allowed = (item) => !item.feature || canAccess(user?.role, item.feature)
+
+  const visibleFun     = NAV_FUN.filter(allowed)
+  const visibleToolkit = NAV_TOOLKIT_BASE.filter(allowed)
 
   const nav = [
     { section: 'Main',      items: NAV_MAIN },

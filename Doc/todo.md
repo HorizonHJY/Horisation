@@ -8,7 +8,7 @@ Last updated: 2026-09-08
 
 | Priority | Item | Notes |
 |----------|------|-------|
-| **Next** | **Tarot section** | 78-card deck with an animated spread, then the classic three-card draw (past / present / future). Gated to `horizon` only for now via `features.js`. Reference the owner liked: a fan of face-down cards that arcs across the screen, then three slots that fill and flip. See the design sketch below. |
+| **Next** | Tarot v2 | v1 shipped 2026-09-08 (see below). Open for a later pass: reversed cards, a saved reading history, other spreads (Celtic Cross), and card names in Chinese — `tarot_deck.json` has no `name_zh`, so positions are bilingual but card names are English only. |
 | High | Password hashing (bcrypt) | Currently stored plaintext. Anyone with `market.db` — including via the admin "Download DB" button — has every user's password in the clear. Also move `SECRET_KEY` out of `app.py`. |
 | High | Login 401 has no visible feedback? | During the 2026-09-07 session a user entered a wrong password 5 times and reported "nothing happens". Verify `Login.jsx` surfaces the 401; same defect class as the Market posting flow. |
 | Medium | Apply the Market fixes to `Tasks.jsx` | Tasks carries a byte-identical `useToast`, `.search` block, `radio-inputs` header and toast markup, and has already drifted in language and labelling. Extract a shared `ModuleShell` so they cannot drift again. |
@@ -18,7 +18,23 @@ Last updated: 2026-09-08
 
 ---
 
-## Tarot section — design sketch (agreed 2026-09-07, not started)
+## Tarot section — what shipped (v1, 2026-09-08)
+
+Every decision the sketch below left open, and how it went:
+
+| Open question | Settled as |
+|---|---|
+| Where the art lives | **Bundled** in `frontend/public/tarot/` — 78 JPEGs, ~7.6 MB, from `metabismuth/tarot-json` (MIT). R2 was rejected: a manual upload step in deploy is a worse tax than 7.6 MB in a repo nobody clones twice. |
+| Card text | Waite's *Pictorial Key to the Tarot* (1911), public domain, taken from `ekelen/tarot-api` and merged onto the images by card name. Two names needed aliases to match: `Strength`→`Fortitude`, `Judgement`→`Last Judgment`. 78/78 matched. |
+| Reversed cards | **No** — owner's call. `tarot_deck.json` carries upright text only. |
+| Fan geometry | Rotating 78 cards about one distant origin makes a *wheel* that swallows the spread. Rewritten as horizontal spread + a parabola for the lift + a small tilt (`fanStyle` in `Tarot.jsx`). |
+| Shuffle | Server-side, `secrets.randbelow`, and the response carries only the three drawn cards. |
+
+Verified: 78/78 deck rows point at a real image file; draws never repeat a card
+within a spread; every card can come up; the distribution passes chi-square
+(χ²=73.0, 77 df, well under the 124.8 threshold) over 1800 drawn slots.
+
+## Tarot section — design sketch (agreed 2026-09-07, superseded by the table above)
 
 **Scope.** One route, `/tarot`, gated to `horizon` in `features.js` the same way
 `onlineGomoku` and `travelPlanner` already are. Classic three-card spread only:
@@ -68,6 +84,7 @@ card names read `The Star 星星`, positions read `Past 过去`.
 
 | Item | Date | Notes |
 |------|------|-------|
+| 塔罗牌 section v1 | 2026-09-08 | `/tarot`，仅 `horizon` 可见。78 张 RWS 牌扇形展开 → 三张牌阵翻牌 → 正位释义。服务端 `secrets` 洗牌。无逆位、无历史记录。 |
 | Group messaging（群组） | 2026-08-22 | 独立建组+按用户名拉人+群聊, `/api/groups`, 见 `Doc/groups.md` |
 | Market 设计审查整改 | 2026-09-07 | `/impeccable critique` 14/40 → 5 条 Priority Issues 全部整改。键盘可达、AA 对比度、可寻址 listing 路由、共享 Modal、分类双语。见 `Doc/log.md` |
 | `app.py` 提交态截断修复 | 2026-09-07 | 自 `0e91080` 起缺 `__main__` 块，本地 dev 完全跑不起来 |

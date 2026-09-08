@@ -47,6 +47,7 @@ Browser → Cloudflare → Nginx → Gunicorn (port 8000) → Flask (API only)
 | `Backend/Controller/market_task_controller.py` / `market_task_db.py` | `/api/market/tasks/*` — bounty/task board |
 | `Backend/Controller/weather_controller.py` | `/api/weather` — Open-Meteo current weather for St. Louis, 10-min in-memory cache |
 | `Backend/Controller/r2_manager.py` | Cloudflare R2 upload/delete via boto3 |
+| `Backend/Controller/tarot_controller.py` | `/api/tarot/*` — three-card spread. The shuffle runs here, not in the browser: a reading you can re-roll from devtools is not a reading. |
 
 ### Frontend
 | File | Purpose |
@@ -66,6 +67,8 @@ Browser → Cloudflare → Nginx → Gunicorn (port 8000) → Flask (API only)
 |------|----------|-------------|
 | `_data/market.db` | SQLite — **all** structured data: users, sessions, listings, images, categories, memos, messages, friends, groups, games, travel, bills, tasks | No (gitignored) |
 | `_data/notes/` | Per-user note JSON files | Yes |
+| `Backend/data/tarot_deck.json` | 78 Rider–Waite–Smith cards: id, name, arcana, image filename, Waite's 1911 upright text | Yes |
+| `frontend/public/tarot/*.jpg` | RWS card scans, 78 files (~7.6 MB) from `metabismuth/tarot-json` (MIT); the deck itself is US public domain | Yes |
 | `_data/users.json.migrated` | Pre-March-2026 JSON store, migrated into SQLite and renamed | Yes (inert) |
 | `Key/r2_config.json` | Cloudflare R2 credentials | No (gitignored) |
 | `PRODUCT.md` | Confirmed product record (users, positioning, brand, principles) used by the `impeccable` design skill | Yes |
@@ -166,6 +169,19 @@ All login required. Full CRUD + `/complete`, `/statistics`.
 | GET | `/messages` | Get all messages (latest 200) |
 | POST | `/messages` | Post message (max 500 chars) |
 | DELETE | `/messages/<id>` | Delete own message (admin: any) |
+
+### Tarot `/api/tarot/`
+Login required. Shown only to `horizon` — but that gate lives in `features.js`
+and `FeatureRoute`, like every other gated feature here; the API itself answers
+any signed-in user. Nothing sensitive sits behind it, so this follows the
+existing convention rather than inventing a one-off server-side check.
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | `/deck` | All 78 cards — the fan is laid out from this |
+| POST | `/draw` | Three distinct cards, one per position. `secrets.randbelow`, never `random`. The response carries **only** the drawn cards, so the rest of the deck order never leaves the server. |
+
+Upright only — the deck file carries no reversed meanings.
 
 ### Friends `/api/friends/` — notification surface
 | Method | Route | Description |

@@ -7,11 +7,17 @@ Last Updated: 2026-09-08
 ### Current Working Version
 - **Completed**: 全站设计系统统一；邀请码系统；功能角色门控；好友/私信系统；SQLite 迁移；二手市集（配送选项 + Restore + 动态分类 + System Management + 价格拆分 + 响应式按钮 + 浏览量计数 + 分类图标 + 多选 filter + 两行 meta + 中文配送标签 + EditModal 修复）；**留言板（Weibo 式线程回复 + 点赞 + 翻页）**；用户公开主页；**非好友直接私信**；**Market Reach Out 直接开 DM**；**Login 页 Safari 全面兼容修复**；**群组系统（独立建组 + 按用户名拉人 + 群聊，`/api/groups`）**；**品牌改名 Arch Bay（可见文案 'Horisation'→'Arch Bay'，提交 f0fc7f6）**；**市集意向成单流（trade_intents）**
   ；**全局实时通知（一条 session 级 socket + `/api/friends/notifications` 快照）**
-- **In Progress**: 塔罗牌 section（78 张牌动画 + 经典三张牌阵，仅 `horizon` 可见）—— 尚未开工
+  ；**塔罗牌 section v1（78 张 RWS 牌扇形展开 + 三张牌阵，服务端洗牌，仅 `horizon` 可见）**
+- **In Progress**: 无
 - **Blocked / Not Solved**: 密码明文存储（待迁 bcrypt）；`SECRET_KEY` 硬编码；首页天气卡片（todo #1）
 
 ### Latest Summary
-两条线在 2026-09-07 合流：
+2026-09-08 新增 **塔罗牌 section v1**：`/tarot`，78 张 Rider–Waite–Smith 牌摊成扇形，
+抽三张走过去/现在/未来牌阵，逐张翻面后落释义。牌图与释义全部采用现成开源素材，本项目
+只做动效与版式。洗牌在服务端（`secrets`），响应只带抽中的三张。无逆位。顺带修掉侧边栏
+"整个分区共用一个 feature flag" 的隐患——加第二个受控条目才会暴露的问题。
+
+在此之前，两条线在 2026-09-07 合流：
 
 1. **意向成单流（trade_intents）** — 买家对他人 active 商品点 "I want this"（可留言）→ 卖家在自己的商品上
    看到 "Who wants this (N)" 并接受/婉拒 → 接受后意向转 accepted、商品转 reserved、其余 pending 自动婉拒
@@ -28,7 +34,7 @@ Last Updated: 2026-09-08
 "英文为主、中文点缀" 改为英文主体。
 
 ### Next Immediate Step
-全部已部署（`a000eb3`）。开工塔罗 section 之前，先销掉三件挂账：
+塔罗 v1 待用户在 `/tarot` 上实测验收。另有三件老挂账仍未销：
 ① 生产库 `_migrate_category_labels()` 是否正确回填了 7 个分类的 `label_zh`（去 System Management 看）；
 ② 意向成单流 A/B 两号实测全流程；
 ③ 联机五子棋实测 —— 它的 `connect` 处理器一直被覆盖（见 2026-09-07 第二条），修复后未经真人验证。
@@ -64,6 +70,10 @@ Last Updated: 2026-09-08
 | 2026-09-07 | 通知状态集中到 `NotificationsContext` + 单一快照端点 `/api/friends/notifications` | 未读数、好友请求、联系方式请求分散在三处、三个端点、三种更新时机，导致侧边栏/列表/聊天窗口显示不一致 | 多一个聚合端点；三类数据耦合在一个 context 里，将来若某类膨胀需要再拆 |
 | 2026-09-07 | 全应用只保留一处 `connect`/`disconnect` 处理器，共享注册表放 `socketio_instance` | python-socketio 同名事件是覆盖不是串联，两个模块各注册一个必然有一个静默失效 | 需要在连接时做事的模块必须改为被那一处调用，多一层间接；换来的是不会再出现"某模块 socket 逻辑无声失效" |
 | 2026-09-07 | 兜底轮询 30s → 5min，但同时加 `visibilitychange`/`focus` 重新同步 | 有了实时推送后 30 秒轮询是浪费；但只降间隔不加 visibility 会让后台标签页漏事件的窗口从 30 秒变成 5 分钟（本次实际踩到） | 切回标签页会多一次请求；换来漏事件几乎立刻自愈 |
+| 2026-09-08 | 塔罗牌素材直接采用现成开源资源（图 `metabismuth/tarot-json` MIT，文 `ekelen/tarot-api` 转录的 Waite 1911），不自己写释义 | 用户明确要求"去 github 上找现成的素材不要自己重新写"；78 张牌的释义自己编既不准确也没有权威性，Waite 原文本身已是公共领域 | 两个来源的牌名对不齐，需要别名表（`Strength`→`Fortitude`、`Judgement`→`Last Judgment`）；释义是 1911 年英文原文，语气古旧且只有英文 |
+| 2026-09-08 | 78 张牌图打包进 `frontend/public/tarot/`（约 7.6 MB），不走 R2 | 与代码同版本、部署零额外步骤；R2 方案要在每次部署里插一个人工上传动作 | 仓库体积增加 7.6 MB，且这批文件永远不会变；若将来牌面要换主题，得考虑再挪去 R2 |
+| 2026-09-08 | 塔罗洗牌放服务端（`secrets.randbelow`），响应只带抽中的三张 | 抽牌就是这个功能的全部意义，前端 `Math.random()` 可以在 devtools 里反复重掷；返回整副牌的顺序等于泄露下一次结果 | 每次抽牌多一次网络往返；牌阵无法离线演示 |
+| 2026-09-08 | 塔罗只做前端角色门控（`features.js` + `FeatureRoute`），后端仅 `login_required` | 项目里 `onlineGomoku` / `travelPlanner` / `billSplit` 全是这个模式，为塔罗单独发明一套服务端门控反而破坏一致性；牌阵本身不含任何敏感数据 | 任何已登录用户直接调 `/api/tarot/draw` 都能抽牌。若将来有真正需要保护的功能，应一次性做共享的 `@feature_required` 装饰器，而不是逐个补 |
 | 2026-09-06 | 成交用意向单（`trade_intents`）+ listing 中间态 `reserved` 代替只有 active/sold | 避免多人同时抢货撞单；成交走买家确认收到两段式，状态才真实 | 多一个表 + 两段交互；reserved 商品需保证仍在发起买家 Browse 可见 |
 
 ---
@@ -152,6 +162,48 @@ Last Updated: 2026-09-08
 ---
 
 ## 3. Iteration History
+
+---
+
+### 2026-09-08 — 塔罗牌 section v1
+
+#### Goal
+`/tarot`：78 张牌铺开成扇 → 经典三张牌阵（过去/现在/未来）→ 翻牌出正位释义。
+欧式深色占卜氛围，无逆位，仅 `horizon` 可见。
+
+#### Trigger / Context
+用户给了两张参考截图，并明确"去 github 上找现成的素材不要自己重新写，我们只负责
+设计前端的动效和页面格式"。
+
+#### Findings
+1. **牌图与释义在不同的仓库里，且牌名对不上。** 图来自 `metabismuth/tarot-json`
+   （MIT，350×600 扫描图），释义来自 `ekelen/tarot-api`（Waite 1911 原文）。按牌名
+   合并时有两张对不上：Waite 原书用的是 `Fortitude` 和 `Last Judgment`，现代牌面
+   印的是 `Strength` 和 `Judgement`。加两条别名后 78/78 全部匹配。
+2. **把 78 张牌绕同一个远处圆心旋转，得到的是轮子不是扇子。** 第一版按"每张牌
+   rotate 一点点"排布，结果整副牌绕成一个圆盘，把下面三个牌位整个盖住。改成
+   **横向均分位置 + 抛物线抬升 + 小角度倾斜** 三个量分开算（`fanStyle`），才是
+   桌面上真实摊开的样子。
+3. **空牌位不该显示牌背。** 抽牌前三个位置渲染了 flipper，看起来像三张已经发好的
+   牌扣在那里，点"抽牌"时它们只是原地翻面，没有"发牌"这个动作。改成牌位在没有牌
+   时只画虚线框，牌背随发牌动画一起出现。
+4. **侧边栏的分区门控是按"整个分区一个 flag"写的。** For Fun 分区原本硬编码
+   `onlineGomoku` 一个 flag——塔罗一加进去，所有能看到五子棋的人都会看到塔罗。
+   这在只有一个受控条目时看不出来。改成逐条 `canAccess(role, item.feature)`，
+   侧边栏和 `FeatureRoute` 从此读同一张表，不可能再各说各话。
+5. **min/max 比值不是均匀性检验。** 抽 600 次、78 张牌，每张期望 23 次、标准差
+   约 4.8，最少 3 次最多 21 次完全正常，第一版断言 `hi < lo * 6` 会随机失败。
+   换成卡方拟合优度（77 自由度，阈值 124.8），实测 χ²=73.0。
+
+#### Verification
+后端 10 条断言全过：78 张牌、22/56 大小阿卡纳、每张都有图和释义、600 次抽牌无
+组内重复、78 张牌都出得来、卡方 73.0、响应不泄露其余牌序。78 条 deck 记录逐一
+核对指向真实存在的图片文件，无缺失也无多余资源。前端动效在一个镜像同款 markup
+与 CSS 的静态 harness 里逐帧核对（发牌 → 依次翻面 → 释义落地），核对后删除。
+
+#### Remaining
+真人在 `/tarot` 上跑一遍（本地浏览器未登录，视觉验收在用户侧）。逆位、历史记录、
+凯尔特十字牌阵、牌名中文都留给 v2。
 
 ---
 

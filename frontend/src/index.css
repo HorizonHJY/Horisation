@@ -1329,3 +1329,242 @@ textarea.form-control { height: auto; padding: .55rem .85rem; line-height: 1.55;
   .hero-block .hero-title { font-size: 1.6rem; }
 }
 
+
+/* ═══════════════════════════════════════════════════════════
+   Tarot — a dark European reading table
+   Its own closed world: deliberately ignores the site's warm-cream palette,
+   because a reading should not look like the rest of the app. Everything
+   below is scoped under .tarot so nothing leaks out.
+   ═══════════════════════════════════════════════════════════ */
+.tarot {
+  --t-velvet:   #2a1836;   /* the cloth */
+  --t-velvet-2: #150c1d;   /* its shadow */
+  --t-ink:      #f2e9dc;   /* candle-lit parchment */
+  --t-ink-dim:  #b9a68f;
+  --t-gilt:     #c9a227;   /* leaf, used sparingly */
+  --t-edge:     rgba(201, 162, 39, 0.28);
+  --t-card-w:   clamp(88px, 22vw, 132px);
+
+  position: relative;
+  min-height: calc(100vh - var(--topbar-h));
+  margin: -32px -36px;                 /* bleed past .page-content padding */
+  padding: 40px 36px 64px;
+  color: var(--t-ink);
+  font-family: var(--font-display);
+  background:
+    radial-gradient(120% 90% at 50% -10%, #4a2c5e 0%, transparent 55%),
+    radial-gradient(80% 60% at 15% 110%, #3a1f4d 0%, transparent 60%),
+    linear-gradient(160deg, var(--t-velvet) 0%, var(--t-velvet-2) 100%);
+  overflow: hidden;
+}
+@media (max-width: 767.98px) {
+  .tarot { margin: -22px -18px; padding: 28px 18px 56px; }
+}
+
+/* Cloth grain. One repeating gradient rather than an image, so it costs
+   nothing to load and scales with the viewport. */
+.tarot::before {
+  content: '';
+  position: absolute; inset: 0;
+  pointer-events: none;
+  opacity: .5;
+  background-image:
+    repeating-linear-gradient(53deg, rgba(255,255,255,.022) 0 2px, transparent 2px 5px),
+    repeating-linear-gradient(-47deg, rgba(0,0,0,.05) 0 3px, transparent 3px 7px);
+}
+
+.tarot__inner { position: relative; z-index: 1; }
+
+.tarot__title {
+  font-size: clamp(1.9rem, 5vw, 2.9rem);
+  font-weight: 700;
+  letter-spacing: .02em;
+  margin: 0 0 6px;
+  color: var(--t-ink);
+  text-shadow: 0 2px 24px rgba(0,0,0,.5);
+}
+.tarot__subtitle {
+  font-family: var(--font-serif-cn);
+  font-style: italic;
+  color: var(--t-ink-dim);
+  margin: 0 0 30px;
+  font-size: .98rem;
+}
+
+/* ── The fan of face-down cards ───────────────────────────── */
+.tarot__fan {
+  position: relative;
+  height: clamp(190px, 34vw, 280px);
+  margin: 0 auto 52px;
+  max-width: 900px;
+}
+.tarot__fan-card {
+  position: absolute;
+  left: 50%; top: 8%;
+  width: var(--t-card-w);
+  aspect-ratio: 350 / 600;
+  border-radius: 7px;
+  border: 1px solid var(--t-edge);
+  background:
+    repeating-linear-gradient(45deg, #1c3f6e 0 6px, #17355c 6px 12px),
+    #17355c;
+  box-shadow: 0 8px 20px rgba(0,0,0,.45);
+  transform-origin: 50% 50%;
+  /* Only transform and opacity animate, so the whole 78-card fan stays on the
+     compositor instead of laying out 78 nodes every frame. */
+  transition: transform .5s cubic-bezier(.22, 1, .36, 1), opacity .4s ease-out;
+  will-change: transform;
+}
+.tarot__fan-card::after {
+  content: '';
+  position: absolute; inset: 6px;
+  border: 1px solid rgba(201, 162, 39, .35);
+  border-radius: 4px;
+}
+.tarot--dealing .tarot__fan-card { opacity: 0; transform: translateX(-50%) translateY(-46px) scale(.88) !important; }
+
+/* ── The three slots ──────────────────────────────────────── */
+.tarot__spread {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: clamp(12px, 4vw, 40px);
+  flex-wrap: nowrap;
+}
+.tarot__slot {
+  flex: 0 1 var(--t-card-w);
+  min-width: 0;
+  text-align: center;
+}
+.tarot__slot-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 350 / 600;
+  border-radius: 8px;
+  perspective: 1100px;
+}
+.tarot__slot--empty .tarot__slot-frame {
+  border: 1px dashed var(--t-edge);
+  background: rgba(0,0,0,.18);
+}
+.tarot__flipper {
+  position: absolute; inset: 0;
+  transform-style: preserve-3d;
+  transition: transform .75s cubic-bezier(.22, 1, .36, 1);
+}
+.tarot__slot--revealed .tarot__flipper { transform: rotateY(180deg); }
+.tarot__face {
+  position: absolute; inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0,0,0,.55);
+}
+.tarot__face--back {
+  border: 1px solid var(--t-edge);
+  background:
+    repeating-linear-gradient(45deg, #1c3f6e 0 6px, #17355c 6px 12px),
+    #17355c;
+}
+.tarot__face--front {
+  transform: rotateY(180deg);
+  border: 1px solid rgba(201, 162, 39, .5);
+  background: #f2e9dc;
+}
+.tarot__face--front img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* The three captions must sit on one shared baseline, or the row stops
+   reading as a spread. Two things break that on a narrow screen: the position
+   label wraps (and splits 未来 down the middle), and a long name like
+   "Knight of Swords" takes two lines while its neighbours take one. So the
+   label is held to a single line and shrunk to fit, and the name reserves two
+   lines whether or not it needs them. */
+.tarot__slot-label {
+  margin-top: 12px;
+  font-size: clamp(.6rem, 2.3vw, .82rem);
+  letter-spacing: clamp(.05em, .55vw, .18em);
+  text-transform: uppercase;
+  color: var(--t-ink-dim);
+  white-space: nowrap;
+}
+.tarot__slot-label .label-zh { white-space: nowrap; }
+.tarot__card-name {
+  margin-top: 6px;
+  font-size: clamp(.82rem, 3vw, 1rem);
+  line-height: 1.28;
+  font-weight: 700;
+  color: var(--t-ink);
+  min-height: 2.56em;      /* two lines, so short and long names align */
+}
+
+/* ── Reading ──────────────────────────────────────────────── */
+.tarot__reading {
+  max-width: 760px;
+  margin: 38px auto 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.tarot__entry {
+  border-top: 1px solid var(--t-edge);
+  padding-top: 16px;
+}
+.tarot__entry-head {
+  display: flex; align-items: baseline; gap: 10px;
+  margin-bottom: 6px;
+}
+.tarot__entry-pos {
+  font-size: .74rem; letter-spacing: .2em; text-transform: uppercase;
+  color: var(--t-gilt);
+}
+.tarot__entry-name { font-size: 1.15rem; font-weight: 700; }
+.tarot__entry-keywords {
+  font-family: var(--font-body);
+  font-size: .92rem;
+  line-height: 1.7;
+  color: var(--t-ink);
+}
+.tarot__entry-desc {
+  font-family: var(--font-body);
+  font-size: .84rem;
+  line-height: 1.75;
+  color: var(--t-ink-dim);
+  margin-top: 8px;
+}
+
+/* ── Controls ─────────────────────────────────────────────── */
+.tarot__actions { display: flex; justify-content: center; gap: 12px; margin-top: 30px; }
+.tarot__btn {
+  font-family: var(--font-display);
+  font-size: .95rem;
+  letter-spacing: .06em;
+  padding: 11px 30px;
+  border-radius: 2px;
+  border: 1px solid var(--t-gilt);
+  background: transparent;
+  color: var(--t-gilt);
+  cursor: pointer;
+  transition: background .18s, color .18s;
+}
+.tarot__btn:hover:not(:disabled) { background: var(--t-gilt); color: #1a1020; }
+.tarot__btn:disabled { opacity: .45; cursor: default; }
+.tarot__btn:focus-visible { outline: 2px solid var(--t-ink); outline-offset: 3px; }
+
+.tarot__footnote {
+  margin-top: 46px;
+  text-align: center;
+  font-family: var(--font-body);
+  font-size: .74rem;
+  color: rgba(185, 166, 143, .6);
+}
+
+/* The arc and the flip ARE the interaction here, so shortening them is not an
+   answer — land the cards in place and skip the theatre instead. The fan
+   itself stays: it is static scenery that never moves on its own, and hiding
+   it would take the whole look of the page away from someone who only asked
+   not to be moved. */
+@media (prefers-reduced-motion: reduce) {
+  .tarot__fan-card { transition: none !important; }
+  .tarot__flipper  { transition: none !important; }
+}

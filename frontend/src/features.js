@@ -7,6 +7,7 @@ const VIP_AND_ABOVE = ['horizon', 'admin', 'svip', 'vip']
 
 export const FEATURES = {
   darkMode:      ['horizon'],
+  tarot:         ['horizon'],
   onlineGomoku:  ['horizon', 'admin', 'svip'],
   travelPlanner: VIP_AND_ABOVE,
   billSplit:     VIP_AND_ABOVE,
