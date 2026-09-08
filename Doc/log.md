@@ -2,12 +2,13 @@
 
 
 ## 0. Current Status
-Last Updated: 2026-09-07
+Last Updated: 2026-09-08
 
 ### Current Working Version
 - **Completed**: 全站设计系统统一；邀请码系统；功能角色门控；好友/私信系统；SQLite 迁移；二手市集（配送选项 + Restore + 动态分类 + System Management + 价格拆分 + 响应式按钮 + 浏览量计数 + 分类图标 + 多选 filter + 两行 meta + 中文配送标签 + EditModal 修复）；**留言板（Weibo 式线程回复 + 点赞 + 翻页）**；用户公开主页；**非好友直接私信**；**Market Reach Out 直接开 DM**；**Login 页 Safari 全面兼容修复**；**群组系统（独立建组 + 按用户名拉人 + 群聊，`/api/groups`）**；**品牌改名 Arch Bay（可见文案 'Horisation'→'Arch Bay'，提交 f0fc7f6）**；**市集意向成单流（trade_intents）**
-- **In Progress**: 意向成单流代码已完成并前后端 build/import 验证通过，但尚未 A/B 实测 & 未 merge 到 main 部署（2026-09-06）
-- **Blocked / Not Solved**: 密码明文存储（待迁 bcrypt）；首页天气卡片（todo #1）
+  ；**全局实时通知（一条 session 级 socket + `/api/friends/notifications` 快照）**
+- **In Progress**: 塔罗牌 section（78 张牌动画 + 经典三张牌阵，仅 `horizon` 可见）—— 尚未开工
+- **Blocked / Not Solved**: 密码明文存储（待迁 bcrypt）；`SECRET_KEY` 硬编码；首页天气卡片（todo #1）
 
 ### Latest Summary
 两条线在 2026-09-07 合流：
@@ -27,8 +28,10 @@ Last Updated: 2026-09-07
 "英文为主、中文点缀" 改为英文主体。
 
 ### Next Immediate Step
-`git push origin main` 触发 GitHub Actions 部署。部署后确认两件事：
-生产库 `_migrate_category_labels()` 正确回填了 7 个分类的 `label_zh`；意向成单流用 A/B 两号实测全流程。
+全部已部署（`a000eb3`）。开工塔罗 section 之前，先销掉三件挂账：
+① 生产库 `_migrate_category_labels()` 是否正确回填了 7 个分类的 `label_zh`（去 System Management 看）；
+② 意向成单流 A/B 两号实测全流程；
+③ 联机五子棋实测 —— 它的 `connect` 处理器一直被覆盖（见 2026-09-07 第二条），修复后未经真人验证。
 
 ---
 
@@ -57,6 +60,10 @@ Last Updated: 2026-09-07
 | 2026-09-07 | 浏览量去重从"跳过请求"改为"请求带 `?track=0`" | 原方案第二次打开走本地缓存，价格/状态可能已过期；新方案永远取最新数据，只是不计数 | 每次打开都有一次网络请求，比原来多；后端多一个查询参数分支 |
 | 2026-09-07 | 非生产实例加 LOCAL 标识（紫色条纹带 + 徽章 + 标题前缀），双信号判定 | 本地与线上都在 localhost 上应答，肉眼无法区分——本次就发生了"在一个浏览器登录、期待另一个生效" | 多一个 `local_dev` 字段暴露在公开的 check-session 上（生产恒为 false）；视觉上刻意跳出配色，属有意为之 |
 | 2026-09-07 | `--text-muted` 由 `#8a8a8a` 调深到 `#666`，并引入成对定义的 badge 配色变量 | 原值在白/奶油/subtle 三种背景上分别只有 3.45 / 3.17 / 2.88，全部跌破自己设定的 AA 底线；badge 前景色与色底是分别手挑的，五组里没有一组达标 | 视觉上比原来重一点，"次要文字"的层次感略降；换来全站可读性达标 |
+| 2026-09-07 | Socket.IO 连接改为 session 级单例（`SocketProvider`），页面只挂 handler 不再自建/断开 | 连接绑在 Friends 页组件上，离开该页即断，全站其余地方收不到任何实时事件；红点只能靠轮询，而轮询不含待处理请求 | 在线状态的含义变了（此前是"正在看好友页的人"，现在是真的在线）；页面必须自律不 disconnect，否则会连累全站 |
+| 2026-09-07 | 通知状态集中到 `NotificationsContext` + 单一快照端点 `/api/friends/notifications` | 未读数、好友请求、联系方式请求分散在三处、三个端点、三种更新时机，导致侧边栏/列表/聊天窗口显示不一致 | 多一个聚合端点；三类数据耦合在一个 context 里，将来若某类膨胀需要再拆 |
+| 2026-09-07 | 全应用只保留一处 `connect`/`disconnect` 处理器，共享注册表放 `socketio_instance` | python-socketio 同名事件是覆盖不是串联，两个模块各注册一个必然有一个静默失效 | 需要在连接时做事的模块必须改为被那一处调用，多一层间接；换来的是不会再出现"某模块 socket 逻辑无声失效" |
+| 2026-09-07 | 兜底轮询 30s → 5min，但同时加 `visibilitychange`/`focus` 重新同步 | 有了实时推送后 30 秒轮询是浪费；但只降间隔不加 visibility 会让后台标签页漏事件的窗口从 30 秒变成 5 分钟（本次实际踩到） | 切回标签页会多一次请求；换来漏事件几乎立刻自愈 |
 | 2026-09-06 | 成交用意向单（`trade_intents`）+ listing 中间态 `reserved` 代替只有 active/sold | 避免多人同时抢货撞单；成交走买家确认收到两段式，状态才真实 | 多一个表 + 两段交互；reserved 商品需保证仍在发起买家 Browse 可见 |
 
 ---
@@ -108,6 +115,25 @@ Last Updated: 2026-09-07
 - **Root Cause**: Safari 中 `backdrop-filter`（包括 `-webkit-backdrop-filter`）会为元素创建新的 stacking context，打乱后续兄弟元素的渲染层叠顺序
 - **Reusable Solution**: 凡使用 `backdrop-filter` 的页面，对所有层都加明确 `z-index`（canvas: 0，tagline: 1，form overlay: 2），不要依赖 DOM 顺序决定层叠
 
+### Pattern 13: python-socketio 的同名事件处理器是覆盖，不是串联
+- **Symptom**: 某个模块的 socket 逻辑完全不生效，但没有任何报错；另一个模块的同名事件却正常
+- **Root Cause**: `socketio.on(event)` 最终是 `self.handlers[namespace][event] = handler` —— 字典赋值。
+  两个模块各写一个 `@socketio.on('connect')`，**后导入的直接替换先导入的**，先注册的静默消失。
+  本项目里 `app.py` 先导入 `game_controller` 后导入 `friends_socket`，于是 game 的 connect 从不执行，
+  它用来缓存用户的 `_connected_users` 永远是空的
+- **Reusable Solution**: 全应用的 `connect` / `disconnect` 只能有**一处**。需要多个模块在连接时做事，
+  就让那一处调用各模块暴露的普通函数，或把共享状态放进公共模块（本项目放在 `socketio_instance.py`）。
+  排查手法：启动后打印 `socketio.server.handlers['/']`，看每个事件名实际指向哪个函数
+
+### Pattern 14: 实时功能的连接生命周期要绑会话，不能绑视图
+- **Symptom**: 通知"有时候"不实时；在某一页正常，切走就收不到；红点要刷新才更新
+- **Root Cause**: socket 建在某个页面组件的 `useEffect` 里且 `return () => socket.disconnect()`，
+  离开该页连接就断。其余页面只能靠轮询，而轮询间隔一旦调大，漏事件的窗口就跟着变大
+- **Reusable Solution**: 连接放在 Provider 里、生命周期跟着登录态；页面只挂载/卸载 handler，
+  **绝不 disconnect**。再加两条：连上时拉一次完整快照（重连即自愈），以及
+  `visibilitychange` / `focus` 时重新同步（后台标签页的 socket 会被浏览器挂起，这是最常见的漏事件来源）。
+  轮询保留成低频兜底，别删
+
 ### Pattern 11: Windows 上两个进程可以同时 LISTEN 同一端口
 - **Symptom**: 改了后端代码、重启服务，接口返回的仍是旧行为；日志看起来一切正常
 - **Root Cause**: Windows 不像 Linux 那样默认独占端口。`netstat -ano | findstr :5000` 显示**两条** LISTENING 记录（旧进程没杀干净 + 新进程），请求被内核在两者间分发，一半打到旧代码。这也会让 session 看起来"时有时无"——它只存在于其中一个进程里
@@ -126,6 +152,86 @@ Last Updated: 2026-09-07
 ---
 
 ## 3. Iteration History
+
+---
+
+### 2026-09-07 — 全局实时通知：把 socket 从页面里放出来
+
+#### Goal
+联系方式请求要能在聊天窗口里直接看到并回复；侧边栏红点要真的实时。
+
+#### Trigger / Context
+用户反馈"红点不是实时的"，并问 Discord 那种实时是怎么做的。
+
+#### Findings
+**实时能力本来就全都有，只是被关在一个页面里。** 后端一直在推 `contact_request_incoming`，
+`notify_contact_request()` 早就写好也早就在调用。问题在前端：socket 建在 `Friends.jsx` 组件内部，
+卸载时 `socket.disconnect()` —— **离开那一页连接就断**。所以在别的页面完全收不到事件。
+而侧边栏红点走的是另一条路：30 秒轮询 `/api/friends/unread`，那个端点**只数未读私信，
+不含待处理请求**。
+
+对照 Discord 的模型，缺的不是基础设施而是两件事：连接的生命周期该绑会话而不是绑视图；
+连上时要先拿一份完整快照，之后只收增量。
+
+#### Solution
+- 新增 `components/SocketProvider.jsx`：一条 session 级 socket，`useSocket()` / `useSocketEvent()`
+  下发。`Friends.jsx` 与 `OnlineGomoku.jsx` 改为挂载/卸载自己的 handler，**不再创建也不再断开**。
+- `UnreadContext` → `NotificationsContext`：同时持有未读私信、待处理好友请求、待处理联系方式请求。
+- 新增 `GET /api/friends/notifications` 一次返回三类。**socket 每次 connect 都拉一次快照**，
+  重连即自愈。轮询 30s → 5min，退化为兜底。
+- 侧边栏红点 = 未读消息 + 等你回复的人。
+- 聊天窗口顶部显示对方的待处理联系方式请求，Share / Decline 就地可点。
+- 回复后 `contact_request_resolved` 推给**双方**（请求方知道结果，回复方的其他标签页收起横幅）。
+
+#### 副作用（意外收获）
+在线状态变真实了。此前 `_online` 只记录连着的 sid，而只有打开 Friends 页的人才连着，
+所以"在线列表"实际是"当前在看好友页的人"。
+
+---
+
+### 2026-09-07 — 三个让通知需要刷新才显示的原因
+
+#### Trigger / Context
+上线后用户反馈"有时候需要刷新页面才能显示出来"。三个独立原因，其中一个是上一次提交引入的。
+
+#### Root Causes & Fixes
+
+**① 标签页回到前台时没有重新同步（自造回归）**
+上一次把兜底轮询从 30s 降到 5min，理由是 socket 扛主要负载，但**没加 visibility 处理**。
+浏览器（手机尤甚）会节流甚至挂起后台标签页的 socket，于是漏掉的事件从"最多 30 秒自愈"
+变成"最多 5 分钟"——刷新当然立刻就好。现改为 `visibilitychange` + `window focus` 时重新同步。
+另补一个竞态：`io()` 一创建就开始连接，可能早于监听器挂载，故显式检查 `socket.connected`。
+
+**② 推送的数据比 REST 少字段**
+`send_contact_request()` / `send_friend_request()` 返回原始行并被直接 emit，而 REST 端点会补
+`from_display` / `from_avatar`。所以推送来的请求显示成裸用户名、无头像，刷新后才正常。
+现两条路径共用同一个补全函数。
+
+**③ 全应用只有一个 `connect` 处理器在跑**
+`game_controller` 和 `friends_socket` 各注册了 `@socketio.on('connect')`。python-socketio 按事件名
+存字典，**后导入的直接替换先导入的**，不会串联。friends_socket 赢了（所以通知能工作），
+而 game_controller 的 `_connected_users` 从未被写入 —— **每个游戏事件的 `_get_user()` 都返回 None，
+联机五子棋很可能一直是坏的**。注册表移到 `socketio_instance`，由唯一的 connect 处理器填充。
+
+#### Verification
+对真实运行的服务器起两个真实 Socket.IO 客户端（真实 session）：B 不刷新即收到推送；
+payload 带 `from_display: "Alice"` 而非用户名；`game_create` 成功建房 —— 后者只有在 connect
+注册表解析出用户时才可能成功，是原因 ③ 的直接回归测试。
+
+---
+
+### 2026-09-07 — 设计细节修复与死代码清理
+
+- **卡片等高**：为"发布后高亮新卡"加的包裹 `div` 没给高度，`.market-card` 的 `height:100%`
+  失去参照，等高机制失效（实测短描述卡矮 39px）。加 `h-100` 后 520/520。
+- **hover 反馈**：边框 6% 黑 → 12% 黑，对比度 1.13 → 1.27，肉眼不可见。改用 `--accent`：
+  浅色 1.13 → 2.84、深色 1.20 → 5.16。
+- **首页去掉花**：`FlowerCanvas` 只保留在登录/注册页；顺带删掉两个只为叠在花上面而存在的包裹层。
+- **死代码**：`useRef`（孤儿）、`useUnread` 别名（加进去当轮就没用了）、`IS_VITE_DEV` 的 export、
+  `.page-subtitle`、`.login-logo`、8 个未使用的 Python import。
+- **核实后保留**：29 个文件的 `React` import（自动 runtime 下是空绑定，改 29 个文件不值）、
+  `app.py` 的 `_game_ctrl`/`_friends_sock`（副作用导入，删了会静默关掉实时）、
+  `csvcontroller` 的三个 `@bp.post` 路由（扫描器只匹配 `@bp.route`）、三个 Context（在 App.jsx 内部用）。
 
 ---
 

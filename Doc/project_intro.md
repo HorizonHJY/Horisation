@@ -1,6 +1,6 @@
 # Horisation — Project Introduction
 
-Last updated: 2026-09-07
+Last updated: 2026-09-08
 
 ---
 
@@ -156,6 +156,7 @@ Horisation/
 │       │   ├── Layout.jsx
 │       │   ├── Modal.jsx             # Shared modal shell + ConfirmDialog (Escape, focus trap, scroll lock)
 │       │   ├── EnvRibbon.jsx         # LOCAL marker; renders nothing in production
+│       │   ├── SocketProvider.jsx    # The app's single Socket.IO connection (session-scoped)
 │       │   ├── WeatherGreeting.jsx   # Home page greeting + Open-Meteo weather
 │       │   ├── FlowerCanvas.jsx      # Watercolor petal animation (canvas, SVG filter)
 │       │   └── HandLoader.jsx        # Loading spinner

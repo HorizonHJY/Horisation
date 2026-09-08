@@ -39,7 +39,8 @@ Browser → Cloudflare → Nginx → Gunicorn (port 8000) → Flask (API only)
 | `Backend/Controller/market_db.py` | SQLAlchemy models + helpers: User, UserSession, Listing, ListingImage, Category, Message, MessageLike, Memo, GameRoom, friends/groups tables. Also owns the additive column migrations (`_migrate_columns`, `_migrate_category_labels`). |
 | `Backend/Controller/groups_controller.py` | `/api/groups/*` — 群组：建组/拉人/群聊（独立于好友） |
 | `Backend/Controller/friends_controller.py` | `/api/friends/*` — search, requests, private chat, contact-sharing approval |
-| `Backend/Controller/friends_socket.py` | Socket.IO events: friend notifications, private chat |
+| `Backend/Controller/friends_socket.py` | **The app's only `connect`/`disconnect` handler** plus private chat and the push helpers. python-socketio keys handlers by event name, so a second `@socketio.on('connect')` anywhere would silently replace this one — put per-connection work here instead. |
+| `Backend/Controller/socketio_instance.py` | Shared `socketio` object and the sid→user registry that the single connect handler fills (`user_for_sid`) |
 | `Backend/Controller/game_controller.py` | `/api/game/*` + Socket.IO events: online Gomoku rooms and moves |
 | `Backend/Controller/travel_controller.py` / `travel_db.py` | `/api/travel/*` — multi-day itinerary planner, shareable 6-char plan id |
 | `Backend/Controller/bill_controller.py` / `bill_db.py` | `/api/bill/*` — bill splitting, shareable 6-char bill id |
@@ -57,6 +58,7 @@ Browser → Cloudflare → Nginx → Gunicorn (port 8000) → Flask (API only)
 | `frontend/src/components/Sidebar.jsx` | Navigation sidebar with logout |
 | `frontend/src/components/Modal.jsx` | Shared modal shell (Escape, focus trap, scroll lock, `aria-modal`) + `ConfirmDialog`. **Use this for anything that covers the page — never a bare div, never `window.confirm`.** |
 | `frontend/src/components/EnvRibbon.jsx` | Marks a non-production instance; renders nothing in production |
+| `frontend/src/components/SocketProvider.jsx` | The app's single Socket.IO connection, alive for the whole session. `useSocket()` / `useSocketEvent()`. **Pages attach and detach handlers; a page must never call `socket.disconnect()`** — it would cut off notifications and chat everywhere. |
 | `frontend/src/pages/` | All page components |
 
 ### Data
@@ -164,6 +166,20 @@ All login required. Full CRUD + `/complete`, `/statistics`.
 | GET | `/messages` | Get all messages (latest 200) |
 | POST | `/messages` | Post message (max 500 chars) |
 | DELETE | `/messages/<id>` | Delete own message (admin: any) |
+
+### Friends `/api/friends/` — notification surface
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | `/notifications` | **Snapshot the client asks for on every socket connect and on a 5-min fallback timer**: unread counts, pending friend requests, pending contact requests, all with sender identity attached. This is what makes state self-heal after a reconnect. |
+| GET | `/unread` | Unread message counts only. Superseded by `/notifications`; kept but unused by the SPA. |
+| GET | `/requests/pending` | Pending friend requests. Same — superseded, still served. |
+
+**Socket events** (all pushed to the `user_<username>` room):
+`friend_request_incoming`, `contact_request_incoming`, `contact_request_resolved`
+(sent to **both** parties), `friend_accepted`, `chat_message`, `chat_error`,
+`online_list`, and the `trade_intent_*` family. Anything pushed that the client
+also fetches must carry the **same shape** — enrich it through
+`_with_sender_identity` — or a pushed item renders differently from a fetched one.
 
 ---
 
