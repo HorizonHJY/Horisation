@@ -171,10 +171,11 @@ All login required. Full CRUD + `/complete`, `/statistics`.
 | DELETE | `/messages/<id>` | Delete own message (admin: any) |
 
 ### Tarot `/api/tarot/`
-Login required. Shown only to `horizon` — but that gate lives in `features.js`
-and `FeatureRoute`, like every other gated feature here; the API itself answers
-any signed-in user. Nothing sensitive sits behind it, so this follows the
-existing convention rather than inventing a one-off server-side check.
+Login required, and open to every member — it carries no entry in `features.js`
+and no `FeatureRoute`, the same as Market, Tasks, Message Board, Friends and
+Groups. It was `['horizon']` only while it was being built (2026-09-08 to
+09-10). Do not "re-gate" it by listing all five roles in `FEATURES`; a flag
+naming every role is a gate that does nothing.
 
 | Method | Route | Description |
 |--------|-------|-------------|

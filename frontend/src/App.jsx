@@ -288,7 +288,7 @@ export default function App() {
             <Route path="/travel"     element={<FeatureRoute feature="travelPlanner"><TravelPlanner /></FeatureRoute>} />
             <Route path="/bill-split" element={<FeatureRoute feature="billSplit"><BillSplit /></FeatureRoute>} />
             <Route path="/tasks" element={<Tasks />} />
-            <Route path="/tarot" element={<FeatureRoute feature="tarot"><Tarot /></FeatureRoute>} />
+            <Route path="/tarot" element={<Tarot />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/home" replace />} />
