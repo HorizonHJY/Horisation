@@ -166,6 +166,21 @@ Last Updated: 2026-09-10
 - **Root Cause**: 本地 dev（Vite :5173）、本地生产测试（Flask :5000）、线上，三者界面完全一致，浏览器标签标题也一样。cookie 是 per-browser 的，视觉上没有任何线索提示"你现在看的不是你以为的那个"
 - **Reusable Solution**: 非生产实例必须自带视觉标识。双信号判定最稳：`import.meta.env.DEV`（Vite dev）**或**后端下发的 `local_dev`（覆盖构建产物由 Flask 直接服务的场景，此时前端信号为 false）。标识用刻意跳出产品配色的颜色，并改写 `document.title`——多窗口时标签标题往往是唯一可见的线索
 
+### Pattern 16: 3D 卡片"闪烁"的四个来源，没有一个是动画本身
+- **Symptom**: 跟随指针倾斜的 3D 卡片"不丝滑，一直在闪"
+- **Root Cause**: 四件事叠在一起，每一件单独看都不明显
+  1. **Z-fighting**：两个 `backface-visibility: hidden` 的面都在 `inset: 0`，深度完全相同。卡片一倾斜，渲染器就在两个共面的平面之间反复选择，背面从正面里闪出来——**这才是"闪烁"本身**
+  2. **每帧重画渐变**：高光用 `radial-gradient(... at var(--mx) var(--my))`，指针一动就换渐变中心。改渐变的位置是 **paint**，不是 composite，整张卡每帧重新栅格化；上面再叠一个 `mix-blend-mode` 更贵
+  3. **被反复重设目标的 transition**：`transition: transform .45s` 配上每次 `pointermove` 写新值，等于每秒把一个 450ms 动画重新起 60 次。结果是卡片永远追不上手，看起来像迟滞和抖动
+  4. **`backdrop-filter: blur()` 压在会动的东西后面**：卡片每帧重绘，浏览器就得把它后面那片区域每帧重新模糊一遍。遮罩本身已经 93% 不透明，这层模糊肉眼看不出来，纯亏
+- **Reusable Solution**
+  - 两个面用 `translateZ(±0.7px)` 在深度上分开，共面就不存在了
+  - 高光做成"画一次、只做位移"：渐变固定在一个 200% 大的层的中心，用 `transform: translate3d()` 移动它
+  - **跟随指针的变换不要加 transition**，只在松手回位时临时加一个类打开过渡
+  - 一个元素只承担一种变换节奏：展开动画、翻面、倾斜各自一层嵌套，否则任一节奏的过渡都会被别的打断
+  - `pointermove` 一帧可能触发多次，写入统一收进 `requestAnimationFrame`
+  - 会动的东西后面不要放 `backdrop-filter`
+
 ### Pattern 15: 自有配色世界里的标题，颜色必须显式声明
 - **Symptom**: 深色遮罩上的卡名（`<h2>`）算出来是 `rgb(26,26,26)`，对比度约 1.1:1，整行几乎看不见；同一块里用 `<p>` 的文字全部正常
 - **Root Cause**: `index.css` 有全局 `h1, h2, h3, h4, h5, h6 { color: var(--text-primary) }`。父级设 `color` 只影响**继承**，而这条规则是直接命中 `h2` 的声明——直接声明永远赢过继承，跟特异性无关。`<p>` 没有这样的全局规则，所以继承生效
@@ -221,6 +236,14 @@ Last Updated: 2026-09-10
 #### Remaining
 关闭是快速淡出，没有做"飞回牌位"的反向动画——按动效惯例出场本就该比入场快，
 真要做再说。
+
+#### Follow-up（当天）
+用户反馈"检视牌的动画不丝滑，感觉在不断闪烁"。查下来是四件事叠加，见 Pattern 16：
+共面的两个牌面 z-fighting（这才是"闪"）、高光渐变每帧重画、`transition` 被
+`pointermove` 每帧重设目标、以及遮罩上多余的 `backdrop-filter`。
+改法：两面 `translateZ` 分开；高光改成画一次只做位移；展开/翻面/倾斜拆成三层各管各的
+节奏，倾斜跟手时不带过渡、只在松手回位时临时加 `is-settling`；指针写入收进
+`requestAnimationFrame`；去掉 `backdrop-filter`。
 
 ---
 

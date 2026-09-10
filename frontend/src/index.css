@@ -1793,8 +1793,10 @@ textarea.form-control { height: auto; padding: .55rem .85rem; line-height: 1.55;
     #1a2440;
   background:
     radial-gradient(90% 70% at 50% 40%, rgba(74, 44, 94, .55) 0%, transparent 70%),
-    rgba(9, 5, 13, .93);
-  backdrop-filter: blur(3px);
+    rgba(9, 5, 13, .95);
+  /* No backdrop-filter. At this opacity a blur is invisible, and it would make
+     the browser re-blur the region behind the card on every frame the card
+     moves — the most expensive thing on the page, bought for nothing. */
 }
 /* The modal is portalled out of .tarot, so the cloth's scrollbar theming does
    not reach it and Waite's text would scroll behind a stock grey bar. */
@@ -1839,15 +1841,31 @@ textarea.form-control { height: auto; padding: .55rem .85rem; line-height: 1.55;
   aspect-ratio: 350 / 600;
   transform-style: preserve-3d;
 }
+/* The turn. Changes only when you press the button, so it is the one layer
+   that carries a transition. */
+.tarot-inspect__turn {
+  position: relative;
+  width: 100%; height: 100%;
+  transform-style: preserve-3d;
+  transform: rotateY(var(--flip, 0deg));
+  transition: transform .6s cubic-bezier(.16, 1, .3, 1);
+}
+.tarot-inspect__card.is-flipped .tarot-inspect__turn { --flip: 180deg; }
+
+/* The tilt. No transition while it is tracking the pointer: retargeting a
+   transition on every move makes the card lag behind the hand and stutter
+   rather than follow it. `is-settling` is added only when you let go. */
 .tarot-inspect__surface {
   position: relative;
   width: 100%; height: 100%;
   transform-style: preserve-3d;
-  transform: rotateX(var(--rx, 0deg)) rotateY(calc(var(--ry, 0deg) + var(--flip, 0deg)));
-  transition: transform .45s cubic-bezier(.16, 1, .3, 1);
+  transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+  will-change: transform;
   touch-action: pan-y;      /* a drag tilts; a swipe still scrolls the page */
 }
-.tarot-inspect__card.is-flipped .tarot-inspect__surface { --flip: 180deg; }
+.tarot-inspect__surface.is-settling {
+  transition: transform .5s cubic-bezier(.16, 1, .3, 1);
+}
 
 .tarot-inspect__face {
   position: absolute; inset: 0;
@@ -1857,7 +1875,11 @@ textarea.form-control { height: auto; padding: .55rem .85rem; line-height: 1.55;
   -webkit-backface-visibility: hidden;
   box-shadow: 0 30px 60px rgba(0, 0, 0, .65);
 }
+/* Held apart in Z. Two backface-hidden planes sitting at exactly the same
+   depth z-fight the moment the card tilts, and the back flashes through the
+   front — which is the flicker, not the animation. */
 .tarot-inspect__face--front {
+  transform: translateZ(.7px);
   border: 1px solid rgba(201, 162, 39, .5);
   background: #f2e9dc;
 }
@@ -1868,7 +1890,7 @@ textarea.form-control { height: auto; padding: .55rem .85rem; line-height: 1.55;
   user-select: none;
 }
 .tarot-inspect__face--back {
-  transform: rotateY(180deg);
+  transform: rotateY(180deg) translateZ(.7px);
   border: 1px solid var(--t-edge);
   background: var(--t-back);
 }
@@ -1879,16 +1901,23 @@ textarea.form-control { height: auto; padding: .55rem .85rem; line-height: 1.55;
   border-radius: 6px;
 }
 /* Light moving across a varnished surface — this is what makes the tilt read
-   as an object being turned rather than an image being skewed. */
+   as an object being turned rather than an image being skewed.
+   The gradient is drawn once at the centre of an oversized layer and then
+   translated. Moving a gradient's colour stops instead means re-rasterising
+   the whole card on every frame, which is a paint, not a composite — and with
+   a blend mode over it, that is where the flicker came from. */
 .tarot-inspect__sheen {
-  position: absolute; inset: 0;
+  position: absolute;
+  top: -50%; left: -50%;
+  width: 200%; height: 200%;
   pointer-events: none;
   background: radial-gradient(
-    38% 30% at var(--mx, 50%) var(--my, 50%),
-    rgba(255, 252, 240, .38) 0%,
-    rgba(255, 252, 240, .10) 45%,
-    transparent 75%);
-  mix-blend-mode: screen;
+    closest-side circle at 50% 50%,
+    rgba(255, 252, 240, .30) 0%,
+    rgba(255, 252, 240, .08) 42%,
+    transparent 70%);
+  transform: translate3d(var(--sx, 0px), var(--sy, 0px), 0);
+  will-change: transform;
 }
 
 .tarot-inspect__panel { min-width: 0; display: flex; flex-direction: column; }
@@ -2013,4 +2042,7 @@ textarea.form-control { height: auto; padding: .55rem .85rem; line-height: 1.55;
   .tarot__slot--revealed .tarot__slot-frame:hover,
   .tarot__slot--revealed .tarot__slot-frame:focus-visible { transform: none; }
   .tarot-inspect__sheen { display: none; }
+  /* Nothing here animates continuously any more, so the compositor hints are
+     just retained memory. */
+  .tarot-inspect__surface { will-change: auto; }
 }

@@ -100,6 +100,8 @@ function Inspector({ entry, index, count, fromRect, onClose, onStep, reducedMoti
   const cardRef = useRef(null)
   const surfaceRef = useRef(null)
   const draggingRef = useRef(false)
+  const pendingRef = useRef(null)
+  const frameRef = useRef(0)
 
   // Reset the turn when stepping to another card — you asked to see this one.
   useEffect(() => { setFlipped(false) }, [index])
@@ -123,28 +125,59 @@ function Inspector({ entry, index, count, fromRect, onClose, onStep, reducedMoti
   /* Tilt follows the pointer: on a mouse just by hovering, on a touch screen
      only while a finger is down, so scrolling the page still works. Written
      as custom properties — no re-render per frame. */
+  /* Tilt follows the pointer: on a mouse just by hovering, on a touch screen
+     only while a finger is down, so scrolling the page still works.
+     Written as custom properties, and only once per frame — a pointermove can
+     fire several times between paints, and writing on every one of them is
+     work the screen never shows. */
   const tilt = useCallback((e) => {
     if (reducedMotion) return
     const el = surfaceRef.current
     if (!el) return
     if (e.pointerType !== 'mouse' && !draggingRef.current) return
+
     const r = el.getBoundingClientRect()
-    const px = (e.clientX - r.left) / r.width - 0.5      // -0.5 … 0.5
-    const py = (e.clientY - r.top) / r.height - 0.5
-    el.style.setProperty('--ry', `${(px * 2 * TILT_MAX_DEG).toFixed(2)}deg`)
-    el.style.setProperty('--rx', `${(-py * 2 * TILT_MAX_DEG).toFixed(2)}deg`)
-    el.style.setProperty('--mx', `${((px + 0.5) * 100).toFixed(1)}%`)
-    el.style.setProperty('--my', `${((py + 0.5) * 100).toFixed(1)}%`)
+    pendingRef.current = {
+      px: (e.clientX - r.left) / r.width - 0.5,      // -0.5 … 0.5
+      py: (e.clientY - r.top) / r.height - 0.5,
+      w: r.width, h: r.height,
+    }
+    if (frameRef.current) return
+    frameRef.current = requestAnimationFrame(() => {
+      frameRef.current = 0
+      const p = pendingRef.current
+      const node = surfaceRef.current
+      if (!p || !node) return
+      // Chasing the pointer must be immediate. A transition here would restart
+      // itself on every move and the card would lag behind the hand instead of
+      // sitting under it.
+      node.classList.remove('is-settling')
+      node.style.setProperty('--ry', `${(p.px * 2 * TILT_MAX_DEG).toFixed(2)}deg`)
+      node.style.setProperty('--rx', `${(-p.py * 2 * TILT_MAX_DEG).toFixed(2)}deg`)
+      // The sheen is a fixed gradient that gets moved, never a gradient that
+      // gets redrawn at a new centre — one is a composite, the other repaints
+      // the whole card every frame.
+      node.style.setProperty('--sx', `${(p.px * p.w).toFixed(1)}px`)
+      node.style.setProperty('--sy', `${(p.py * p.h).toFixed(1)}px`)
+    })
   }, [reducedMotion])
 
   const rest = useCallback(() => {
     draggingRef.current = false
+    if (frameRef.current) { cancelAnimationFrame(frameRef.current); frameRef.current = 0 }
+    pendingRef.current = null
     const el = surfaceRef.current
     if (!el) return
+    // Letting go is the one moment that should ease rather than snap.
+    el.classList.add('is-settling')
     el.style.setProperty('--ry', '0deg')
     el.style.setProperty('--rx', '0deg')
-    el.style.setProperty('--mx', '50%')
-    el.style.setProperty('--my', '50%')
+    el.style.setProperty('--sx', '0px')
+    el.style.setProperty('--sy', '0px')
+  }, [])
+
+  useEffect(() => () => {
+    if (frameRef.current) cancelAnimationFrame(frameRef.current)
   }, [])
 
   const onKeyDown = useCallback((e) => {
@@ -164,24 +197,30 @@ function Inspector({ entry, index, count, fromRect, onClose, onStep, reducedMoti
       {({ titleId }) => (
         <div className="tarot-inspect" onKeyDown={onKeyDown}>
           <div className="tarot-inspect__stage">
+            {/* Three nested transforms, deliberately: the open animation, the
+                turn, and the tilt each change on their own schedule, and one
+                element carrying all three means every pointer move restarts
+                the turn's transition. */}
             <div
               ref={cardRef}
               className={`tarot-inspect__card${flipped ? ' is-flipped' : ''}`}
             >
-              <div
-                ref={surfaceRef}
-                className="tarot-inspect__surface"
-                onPointerMove={tilt}
-                onPointerDown={(e) => { draggingRef.current = true; tilt(e) }}
-                onPointerUp={rest}
-                onPointerLeave={rest}
-                onPointerCancel={rest}
-              >
-                <div className="tarot-inspect__face tarot-inspect__face--front">
-                  <img src={`/tarot/${card.img}`} alt={card.name} draggable="false" />
-                  <span className="tarot-inspect__sheen" aria-hidden="true" />
+              <div className="tarot-inspect__turn">
+                <div
+                  ref={surfaceRef}
+                  className="tarot-inspect__surface is-settling"
+                  onPointerMove={tilt}
+                  onPointerDown={(e) => { draggingRef.current = true; tilt(e) }}
+                  onPointerUp={rest}
+                  onPointerLeave={rest}
+                  onPointerCancel={rest}
+                >
+                  <div className="tarot-inspect__face tarot-inspect__face--front">
+                    <img src={`/tarot/${card.img}`} alt={card.name} draggable="false" />
+                    <span className="tarot-inspect__sheen" aria-hidden="true" />
+                  </div>
+                  <div className="tarot-inspect__face tarot-inspect__face--back" />
                 </div>
-                <div className="tarot-inspect__face tarot-inspect__face--back" />
               </div>
             </div>
           </div>
