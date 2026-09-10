@@ -183,6 +183,12 @@ existing convention rather than inventing a one-off server-side check.
 
 Upright only — the deck file carries no reversed meanings.
 
+`/draw` is called the moment the shuffle animation starts, before the reader has
+touched anything; the card they then pick takes the next card in that order.
+Which physical card you touch in a shuffled deck carries no information, so this
+is as true as a real reading — but it means **the pick is theatre and the draw is
+not**, and the two must not be conflated when changing this page.
+
 ### Friends `/api/friends/` — notification surface
 | Method | Route | Description |
 |--------|-------|-------------|

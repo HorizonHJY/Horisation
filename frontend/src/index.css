@@ -1345,6 +1345,18 @@ textarea.form-control { height: auto; padding: .55rem .85rem; line-height: 1.55;
   --t-edge:     rgba(201, 162, 39, 0.28);
   --t-card-w:   clamp(88px, 22vw, 132px);
 
+  /* The back of every card, in one place — the deck, the slots and the card
+     in flight are the same object and must not drift apart. Deep indigo
+     rather than a bright blue: 78 of these are on the cloth at once, and a
+     saturated back would own the page instead of the reading. */
+  --t-back:
+    repeating-linear-gradient(45deg, #24325c 0 5px, #1a2440 5px 10px),
+    #1a2440;
+
+  /* Kept in step with RIFFLE_MS in Tarot.jsx — the component waits this long
+     before it lets you touch the deck. */
+  --t-riffle:   1500ms;
+
   position: relative;
   min-height: calc(100vh - var(--topbar-h));
   margin: -32px -36px;                 /* bleed past .page-content padding */
@@ -1360,6 +1372,10 @@ textarea.form-control { height: auto; padding: .55rem .85rem; line-height: 1.55;
 @media (max-width: 767.98px) {
   .tarot { margin: -22px -18px; padding: 28px 18px 56px; }
 }
+
+/* The surfaces the browser draws for us still belong to the cloth. */
+.tarot ::selection { background: var(--t-gilt); color: #1a1020; }
+.tarot * { scrollbar-color: var(--t-edge) transparent; scrollbar-width: thin; }
 
 /* Cloth grain. One repeating gradient rather than an image, so it costs
    nothing to load and scales with the viewport. */
@@ -1387,41 +1403,195 @@ textarea.form-control { height: auto; padding: .55rem .85rem; line-height: 1.55;
   font-family: var(--font-serif-cn);
   font-style: italic;
   color: var(--t-ink-dim);
-  margin: 0 0 30px;
+  margin: 0 0 26px;
   font-size: .98rem;
 }
 
-/* ── The fan of face-down cards ───────────────────────────── */
-.tarot__fan {
-  position: relative;
-  height: clamp(190px, 34vw, 280px);
-  margin: 0 auto 52px;
-  max-width: 900px;
+/* ── What to do right now ─────────────────────────────────── */
+/* One line changes per phase. A fixed height keeps the deck from stepping up
+   and down the page every time the wording changes under it. */
+.tarot__instruction {
+  min-height: 74px;
+  margin: 0 0 22px;
+  text-align: center;
 }
-.tarot__fan-card {
+.tarot__instruction-lead {
+  margin: 0 0 4px;
+  font-size: clamp(1.05rem, 2.6vw, 1.35rem);
+  color: var(--t-ink);
+  letter-spacing: .01em;
+}
+.tarot__instruction-sub {
+  margin: 0;
+  font-family: var(--font-serif-cn);
+  font-size: .88rem;
+  color: var(--t-ink-dim);
+}
+
+/* ── The deck ─────────────────────────────────────────────── */
+/* Rows are absolutely placed and moved with transform, so the deck box never
+   changes height: the pile, the riffle and the open fan all happen inside one
+   reserved space and the page below never shifts. */
+.tarot__deck {
+  --t-row-h: calc(var(--card-h) + 34px);
+  --t-row-gap: 10px;
+  --t-deck-h: calc(var(--t-row-h) * var(--rows) + var(--t-row-gap) * (var(--rows) - 1));
+  position: relative;
+  height: var(--t-deck-h);
+  margin: 0 auto 46px;
+  max-width: 1040px;
+}
+.tarot__row {
+  --t-row-open-y: calc((var(--t-row-h) + var(--t-row-gap)) * var(--r));
+  --t-row-stack-y: calc((var(--t-deck-h) - var(--t-row-h)) / 2);
   position: absolute;
-  left: 50%; top: 8%;
-  width: var(--t-card-w);
-  aspect-ratio: 350 / 600;
+  left: 0; right: 0; top: 0;
+  height: var(--t-row-h);
+  transform: translateY(var(--t-row-open-y));
+  transition: transform .7s cubic-bezier(.16, 1, .3, 1);
+}
+.tarot__deck--stacked .tarot__row,
+.tarot__deck--gathered .tarot__row { transform: translateY(var(--t-row-stack-y)); }
+
+.tarot__card {
+  --x: var(--seat-x, 0px);
+  --y: var(--seat-y, 0px);
+  --rot: var(--seat-rot, 0deg);
+
+  position: absolute;
+  left: 50%; top: 17px;
+  width: var(--card-w);
+  height: var(--card-h);
+  padding: 0;
+  appearance: none;
+  -webkit-appearance: none;
   border-radius: 7px;
   border: 1px solid var(--t-edge);
-  background:
-    repeating-linear-gradient(45deg, #1c3f6e 0 6px, #17355c 6px 12px),
-    #17355c;
+  background: var(--t-back);
   box-shadow: 0 8px 20px rgba(0,0,0,.45);
-  transform-origin: 50% 50%;
-  /* Only transform and opacity animate, so the whole 78-card fan stays on the
-     compositor instead of laying out 78 nodes every frame. */
-  transition: transform .5s cubic-bezier(.22, 1, .36, 1), opacity .4s ease-out;
-  will-change: transform;
+  z-index: var(--i, 0);
+  cursor: default;
+  /* Position, hover lift and the parting of neighbours all resolve into one
+     transform, so nothing here touches layout. */
+  transform:
+    translate(-50%, 0)
+    translate(calc(var(--x) + var(--push-x, 0px)), calc(var(--y) + var(--lift, 0px)))
+    rotate(var(--rot))
+    scale(var(--scale, 1));
+  transition:
+    transform .42s cubic-bezier(.16, 1, .3, 1),
+    box-shadow .28s ease-out,
+    filter .28s ease-out;
 }
-.tarot__fan-card::after {
+/* The gilt lattice line, on every face-down card wherever it appears — in the
+   deck, in the air, and in a slot. Without this the card visibly changes
+   design halfway through its own flight. */
+.tarot__card::after,
+.tarot__flyer::after,
+.tarot__face--back::after {
   content: '';
   position: absolute; inset: 6px;
-  border: 1px solid rgba(201, 162, 39, .35);
+  border: 1px solid rgba(201, 162, 39, .42);
   border-radius: 4px;
+  pointer-events: none;
 }
-.tarot--dealing .tarot__fan-card { opacity: 0; transform: translateX(-50%) translateY(-46px) scale(.88) !important; }
+.tarot__deck--stacked .tarot__card,
+.tarot__deck--gathered .tarot__card {
+  --x: 0px;
+  --y: var(--stack-y, 0px);
+  --rot: var(--jitter, 0deg);
+  /* 78 cards land on the same spot, and 78 drop shadows on the same spot add
+     up to a black cloud. Squared into a pile they only need the thin line
+     that separates one card from the one under it. */
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .4);
+}
+/* The pile as a whole still sits on the cloth, so the card on top of it —
+   and only that one — casts the real shadow. */
+.tarot__deck--stacked .tarot__row:last-child .tarot__card:last-child,
+.tarot__deck--gathered .tarot__row:last-child .tarot__card:last-child {
+  box-shadow: 0 14px 28px rgba(0, 0, 0, .5);
+}
+/* Closing beat: the deck collects itself and steps back so the three cards
+   face up are the brightest thing left on the cloth. Staggered from the top of
+   the pile down, the way a deck is actually swept together. */
+.tarot__deck--gathered .tarot__card {
+  opacity: .34;
+  transition:
+    transform .75s cubic-bezier(.16, 1, .3, 1),
+    opacity .6s ease-out;
+  transition-delay: calc(var(--i) * 3ms);
+}
+
+/* Choosing. The card under the hand rises clear of the fan, warms, and the
+   three cards either side of it lean away to open a gap — the whole point is
+   that you can see which one you are about to take. */
+.tarot__deck--open .tarot__card { cursor: pointer; }
+.tarot__deck--open .tarot__card:hover,
+.tarot__deck--open .tarot__card:focus-visible {
+  --lift: -34px;
+  --scale: 1.09;
+  z-index: 300;
+  box-shadow: 0 18px 38px rgba(0,0,0,.6), 0 0 0 1px var(--t-gilt);
+  filter: brightness(1.22);
+}
+.tarot__deck--open .tarot__card:focus-visible {
+  outline: 2px solid var(--t-ink);
+  outline-offset: 3px;
+}
+.tarot__deck--open .tarot__card:active { --lift: -22px; --scale: 1.03; }
+
+/* ── The shuffle ──────────────────────────────────────────── */
+/* Squared pile → riffle → riffle again → the deck opens. The halves are set
+   per card (`--split-x`), so the two sides genuinely come apart and interleave
+   rather than the whole block sliding sideways. */
+@keyframes tarot-riffle {
+  0%, 6% {
+    transform: translate(-50%, 0) translate(0px, var(--stack-y)) rotate(var(--jitter));
+  }
+  16% {
+    transform: translate(-50%, 0) translate(var(--split-x), calc(var(--stack-y) - 20px))
+               rotate(calc(var(--jitter) + 5deg));
+  }
+  32% {
+    transform: translate(-50%, 0) translate(0px, var(--stack-y)) rotate(var(--jitter));
+  }
+  44% {
+    transform: translate(-50%, 0) translate(calc(var(--split-x) * .62), calc(var(--stack-y) - 13px))
+               rotate(calc(var(--jitter) - 4deg));
+  }
+  58%, 64% {
+    transform: translate(-50%, 0) translate(0px, var(--stack-y)) rotate(var(--jitter));
+  }
+  100% {
+    transform: translate(-50%, 0) translate(var(--seat-x), var(--seat-y)) rotate(var(--seat-rot));
+  }
+}
+@keyframes tarot-row-open {
+  0%, 70% { transform: translateY(var(--t-row-stack-y)); }
+  100%    { transform: translateY(var(--t-row-open-y)); }
+}
+.tarot__deck--shuffling .tarot__card {
+  animation: tarot-riffle var(--t-riffle) cubic-bezier(.4, 0, .2, 1) both;
+  animation-delay: calc(var(--i) * 5ms);
+  will-change: transform;      /* only while it is actually moving */
+}
+.tarot__deck--shuffling .tarot__row {
+  animation: tarot-row-open calc(var(--t-riffle) + var(--tail, 0ms))
+             cubic-bezier(.16, 1, .3, 1) both;
+}
+
+/* ── The card in the air ──────────────────────────────────── */
+.tarot__flyer {
+  position: fixed;
+  left: 0; top: 0;
+  z-index: 1200;
+  pointer-events: none;
+  transform-origin: 50% 50%;
+  border-radius: 7px;
+  border: 1px solid var(--t-edge);
+  background: var(--t-back);
+  box-shadow: 0 22px 46px rgba(0,0,0,.6);
+}
 
 /* ── The three slots ──────────────────────────────────────── */
 .tarot__spread {
@@ -1446,7 +1616,15 @@ textarea.form-control { height: auto; padding: .55rem .85rem; line-height: 1.55;
 .tarot__slot--empty .tarot__slot-frame {
   border: 1px dashed var(--t-edge);
   background: rgba(0,0,0,.18);
+  transition: border-color .3s ease-out, box-shadow .3s ease-out;
 }
+/* The slot the next card will land in. Without this, "take three" gives you
+   no idea which position you are filling. */
+.tarot__slot--next .tarot__slot-frame {
+  border-color: var(--t-gilt);
+  box-shadow: 0 0 0 1px rgba(201,162,39,.25), 0 10px 30px rgba(0,0,0,.4);
+}
+.tarot__slot--next .tarot__slot-label { color: var(--t-gilt); }
 .tarot__flipper {
   position: absolute; inset: 0;
   transform-style: preserve-3d;
@@ -1463,9 +1641,7 @@ textarea.form-control { height: auto; padding: .55rem .85rem; line-height: 1.55;
 }
 .tarot__face--back {
   border: 1px solid var(--t-edge);
-  background:
-    repeating-linear-gradient(45deg, #1c3f6e 0 6px, #17355c 6px 12px),
-    #17355c;
+  background: var(--t-back);
 }
 .tarot__face--front {
   transform: rotateY(180deg);
@@ -1487,6 +1663,7 @@ textarea.form-control { height: auto; padding: .55rem .85rem; line-height: 1.55;
   text-transform: uppercase;
   color: var(--t-ink-dim);
   white-space: nowrap;
+  transition: color .3s ease-out;
 }
 .tarot__slot-label .label-zh { white-space: nowrap; }
 .tarot__card-name {
@@ -1509,6 +1686,13 @@ textarea.form-control { height: auto; padding: .55rem .85rem; line-height: 1.55;
 .tarot__entry {
   border-top: 1px solid var(--t-edge);
   padding-top: 16px;
+  /* Arrives just behind its own card turning over, in the same order. */
+  animation: tarot-entry .5s cubic-bezier(.16, 1, .3, 1) both;
+  animation-delay: calc(var(--entry) * 90ms);
+}
+@keyframes tarot-entry {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
 }
 .tarot__entry-head {
   display: flex; align-items: baseline; gap: 10px;
@@ -1534,7 +1718,10 @@ textarea.form-control { height: auto; padding: .55rem .85rem; line-height: 1.55;
 }
 
 /* ── Controls ─────────────────────────────────────────────── */
-.tarot__actions { display: flex; justify-content: center; gap: 12px; margin-top: 30px; }
+.tarot__actions {
+  display: flex; justify-content: center; gap: 12px;
+  margin-top: 30px; min-height: 46px;
+}
 .tarot__btn {
   font-family: var(--font-display);
   font-size: .95rem;
@@ -1551,6 +1738,20 @@ textarea.form-control { height: auto; padding: .55rem .85rem; line-height: 1.55;
 .tarot__btn:disabled { opacity: .45; cursor: default; }
 .tarot__btn:focus-visible { outline: 2px solid var(--t-ink); outline-offset: 3px; }
 
+/* A way out mid-reading, without competing with the instruction above it. */
+.tarot__btn--quiet {
+  border-color: transparent;
+  color: var(--t-ink-dim);
+  font-size: .84rem;
+  letter-spacing: .1em;
+  padding: 11px 18px;
+}
+.tarot__btn--quiet:hover:not(:disabled) {
+  background: transparent;
+  color: var(--t-ink);
+  border-color: var(--t-edge);
+}
+
 .tarot__footnote {
   margin-top: 46px;
   text-align: center;
@@ -1559,12 +1760,20 @@ textarea.form-control { height: auto; padding: .55rem .85rem; line-height: 1.55;
   color: rgba(185, 166, 143, .6);
 }
 
-/* The arc and the flip ARE the interaction here, so shortening them is not an
-   answer — land the cards in place and skip the theatre instead. The fan
-   itself stays: it is static scenery that never moves on its own, and hiding
-   it would take the whole look of the page away from someone who only asked
-   not to be moved. */
+/* The riffle and the flight ARE the interaction here, so shortening them is
+   not an answer — land the cards and skip the theatre instead. What survives
+   is everything that still says something: the deck is still dealt out to be
+   chosen from, the card under the cursor still lights up and still comes
+   forward, and the reading still arrives. Only the travel is gone. */
 @media (prefers-reduced-motion: reduce) {
-  .tarot__fan-card { transition: none !important; }
-  .tarot__flipper  { transition: none !important; }
+  .tarot__card,
+  .tarot__row,
+  .tarot__flipper,
+  .tarot__entry { animation: none !important; transition: none !important; }
+  .tarot__deck--open .tarot__card:hover,
+  .tarot__deck--open .tarot__card:focus-visible {
+    --lift: 0px;
+    --scale: 1;
+  }
+  .tarot__entry { opacity: 1; transform: none; }
 }
