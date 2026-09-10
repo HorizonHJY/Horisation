@@ -1,6 +1,6 @@
 # Horisation — To-Do List
 
-Last updated: 2026-09-09
+Last updated: 2026-09-10
 
 ---
 
@@ -8,7 +8,7 @@ Last updated: 2026-09-09
 
 | Priority | Item | Notes |
 |----------|------|-------|
-| **Next** | Tarot v3 | v1 (deck + spread) shipped 2026-09-08; v2 (hold a question → shuffle → choose your own three) shipped 2026-09-09. Open for a later pass: reversed cards, a saved reading history, other spreads (Celtic Cross), and card names in Chinese — `tarot_deck.json` has no `name_zh`, so positions are bilingual but card names are English only. |
+| **Next** | Tarot v4 | v1 deck + spread (09-08); v2 hold a question → shuffle → choose your own three (09-09); v3 tap a card to look closer (09-10). Open for a later pass: reversed cards, a saved reading history, other spreads (Celtic Cross), and card names in Chinese — `tarot_deck.json` has no `name_zh`, so positions are bilingual but card names are English only. |
 | High | Password hashing (bcrypt) | Currently stored plaintext. Anyone with `market.db` — including via the admin "Download DB" button — has every user's password in the clear. Also move `SECRET_KEY` out of `app.py`. |
 | High | Login 401 has no visible feedback? | During the 2026-09-07 session a user entered a wrong password 5 times and reported "nothing happens". Verify `Login.jsx` surfaces the 401; same defect class as the Market posting flow. |
 | Medium | Apply the Market fixes to `Tasks.jsx` | Tasks carries a byte-identical `useToast`, `.search` block, `radio-inputs` header and toast markup, and has already drifted in language and labelling. Extract a shared `ModuleShell` so they cannot drift again. |
@@ -84,6 +84,7 @@ card names read `The Star 星星`, positions read `Past 过去`.
 
 | Item | Date | Notes |
 |------|------|-------|
+| 塔罗牌 v3：点开细看 | 2026-09-10 | 翻开的牌位变成按钮，点开后卡片从牌位原地放大（约等于扫描件原尺寸，不做无意义的超采样），指针移动时倾斜并带高光，可翻到背面，三张之间用按钮或 ←/→ 来回翻。走共享 `Modal`（Esc / focus trap / 滚动锁）。 |
 | 塔罗牌 v2：自己抽牌 | 2026-09-09 | 先提示心里想一个问题 → 洗牌动画（两次交切后展开成 2/3 行）→ 鼠标划过牌抬起、邻牌让位 → 自己点三张，牌飞入牌位 → 依次翻面 → 牌堆收拢让位给释义。窄屏点空处自动取最近的牌；键盘方向键 + Enter 可走完全程。 |
 | 塔罗牌 section v1 | 2026-09-08 | `/tarot`，仅 `horizon` 可见。78 张 RWS 牌扇形展开 → 三张牌阵翻牌 → 正位释义。服务端 `secrets` 洗牌。无逆位、无历史记录。 |
 | Group messaging（群组） | 2026-08-22 | 独立建组+按用户名拉人+群聊, `/api/groups`, 见 `Doc/groups.md` |

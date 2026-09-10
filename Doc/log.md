@@ -2,7 +2,7 @@
 
 
 ## 0. Current Status
-Last Updated: 2026-09-09
+Last Updated: 2026-09-10
 
 ### Current Working Version
 - **Completed**: 全站设计系统统一；邀请码系统；功能角色门控；好友/私信系统；SQLite 迁移；二手市集（配送选项 + Restore + 动态分类 + System Management + 价格拆分 + 响应式按钮 + 浏览量计数 + 分类图标 + 多选 filter + 两行 meta + 中文配送标签 + EditModal 修复）；**留言板（Weibo 式线程回复 + 点赞 + 翻页）**；用户公开主页；**非好友直接私信**；**Market Reach Out 直接开 DM**；**Login 页 Safari 全面兼容修复**；**群组系统（独立建组 + 按用户名拉人 + 群聊，`/api/groups`）**；**品牌改名 Arch Bay（可见文案 'Horisation'→'Arch Bay'，提交 f0fc7f6）**；**市集意向成单流（trade_intents）**
@@ -12,6 +12,10 @@ Last Updated: 2026-09-09
 - **Blocked / Not Solved**: 密码明文存储（待迁 bcrypt）；`SECRET_KEY` 硬编码；首页天气卡片（todo #1）
 
 ### Latest Summary
+2026-09-10 翻开的牌**可以拿起来看**：牌位变成按钮，点开后卡片从原地放大到接近扫描件原尺寸，
+指针移动时跟着倾斜并带一道高光，可以翻到背面，三张之间用按钮或 ←/→ 来回翻，Waite 全文在旁边。
+走共享 `Modal`，Esc、focus trap、滚动锁都在。
+
 2026-09-09 塔罗改成 **一场自己动手的仪式**：先提示在心里想一个问题，点"洗牌"后牌堆做两次
 交切再展开成两行（窄屏三行）弧形；鼠标划过某张牌时它抬起、左右各三张让开一道缝；点选的牌
 从扇形里飞到牌位落下，三张齐了依次翻面，牌堆随即收拢并压暗，把版面让给释义。牌面身份仍由
@@ -162,6 +166,12 @@ Last Updated: 2026-09-09
 - **Root Cause**: 本地 dev（Vite :5173）、本地生产测试（Flask :5000）、线上，三者界面完全一致，浏览器标签标题也一样。cookie 是 per-browser 的，视觉上没有任何线索提示"你现在看的不是你以为的那个"
 - **Reusable Solution**: 非生产实例必须自带视觉标识。双信号判定最稳：`import.meta.env.DEV`（Vite dev）**或**后端下发的 `local_dev`（覆盖构建产物由 Flask 直接服务的场景，此时前端信号为 false）。标识用刻意跳出产品配色的颜色，并改写 `document.title`——多窗口时标签标题往往是唯一可见的线索
 
+### Pattern 15: 自有配色世界里的标题，颜色必须显式声明
+- **Symptom**: 深色遮罩上的卡名（`<h2>`）算出来是 `rgb(26,26,26)`，对比度约 1.1:1，整行几乎看不见；同一块里用 `<p>` 的文字全部正常
+- **Root Cause**: `index.css` 有全局 `h1, h2, h3, h4, h5, h6 { color: var(--text-primary) }`。父级设 `color` 只影响**继承**，而这条规则是直接命中 `h2` 的声明——直接声明永远赢过继承，跟特异性无关。`<p>` 没有这样的全局规则，所以继承生效
+- **Reusable Solution**: 任何脱离全站配色的区块（`.tarot`、弹层、深色 section），标题一律显式写 `color:`，不要依赖父级继承。同理，被 portal 到 DOM 顶层的弹层还要把用到的自定义属性和滚动条主题在自己的根节点上重新声明一遍——它不在原来的子树里，什么都继承不到
+- **Related**: 媒体查询不增加特异性。窄屏覆盖必须写在被覆盖规则**之后**，否则同分数下后者赢，覆盖静默失效
+
 ### Pattern 6: deploy 前必须校验 React 挂载点
 - **Symptom**: index.html 缺 `<div id="root"></div>` 时 Vite build 反而能通过（HTML 结构本身合法），但运行时 `document.getElementById('root')` 返回 null，React 静默不渲染，页面全白
 - **Root Cause**: `ReactDOM.createRoot(document.getElementById('root'))` 找不到 dom 节点会静默失败而不抛错；构建期不会发现这种逻辑错误
@@ -170,6 +180,47 @@ Last Updated: 2026-09-09
 ---
 
 ## 3. Iteration History
+
+---
+
+### 2026-09-10 — 塔罗牌：把抽到的牌拿起来看
+
+#### Goal
+翻开的三张牌可以点开细看：放大、跟着指针倾斜、能翻到背面、三张之间可以来回翻。
+
+#### Trigger / Context
+牌位只有 132px 宽，而扫描件是 350×600。Waite 牌一半的信息在边角的小人小物上，
+在牌位里根本看不见。
+
+#### Findings
+1. **放大有上限，而且上限是素材本身。** 扫描件 600px 高，放到 1200 只会看见 JPEG 噪点
+   而不是细节。所以卡片高度封顶在 `min(70vh, 620px, 按宽度算的上限)`，大约就是原图尺寸
+   ——"还能更大吗"的诚实答案是没有更多可看的了。
+2. **全局 `h1–h6 { color: var(--text-primary) }` 会盖掉继承色。** 卡名是 `<h2>`，
+   在深色遮罩上算出来是 `rgb(26,26,26)`，对比度约 1.1:1，整行几乎看不见。必须显式写
+   `color: var(--t-ink)`——`.tarot__title` 当初就踩过同一个坑。**这是 Pattern：
+   放在自有配色世界里的标题，颜色永远显式声明，不要指望继承。**
+3. **媒体查询不增加特异性，写在被覆盖的规则前面就是白写。** 窄屏把卡片降到 44vh 的那段
+   `@media` 放在 `.tarot-inspect__card` 基础规则之前，于是手机上卡片仍按 70vh 渲染、
+   占满整屏。挪到后面才生效。
+4. **手机上 Waite 的长释义会把"关闭"顶到屏幕外。** 面板改成 flex，窄屏用 `order` 把
+   操作按钮排到释义之前，第一屏就能看到上一张/下一张/翻面/关闭。
+5. **倾斜要有光才成立。** 只做 `rotateX/rotateY` 像图片被斜切；跟着指针走的高光
+   （`radial-gradient` + `mix-blend-mode: screen`）才让它像一个被拿起来的实物。
+   两者都只写自定义属性，每帧零 re-render。
+6. **弹层被 portal 到 `.tarot` 之外，什么都不继承。** 配色变量、滚动条主题都要在
+   `.tarot-inspect__backdrop` 上重新声明一遍，否则长释义会配一条系统灰滚动条。
+
+#### Verification
+1280 与 375 两种宽度：从牌位点开（卡片从牌位原地放大出来，不是凭空淡入）、指针倾斜
+（实测 `--rx/--ry` 写入且合成出 `matrix3d`）、翻面（`aria-pressed` 同步、按钮文案切换）、
+三张之间前后翻（按钮与 ←/→ 均可、首尾循环、大小阿卡纳标注跟着变）、Esc 关闭、焦点落回、
+`aria-modal` 生效。`prefers-reduced-motion` 下 JS 直接不写倾斜量，卡片照常放大、照常翻面。
+构建干净，detector 三个文件均无发现。
+
+#### Remaining
+关闭是快速淡出，没有做"飞回牌位"的反向动画——按动效惯例出场本就该比入场快，
+真要做再说。
 
 ---
 

@@ -1612,6 +1612,26 @@ textarea.form-control { height: auto; padding: .55rem .85rem; line-height: 1.55;
   aspect-ratio: 350 / 600;
   border-radius: 8px;
   perspective: 1100px;
+  padding: 0;
+  border: 0;
+  background: none;
+  appearance: none;
+  -webkit-appearance: none;
+}
+/* Face up, the slot is a control. `zoom-in` is the browser's own word for what
+   happens next, so the affordance costs no chrome. */
+.tarot__slot--revealed .tarot__slot-frame {
+  cursor: zoom-in;
+  transition: transform .3s cubic-bezier(.16, 1, .3, 1), filter .3s ease-out;
+}
+.tarot__slot--revealed .tarot__slot-frame:hover,
+.tarot__slot--revealed .tarot__slot-frame:focus-visible {
+  transform: translateY(-7px);
+  filter: brightness(1.08) drop-shadow(0 16px 26px rgba(0, 0, 0, .5));
+}
+.tarot__slot--revealed .tarot__slot-frame:focus-visible {
+  outline: 2px solid var(--t-gilt);
+  outline-offset: 5px;
 }
 .tarot__slot--empty .tarot__slot-frame {
   border: 1px dashed var(--t-edge);
@@ -1760,6 +1780,214 @@ textarea.form-control { height: auto; padding: .55rem .85rem; line-height: 1.55;
   color: rgba(185, 166, 143, .6);
 }
 
+/* ── Holding one card up to the light ─────────────────────── */
+/* The palette is redeclared here because the modal is portalled to the top of
+   the page, outside .tarot, so it inherits none of the cloth's variables. */
+.tarot-inspect__backdrop {
+  --t-ink:     #f2e9dc;
+  --t-ink-dim: #b9a68f;
+  --t-gilt:    #c9a227;
+  --t-edge:    rgba(201, 162, 39, .28);
+  --t-back:
+    repeating-linear-gradient(45deg, #24325c 0 5px, #1a2440 5px 10px),
+    #1a2440;
+  background:
+    radial-gradient(90% 70% at 50% 40%, rgba(74, 44, 94, .55) 0%, transparent 70%),
+    rgba(9, 5, 13, .93);
+  backdrop-filter: blur(3px);
+}
+/* The modal is portalled out of .tarot, so the cloth's scrollbar theming does
+   not reach it and Waite's text would scroll behind a stock grey bar. */
+.tarot-inspect__backdrop * {
+  scrollbar-color: var(--t-edge) transparent;
+  scrollbar-width: thin;
+}
+.tarot-inspect__dialog {
+  max-width: min(1060px, 94vw);
+  width: min(1060px, 94vw);
+}
+.tarot-inspect {
+  display: grid;
+  grid-template-columns: auto minmax(260px, 1fr);
+  gap: clamp(20px, 4vw, 48px);
+  align-items: center;
+  color: var(--t-ink);
+  font-family: var(--font-display);
+}
+@media (max-width: 767.98px) {
+  .tarot-inspect {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    max-height: 88vh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
+
+.tarot-inspect__stage {
+  /* The perspective lives on the stage, not the card, so the tilt is read from
+     a fixed viewpoint the way a held object is. */
+  perspective: 1400px;
+  display: flex;
+  justify-content: center;
+}
+.tarot-inspect__card {
+  /* Capped near the source resolution — the scans are 350×600 and blowing one
+     up past that shows compression, not detail. Also capped by width, or on a
+     narrow screen a card sized purely by height runs off the side. */
+  height: min(70vh, 620px, calc((92vw - 24px) * 600 / 350));
+  aspect-ratio: 350 / 600;
+  transform-style: preserve-3d;
+}
+.tarot-inspect__surface {
+  position: relative;
+  width: 100%; height: 100%;
+  transform-style: preserve-3d;
+  transform: rotateX(var(--rx, 0deg)) rotateY(calc(var(--ry, 0deg) + var(--flip, 0deg)));
+  transition: transform .45s cubic-bezier(.16, 1, .3, 1);
+  touch-action: pan-y;      /* a drag tilts; a swipe still scrolls the page */
+}
+.tarot-inspect__card.is-flipped .tarot-inspect__surface { --flip: 180deg; }
+
+.tarot-inspect__face {
+  position: absolute; inset: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, .65);
+}
+.tarot-inspect__face--front {
+  border: 1px solid rgba(201, 162, 39, .5);
+  background: #f2e9dc;
+}
+.tarot-inspect__face--front img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+  user-select: none;
+}
+.tarot-inspect__face--back {
+  transform: rotateY(180deg);
+  border: 1px solid var(--t-edge);
+  background: var(--t-back);
+}
+.tarot-inspect__face--back::after {
+  content: '';
+  position: absolute; inset: 10px;
+  border: 1px solid rgba(201, 162, 39, .42);
+  border-radius: 6px;
+}
+/* Light moving across a varnished surface — this is what makes the tilt read
+   as an object being turned rather than an image being skewed. */
+.tarot-inspect__sheen {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    38% 30% at var(--mx, 50%) var(--my, 50%),
+    rgba(255, 252, 240, .38) 0%,
+    rgba(255, 252, 240, .10) 45%,
+    transparent 75%);
+  mix-blend-mode: screen;
+}
+
+.tarot-inspect__panel { min-width: 0; display: flex; flex-direction: column; }
+.tarot-inspect__pos {
+  margin: 0 0 4px;
+  font-size: .74rem; letter-spacing: .2em; text-transform: uppercase;
+  color: var(--t-gilt);
+}
+.tarot-inspect__name {
+  margin: 0 0 6px;
+  font-size: clamp(1.6rem, 4vw, 2.4rem);
+  font-weight: 700;
+  line-height: 1.15;
+  /* Named, not inherited: the global `h1–h6 { color: var(--text-primary) }`
+     rule outranks inheritance, and on this backdrop that is near-black on
+     near-black. Same trap `.tarot__title` already had to step around. */
+  color: var(--t-ink);
+}
+.tarot-inspect__meta {
+  margin: 0 0 18px;
+  font-family: var(--font-serif-cn);
+  font-size: .82rem;
+  color: var(--t-ink-dim);
+}
+.tarot-inspect__text {
+  max-height: min(34vh, 300px);
+  overflow-y: auto;
+  padding-right: 10px;
+  border-top: 1px solid var(--t-edge);
+  padding-top: 14px;
+  /* Waite runs long. Fading the last line says "there is more" without adding
+     a scroll cue that would then have to be positioned and hidden. */
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 34px), transparent 100%);
+}
+.tarot-inspect__keywords {
+  font-family: var(--font-body);
+  font-size: .95rem; line-height: 1.7;
+  margin: 0 0 10px;
+}
+.tarot-inspect__desc {
+  font-family: var(--font-body);
+  font-size: .86rem; line-height: 1.75;
+  color: var(--t-ink-dim);
+  margin: 0;
+}
+
+.tarot-inspect__controls {
+  display: flex; align-items: center; flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 20px;
+}
+.tarot-inspect__btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-width: var(--tap-min, 44px);
+  min-height: var(--tap-min, 44px);
+  padding: 0 12px;
+  font-family: var(--font-display);
+  font-size: .84rem; letter-spacing: .06em;
+  border-radius: 2px;
+  border: 1px solid var(--t-edge);
+  background: transparent;
+  color: var(--t-ink-dim);
+  cursor: pointer;
+  transition: color .18s, border-color .18s, background .18s;
+}
+.tarot-inspect__btn--wide { padding: 0 18px; }
+.tarot-inspect__btn:hover:not(:disabled) {
+  color: var(--t-ink);
+  border-color: var(--t-gilt);
+}
+.tarot-inspect__btn:disabled { opacity: .35; cursor: default; }
+.tarot-inspect__btn:focus-visible { outline: 2px solid var(--t-gilt); outline-offset: 3px; }
+.tarot-inspect__count {
+  font-size: .85rem; letter-spacing: .12em;
+  color: var(--t-ink-dim);
+  margin: 0 8px 0 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Narrow overrides live after the rules they override — a media query adds no
+   specificity, so placed earlier in the file they simply lose. */
+@media (max-width: 767.98px) {
+  /* Stacked, the card shares the screen with the name and the reading. At 70vh
+     it took the whole viewport and pushed everything else below the fold; this
+     is still three times the size of the slot and fits in one glance. */
+  .tarot-inspect__card { height: min(44vh, 380px, calc((88vw - 24px) * 600 / 350)); }
+  .tarot-inspect__text {
+    max-height: none; overflow: visible; padding-right: 0;
+    mask-image: none;    /* nothing is clipped here, so nothing to hint at */
+  }
+  /* Stacked, Waite runs to several hundred words and would push Close off the
+     bottom of the phone. The controls go above the reading instead, so
+     everything you might want to do next is on the first screen. */
+  .tarot-inspect__controls { order: 1; margin: 16px 0 0; }
+  .tarot-inspect__text { order: 2; margin-top: 16px; }
+  .tarot-inspect__name { font-size: 1.55rem; }
+  .tarot-inspect__meta { margin-bottom: 12px; }
+}
+
 /* The riffle and the flight ARE the interaction here, so shortening them is
    not an answer — land the cards and skip the theatre instead. What survives
    is everything that still says something: the deck is still dealt out to be
@@ -1776,4 +2004,13 @@ textarea.form-control { height: auto; padding: .55rem .85rem; line-height: 1.55;
     --scale: 1;
   }
   .tarot__entry { opacity: 1; transform: none; }
+
+  /* The card still enlarges and still turns over — those are the point. What
+     goes is the tilt that follows the pointer and the light that moves with
+     it, neither of which carries anything you would otherwise miss. */
+  .tarot__slot--revealed .tarot__slot-frame,
+  .tarot-inspect__surface { transition: none !important; }
+  .tarot__slot--revealed .tarot__slot-frame:hover,
+  .tarot__slot--revealed .tarot__slot-frame:focus-visible { transform: none; }
+  .tarot-inspect__sheen { display: none; }
 }

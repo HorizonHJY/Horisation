@@ -50,6 +50,7 @@ export default function Modal({
   scrollable = true,
   dismissOnBackdrop = true,
   className = '',
+  backdropClassName = '', // for a surface whose own world owns the backdrop too
   contentStyle,
   children,
 }) {
@@ -103,8 +104,8 @@ export default function Modal({
 
   return (
     <div
-      className="modal show d-block"
-      style={{ background: 'rgba(0,0,0,.5)' }}
+      className={`modal show d-block ${backdropClassName}`}
+      style={backdropClassName ? undefined : { background: 'rgba(0,0,0,.5)' }}
       onMouseDown={dismissOnBackdrop ? (e) => { if (e.target === e.currentTarget) onClose?.() } : undefined}
       onKeyDown={onKeyDown}
     >

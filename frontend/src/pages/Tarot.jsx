@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../api'
 import HandLoader from '../components/HandLoader'
+import Modal from '../components/Modal'
 
 /**
  * Three-card spread — past, present, future.
@@ -78,6 +79,170 @@ function seatStyle(indexInRow, rowLength, rowWidth, cardWidth) {
   }
 }
 
+/* Tilt range when you hold a card up to the light. Past about 15° the
+   foreshortening starts to fight the artwork instead of describing a surface. */
+const TILT_MAX_DEG = 14
+const OPEN_MS = 460
+
+/**
+ * One card, held up and turned over.
+ *
+ * The scans are 350×600, so the slot on the table shows perhaps a fifth of what
+ * is actually there — the small figures at the edges of a Waite card are half
+ * of what the card says. This is the place to look at them. It deliberately
+ * does not zoom past the source resolution: enlarging a 600px scan to 1200
+ * shows JPEG artefacts, not detail, so the card is capped at roughly its own
+ * size and the honest answer to "bigger?" is that there is no more to see.
+ */
+function Inspector({ entry, index, count, fromRect, onClose, onStep, reducedMotion }) {
+  const { position, card } = entry
+  const [flipped, setFlipped] = useState(false)
+  const cardRef = useRef(null)
+  const surfaceRef = useRef(null)
+  const draggingRef = useRef(false)
+
+  // Reset the turn when stepping to another card — you asked to see this one.
+  useEffect(() => { setFlipped(false) }, [index])
+
+  /* Opens out of the slot it came from rather than fading in from nowhere, so
+     there is never a question about which of the three you are looking at. */
+  useLayoutEffect(() => {
+    const el = cardRef.current
+    if (!el || !fromRect || reducedMotion) return
+    const to = el.getBoundingClientRect()
+    if (!to.width) return
+    const dx = (fromRect.left + fromRect.width / 2) - (to.left + to.width / 2)
+    const dy = (fromRect.top + fromRect.height / 2) - (to.top + to.height / 2)
+    const anim = el.animate([
+      { transform: `translate(${dx}px, ${dy}px) scale(${fromRect.width / to.width})`, opacity: .6 },
+      { transform: 'none', opacity: 1 },
+    ], { duration: OPEN_MS, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' })
+    return () => anim.cancel()
+  }, [fromRect, reducedMotion])
+
+  /* Tilt follows the pointer: on a mouse just by hovering, on a touch screen
+     only while a finger is down, so scrolling the page still works. Written
+     as custom properties — no re-render per frame. */
+  const tilt = useCallback((e) => {
+    if (reducedMotion) return
+    const el = surfaceRef.current
+    if (!el) return
+    if (e.pointerType !== 'mouse' && !draggingRef.current) return
+    const r = el.getBoundingClientRect()
+    const px = (e.clientX - r.left) / r.width - 0.5      // -0.5 … 0.5
+    const py = (e.clientY - r.top) / r.height - 0.5
+    el.style.setProperty('--ry', `${(px * 2 * TILT_MAX_DEG).toFixed(2)}deg`)
+    el.style.setProperty('--rx', `${(-py * 2 * TILT_MAX_DEG).toFixed(2)}deg`)
+    el.style.setProperty('--mx', `${((px + 0.5) * 100).toFixed(1)}%`)
+    el.style.setProperty('--my', `${((py + 0.5) * 100).toFixed(1)}%`)
+  }, [reducedMotion])
+
+  const rest = useCallback(() => {
+    draggingRef.current = false
+    const el = surfaceRef.current
+    if (!el) return
+    el.style.setProperty('--ry', '0deg')
+    el.style.setProperty('--rx', '0deg')
+    el.style.setProperty('--mx', '50%')
+    el.style.setProperty('--my', '50%')
+  }, [])
+
+  const onKeyDown = useCallback((e) => {
+    if (e.key === 'ArrowLeft') { e.preventDefault(); onStep(-1) }
+    else if (e.key === 'ArrowRight') { e.preventDefault(); onStep(1) }
+  }, [onStep])
+
+  return (
+    <Modal
+      onClose={onClose}
+      title={card.name}
+      scrollable={false}
+      backdropClassName="tarot-inspect__backdrop"
+      className="tarot-inspect__dialog"
+      contentStyle={{ background: 'transparent', border: 0, boxShadow: 'none' }}
+    >
+      {({ titleId }) => (
+        <div className="tarot-inspect" onKeyDown={onKeyDown}>
+          <div className="tarot-inspect__stage">
+            <div
+              ref={cardRef}
+              className={`tarot-inspect__card${flipped ? ' is-flipped' : ''}`}
+            >
+              <div
+                ref={surfaceRef}
+                className="tarot-inspect__surface"
+                onPointerMove={tilt}
+                onPointerDown={(e) => { draggingRef.current = true; tilt(e) }}
+                onPointerUp={rest}
+                onPointerLeave={rest}
+                onPointerCancel={rest}
+              >
+                <div className="tarot-inspect__face tarot-inspect__face--front">
+                  <img src={`/tarot/${card.img}`} alt={card.name} draggable="false" />
+                  <span className="tarot-inspect__sheen" aria-hidden="true" />
+                </div>
+                <div className="tarot-inspect__face tarot-inspect__face--back" />
+              </div>
+            </div>
+          </div>
+
+          <div className="tarot-inspect__panel">
+            <p className="tarot-inspect__pos">
+              {position.label}<span className="label-zh">{position.label_zh}</span>
+            </p>
+            <h2 className="tarot-inspect__name" id={titleId}>{card.name}</h2>
+            <p className="tarot-inspect__meta">
+              {card.arcana === 'major' ? 'Major Arcana 大阿卡纳' : 'Minor Arcana 小阿卡纳'}
+              {' · '}Upright 正位
+            </p>
+
+            <div className="tarot-inspect__text">
+              {card.keywords && <p className="tarot-inspect__keywords">{card.keywords}</p>}
+              {card.description && <p className="tarot-inspect__desc">{card.description}</p>}
+            </div>
+
+            <div className="tarot-inspect__controls">
+              <button
+                type="button"
+                className="tarot-inspect__btn"
+                onClick={() => onStep(-1)}
+                disabled={count < 2}
+              >
+                <i className="fas fa-chevron-left" aria-hidden="true" />
+                <span className="visually-hidden">Previous card</span>
+              </button>
+              <span className="tarot-inspect__count">{index + 1} / {count}</span>
+              <button
+                type="button"
+                className="tarot-inspect__btn"
+                onClick={() => onStep(1)}
+                disabled={count < 2}
+              >
+                <i className="fas fa-chevron-right" aria-hidden="true" />
+                <span className="visually-hidden">Next card</span>
+              </button>
+
+              <button
+                type="button"
+                className="tarot-inspect__btn tarot-inspect__btn--wide"
+                onClick={() => setFlipped(f => !f)}
+                aria-pressed={flipped}
+              >
+                <i className="fas fa-sync-alt" aria-hidden="true" />
+                {flipped ? 'Show the face 看正面' : 'Turn it over 翻面'}
+              </button>
+              <button type="button" className="tarot-inspect__btn tarot-inspect__btn--wide" onClick={onClose}>
+                <i className="fas fa-xmark" aria-hidden="true" />
+                Close 关闭
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </Modal>
+  )
+}
+
 export default function Tarot() {
   const [deck, setDeck] = useState([])
   const [positions, setPositions] = useState([])
@@ -94,6 +259,7 @@ export default function Tarot() {
   const [deckWidth, setDeckWidth] = useState(0)
 
   const [focusSeatIndex, setFocusSeatIndex] = useState(0)   // roving tab stop
+  const [inspecting, setInspecting] = useState(null)        // { index, fromRect }
 
   const drawnRef = useRef([])        // the server's three, in order
   const deckElRef = useRef(null)
@@ -287,6 +453,21 @@ export default function Tarot() {
     deckElRef.current?.querySelector(`[data-seat="${focusSeatIndex}"]`)?.focus()
   }, [remaining, focusSeatIndex])
 
+  /** Open one of the three face-up cards, out of the slot it is lying in. */
+  const inspect = useCallback((i, el) => {
+    setInspecting({ index: i, fromRect: el?.getBoundingClientRect() ?? null })
+  }, [])
+
+  /** Step between the three without going back to the table. */
+  const stepInspect = useCallback((delta) => {
+    setInspecting(prev => {
+      if (!prev) return prev
+      const next = (prev.index + delta + POSITION_COUNT) % POSITION_COUNT
+      const el = slotRefs.current[next]
+      return { index: next, fromRect: el?.getBoundingClientRect() ?? null }
+    })
+  }, [])
+
   // ── Keyboard: one roving stop for the whole deck ────────────
   const focusSeat = useCallback((flatIndex) => {
     const el = deckElRef.current?.querySelector(`[data-seat="${flatIndex}"]`)
@@ -373,7 +554,9 @@ export default function Tarot() {
         : '',
     },
     revealing: { lead: 'Turning them over.', sub: '翻牌中。' },
-    done: { lead: 'Your three cards.', sub: '这是你的牌 — 怎么读，你说了算。' },
+    // The cards are worth looking at properly, and nothing else on the page
+    // says so — the slot is small enough to read as finished.
+    done: { lead: 'Your three cards.', sub: 'Tap one to look closer · 点开任意一张细看' },
   }[phase]
 
   return (
@@ -452,6 +635,9 @@ export default function Tarot() {
           {positions.map((pos, i) => {
             const card = slots[i]
             const revealed = revealedCount > i
+            // Face up, it becomes a control: this is where you go to actually
+            // look at the card rather than at a 132px thumbnail of it.
+            const Frame = revealed ? 'button' : 'div'
             return (
               <div
                 key={pos.key}
@@ -462,7 +648,15 @@ export default function Tarot() {
                   phase === 'choosing' && i === chosen ? 'tarot__slot--next' : '',
                 ].join(' ')}
               >
-                <div className="tarot__slot-frame" ref={el => { slotRefs.current[i] = el }}>
+                <Frame
+                  className="tarot__slot-frame"
+                  ref={el => { slotRefs.current[i] = el }}
+                  {...(revealed ? {
+                    type: 'button',
+                    'aria-label': `Look closer at ${card.card.name} — ${pos.label}`,
+                    onClick: (e) => inspect(i, e.currentTarget),
+                  } : {})}
+                >
                   {/* Before a card lands the slot is an empty place on the
                       cloth, not a card lying face down. */}
                   {card && (
@@ -473,7 +667,7 @@ export default function Tarot() {
                       </div>
                     </div>
                   )}
-                </div>
+                </Frame>
                 <div className="tarot__slot-label">
                   {pos.label}
                   <span className="label-zh">{pos.label_zh}</span>
@@ -535,6 +729,18 @@ export default function Tarot() {
           A. E. Waite, <em>The Pictorial Key to the Tarot</em> (1911)
         </p>
       </div>
+
+      {inspecting && slots[inspecting.index] && (
+        <Inspector
+          entry={slots[inspecting.index]}
+          index={inspecting.index}
+          count={POSITION_COUNT}
+          fromRect={inspecting.fromRect}
+          reducedMotion={reducedMotion}
+          onStep={stepInspect}
+          onClose={() => setInspecting(null)}
+        />
+      )}
 
       {/* The card in the air. Fixed to the viewport so neither the deck's
           clipping nor the slots' stacking order can cut it off. */}

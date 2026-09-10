@@ -57,7 +57,7 @@ Browser → Cloudflare → Nginx → Gunicorn (port 8000) → Flask (API only)
 | `frontend/src/features.js` | Per-role feature flags (`canAccess`) — the frontend half of role gating |
 | `frontend/src/index.css` | Global design system: tokens, focus ring, badge pairs, market card, dark theme |
 | `frontend/src/components/Sidebar.jsx` | Navigation sidebar with logout |
-| `frontend/src/components/Modal.jsx` | Shared modal shell (Escape, focus trap, scroll lock, `aria-modal`) + `ConfirmDialog`. **Use this for anything that covers the page — never a bare div, never `window.confirm`.** |
+| `frontend/src/components/Modal.jsx` | Shared modal shell (Escape, focus trap, scroll lock, `aria-modal`) + `ConfirmDialog`. **Use this for anything that covers the page — never a bare div, never `window.confirm`.** It portals out of its caller's subtree, so a surface with its own palette must redeclare its variables (and scrollbar theming) on the dialog — pass `backdropClassName` for that. |
 | `frontend/src/components/EnvRibbon.jsx` | Marks a non-production instance; renders nothing in production |
 | `frontend/src/components/SocketProvider.jsx` | The app's single Socket.IO connection, alive for the whole session. `useSocket()` / `useSocketEvent()`. **Pages attach and detach handlers; a page must never call `socket.disconnect()`** — it would cut off notifications and chat everywhere. |
 | `frontend/src/pages/` | All page components |
