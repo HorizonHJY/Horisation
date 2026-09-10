@@ -51,8 +51,8 @@ Market, Friends, Groups, Tasks, Bill Split, and Travel.
 Shipped surfaces: Home (weather greeting + quick access), Market (listings with images, categories,
 delivery options, view counts), Tasks (bounty board), Message Board (threaded replies + likes),
 Friends (requests, private chat, separately-approved contact sharing), Groups (independent of the
-friend graph), Online Gomoku, Memo, Travel Planner, Bill Split, CSV Workspace, Profile, Admin, and
-System Management.
+friend graph), Online Gomoku, Tarot (78-card deck, server-side shuffle, three-card spread), Memo,
+Travel Planner, Bill Split, CSV Workspace, Profile, Admin, and System Management.
 
 Technical constraints future work must respect:
 

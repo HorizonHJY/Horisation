@@ -14,6 +14,11 @@ Actual image files are stored in **Cloudflare R2** object storage.
 | Relational DB | SQLite (SQLAlchemy) | `_data/market.db` | All structured data |
 | Object Storage | Cloudflare R2 | Cloud bucket | Image files (listings + avatars) |
 | JSON files | Plain JSON | `_data/notes/` | Per-user notes (git tracked) |
+| Static assets | JSON + JPEG in the repo | `Backend/data/`, `frontend/public/` | Read-only reference data that never changes at runtime — currently the tarot deck |
+
+Note the last row is a different kind of thing from the rest: it is content shipped
+with the code, not user data. Nothing writes to it, and it needs no migration and no
+backup beyond the repository itself.
 
 > **Previous state**: `users.json` and `sessions.json` were used before March 2026.
 > They were migrated to SQLite on first startup and renamed to `.migrated`.
@@ -32,7 +37,7 @@ Built with SQLAlchemy ORM — can migrate to PostgreSQL by changing the engine U
 | id | INTEGER | Auto-increment PK |
 | username | TEXT | Unique, indexed |
 | password | TEXT | Plaintext (⚠️ needs bcrypt) |
-| role | TEXT | horizon / horizonadmin / vip1 / vip2 / vip3 / user |
+| role | TEXT | `horizon` / `admin` / `svip` / `vip` / `user` — the set defined by `USER_ROLES` in `user_manager.py`. (Documented here as horizonadmin / vip1 / vip2 / vip3 until 2026-09-10; those names were never in the code.) |
 | email | TEXT | Optional |
 | display_name | TEXT | Shown in UI |
 | is_active | BOOLEAN | Deactivated users cannot log in |
@@ -330,6 +335,13 @@ _data/
 
 Key/
 └── r2_config.json       ← R2 credentials (gitignored)
+
+Backend/data/
+└── tarot_deck.json      ← 78 cards: id, name, arcana, image filename, Waite 1911 text
+                           (git tracked, read-only, loaded once and cached)
+
+frontend/public/tarot/
+└── *.jpg                ← 78 Rider–Waite–Smith scans, ~7.6 MB (git tracked, served by Nginx)
 
 Cloudflare R2 bucket: horisation-market
 ├── listings/<id>/<img>.jpg

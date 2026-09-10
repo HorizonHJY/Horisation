@@ -89,21 +89,34 @@ Images are stored in Cloudflare R2; only the public URL is kept in the database.
 | Market | `/market` | All | Second-hand trading — browse, post listings with images, Reach Out to sellers, seller profile modal. Categories (slug/label/order/active) stored in DB and configurable via System Management. Currency: USD ($). |
 | Message Board | `/feedback` | All | Community message board, all users can post |
 | Friends | `/friends` | All | Friend system: search, add, private chat, contact sharing with approval flow |
+| Groups | `/groups` | All | Build a group by username, independent of the friend graph; group chat. See `Doc/groups.md` |
+| Tasks | `/tasks` | All | Bounty / task board |
+| Tarot | `/tarot` | All | 78-card Rider–Waite–Smith deck: shuffle, choose your own three, past / present / future, tap a card to look closer. Server-side shuffle. `horizon`-only 09-08 → 09-10, open to everyone since |
 | Profile | `/profile` | All | Update display name, email, password, avatar, contact info (with hide toggle) |
-| Gomoku (Local) | `/fun/gomoku` | All | Local 2-player Five in a Row, 15×15 board |
-| Gomoku (Online) | `/fun/online-gomoku` | horizon, horizonadmin, vip3 | Real-time multiplayer Five in a Row via Socket.IO |
-| Admin | `/admin` | admin+ | User management (create, edit, reset password, delete, role) + invite code management (horizon only) |
-| System Management | `/admin/system` | admin+ | Manage market category list (slug, label, order, active toggle) |
-| CSV Workspace | `/csv` | horizon only | Upload, preview, and summarise CSV / Excel files |
+| Gomoku (Online) | `/fun/gomoku-online` | horizon, admin, svip | Real-time multiplayer Five in a Row via Socket.IO |
+| Travel Planner | `/travel` | horizon, admin, svip, vip | Multi-day itinerary planner, shareable 6-char plan id |
+| Bill Split | `/bill-split` | horizon, admin, svip, vip | Bill splitting, shareable 6-char bill id |
+| Admin | `/admin` | admin permission | User management (create, edit, reset password, delete, role) + invite code management (horizon only) |
+| System Management | `/admin/system` | admin permission | Manage market category list (slug, label, order, active toggle) |
+| CSV Workspace | `/csv` | horizon (sidebar only) | Upload, preview, and summarise CSV / Excel files. The **sidebar entry** is horizon-only; the route itself is not role-gated, so the URL works for any signed-in user |
+
+> `Gomoku.jsx` (local 2-player) exists under `pages/fun/` but has **no route and no
+> nav entry** — it is currently unreachable. It used to be listed here as
+> `/fun/gomoku`, which never existed.
+>
+> Roles are `horizon` / `admin` / `svip` / `vip` / `user` (see `user_manager.py`).
+> An earlier version of this table used `horizonadmin` and `vip3`, which are not
+> real roles.
 
 ### Under Development
 
-| Feature | Route |
-|---------|-------|
-| Data Analysis | `/under-development` |
-| Data Handling | `/under-development` |
-| Data Visualisation | `/under-development` |
-| Notes | `/under-development` |
+Nothing is currently in this state. Data Analysis, Data Handling, Data Visualisation
+and Notes were listed here pointing at `/under-development`; that route and those nav
+entries no longer exist. Data visualisation is still wanted — it lives in
+`Doc/todo.md` under Feature Ideas, which is where planned work belongs.
+
+`notes_controller.py` still serves `/api/notes/*` (11 routes) but no frontend calls it;
+see `Doc/todo.md`.
 
 ---
 
@@ -190,10 +203,15 @@ Horisation/
 
 - **Desktop**: Fixed sidebar (240px) + fixed topbar; main content offset accordingly
 - **Mobile (< 768px)**: Sidebar hidden off-screen; hamburger button (`☰`) in topbar opens a slide-in drawer with a dark overlay backdrop. Navigating to any page auto-closes the drawer.
-- Sidebar navigation is role-gated:
-  - All users: Main (Home), Community, For Fun, Toolkit (Hormemo)
-  - `horizon` additionally sees: Toolkit → CSV Workspace, Data Analysis, Data Handling, Data Visualisation
-  - Users with `admin` permission: Admin section
+- Sidebar navigation is gated **per item**, not per section (`canAccess(role, item.feature)`
+  in `Sidebar.jsx`); an item with no `feature` key is open to everyone:
+  - All members: Main (Home), Community (Market, Tasks, Message Board, Friends, Groups),
+    For Fun → Tarot, Toolkit → Memo
+  - `horizon` / `admin` / `svip` additionally see: For Fun → Online Gomoku
+  - `vip` and above additionally see: Toolkit → Travel Planner, Bill Split
+  - `horizon` additionally sees: Toolkit → CSV Workspace
+  - Users with `admin` permission: the Admin section
+  - A section only renders if at least one of its items is visible
 
 ---
 
@@ -209,6 +227,7 @@ See `Doc/todo.md` for the full prioritised list. Key items:
 - [x] Group messaging / group chat — done 2026-08-22
 - [x] CI/CD pipeline (GitHub Actions → EC2) — done, `.github/workflows/deploy.yml`
 
-> **Note (2026-09-07):** this document's Features and Project Structure sections still predate
-> Travel Planner, Bill Split, Tasks and the weather endpoint. `CLAUDE.md` has the current
-> backend file map; treat code as truth where the two disagree.
+> **Note (2026-09-10):** the Features table and the sidebar section above were rebuilt
+> from the code and are current. The **Project Structure** tree further up is not — it
+> still predates Travel Planner, Bill Split, Tasks, the weather endpoint and Tarot.
+> `CLAUDE.md` has the current backend file map; treat code as truth where the two disagree.

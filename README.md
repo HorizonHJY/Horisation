@@ -10,13 +10,21 @@ A private web platform for close friends — tools, community, and games in one 
 
 | Feature | Description |
 |---------|-------------|
-| **Hormemo** | Personal memo & task tracker with priorities and tags |
+| **Market** | Second-hand trading — listings with photos, categories, and a two-step deal flow (interest → seller accepts → buyer confirms received) |
+| **Tasks** | Bounty board — post a job, someone picks it up |
+| **Message Board** | Threaded replies and likes |
+| **Friends** | Requests, private chat, and separately-approved contact sharing |
+| **Groups** | Group chat, independent of the friend graph |
+| **Tarot** | 78-card Rider–Waite–Smith deck: shuffle, choose your own three, past / present / future, tap a card to look closer. Shuffle happens server-side |
+| **Online Gomoku** | Real-time multiplayer Five in a Row over Socket.IO |
+| **Memo** | Personal memo & task tracker with priorities and tags |
+| **Travel Planner** | Multi-day itineraries with a shareable plan id |
+| **Bill Split** | Split a bill, shareable by id |
 | **CSV Workspace** | Upload, preview, and summarise CSV / Excel files |
-| **Market** | Second-hand trading — post listings with photos, price, contact |
-| **Message Board** | Community message board for all users |
-| **Gomoku** | Local 2-player Five in a Row (15×15) |
-| **Profile** | Update display name, email, password, avatar |
-| **Admin** | User management — create, edit, reset password, delete |
+| **Profile / Admin** | Profile editing; user management and market categories for admins |
+
+Some features are limited by role — see `frontend/src/features.js`, which is the
+only place that decides. A feature with no entry there is open to every member.
 
 ---
 
