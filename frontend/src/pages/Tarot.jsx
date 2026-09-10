@@ -99,6 +99,8 @@ function Inspector({ entry, index, count, fromRect, onClose, onStep, reducedMoti
   const [flipped, setFlipped] = useState(false)
   const cardRef = useRef(null)
   const surfaceRef = useRef(null)
+  const hitRef = useRef(null)
+  const rectRef = useRef(null)
   const draggingRef = useRef(false)
   const pendingRef = useRef(null)
   const frameRef = useRef(0)
@@ -125,18 +127,35 @@ function Inspector({ entry, index, count, fromRect, onClose, onStep, reducedMoti
   /* Tilt follows the pointer: on a mouse just by hovering, on a touch screen
      only while a finger is down, so scrolling the page still works. Written
      as custom properties — no re-render per frame. */
-  /* Tilt follows the pointer: on a mouse just by hovering, on a touch screen
-     only while a finger is down, so scrolling the page still works.
-     Written as custom properties, and only once per frame — a pointermove can
-     fire several times between paints, and writing on every one of them is
-     work the screen never shows. */
+  /* Measure the frame the card sits in, never the card. Two rules, both learned
+     from vanilla-tilt.js (micku7zu, MIT), and between them they are the whole
+     reason a tilt is steady rather than oscillating:
+
+       - the pointer is measured against something that does not move. Reading
+         the rotating card's own getBoundingClientRect gives a box that grows
+         and shifts as it tilts, so the measurement drives the tilt which
+         changes the measurement — the card wobbles between tilted and upright
+         forever;
+       - and the measurement is cached on entry rather than taken per frame,
+         because a layout read every frame is a flush every frame.
+
+     `.tarot-inspect__hit` is that unmoving frame: same size as the card,
+     never transformed, and it owns the pointer handlers so hit-testing cannot
+     feed back either. */
+  const remember = useCallback(() => {
+    const hit = hitRef.current
+    if (hit) rectRef.current = hit.getBoundingClientRect()
+  }, [])
+
   const tilt = useCallback((e) => {
     if (reducedMotion) return
     const el = surfaceRef.current
     if (!el) return
     if (e.pointerType !== 'mouse' && !draggingRef.current) return
 
-    const r = el.getBoundingClientRect()
+    if (!rectRef.current) remember()
+    const r = rectRef.current
+    if (!r || !r.width) return
     pendingRef.current = {
       px: (e.clientX - r.left) / r.width - 0.5,      // -0.5 … 0.5
       py: (e.clientY - r.top) / r.height - 0.5,
@@ -164,6 +183,7 @@ function Inspector({ entry, index, count, fromRect, onClose, onStep, reducedMoti
 
   const rest = useCallback(() => {
     draggingRef.current = false
+    rectRef.current = null
     if (frameRef.current) { cancelAnimationFrame(frameRef.current); frameRef.current = 0 }
     pendingRef.current = null
     const el = surfaceRef.current
@@ -176,8 +196,14 @@ function Inspector({ entry, index, count, fromRect, onClose, onStep, reducedMoti
     el.style.setProperty('--sy', '0px')
   }, [])
 
-  useEffect(() => () => {
-    if (frameRef.current) cancelAnimationFrame(frameRef.current)
+  // The cached frame is only wrong if the window changes size under it.
+  useEffect(() => {
+    const drop = () => { rectRef.current = null }
+    window.addEventListener('resize', drop)
+    return () => {
+      window.removeEventListener('resize', drop)
+      if (frameRef.current) cancelAnimationFrame(frameRef.current)
+    }
   }, [])
 
   const onKeyDown = useCallback((e) => {
@@ -197,29 +223,33 @@ function Inspector({ entry, index, count, fromRect, onClose, onStep, reducedMoti
       {({ titleId }) => (
         <div className="tarot-inspect" onKeyDown={onKeyDown}>
           <div className="tarot-inspect__stage">
-            {/* Three nested transforms, deliberately: the open animation, the
-                turn, and the tilt each change on their own schedule, and one
-                element carrying all three means every pointer move restarts
-                the turn's transition. */}
+            {/* The pointer handlers live on the frame, not on the card. Four
+                nested layers, each with one job: the frame never moves so it
+                can be measured and hit-tested; then the open animation, the
+                turn, and the tilt, which change on three different schedules
+                and would otherwise keep interrupting each other's transitions. */}
             <div
-              ref={cardRef}
-              className={`tarot-inspect__card${flipped ? ' is-flipped' : ''}`}
+              ref={hitRef}
+              className="tarot-inspect__hit"
+              onPointerEnter={remember}
+              onPointerMove={tilt}
+              onPointerDown={(e) => { draggingRef.current = true; remember(); tilt(e) }}
+              onPointerUp={rest}
+              onPointerLeave={rest}
+              onPointerCancel={rest}
             >
-              <div className="tarot-inspect__turn">
-                <div
-                  ref={surfaceRef}
-                  className="tarot-inspect__surface is-settling"
-                  onPointerMove={tilt}
-                  onPointerDown={(e) => { draggingRef.current = true; tilt(e) }}
-                  onPointerUp={rest}
-                  onPointerLeave={rest}
-                  onPointerCancel={rest}
-                >
-                  <div className="tarot-inspect__face tarot-inspect__face--front">
-                    <img src={`/tarot/${card.img}`} alt={card.name} draggable="false" />
-                    <span className="tarot-inspect__sheen" aria-hidden="true" />
+              <div
+                ref={cardRef}
+                className={`tarot-inspect__card${flipped ? ' is-flipped' : ''}`}
+              >
+                <div className="tarot-inspect__turn">
+                  <div ref={surfaceRef} className="tarot-inspect__surface is-settling">
+                    <div className="tarot-inspect__face tarot-inspect__face--front">
+                      <img src={`/tarot/${card.img}`} alt={card.name} draggable="false" />
+                      <span className="tarot-inspect__sheen" aria-hidden="true" />
+                    </div>
+                    <div className="tarot-inspect__face tarot-inspect__face--back" />
                   </div>
-                  <div className="tarot-inspect__face tarot-inspect__face--back" />
                 </div>
               </div>
             </div>

@@ -1833,12 +1833,19 @@ textarea.form-control { height: auto; padding: .55rem .85rem; line-height: 1.55;
   display: flex;
   justify-content: center;
 }
-.tarot-inspect__card {
-  /* Capped near the source resolution — the scans are 350×600 and blowing one
-     up past that shows compression, not detail. Also capped by width, or on a
-     narrow screen a card sized purely by height runs off the side. */
+/* The frame the card sits in. It is the size and the hit area, and it is the
+   one thing here that never transforms — everything that moves is inside it.
+   Capped near the source resolution: the scans are 350×600 and blowing one up
+   past that shows compression, not detail. Also capped by width, or on a
+   narrow screen a card sized purely by height runs off the side. */
+.tarot-inspect__hit {
+  position: relative;
   height: min(70vh, 620px, calc((92vw - 24px) * 600 / 350));
   aspect-ratio: 350 / 600;
+  touch-action: pan-y;      /* a drag tilts; a swipe still scrolls the page */
+}
+.tarot-inspect__card {
+  width: 100%; height: 100%;
   transform-style: preserve-3d;
 }
 /* The turn. Changes only when you press the button, so it is the one layer
@@ -1861,7 +1868,6 @@ textarea.form-control { height: auto; padding: .55rem .85rem; line-height: 1.55;
   transform-style: preserve-3d;
   transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
   will-change: transform;
-  touch-action: pan-y;      /* a drag tilts; a swipe still scrolls the page */
 }
 .tarot-inspect__surface.is-settling {
   transition: transform .5s cubic-bezier(.16, 1, .3, 1);
@@ -1917,7 +1923,6 @@ textarea.form-control { height: auto; padding: .55rem .85rem; line-height: 1.55;
     rgba(255, 252, 240, .08) 42%,
     transparent 70%);
   transform: translate3d(var(--sx, 0px), var(--sy, 0px), 0);
-  will-change: transform;
 }
 
 .tarot-inspect__panel { min-width: 0; display: flex; flex-direction: column; }
@@ -2003,7 +2008,7 @@ textarea.form-control { height: auto; padding: .55rem .85rem; line-height: 1.55;
   /* Stacked, the card shares the screen with the name and the reading. At 70vh
      it took the whole viewport and pushed everything else below the fold; this
      is still three times the size of the slot and fits in one glance. */
-  .tarot-inspect__card { height: min(44vh, 380px, calc((88vw - 24px) * 600 / 350)); }
+  .tarot-inspect__hit { height: min(44vh, 380px, calc((88vw - 24px) * 600 / 350)); }
   .tarot-inspect__text {
     max-height: none; overflow: visible; padding-right: 0;
     mask-image: none;    /* nothing is clipped here, so nothing to hint at */
