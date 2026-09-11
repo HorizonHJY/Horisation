@@ -201,10 +201,19 @@ Horisation/
 
 ## UI / Responsiveness
 
-- **Desktop**: Fixed sidebar (240px) + fixed topbar; main content offset accordingly
-- **Mobile (< 768px)**: Sidebar hidden off-screen; hamburger button (`☰`) in topbar opens a slide-in drawer with a dark overlay backdrop. Navigating to any page auto-closes the drawer.
-- Sidebar navigation is gated **per item**, not per section (`canAccess(role, item.feature)`
-  in `Sidebar.jsx`); an item with no `feature` key is open to everyone:
+- **Desktop (≥ 768px)** — since 2026-09-11 the 240px column is gone by default. What stays on
+  the left edge is a 14px **spine**: the arch mark, one dot per section with the current one
+  lit, and a red lantern when someone is waiting on you in Friends. Move to the edge (the
+  reactive strip is 26px, wider than the visible line) or press `[` and the panel slides
+  *over* the page — the content never reflows for a glance at the menu. `Esc` or moving away
+  tucks it back. The pin in the panel's corner docks it (exactly the old layout) and that
+  choice is remembered per browser in `localStorage['archbay.nav']`. The topbar carries a
+  breadcrumb (*Community / Market*) so the page still says where it is.
+- **Mobile (< 768px)**: unchanged — hamburger (`☰`) opens a slide-in drawer with a scrim;
+  navigating anywhere closes it.
+- The whole map lives in `frontend/src/nav.js`; the sidebar, the spine's dots and the
+  breadcrumb all read it. Items are gated **per item** (`canAccess(role, item.feature)`);
+  an item with no `feature` key is open to everyone:
   - All members: Main (Home), Community (Market, Tasks, Message Board, Friends, Groups),
     For Fun → Tarot, Toolkit → Memo
   - `horizon` / `admin` / `svip` additionally see: For Fun → Online Gomoku

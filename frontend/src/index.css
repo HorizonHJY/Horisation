@@ -7,7 +7,10 @@
 :root {
   /* Layout */
   --sidebar-w:      240px;
+  --spine-w:        14px;     /* the tucked-away nav: what you can see */
+  --spine-hot-w:    26px;     /* the tucked-away nav: what reacts to the pointer */
   --topbar-h:       60px;
+  --nav-ease:       .28s cubic-bezier(.16, 1, .3, 1);
 
   /* Surfaces */
   --bg:             #f7f5f0;          /* page background — warm cream */
@@ -175,6 +178,19 @@ h1, h2, h3, h4, h5, h6,
   color: var(--text-primary);
 }
 .sidebar .logo i { color: var(--accent); margin-right: 8px; }
+.sidebar-pin {
+  margin-left: auto;
+  width: 30px; height: 30px;
+  border-radius: 7px; border: 1px solid transparent;
+  background: transparent; color: var(--text-muted);
+  place-items: center; cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.sidebar-pin:hover { background: var(--sidebar-hover); color: var(--text-primary); }
+.sidebar-pin[aria-pressed="true"] { background: var(--sidebar-active); color: var(--accent-text); }
+.sidebar-pin i { font-size: .8rem; transition: transform .2s; }
+.sidebar-pin[aria-pressed="true"] i { transform: rotate(-35deg); }
+.sidebar-pin:focus-visible { outline: 2px solid var(--focus-outline); outline-offset: 2px; }
 
 .nav-section { padding: 14px 0 4px; }
 .nav-title {
@@ -226,6 +242,13 @@ h1, h2, h3, h4, h5, h6,
   color: var(--text-secondary); margin-right: 10px;
 }
 
+.crumb {
+  display: flex; align-items: center; gap: 8px;
+  font-size: .86rem; color: var(--text-muted);
+}
+.crumb__sep { opacity: .5; }
+.crumb__here { color: var(--text-primary); font-weight: 500; }
+
 /* Main content */
 .main-content {
   margin-left: var(--sidebar-w);
@@ -233,6 +256,77 @@ h1, h2, h3, h4, h5, h6,
   min-height: 100vh;
 }
 .page-content { padding: 32px 36px; }
+
+/* ═══ The spine — desktop navigation, tucked away ═══════════
+   The 240px column is gone by default. What remains on the left edge is a
+   14px spine: the arch, one dot per section with the current one lit, and a
+   lantern when someone is waiting on you. Move to the edge (a wider strip
+   than you can see) or press `[` and the panel slides OVER the page, so the
+   content never reflows for a glance at the menu. The pin docks it — the
+   old layout, kept for anyone who wants it. Everything here is desktop-only;
+   the phone drawer below is untouched. */
+.spine, .spine-hot, .spine-scrim { display: none; }
+
+@media (min-width: 768px) {
+  .sidebar {
+    transition: transform var(--nav-ease), box-shadow var(--nav-ease);
+    will-change: transform;
+  }
+  .shell[data-nav="spine"] .sidebar { transform: translateX(-100%); z-index: 300; }
+  .shell[data-nav="spine"].is-revealed .sidebar {
+    transform: none;
+    box-shadow: 0 18px 48px rgba(26, 26, 26, .14), 0 2px 8px rgba(26, 26, 26, .06);
+  }
+  /* Docking and undocking snap. Both are layout changes for the whole page,
+     and both are rare, deliberate acts — animating them would reflow every
+     frame for something you do once. The frequent path, the hover reveal,
+     is an overlay and moves nothing but the panel. */
+  .shell[data-nav="spine"] .topbar        { left: var(--spine-w); }
+  .shell[data-nav="spine"] .main-content  { margin-left: var(--spine-w); }
+
+  .spine {
+    display: flex; flex-direction: column; align-items: center;
+    position: fixed; left: 0; top: 0; bottom: 0; width: var(--spine-w);
+    padding-top: 15px;
+    background: var(--sidebar-bg); border-right: 1px solid var(--border-soft);
+    z-index: 98;
+    transition: opacity .2s ease;
+  }
+  .shell[data-nav="pinned"] .spine,
+  .shell[data-nav="pinned"] .spine-hot,
+  .shell.is-revealed .spine { opacity: 0; pointer-events: none; }
+
+  .spine-hot {
+    display: block;
+    position: fixed; left: 0; top: 0; bottom: 0; width: var(--spine-hot-w);
+    z-index: 99; cursor: e-resize;
+  }
+  .spine__arch { width: 12px; height: auto; color: var(--accent); margin-bottom: 26px; }
+  .spine__dots { display: flex; flex-direction: column; align-items: center; gap: 18px; }
+  .spine__dot { width: 4px; height: 4px; border-radius: 50%; background: var(--text-muted); opacity: .55; }
+  .spine__dot.is-here { background: var(--accent); opacity: 1; box-shadow: 0 0 0 3px var(--accent-soft); }
+  .spine__lantern {
+    position: absolute; top: 118px; left: 50%; transform: translateX(-50%);
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--danger); box-shadow: 0 0 0 3px rgba(192, 57, 43, .18);
+  }
+  .spine__foot { margin-top: auto; margin-bottom: 14px; color: var(--text-muted); opacity: .55; font-size: .55rem; }
+
+  .spine-scrim {
+    display: block;
+    position: fixed; inset: 0; z-index: 97;
+    background: rgba(26, 26, 26, 0); pointer-events: none;
+    transition: background var(--nav-ease);
+  }
+  .shell[data-nav="spine"].is-revealed .spine-scrim { background: rgba(26, 26, 26, .06); pointer-events: auto; }
+}
+[data-theme="dark"] .spine { background: var(--bg-surface); border-color: var(--border-soft); }
+[data-theme="dark"] .shell[data-nav="spine"].is-revealed .sidebar {
+  box-shadow: 0 18px 48px rgba(0, 0, 0, .5), 0 2px 8px rgba(0, 0, 0, .3);
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar, .spine, .spine-scrim { transition: none !important; }
+}
 
 /* ═══ Page-header utility ═════════════════════════════════ */
 .page-title {

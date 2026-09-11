@@ -2,7 +2,7 @@
 
 
 ## 0. Current Status
-Last Updated: 2026-09-10
+Last Updated: 2026-09-11
 
 ### Current Working Version
 - **Completed**: 全站设计系统统一；邀请码系统；功能角色门控；好友/私信系统；SQLite 迁移；二手市集（配送选项 + Restore + 动态分类 + System Management + 价格拆分 + 响应式按钮 + 浏览量计数 + 分类图标 + 多选 filter + 两行 meta + 中文配送标签 + EditModal 修复）；**留言板（Weibo 式线程回复 + 点赞 + 翻页）**；用户公开主页；**非好友直接私信**；**Market Reach Out 直接开 DM**；**Login 页 Safari 全面兼容修复**；**群组系统（独立建组 + 按用户名拉人 + 群聊，`/api/groups`）**；**品牌改名 Arch Bay（可见文案 'Horisation'→'Arch Bay'，提交 f0fc7f6）**；**市集意向成单流（trade_intents）**
@@ -79,6 +79,7 @@ Last Updated: 2026-09-10
 | 2026-09-07 | 通知状态集中到 `NotificationsContext` + 单一快照端点 `/api/friends/notifications` | 未读数、好友请求、联系方式请求分散在三处、三个端点、三种更新时机，导致侧边栏/列表/聊天窗口显示不一致 | 多一个聚合端点；三类数据耦合在一个 context 里，将来若某类膨胀需要再拆 |
 | 2026-09-07 | 全应用只保留一处 `connect`/`disconnect` 处理器，共享注册表放 `socketio_instance` | python-socketio 同名事件是覆盖不是串联，两个模块各注册一个必然有一个静默失效 | 需要在连接时做事的模块必须改为被那一处调用，多一层间接；换来的是不会再出现"某模块 socket 逻辑无声失效" |
 | 2026-09-07 | 兜底轮询 30s → 5min，但同时加 `visibilitychange`/`focus` 重新同步 | 有了实时推送后 30 秒轮询是浪费；但只降间隔不加 visibility 会让后台标签页漏事件的窗口从 30 秒变成 5 分钟（本次实际踩到） | 切回标签页会多一次请求；换来漏事件几乎立刻自愈 |
+| 2026-09-11 | 桌面端导航从常驻 240px 侧栏改为 14px 书脊 + 悬停/`[` 滑出的 overlay 面板，可钉住 | 用户不想菜单常驻；三个方向里书脊保住了一步到位的导航、把宽度还给页面、且与文艺极简的身份一致 | 新用户第一次得发现左缘会响应（面包屑和书脊上的点在提示）；钉住/取消是整页布局跳变，刻意不做动画 |
 | 2026-09-10 | 塔罗对全员开放的做法是**删掉** `features.js` 里的 `tarot` 项，而不是把五个角色都列上 | 列全角色的 flag 是一个什么都不拦的门，下一个人还得读一遍才知道它没用；项目里真正开放的功能（Market / Tasks / 留言板 / Friends / Groups）本来就没有 flag | 将来若要重新收紧，需要把 `FEATURES` 项、`FeatureRoute`、侧边栏的 `feature` 三处一起加回来，而不是改一个数组 |
 | 2026-09-09 | 三张牌由用户自己从 78 张里点选，但牌面身份仍由服务端在洗牌那一刻定好，按点选顺序分配 | 仪式感来自"我亲手挑的"，而牌本身必须不可预测；真实占卜也是先洗好牌再让你摸——摸到哪一叠不携带任何信息 | 用户点的具体是哪张牌，与最终翻出什么牌无关。这一点在代码注释里写明了，但界面上不会声明 |
 | 2026-09-09 | 牌位、hover 抬升、邻牌让位全部合成到一条 `transform`，由自定义属性驱动 | 78 个节点，任何一处碰布局都会掉帧；自定义属性让 JS 只写值、不写样式规则 | 带 transition 时 `getComputedStyle().transform` 读到的是动画中间值，调试时极易误判（本次踩到两次） |
@@ -211,6 +212,50 @@ Last Updated: 2026-09-10
 ---
 
 ## 3. Iteration History
+
+---
+
+### 2026-09-11 — 侧边栏收进书脊
+
+#### Goal
+用户不想让左边菜单栏常驻，想要能收起来、而且要"新颖"。
+
+#### Direction
+出了三个方向给用户挑：**A 书脊**（收成 14px 的边条，靠边或按 `[` 滑出来盖在页面上，
+可钉住）、**B 报头**（去掉侧栏，顶栏放 Community / For fun / Toolkit 三个词，悬停下拉）、
+**C 港湾**（无常驻导航，点弧标或 `⌘K` 全屏出现站点地图）。推荐 A：导航仍是一步到位
+（这个站的用法是在 Friends / Groups / Market 之间来回跳），页面拿回 240px，而且"书脊"
+这个意象和 Playfair、文艺极简的身份是一体的。先用真实 token 做了可交互预览
+（claude.ai artifact），用户看过后拍板 A。
+
+#### Findings
+1. **站点地图必须只有一份。** 侧栏、书脊上的点、顶栏面包屑三处都要知道"有哪些页、
+   当前在哪一节"。抽成 `frontend/src/nav.js`（`NAV_SECTIONS` + `locate(pathname)`），
+   加页面只改一处。
+2. **收起的侧栏要 `inert`。** 桌面端面板在屏幕外时，里面的链接仍在 Tab 序列里，键盘
+   用户会走进一个看不见的菜单。React 18 要写成 `inert=""`（空字符串），布尔值不生效。
+3. **`[` 打开后把焦点移进面板，不能用 rAF 抢。** `inert` 是由 `revealed` 触发的那次
+   render 才清掉的，`requestAnimationFrame` 里 `focus()` 时元素还是 inert，静默失败。
+   改成 `useEffect([revealed])`，等 commit 之后再移。
+4. **钉住/取消钉住直接跳变，不做动画。** detector 报 `transition: margin-left`——
+   整页布局属性逐帧动画。钉住是偶发的、有意的操作，跳一下没问题；高频路径（悬停滑出）
+   本来就是 overlay，只动面板的 transform。
+5. **面板和书脊之间留 180ms 宽限。** 鼠标从面板划回书脊那条缝时，`pointerleave` 与
+   `pointerenter` 几乎同时触发，不留宽限就会在边界上抖。
+6. **手机端一行都没改。** 书脊相关 CSS 全在 `@media (min-width: 768px)` 里，
+   抽屉、汉堡、遮罩原样。
+
+#### Verification
+用 fetch stub 把**真实 App**以已登录的 horizon 身份跑起来（不是复刻的 markup）：
+桌面端默认 `data-nav="spine"`、侧栏 translateX(-100%) 且 `inert`、顶栏与内容偏移 14px、
+书脊显示且有红灯（2 条未读）、面包屑 "Main / Home"；悬停左缘滑出、带阴影、inert 解除；
+钉住后 `localStorage` 记为 pinned、书脊隐藏、内容偏移 240；`[` 打开且焦点落在面板内第一个
+可聚焦元素，`Esc` 关闭；375px 下书脊/热区 `display:none`、面包屑隐藏、汉堡可见、抽屉
+开合与遮罩如旧、钉住按钮不显示。构建干净，detector 四个文件均无发现。
+
+#### Remaining
+`Esc` 关闭时若打开前焦点在 `<body>`，焦点不会"回到"任何地方（本来就没地方可回）。
+真实场景打开前总有个焦点元素，问题不大。
 
 ---
 
