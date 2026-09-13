@@ -70,7 +70,7 @@ Browser → Cloudflare → Nginx → Gunicorn (port 8000) → Flask (API only)
 |------|----------|-------------|
 | `_data/market.db` | SQLite — **all** structured data: users, sessions, listings, images, categories, memos, messages, friends, groups, games, travel, bills, tasks | No (gitignored) |
 | `_data/notes/` | Per-user note JSON files | Yes |
-| `Backend/data/tarot_deck.json` | 78 Rider–Waite–Smith cards: id, name, arcana, image filename, Waite's 1911 upright text | Yes |
+| `Backend/data/tarot_deck.json` | 78 Rider–Waite–Smith cards: id, name, arcana, image filename, Waite's 1911 upright text, plus `name_zh` / `keywords_zh`. The Chinese layer is **authored in `scripts/tarot_add_zh.mjs`** (no open Chinese dataset exists) — edit it there and re-run, never in the JSON by hand. | Yes |
 | `frontend/public/tarot/*.jpg` | RWS card scans, 78 files (~7.6 MB) from `metabismuth/tarot-json` (MIT); the deck itself is US public domain | Yes |
 | `_data/users.json.migrated` | Pre-March-2026 JSON store, migrated into SQLite and renamed | Yes (inert) |
 | `Key/r2_config.json` | Cloudflare R2 credentials | No (gitignored) |
@@ -186,6 +186,10 @@ naming every role is a gate that does nothing.
 | POST | `/draw` | Three distinct cards, one per position. `secrets.randbelow`, never `random`. The response carries **only** the drawn cards, so the rest of the deck order never leaves the server. |
 
 Upright only — the deck file carries no reversed meanings.
+
+The flow since 2026-09-12: *Start* (after the on-screen instruction to hold a question and
+say it three times) → shuffle → take three; **each card turns over the moment it lands** and
+its reading appears below at once. There is no separate reveal step.
 
 `/draw` is called the moment the shuffle animation starts, before the reader has
 touched anything; the card they then pick takes the next card in that order.

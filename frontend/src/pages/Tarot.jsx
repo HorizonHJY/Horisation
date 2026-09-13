@@ -46,8 +46,7 @@ const CARD_RATIO = 600 / 350
 const RIFFLE_MS = 1500
 const RIFFLE_STAGGER_MS = 5
 const FLIGHT_MS = 620
-const REVEAL_GAP_MS = 700
-const SETTLE_MS = 420
+const SETTLE_MS = 320             // a landed card turns over after this beat
 
 /** Stable per-card jitter, so the idle pile looks hand-squared and does not
  *  reshuffle itself on every render the way Math.random() would. */
@@ -259,13 +258,17 @@ function Inspector({ entry, index, count, fromRect, onClose, onStep, reducedMoti
             <p className="tarot-inspect__pos">
               {position.label}<span className="label-zh">{position.label_zh}</span>
             </p>
-            <h2 className="tarot-inspect__name" id={titleId}>{card.name}</h2>
+            <h2 className="tarot-inspect__name" id={titleId}>
+              {card.name}
+              {card.name_zh && <span className="tarot-inspect__name-zh">{card.name_zh}</span>}
+            </h2>
             <p className="tarot-inspect__meta">
               {card.arcana === 'major' ? 'Major Arcana 大阿卡纳' : 'Minor Arcana 小阿卡纳'}
               {' · '}Upright 正位
             </p>
 
             <div className="tarot-inspect__text">
+              {card.keywords_zh && <p className="tarot-inspect__keywords-zh">{card.keywords_zh}</p>}
               {card.keywords && <p className="tarot-inspect__keywords">{card.keywords}</p>}
               {card.description && <p className="tarot-inspect__desc">{card.description}</p>}
             </div>
@@ -318,7 +321,7 @@ export default function Tarot() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  // ready → shuffling → choosing → revealing → done
+  // ready → shuffling → choosing → done
   const [phase, setPhase] = useState('ready')
   const [remaining, setRemaining] = useState([])   // cards still face down in the fan
   const [slots, setSlots] = useState([])           // cards that have landed, in pick order
@@ -404,7 +407,7 @@ export default function Tarot() {
 
   // ── Shuffle ─────────────────────────────────────────────────
   const shuffle = useCallback(async () => {
-    if (phase === 'shuffling' || phase === 'revealing') return
+    if (phase === 'shuffling') return
     clearTimers()
     setError('')
     setSlots([])
@@ -426,28 +429,23 @@ export default function Tarot() {
     timers.current.push(setTimeout(() => setPhase('choosing'), wait))
   }, [phase, deck, reducedMotion, clearTimers])
 
-  // ── Reveal, once all three have landed ──────────────────────
-  const startReveal = useCallback(() => {
-    setPhase('revealing')
-    const gap = reducedMotion ? 0 : REVEAL_GAP_MS
-    const lead = reducedMotion ? 0 : SETTLE_MS
-    for (let i = 1; i <= POSITION_COUNT; i++) {
-      timers.current.push(setTimeout(() => {
-        setRevealedCount(i)
-        if (i === POSITION_COUNT) setPhase('done')
-      }, lead + gap * (i - 1)))
-    }
-  }, [reducedMotion])
-
   // ── Picking a card ──────────────────────────────────────────
+  /* Each card turns over the moment it lands — you see what you took before
+     you reach for the next one, and its reading appears below as you go.
+     The old way held all three face down and turned them together at the
+     end, which made the choosing feel like a formality. */
   const land = useCallback((slotIndex) => {
     setSlots(prev => {
       const next = [...prev]
       next[slotIndex] = drawnRef.current[slotIndex]
       return next
     })
-    if (slotIndex === POSITION_COUNT - 1) startReveal()
-  }, [startReveal])
+    const settle = reducedMotion ? 0 : SETTLE_MS
+    timers.current.push(setTimeout(() => {
+      setRevealedCount(slotIndex + 1)
+      if (slotIndex === POSITION_COUNT - 1) setPhase('done')
+    }, settle))
+  }, [reducedMotion])
 
   const pick = useCallback((card, el) => {
     // One card in the air at a time, or two fast clicks would both aim at the
@@ -611,18 +609,19 @@ export default function Tarot() {
           : 'gathered'
 
   const instruction = {
+    // The whole instruction is here, above the button, so that by the time
+    // you reach "Start" you have already done the part that matters.
     ready: {
-      lead: 'Hold one question in your mind.',
-      sub: '心里想着一个问题 — 想清楚，别说出口。',
+      lead: 'Close your eyes. Hold your question, and say it to yourself three times.',
+      sub: '闭上眼，心中想着你的问题，默念三次，然后点击下方的 Start 开始。',
     },
-    shuffling: { lead: 'Shuffling.', sub: '洗牌中 — 让牌自己排好。' },
+    shuffling: { lead: 'Shuffling.', sub: '洗牌中。' },
     choosing: {
       lead: chosen === 0 ? 'Now take three.' : `${POSITION_COUNT - chosen} to go.`,
       sub: nextPosition
         ? `下一张是「${nextPosition.label_zh}」 · ${nextPosition.label}`
         : '',
     },
-    revealing: { lead: 'Turning them over.', sub: '翻牌中。' },
     // The cards are worth looking at properly, and nothing else on the page
     // says so — the slot is small enough to read as finished.
     done: { lead: 'Your three cards.', sub: 'Tap one to look closer · 点开任意一张细看' },
@@ -743,6 +742,9 @@ export default function Tarot() {
                 </div>
                 <div className="tarot__card-name">
                   {revealed && card ? card.card.name : ''}
+                  {revealed && card?.card.name_zh && (
+                    <span className="tarot__card-name-zh">{card.card.name_zh}</span>
+                  )}
                 </div>
               </div>
             )
@@ -762,20 +764,20 @@ export default function Tarot() {
               type="button"
               className="tarot__btn"
               onClick={shuffle}
-              disabled={phase === 'shuffling' || phase === 'revealing'}
+              disabled={phase === 'shuffling'}
             >
               {phase === 'shuffling' ? 'Shuffling… 洗牌中'
-                : phase === 'ready' ? 'Shuffle the deck 洗牌'
-                  : phase === 'revealing' ? 'Turning… 翻牌中'
-                    : 'Ask again 再来一次'}
+                : phase === 'ready' ? 'Start 开始'
+                  : 'Ask again 再来一次'}
             </button>
           )}
         </div>
 
-        {/* Announced as one block once the turn is over, so a screen reader
-            hears the finished reading rather than three interruptions. */}
+        {/* Each card's reading arrives as that card turns over, so you read
+            Past before you reach for Present. Live, so a screen reader hears
+            each one as it lands. */}
         <div className="tarot__reading" role="status" aria-live="polite">
-          {phase === 'done' && slots.map(({ position, card }, i) => (
+          {slots.slice(0, revealedCount).map(({ position, card }, i) => (
             <div
               className="tarot__entry"
               key={position.key}
@@ -785,8 +787,15 @@ export default function Tarot() {
                 <span className="tarot__entry-pos">
                   {position.label}<span className="label-zh">{position.label_zh}</span>
                 </span>
-                <span className="tarot__entry-name">{card.name}</span>
+                <span className="tarot__entry-name">
+                  {card.name}
+                  {card.name_zh && <span className="tarot__entry-name-zh">{card.name_zh}</span>}
+                </span>
               </div>
+              {/* The Chinese line is the conventional upright keywords, written
+                  for this deck; the English is Waite's own 1911 text. They are
+                  two readings of the card, not one translated. */}
+              {card.keywords_zh && <p className="tarot__entry-keywords-zh mb-0">{card.keywords_zh}</p>}
               {card.keywords && <p className="tarot__entry-keywords mb-0">{card.keywords}</p>}
               {card.description && <p className="tarot__entry-desc mb-0">{card.description}</p>}
             </div>

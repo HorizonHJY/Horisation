@@ -1788,6 +1788,14 @@ textarea.form-control { height: auto; padding: .55rem .85rem; line-height: 1.55;
   color: var(--t-ink);
   min-height: 2.56em;      /* two lines, so short and long names align */
 }
+.tarot__card-name-zh {
+  display: block;
+  font-family: var(--font-serif-cn);
+  font-weight: 400;
+  font-size: .82em;
+  color: var(--t-ink-dim);
+  margin-top: 1px;
+}
 
 /* ── Reading ──────────────────────────────────────────────── */
 .tarot__reading {
@@ -1817,6 +1825,22 @@ textarea.form-control { height: auto; padding: .55rem .85rem; line-height: 1.55;
   color: var(--t-gilt);
 }
 .tarot__entry-name { font-size: 1.15rem; font-weight: 700; }
+.tarot__entry-name-zh {
+  font-family: var(--font-serif-cn);
+  font-weight: 400;
+  font-size: .82em;
+  color: var(--t-ink-dim);
+  margin-left: .45em;
+}
+/* The Chinese keywords lead: shorter, and the line most readers here scan
+   first. Waite's English follows as the fuller reading. */
+.tarot__entry-keywords-zh {
+  font-family: var(--font-serif-cn);
+  font-size: 1rem;
+  line-height: 1.7;
+  color: var(--t-ink);
+  margin: 0 0 4px;
+}
 .tarot__entry-keywords {
   font-family: var(--font-body);
   font-size: .92rem;
@@ -2050,6 +2074,21 @@ textarea.form-control { height: auto; padding: .55rem .85rem; line-height: 1.55;
   /* Waite runs long. Fading the last line says "there is more" without adding
      a scroll cue that would then have to be positioned and hidden. */
   mask-image: linear-gradient(to bottom, #000 calc(100% - 34px), transparent 100%);
+}
+.tarot-inspect__name-zh {
+  display: block;
+  font-family: var(--font-serif-cn);
+  font-weight: 400;
+  font-size: .58em;
+  color: var(--t-ink-dim);
+  margin-top: 2px;
+  letter-spacing: .04em;
+}
+.tarot-inspect__keywords-zh {
+  font-family: var(--font-serif-cn);
+  font-size: 1.02rem; line-height: 1.7;
+  color: var(--t-ink);
+  margin: 0 0 8px;
 }
 .tarot-inspect__keywords {
   font-family: var(--font-body);

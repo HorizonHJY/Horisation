@@ -131,6 +131,36 @@ sudo systemctl restart horisation
 
 ---
 
+## Certificate renewal — this has failed once
+
+On 2026-09-11 the Let's Encrypt certificate expired at 20:33 UTC and the site returned
+**526** from Cloudflare (origin certificate invalid) until it was renewed by hand.
+Certbot should have renewed it around 2026-08-12; the timer had been failing silently
+for a month. Gunicorn and nginx were both up throughout — a green deploy tells you
+nothing about this.
+
+Diagnose from anywhere, no SSH needed:
+
+```bash
+echo | openssl s_client -connect 34.201.2.158:443 -servername horizonyhj.com 2>/dev/null \
+  | openssl x509 -noout -dates
+```
+
+Renew on the server:
+
+```bash
+sudo certbot renew --force-renewal && sudo nginx -t && sudo systemctl reload nginx
+sudo systemctl list-timers | grep -i certbot     # the timer must be active
+```
+
+Note the nginx config above listens on **443 only**. Certbot's HTTP-01 challenge needs
+port 80 to answer at `/.well-known/acme-challenge/`; if renewal fails with a connection
+error on 80, that is why.
+
+Renewed by hand 2026-09-12. Current certificate: `notBefore Sep 12 15:27 2026`,
+`notAfter Dec 11 15:27 2026`. If the timer is not fixed, **it goes down again on
+2026-12-11**.
+
 ## Cloudflare SSL Mode
 
 Set to **Full** or **Full (strict)**
