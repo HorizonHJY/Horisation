@@ -1045,6 +1045,20 @@ function SellerModal({ seller, listings, loading, categoryLabel, onClose, onReac
    product need (PRODUCT.md, 2026-09-07). It has to work on iOS Safari, where
    a scripted click on a data: URL silently does nothing — so the rendered
    image is always shown in-page and can be saved by long-press. */
+/* The photo URL as the export must request it.
+
+   html2canvas can only draw a cross-origin image that was loaded with CORS, and
+   R2 now answers CORS requests correctly — but the Market page has already
+   loaded every one of these URLs as a plain <img>, and Chrome caches that
+   response (no Origin sent, so no Access-Control-Allow-Origin in it) under the
+   bare URL. A CORS request for the same URL is served from that entry and
+   fails: "No 'Access-Control-Allow-Origin' header is present". Reproduced
+   2026-09-20; it is why every thumbnail exported as a grey box.
+
+   A query string the page never uses gives the export its own cache entry,
+   fetched with CORS from the start. R2 ignores the parameter. */
+const exportSrc = (url) => `${url}${url.includes('?') ? '&' : '?'}export=1`
+
 function ExportModal({ listings, categoryLabel, onClose, showToast }) {
   const exportRef = useRef(null)
   const [rendering, setRendering] = useState(false)
@@ -1123,7 +1137,7 @@ function ExportModal({ listings, categoryLabel, onClose, showToast }) {
                         background: '#f5f5f5', display: 'flex', alignItems: 'center', justifyContent: 'center',
                       }}>
                         {l.images?.[0]?.url
-                          ? <img src={l.images[0].url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          ? <img src={exportSrc(l.images[0].url)} crossOrigin="anonymous" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                           : <i className="fas fa-image" style={{ fontSize: 24, opacity: 0.3 }} aria-hidden="true" />
                         }
                       </div>
@@ -2184,3 +2198,4 @@ export default function Market() {
     </div>
   )
 }
+

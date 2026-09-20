@@ -193,6 +193,13 @@ curl -sI -H "Origin: https://horizonyhj.com" \
   | grep -i access-control-allow-origin
 ```
 
+The CORS policy alone was not enough. The Market page plain-loads every photo
+first, and Chrome caches that response — fetched without an Origin, so carrying no
+Access-Control-Allow-Origin — under the bare URL; a later CORS request for the same
+URL is served from that entry and rejected. So the export requests each photo as
+`…jpg?export=1` with `crossOrigin="anonymous"` (`exportSrc()` in Market.jsx): a
+distinct cache entry, CORS from the first byte. Both halves are required.
+
 If the site's domain changes, or the bucket is replaced, this must be redone —
 nothing in the repo can do it. Users who exported before the fix may need one
 hard refresh, to drop cached image responses that carry no CORS header.
