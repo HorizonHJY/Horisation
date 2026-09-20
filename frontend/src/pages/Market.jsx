@@ -1917,7 +1917,13 @@ export default function Market() {
           )}
 
           {tab === 'mylistings' && myListings.length > 0 && (
-            <div className="d-flex justify-content-end mb-3">
+            <div className="d-flex justify-content-end gap-2 mb-3">
+              {/* The public page with everything you sell, as one link to paste
+                  into a chat. Same page as the profile avatar leads to. */}
+              <button className="btn btn-outline-secondary btn-sm"
+                      onClick={() => handleCopyLink(`${window.location.origin}/u/${user.username}`)}>
+                <i className="fas fa-link me-1" aria-hidden="true" />Copy my page link
+              </button>
               <button className="btn btn-outline-secondary btn-sm" onClick={() => setShowExport(true)}>
                 <i className="fas fa-image me-1" aria-hidden="true" />Export as image
               </button>
