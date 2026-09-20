@@ -263,6 +263,18 @@ the entry point.
 
 ---
 
+## Related repositories
+
+- **[HorizonHJY/Horizon_MCP](https://github.com/HorizonHJY/Horizon_MCP)** — MCP server giving an agent
+  (OpenClaw on the owner's Mac mini, driven over WhatsApp) read-only access to this site's database:
+  `db_status`, `list_tables`, `export_data`, `refresh_data`. It pulls a consistent snapshot of
+  `_data/market.db` over SSH (`ssh archbay`, SQLite backup API) and refuses the `user` and `session`
+  tables outright. **Nothing in it runs on the EC2 box** and it never writes. If a table is renamed
+  here, that repo's tests still pass (they use a throwaway db) but its exports of that table stop
+  working — tell whoever maintains it.
+
+---
+
 ## Known Limitations / Future Work
 - **Passwords stored in plaintext** → needs bcrypt. Anyone with `market.db` (including the
   admin "Download DB" button) has every user's password in the clear. Highest-value fix.

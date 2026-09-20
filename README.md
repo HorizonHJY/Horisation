@@ -75,3 +75,11 @@ Pulls latest code, installs deps, builds frontend, restarts service.
 | `Doc/server.md` | Server configuration reference |
 | `Doc/log.md` | Change log |
 | `CLAUDE.md` | Guide for AI-assisted development |
+
+---
+
+## Related repositories
+
+| Repo | What it is |
+|------|-----------|
+| [HorizonHJY/Horizon_MCP](https://github.com/HorizonHJY/Horizon_MCP) | MCP server that lets an agent (OpenClaw, over WhatsApp) query this site's database **read-only** — status, table listing, on-demand CSV/JSON export. Runs next to OpenClaw on the Mac mini and pulls a snapshot of `market.db` over SSH; never exports `user` or `session`. Separate repo so it deploys with a `git pull` and never touches this one. |

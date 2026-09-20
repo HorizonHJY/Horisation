@@ -43,7 +43,10 @@ Market, Friends, Groups, Tasks, Bill Split, and Travel.
 - Used on both desktop and mobile browsers. iOS Safari is a first-class target and has historically
   been the source of real layout defects (see `Doc/mobile_ux_principles.md`).
 - Breakpoints in active use: ≤600px phones, 601–1024px tablets, >1024px desktop.
-- Sidebar (240px) plus topbar (60px) on desktop; the sidebar collapses to a hamburger drawer on mobile.
+- Topbar (60px) always; on desktop the 240px sidebar is closed by default and opened on a button
+  (☰ top-left, « in its header to close, `[` on the keyboard), remembered per browser. On mobile the
+  same ☰ opens a drawer. Since 2026-09-20 — the owner's call, after nine days with a hover-revealed
+  "spine" that they found fussy.
 - Real-time surfaces (private chat, online Gomoku) run over Socket.IO; group chat currently polls at 3s.
 
 ## Capabilities and Constraints
@@ -109,8 +112,9 @@ which is where it is used most.
    outranks anything that makes a single tool more capable.
 2. **One identity, everywhere.** A person's account, avatar, and profile must read the same in Market,
    Friends, Groups, Tasks, and Bill Split. Divergence between modules is a defect.
-3. **Phone-first reality, desktop-first layout.** The layout is built for a sidebar, but the traffic
-   arrives on phones. Every surface must survive 375px and iOS Safari.
+3. **Phone-first reality, desktop-first layout.** The layout was built around a fixed sidebar and
+   still assumes a desktop's width once it is open, but the traffic arrives on phones. Every
+   surface must survive 375px and iOS Safari.
 4. **Closed membership, permeable reach.** Joining stays invitation-only, and the design assumes a
    level of trust no public marketplace can — no engagement bait, no stranger-defense patterns.
    Reach, however, is deliberately not sealed: a member may carry a listing outward as a shareable

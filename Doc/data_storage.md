@@ -1,6 +1,6 @@
 # Horisation — Data Storage Reference
 
-Last updated: 2026-09-06
+Last updated: 2026-09-20
 
 ---
 
@@ -347,6 +347,19 @@ Cloudflare R2 bucket: horisation-market
 ├── listings/<id>/<img>.jpg
 └── avatars/<username>.jpg
 ```
+
+---
+
+## Who reads this database
+
+| Reader | How | Writes? |
+|--------|-----|---------|
+| The Flask app | SQLAlchemy, in-process | Yes — the only writer |
+| Admin "Download DB" button | Serves the file | No |
+| [Horizon_MCP](https://github.com/HorizonHJY/Horizon_MCP) | `ssh archbay python3 -c '…src.backup(dst)…'` from the Mac mini, then reads the snapshot locally with `mode=ro`. Refuses `user` and `session`. | No — cannot, by construction |
+
+SQLite has one writer. Anything else that wants the data takes a snapshot; it must never
+open the live file for writing from another process.
 
 ---
 
