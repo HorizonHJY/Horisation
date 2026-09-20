@@ -1083,14 +1083,6 @@ function ExportModal({ listings, categoryLabel, onClose, showToast }) {
           </div>
 
           <div className="modal-body">
-            <p className="small mb-1" style={{ color: 'var(--text-secondary)' }}>
-              Turns your {active.length} active listing{active.length !== 1 ? 's' : ''} into one
-              tall image you can share anywhere.
-            </p>
-            <p className="small" style={{ color: 'var(--text-muted)' }}>
-              一张长图，随手分享
-            </p>
-
             {rendered ? (
               <div className="text-center">
                 <img
