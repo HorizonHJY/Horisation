@@ -73,6 +73,7 @@ Pulls latest code, installs deps, builds frontend, restarts service.
 | `Doc/project_intro.md` | Full architecture & feature overview |
 | `Doc/data_storage.md` | How and where data is stored |
 | `Doc/server.md` | Server configuration reference |
+| `Doc/ai_service.md` | AI service layer design (reviewed; tarot reading is the first feature) |
 | `Doc/log.md` | Change log |
 | `CLAUDE.md` | Guide for AI-assisted development |
 

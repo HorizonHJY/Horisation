@@ -74,6 +74,7 @@ Browser → Cloudflare → Nginx → Gunicorn (port 8000) → Flask (API only)
 | `frontend/public/tarot/*.jpg` | RWS card scans, 78 files (~7.6 MB) from `metabismuth/tarot-json` (MIT); the deck itself is US public domain | Yes |
 | `_data/users.json.migrated` | Pre-March-2026 JSON store, migrated into SQLite and renamed | Yes (inert) |
 | `Key/r2_config.json` | Cloudflare R2 credentials | No (gitignored) |
+| `Doc/ai_service.md` | **Reviewed design** for the AI layer (`Backend/Service/ai/`): contract, quota keys, timezone, the eventlet constraint, tarot reading flow, history/rating tables. Read it before touching anything AI. | Yes |
 | `PRODUCT.md` | Confirmed product record (users, positioning, brand, principles) used by the `impeccable` design skill | Yes |
 | `.impeccable/` | Design-detector config + critique snapshots (`hook.cache.json` is gitignored) | Yes, except the cache |
 
