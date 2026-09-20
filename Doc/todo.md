@@ -12,7 +12,7 @@ Last updated: 2026-09-20
 | High | Certificate auto-renewal is broken | Expired 2026-09-11 and took the site down (526) for ~3h; renewed by hand. Find out why `certbot.timer` stopped (cause never established; port 80 does answer, with a 301 — read `journalctl -u certbot`, see `Doc/server.md`) and fix it before ~2026-12-10, or add an expiry check to `scripts/deploy.sh` so a deploy warns inside 14 days. |
 | High | Password hashing (bcrypt) | Currently stored plaintext. Anyone with `market.db` — including via the admin "Download DB" button — has every user's password in the clear. Also move `SECRET_KEY` out of `app.py`. |
 | High | Login 401 has no visible feedback? | During the 2026-09-07 session a user entered a wrong password 5 times and reported "nothing happens". Verify `Login.jsx` surfaces the 401; same defect class as the Market posting flow. |
-| Medium | Docs-only pushes restart production | Every push to `main` runs `deploy.sh`, which restarts gunicorn — including pushes that only touch `.md`. The owner hit a 502 during one on 2026-09-20. Add `paths-ignore: ["**.md", "Doc/**"]` to `.github/workflows/deploy.yml`. One line, zero risk. |
+
 | Medium | Apply the Market fixes to `Tasks.jsx` | Tasks carries a byte-identical `useToast`, `.search` block, `radio-inputs` header and toast markup, and has already drifted in language and labelling. Extract a shared `ModuleShell` so they cannot drift again. |
 | Medium | Register page tagline overlaps the form at ≤600px | The rule hiding `.login-tagline` is `@media (max-width:1024px) and (min-width:601px)`, so 375px falls outside it |
 | Medium | Listing image re-upload in Edit | When editing a listing, allow replacing/removing images; requires R2 delete + multipart PUT |
@@ -86,6 +86,7 @@ card names read `The Star 星星`, positions read `Past 过去`.
 
 | Item | Date | Notes |
 |------|------|-------|
+| 纯文档 push 不再重启生产 | 2026-09-20 | `deploy.yml` 加 `paths-ignore`（`**.md`、`Doc/**`、`.impeccable/**`）。之前每次改文档都会重启 gunicorn，撞上过一次 502。 |
 | 导出长图缩略图空白 | 2026-09-20 | 两个根因叠加：R2 桶没有 CORS 策略（控制台加了）；以及 Chrome 把 Market 页面普通加载的无 CORS 头响应缓存在同一个 URL 下，导出时跨域请求撞上它被拒。后者靠代码修：导出用 `?export=1` + `crossOrigin` 单独取一份。用真 R2 图片跑真 html2canvas 验证过缩略图像素方差 81（灰块≈0）。见 `Doc/server.md`。 |
 | 侧边栏改为按钮开合 | 2026-09-20 | 书脊 + 悬停 + 面包屑上线九天后被否掉（"不喜欢，路径别显示，不要悬停"）。改成 ChatGPT 式：默认收起、左上角 ☰ 打开并停靠、面板内 « 关闭、`[` 同效、记住。开合不做动画。手机端不变。 |
 | 塔罗牌 v4：中文牌义 + 边抽边翻 | 2026-09-12 | 开始前的提示改为"闭上眼，默念问题三次，再点 Start"；按钮 Shuffle the deck → Start；每张牌落位即翻面、释义即时出现，不再攒到最后一起翻。78 张牌加 `name_zh` + `keywords_zh`（`scripts/tarot_add_zh.mjs`，自写，无开源中文数据集）。 |

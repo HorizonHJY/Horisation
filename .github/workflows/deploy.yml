@@ -4,6 +4,15 @@ on:
   push:
     branches:
       - main
+    # deploy.sh restarts gunicorn. A push that only touches documentation
+    # has nothing to deploy and no reason to take the site down for the
+    # seconds that takes — the owner hit a 502 in that window on 2026-09-20.
+    # If EVERY file in a push matches, the workflow does not run.
+    paths-ignore:
+      - '**.md'
+      - 'Doc/**'
+      - '.impeccable/**'
+      - 'LICENSE'
 
 jobs:
   deploy:

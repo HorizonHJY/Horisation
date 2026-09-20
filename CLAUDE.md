@@ -280,7 +280,7 @@ the entry point.
   admin "Download DB" button) has every user's password in the clear. Highest-value fix.
 - `SECRET_KEY` hardcoded in `app.py` → should come from the environment
 - SQLite single-writer under concurrent writes → PostgreSQL when scale warrants
-- CI/CD exists: `.github/workflows/deploy.yml` SSHs to EC2 and runs `~/deploy.sh` on push to `main`
+- CI/CD exists: `.github/workflows/deploy.yml` SSHs to EC2 and runs `~/deploy.sh` on push to `main` — **except** pushes that only touch `*.md`, `Doc/**` or `.impeccable/**` (`paths-ignore`), which restart nothing
 
 ---
 
