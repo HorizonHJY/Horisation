@@ -209,7 +209,7 @@ export default function TarotReading({ readingId, positions }) {
                   onClick={() => submitRating(rating)}
                   disabled={savingRating}
                 >
-                  Save 保存
+                  Submit 提交
                 </button>
               </div>
             )}
