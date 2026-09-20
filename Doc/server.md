@@ -153,13 +153,49 @@ sudo certbot renew --force-renewal && sudo nginx -t && sudo systemctl reload ngi
 sudo systemctl list-timers | grep -i certbot     # the timer must be active
 ```
 
-Note the nginx config above listens on **443 only**. Certbot's HTTP-01 challenge needs
-port 80 to answer at `/.well-known/acme-challenge/`; if renewal fails with a connection
-error on 80, that is why.
+The nginx config above answers port 80 with a `301` to HTTPS. Certbot's HTTP-01 challenge
+follows that redirect, so it can still succeed as long as 443 serves
+`/.well-known/acme-challenge/` — but if renewal ever fails, read
+`journalctl -u certbot` rather than assuming; the cause of the August 2026 silent failure
+was never established.
 
 Renewed by hand 2026-09-12. Current certificate: `notBefore Sep 12 15:27 2026`,
 `notAfter Dec 11 15:27 2026`. If the timer is not fixed, **it goes down again on
 2026-12-11**.
+
+## R2 bucket CORS — required for "Export as image"
+
+Market's export renders listings to a canvas with html2canvas (`useCORS: true`).
+Drawing a cross-origin image onto a canvas needs the image server to send
+`Access-Control-Allow-Origin`; a plain `<img>` does not, which is why the Market
+page showed photos while the export showed grey boxes (2026-09-20). The R2 public
+bucket (`pub-a99b72ec….r2.dev`) ships with **no** CORS policy.
+
+Set in Cloudflare → R2 → bucket → Settings → CORS Policy:
+
+```json
+[
+  {
+    "AllowedOrigins": ["https://horizonyhj.com", "http://localhost:5173"],
+    "AllowedMethods": ["GET", "HEAD"],
+    "AllowedHeaders": ["*"],
+    "ExposeHeaders": [],
+    "MaxAgeSeconds": 86400
+  }
+]
+```
+
+Verify from anywhere (any listing image URL will do):
+
+```bash
+curl -sI -H "Origin: https://horizonyhj.com" \
+  "https://pub-a99b72ec2d5f4c96b1891a7dafc657c1.r2.dev/listings/<id>/<file>.jpg" \
+  | grep -i access-control-allow-origin
+```
+
+If the site's domain changes, or the bucket is replaced, this must be redone —
+nothing in the repo can do it. Users who exported before the fix may need one
+hard refresh, to drop cached image responses that carry no CORS header.
 
 ## Cloudflare SSL Mode
 

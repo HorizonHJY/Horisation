@@ -9,7 +9,7 @@ Last updated: 2026-09-20
 | Priority | Item | Notes |
 |----------|------|-------|
 | **Next** | Tarot v5 | v1 deck + spread (09-08); v2 hold a question → shuffle → choose your own three (09-09); v3 tap a card to look closer (09-10); v4 Start-first copy, reveal-as-you-pick, Chinese names + keywords (09-12). Open for a later pass: reversed cards, a saved reading history, other spreads (Celtic Cross), and a Chinese rendering of Waite's long descriptions — only the keywords are bilingual today. |
-| High | Certificate auto-renewal is broken | Expired 2026-09-11 and took the site down (526) for ~3h; renewed by hand. Find out why `certbot.timer` stopped (likely no port-80 server block for the HTTP-01 challenge — see `Doc/server.md`) and fix it before ~2026-12-10, or add an expiry check to `scripts/deploy.sh` so a deploy warns inside 14 days. |
+| High | Certificate auto-renewal is broken | Expired 2026-09-11 and took the site down (526) for ~3h; renewed by hand. Find out why `certbot.timer` stopped (cause never established; port 80 does answer, with a 301 — read `journalctl -u certbot`, see `Doc/server.md`) and fix it before ~2026-12-10, or add an expiry check to `scripts/deploy.sh` so a deploy warns inside 14 days. |
 | High | Password hashing (bcrypt) | Currently stored plaintext. Anyone with `market.db` — including via the admin "Download DB" button — has every user's password in the clear. Also move `SECRET_KEY` out of `app.py`. |
 | High | Login 401 has no visible feedback? | During the 2026-09-07 session a user entered a wrong password 5 times and reported "nothing happens". Verify `Login.jsx` surfaces the 401; same defect class as the Market posting flow. |
 | Medium | Apply the Market fixes to `Tasks.jsx` | Tasks carries a byte-identical `useToast`, `.search` block, `radio-inputs` header and toast markup, and has already drifted in language and labelling. Extract a shared `ModuleShell` so they cannot drift again. |
@@ -85,6 +85,7 @@ card names read `The Star 星星`, positions read `Past 过去`.
 
 | Item | Date | Notes |
 |------|------|-------|
+| 导出长图缩略图空白 | 2026-09-20 | 根因是 R2 桶没有 CORS 策略，跨域图片画不上 canvas；在 Cloudflare 控制台加了策略，非代码改动。见 `Doc/server.md`。 |
 | 侧边栏改为按钮开合 | 2026-09-20 | 书脊 + 悬停 + 面包屑上线九天后被否掉（"不喜欢，路径别显示，不要悬停"）。改成 ChatGPT 式：默认收起、左上角 ☰ 打开并停靠、面板内 « 关闭、`[` 同效、记住。开合不做动画。手机端不变。 |
 | 塔罗牌 v4：中文牌义 + 边抽边翻 | 2026-09-12 | 开始前的提示改为"闭上眼，默念问题三次，再点 Start"；按钮 Shuffle the deck → Start；每张牌落位即翻面、释义即时出现，不再攒到最后一起翻。78 张牌加 `name_zh` + `keywords_zh`（`scripts/tarot_add_zh.mjs`，自写，无开源中文数据集）。 |
 | 侧边栏收进书脊 | 2026-09-11 | 桌面端默认只剩 14px 书脊（弧标 + 分区点 + 未读红灯），靠边或 `[` 滑出，可钉住并记住。顶栏加面包屑。站点地图抽成 `nav.js`。手机端不变。 |
