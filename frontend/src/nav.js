@@ -37,7 +37,7 @@ export const NAV_SECTIONS = [
     key: 'toolkit', title: 'Toolkit',
     items: [
       { to: '/hormemo',    icon: 'fa-clipboard-list', label: 'Memo' },
-      { to: '/travel',     icon: 'fa-route',          label: 'Travel Planner', feature: 'travelPlanner' },
+      { to: '/travel',     icon: 'fa-route',          label: 'Travel Planner' },
       { to: '/bill-split', icon: 'fa-receipt',        label: 'Bill Split',     feature: 'billSplit' },
       { to: '/csv',        icon: 'fa-file-csv',       label: 'CSV Workspace',  horizonOnly: true },
     ],

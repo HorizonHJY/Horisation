@@ -10,11 +10,10 @@ const VIP_AND_ABOVE = ['horizon', 'admin', 'svip', 'vip']
    entry is gone rather than expanded to name all five roles — a flag that
    lists every role is a gate that does nothing, and the next person has to
    read it to find that out. Open features simply carry no flag: see Market,
-   Tasks, Message Board, Friends, Groups. */
+   Tasks, Message Board, Friends, Groups, and since 2026-09-20 Travel Planner. */
 export const FEATURES = {
   darkMode:      ['horizon'],
   onlineGomoku:  ['horizon', 'admin', 'svip'],
-  travelPlanner: VIP_AND_ABOVE,
   billSplit:     VIP_AND_ABOVE,
 }
 

@@ -87,6 +87,7 @@ card names read `The Star 星星`, positions read `Past 过去`.
 
 | Item | Date | Notes |
 |------|------|-------|
+| Travel Planner 对全员开放 | 2026-09-20 | 同塔罗牌的做法：删 `features.js` 的 `travelPlanner`、路由的 `FeatureRoute`、侧边栏条目的 `feature`。后端 `/api/travel/*` 本来就只查登录和所有权，没有角色门。Bill Split 仍是 vip+。 |
 | My Listings 加 "Copy my page link" | 2026-09-20 | Export as image 旁边多一个按钮，复制 `/u/<username>` 公开页链接，方便发群里。 |
 | 塔罗牌 v5：AI 整体解读 + 打分 | 2026-09-20 | 三张牌下方新增"整体解读"：可选写问题 → DeepSeek 按 `tarot-v1` prompt 回 JSON（过去/现在/未来/总结/明天一件小事）→ 1–5 贴合度打分。后端新建 AI 层 `Backend/Service/ai/`（统一 `ai.run`、厂商无关 `requests` 调用、按角色配额 user 1 / vip 3 / admin ∞ 每 Chicago 日、全站 100/24h、`AI_ENABLED` 总开关、失败不扣次数并自动重试一次、`ai_usage` 记账）和 `tarot_readings` 表（每次抽牌一行，解读与打分填入，将来做训练集）。14 个单测。顺手修了 `api.js` 把错误 body 的细节字段吞掉的问题。上线还差 key。 |
 | 纯文档 push 不再重启生产 | 2026-09-20 | `deploy.yml` 加 `paths-ignore`（`**.md`、`Doc/**`、`.impeccable/**`）。之前每次改文档都会重启 gunicorn，撞上过一次 502。 |

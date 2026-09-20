@@ -94,7 +94,7 @@ Images are stored in Cloudflare R2; only the public URL is kept in the database.
 | Tarot | `/tarot` | All | 78-card Rider–Waite–Smith deck: shuffle, choose your own three, past / present / future, tap a card to look closer, then an optional AI reading of the three together (DeepSeek; user 1 / vip 3 / admin ∞ per Chicago day) with a 1–5 fit rating. Server-side shuffle; the AI reads the spread the server drew, by id. `horizon`-only 09-08 → 09-10, open to everyone since |
 | Profile | `/profile` | All | Update display name, email, password, avatar, contact info (with hide toggle) |
 | Gomoku (Online) | `/fun/gomoku-online` | horizon, admin, svip | Real-time multiplayer Five in a Row via Socket.IO |
-| Travel Planner | `/travel` | horizon, admin, svip, vip | Multi-day itinerary planner, shareable 6-char plan id |
+| Travel Planner | `/travel` | All (vip+ until 2026-09-20) | Multi-day itinerary planner, shareable 6-char plan id |
 | Bill Split | `/bill-split` | horizon, admin, svip, vip | Bill splitting, shareable 6-char bill id |
 | Admin | `/admin` | admin permission | User management (create, edit, reset password, delete, role) + invite code management (horizon only) |
 | System Management | `/admin/system` | admin permission | Manage market category list (slug, label, order, active toggle) |
@@ -216,9 +216,9 @@ Horisation/
   **per item** (`canAccess(role, item.feature)`); an item with no `feature` key is open
   to everyone:
   - All members: Main (Home), Community (Market, Tasks, Message Board, Friends, Groups),
-    For Fun → Tarot, Toolkit → Memo
+    For Fun → Tarot, Toolkit → Memo, Travel Planner
   - `horizon` / `admin` / `svip` additionally see: For Fun → Online Gomoku
-  - `vip` and above additionally see: Toolkit → Travel Planner, Bill Split
+  - `vip` and above additionally see: Toolkit → Bill Split
   - `horizon` additionally sees: Toolkit → CSV Workspace
   - Users with `admin` permission: the Admin section
   - A section only renders if at least one of its items is visible

@@ -285,7 +285,7 @@ export default function App() {
             <Route path="/friends"           element={<Friends />} />
             <Route path="/groups"            element={<Groups />} />
             <Route path="/u/:username"       element={<UserProfile />} />
-            <Route path="/travel"     element={<FeatureRoute feature="travelPlanner"><TravelPlanner /></FeatureRoute>} />
+            <Route path="/travel"     element={<TravelPlanner />} />
             <Route path="/bill-split" element={<FeatureRoute feature="billSplit"><BillSplit /></FeatureRoute>} />
             <Route path="/tasks" element={<Tasks />} />
             <Route path="/tarot" element={<Tarot />} />
