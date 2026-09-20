@@ -1,6 +1,6 @@
 # Horisation — Project Introduction
 
-Last updated: 2026-09-08
+Last updated: 2026-09-20
 
 ---
 
@@ -201,19 +201,20 @@ Horisation/
 
 ## UI / Responsiveness
 
-- **Desktop (≥ 768px)** — since 2026-09-11 the 240px column is gone by default. What stays on
-  the left edge is a 14px **spine**: the arch mark, one dot per section with the current one
-  lit, and a red lantern when someone is waiting on you in Friends. Move to the edge (the
-  reactive strip is 26px, wider than the visible line) or press `[` and the panel slides
-  *over* the page — the content never reflows for a glance at the menu. `Esc` or moving away
-  tucks it back. The pin in the panel's corner docks it (exactly the old layout) and that
-  choice is remembered per browser in `localStorage['archbay.nav']`. The topbar carries a
-  breadcrumb (*Community / Market*) so the page still says where it is.
-- **Mobile (< 768px)**: unchanged — hamburger (`☰`) opens a slide-in drawer with a scrim;
+- **Desktop (≥ 768px)** — since 2026-09-20 the sidebar is **closed by default** and nothing
+  of it is on screen but the ☰ button at the top-left of the topbar. Click it (or press
+  `[`) and the sidebar docks at 240px with the content moving over; the `«` in its header
+  closes it. No hover zone, no icon rail, no breadcrumb. The choice is remembered per
+  browser in `localStorage['archbay.nav']`. Opening and closing snap rather than animate —
+  a deliberate click gets a deliberate result, and a 240px reflow of the whole page is not
+  worth animating.
+  (History: a hover-revealed 14px "spine" with a breadcrumb shipped 2026-09-11 and was
+  rejected by the owner nine days later. The button pattern is what ChatGPT does.)
+- **Mobile (< 768px)**: unchanged — the same ☰ opens a slide-in drawer with a scrim;
   navigating anywhere closes it.
-- The whole map lives in `frontend/src/nav.js`; the sidebar, the spine's dots and the
-  breadcrumb all read it. Items are gated **per item** (`canAccess(role, item.feature)`);
-  an item with no `feature` key is open to everyone:
+- The whole map lives in `frontend/src/nav.js`; the sidebar renders it. Items are gated
+  **per item** (`canAccess(role, item.feature)`); an item with no `feature` key is open
+  to everyone:
   - All members: Main (Home), Community (Market, Tasks, Message Board, Friends, Groups),
     For Fun → Tarot, Toolkit → Memo
   - `horizon` / `admin` / `svip` additionally see: For Fun → Online Gomoku

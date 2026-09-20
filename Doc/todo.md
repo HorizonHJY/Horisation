@@ -1,6 +1,6 @@
 # Horisation — To-Do List
 
-Last updated: 2026-09-12
+Last updated: 2026-09-20
 
 ---
 
@@ -85,6 +85,7 @@ card names read `The Star 星星`, positions read `Past 过去`.
 
 | Item | Date | Notes |
 |------|------|-------|
+| 侧边栏改为按钮开合 | 2026-09-20 | 书脊 + 悬停 + 面包屑上线九天后被否掉（"不喜欢，路径别显示，不要悬停"）。改成 ChatGPT 式：默认收起、左上角 ☰ 打开并停靠、面板内 « 关闭、`[` 同效、记住。开合不做动画。手机端不变。 |
 | 塔罗牌 v4：中文牌义 + 边抽边翻 | 2026-09-12 | 开始前的提示改为"闭上眼，默念问题三次，再点 Start"；按钮 Shuffle the deck → Start；每张牌落位即翻面、释义即时出现，不再攒到最后一起翻。78 张牌加 `name_zh` + `keywords_zh`（`scripts/tarot_add_zh.mjs`，自写，无开源中文数据集）。 |
 | 侧边栏收进书脊 | 2026-09-11 | 桌面端默认只剩 14px 书脊（弧标 + 分区点 + 未读红灯），靠边或 `[` 滑出，可钉住并记住。顶栏加面包屑。站点地图抽成 `nav.js`。手机端不变。 |
 | 塔罗牌对全员开放 | 2026-09-10 | 删掉 `features.js` 的 `tarot` 项、路由的 `FeatureRoute`、侧边栏条目的 `feature`。仍需登录（站点本身是邀请制）。 |

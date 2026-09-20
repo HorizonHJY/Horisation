@@ -16,11 +16,11 @@ export function ArchMark({ className, style }) {
 
 /**
  * The navigation panel. On a phone it is the slide-in drawer it always was.
- * On a desktop it is tucked into the spine (see Layout) and slides over the
- * page on demand, or docks if the reader pins it.
+ * On a desktop it is either docked (open) or gone (closed); the button in
+ * its header closes it, the one in the topbar opens it. See Layout.
  */
 const Sidebar = forwardRef(function Sidebar(
-  { isOpen, onClose, pinned, onTogglePin, hidden, onPointerEnter, onPointerLeave },
+  { isOpen, onClose, docked, onCollapse, hidden },
   ref,
 ) {
   const { user, logout } = useAuth()
@@ -52,8 +52,6 @@ const Sidebar = forwardRef(function Sidebar(
       ref={ref}
       className={`sidebar d-flex flex-column${isOpen ? ' sidebar-open' : ''}`}
       style={{ height: '100vh' }}
-      onPointerEnter={onPointerEnter}
-      onPointerLeave={onPointerLeave}
       aria-label="Navigation"
       // Off-screen on a desktop, its links must not be in the tab order —
       // or Tab walks through a menu nobody can see. React 18 wants the
@@ -63,17 +61,18 @@ const Sidebar = forwardRef(function Sidebar(
       <div className="logo">
         <ArchMark style={{ height: 40, width: 'auto' }} />
         <span className="brand-wordmark" style={{ fontSize: '1.25rem' }}>Arch Bay</span>
-        {/* Desktop only: dock the panel, the way it used to be. */}
-        <button
-          type="button"
-          className="sidebar-pin d-none d-md-grid"
-          onClick={onTogglePin}
-          aria-pressed={pinned}
-          aria-label={pinned ? 'Let the menu tuck away' : 'Keep the menu open'}
-          title={pinned ? 'Let it tuck away' : 'Keep open'}
-        >
-          <i className="fas fa-thumbtack" aria-hidden="true" />
-        </button>
+        {/* Desktop only: the way to close it lives on the thing being closed. */}
+        {docked && (
+          <button
+            type="button"
+            className="sidebar-collapse"
+            onClick={onCollapse}
+            aria-label="Close the menu"
+            title="Close  [ "
+          >
+            <i className="fas fa-angles-left" aria-hidden="true" />
+          </button>
+        )}
       </div>
 
       <div className="sidebar-nav">

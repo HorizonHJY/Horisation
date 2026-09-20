@@ -55,11 +55,11 @@ Browser → Cloudflare → Nginx → Gunicorn (port 8000) → Flask (API only)
 | `frontend/src/App.jsx` | Router, AuthContext, ThemeContext, UnreadContext, PrivateRoute / FeatureRoute |
 | `frontend/src/api.js` | Fetch wrapper (`credentials: include`) |
 | `frontend/src/features.js` | Per-role feature flags (`canAccess`) — the frontend half of role gating |
-| `frontend/src/nav.js` | **The site map, in one place**: `NAV_SECTIONS` (what the sidebar renders) and `locate(pathname)` (what the breadcrumb and spine read). Add a page here, not in three components. |
-| `frontend/src/index.css` | Global design system: tokens, focus ring, badge pairs, market card, dark theme, the spine |
-| `frontend/src/components/Layout.jsx` | The shell. On a desktop the nav is tucked into a 14px **spine** on the left edge and slides over the page on hover or `[`; a pin docks it (remembered in `localStorage` as `archbay.nav`). On a phone it is the hamburger + drawer it always was. Everything spine-related is desktop-only CSS under `@media (min-width: 768px)`. |
+| `frontend/src/nav.js` | **The site map, in one place**: `NAV_SECTIONS`, which the sidebar renders. Add a page here. |
+| `frontend/src/index.css` | Global design system: tokens, focus ring, badge pairs, market card, dark theme |
+| `frontend/src/components/Layout.jsx` | The shell. Desktop: the sidebar is **closed by default and toggled by a button** — the ☰ at the top-left opens it (docked, content moves over), the `«` in its header closes it; `[` does the same. Remembered in `localStorage['archbay.nav']` as `open`/`closed`. No hover, no rail, no breadcrumb — a menu you asked for or no menu (the ChatGPT pattern; the owner rejected a hover-revealed spine on 2026-09-20). Phone: hamburger + drawer, unchanged. |
 | `frontend/src/components/Sidebar.jsx` | The navigation panel itself, rendered from `nav.js`. Takes `hidden` and sets `inert` when off-screen so Tab cannot walk into an invisible menu. |
-| `frontend/src/components/Topbar.jsx` | Breadcrumb (desktop, from `locate()`), theme toggle, user menu, hamburger (phone) |
+| `frontend/src/components/Topbar.jsx` | The ☰ menu button (both form factors; hidden on desktop while the sidebar is open), theme toggle, user menu |
 | `frontend/src/components/Modal.jsx` | Shared modal shell (Escape, focus trap, scroll lock, `aria-modal`) + `ConfirmDialog`. **Use this for anything that covers the page — never a bare div, never `window.confirm`.** It portals out of its caller's subtree, so a surface with its own palette must redeclare its variables (and scrollbar theming) on the dialog — pass `backdropClassName` for that. |
 | `frontend/src/components/EnvRibbon.jsx` | Marks a non-production instance; renders nothing in production |
 | `frontend/src/components/SocketProvider.jsx` | The app's single Socket.IO connection, alive for the whole session. `useSocket()` / `useSocketEvent()`. **Pages attach and detach handlers; a page must never call `socket.disconnect()`** — it would cut off notifications and chat everywhere. |

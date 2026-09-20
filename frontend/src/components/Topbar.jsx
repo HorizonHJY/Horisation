@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth, useTheme, useFeature } from '../App'
 import { api } from '../api'
 
-export default function Topbar({ onMenuClick, crumb }) {
+export default function Topbar({ onMenuClick, menuButtonVisible = true }) {
   const { user, logout } = useAuth()
   const { isDark, toggleTheme } = useTheme()
   const canToggleTheme = useFeature('darkMode')
@@ -19,16 +19,13 @@ export default function Topbar({ onMenuClick, crumb }) {
 
   return (
     <div className="topbar">
-      <button className="hamburger-btn d-md-none" onClick={onMenuClick} aria-label="Open the menu">
-        <i className="fas fa-bars" />
-      </button>
-      {/* With the sidebar tucked away the page has to say where it is. */}
-      {crumb && (
-        <nav className="crumb d-none d-md-flex" aria-label="You are here">
-          <span>{crumb.section}</span>
-          <span className="crumb__sep" aria-hidden="true">/</span>
-          <span className="crumb__here" aria-current="page">{crumb.label}</span>
-        </nav>
+      {/* One control on both form factors: opens the drawer on a phone,
+          docks the sidebar on a desktop. Absent while the desktop sidebar is
+          open — the close button is in the sidebar's own header then. */}
+      {menuButtonVisible && (
+        <button className="hamburger-btn" onClick={onMenuClick} aria-label="Open the menu" title="Menu  [ ">
+          <i className="fas fa-bars" />
+        </button>
       )}
       <span className="me-auto" />
       {canToggleTheme && (
