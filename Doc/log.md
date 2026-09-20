@@ -12,6 +12,8 @@ Last Updated: 2026-09-20
 - **Blocked / Not Solved**: 密码明文存储（待迁 bcrypt）；`SECRET_KEY` 硬编码；首页天气卡片（todo #1）
 
 ### Latest Summary
+2026-09-20 修了**导出长图缩略图全空白**：两层原因——R2 桶没有 CORS 策略（控制台加），以及 Chrome 把页面普通加载的无 CORS 头响应缓存在同一 URL 下、导出时跨域请求撞上被拒（代码改：导出用 `?export=1` + `crossOrigin` 单独取一份）。见 Pattern 18。同日侧边栏改为按钮开合（见下）。
+
 2026-09-10 翻开的牌**可以拿起来看**：牌位变成按钮，点开后卡片从原地放大到接近扫描件原尺寸，
 指针移动时跟着倾斜并带一道高光，可以翻到背面，三张之间用按钮或 ←/→ 来回翻，Waite 全文在旁边。
 走共享 `Modal`，Esc、focus trap、滚动锁都在。
@@ -171,6 +173,12 @@ Last Updated: 2026-09-20
 - **Root Cause**: 本地 dev（Vite :5173）、本地生产测试（Flask :5000）、线上，三者界面完全一致，浏览器标签标题也一样。cookie 是 per-browser 的，视觉上没有任何线索提示"你现在看的不是你以为的那个"
 - **Reusable Solution**: 非生产实例必须自带视觉标识。双信号判定最稳：`import.meta.env.DEV`（Vite dev）**或**后端下发的 `local_dev`（覆盖构建产物由 Flask 直接服务的场景，此时前端信号为 false）。标识用刻意跳出产品配色的颜色，并改写 `document.title`——多窗口时标签标题往往是唯一可见的线索
 
+### Pattern 18: 同一个 URL 先普通加载、再 CORS 加载，会被缓存里那份"没有 CORS 头"的响应顶掉
+- **Symptom**: Market 页面上图片正常，导出长图时每张缩略图都是灰块。R2 桶加了 CORS 策略之后**仍然**灰块，强刷也没用。Chrome 控制台："No 'Access-Control-Allow-Origin' header is present on the requested resource"——可是用 `curl -H "Origin: …"` 去请求，头明明在
+- **Root Cause**: 两层。① R2 公开桶默认没有 CORS 策略，`canvas.drawImage` 跨域图片必须有 `Access-Control-Allow-Origin`（普通 `<img>` 不需要，所以页面上看得见）。② 加了策略还是不行，因为 Market 页面先用普通 `<img>` 把每张图请求过一遍——那次请求**没带 Origin**，服务器就**没返回** CORS 头，Chrome 把这份响应按 URL 缓存了；导出时 html2canvas（`useCORS: true`）对**同一个 URL** 发跨域请求，Chrome 从缓存里拿出那份没有头的响应，CORS 校验失败。服务端有 `Vary: Origin` 也救不了，Chrome 的图片内存缓存不认
+- **Reusable Solution**: 凡是"页面已经普通加载过、之后又要画到 canvas 上"的跨域图片，画的时候用一个**页面从没用过的 URL 变体**（如 `?export=1`）并带 `crossOrigin="anonymous"`，让它拥有自己的缓存条目、从第一个字节起就是 CORS 加载。服务端策略和这一步**缺一不可**。本项目在 `Market.jsx` 的 `exportSrc()`
+- **How to prove**: 同一页面里依次 `new Image()` 普通加载 → 同 URL `crossOrigin` 加载（失败）→ 同图加 `?x=1` `crossOrigin` 加载（成功并可 `toDataURL`）。三步十行 JS，比猜快
+
 ### Pattern 17: 跟随指针的变换，绝不能拿"正在被变换的那个元素"来测量
 - **Symptom**: 卡片"不断倾斜然后正位、倾斜然后正位"，像在自己抖。鼠标停着不动也抖
 - **Root Cause**: 每次 `pointermove` 都对**正在被 3D 变换的那个元素**调
@@ -215,6 +223,40 @@ Last Updated: 2026-09-20
 ---
 
 ## 3. Iteration History
+
+---
+
+### 2026-09-20 — 导出长图：缩略图空白，两层原因
+
+#### Goal
+用户删掉导出弹层里两行多余说明后，发现导出的长图里每张商品缩略图都是灰块。
+
+#### Trigger / Context
+Market 页面上图片一直正常；导出功能上线以来这个问题应该一直存在，只是之前没人细看。
+
+#### Findings
+1. **第一层：R2 桶没有 CORS 策略。** `curl -H "Origin: https://horizonyhj.com"` 打图片地址，
+   200 但没有任何 `Access-Control-Allow-Origin`，预检 OPTIONS 直接 403。`canvas.drawImage`
+   画跨域图片必须有这个头，普通 `<img>` 不需要——所以页面看得见、导出画不上。
+   用户在 Cloudflare 控制台加了策略（`Doc/server.md` 里有完整 JSON），curl 复验三项全通。
+2. **第二层：加完仍然灰块。** 在浏览器里复现：同一张图先普通加载（Market 页面的方式），再
+   `crossOrigin` 加载同一 URL → 失败，Chrome 报 "No 'Access-Control-Allow-Origin' header"；
+   同一张图换个 query string 再 `crossOrigin` 加载 → 成功、canvas 未被污染。是 Chrome 把第一次
+   （无 Origin 请求、无 CORS 头响应）的结果按 URL 缓存了，第二次直接命中。见 Pattern 18。
+3. **强刷不是解法。** Market 页每次打开都先普通加载一遍，导出永远撞车。必须让导出用不同的 URL。
+4. **改动三行**：`exportSrc(url)` 加 `?export=1`，`<img>` 加 `crossOrigin="anonymous"`。
+5. **顺带**：用户删了导出弹层的两行说明文字（标题和预览已经把意思说尽了）；分类里发现一个
+   手误 "Lving"（数据，System Management 里改）。
+6. **副产品**：用户在我推纯文档 commit 的那十几秒里撞上 502——每次 push 都重启 gunicorn，
+   改 `.md` 也不例外。建议 workflow 加 `paths-ignore`，记在 todo。
+
+#### Verification
+用**真的** `ExportModal` + **真的** `html2canvas` + 用户给的真实 R2 图片地址，并且**先故意按
+Market 页面的方式普通加载一遍**再点导出：渲染成功、无错误 toast、输出 PNG 155 KB、缩略图区域
+像素标准差 81（灰块约 0），截图里能看见那台曲面显示器。部署后线上 bundle 含 `export=1`。
+
+#### Remaining
+`paths-ignore` 还没加。
 
 ---
 
