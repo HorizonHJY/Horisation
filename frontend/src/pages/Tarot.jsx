@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import { api } from '../api'
 import HandLoader from '../components/HandLoader'
 import Modal from '../components/Modal'
+import TarotReading from '../components/TarotReading'
 
 /**
  * Three-card spread — past, present, future.
@@ -334,6 +335,7 @@ export default function Tarot() {
   const [inspecting, setInspecting] = useState(null)        // { index, fromRect }
 
   const drawnRef = useRef([])        // the server's three, in order
+  const [readingId, setReadingId] = useState(null)   // the server's record of this spread
   const deckElRef = useRef(null)
   const slotRefs = useRef([])
   const flyerRef = useRef(null)
@@ -424,6 +426,7 @@ export default function Tarot() {
       return
     }
     drawnRef.current = d.spread
+    setReadingId(d.reading_id || null)
 
     const wait = reducedMotion ? 0 : RIFFLE_MS + deck.length * RIFFLE_STAGGER_MS
     timers.current.push(setTimeout(() => setPhase('choosing'), wait))
@@ -801,6 +804,11 @@ export default function Tarot() {
             </div>
           ))}
         </div>
+
+        {/* Once all three are face up: read them as one thing, on request. */}
+        {phase === 'done' && readingId && (
+          <TarotReading readingId={readingId} positions={positions} />
+        )}
 
         <p className="tarot__footnote">
           Rider–Waite–Smith deck, public domain in the US · card text from

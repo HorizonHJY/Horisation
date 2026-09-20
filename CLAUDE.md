@@ -47,13 +47,15 @@ Browser → Cloudflare → Nginx → Gunicorn (port 8000) → Flask (API only)
 | `Backend/Controller/market_task_controller.py` / `market_task_db.py` | `/api/market/tasks/*` — bounty/task board |
 | `Backend/Controller/weather_controller.py` | `/api/weather` — Open-Meteo current weather for St. Louis, 10-min in-memory cache |
 | `Backend/Controller/r2_manager.py` | Cloudflare R2 upload/delete via boto3 |
-| `Backend/Controller/tarot_controller.py` | `/api/tarot/*` — three-card spread. The shuffle runs here, not in the browser: a reading you can re-roll from devtools is not a reading. |
+| `Backend/Controller/tarot_controller.py` | `/api/tarot/*` — three-card spread. The shuffle runs here, not in the browser: a reading you can re-roll from devtools is not a reading. Also the AI reading (`/reading`), rating and history routes — thin: quota, retries and the model call all live in the AI layer. |
+| `Backend/Controller/tarot_db.py` | `tarot_readings` table: one row per `/draw` (the spread), filled in by `/reading` (question, model text, parsed JSON) and by the rating. Owner-only lookups. **Business data; not the AI layer's table.** |
+| `Backend/Service/ai/` | **The AI layer.** `service.py` is the one entry point (`ai.run(feature, user, role, quota_key, payload)` → `AIResult`); `client.py` the vendor-neutral HTTP call (DeepSeek default, Anthropic supported — raw `requests`, never a vendor SDK, because of eventlet); `quota.py` per-role limits + global daily cap; `usage.py` the `ai_usage` table; `prompts/` versioned prompt builders/parsers; `features/` the registry. Design and the reasons in `Doc/ai_service.md`; tests in `tests/test_ai_service.py`. |
 
 ### Frontend
 | File | Purpose |
 |------|---------|
 | `frontend/src/App.jsx` | Router, AuthContext, ThemeContext, UnreadContext, PrivateRoute / FeatureRoute |
-| `frontend/src/api.js` | Fetch wrapper (`credentials: include`) |
+| `frontend/src/api.js` | Fetch wrapper (`credentials: include`). Never throws; every result has `ok`. On a non-2xx response the **whole error body rides along** (`retryable`, `error_kind`, `quota`…), not just `error`. |
 | `frontend/src/features.js` | Per-role feature flags (`canAccess`) — the frontend half of role gating |
 | `frontend/src/nav.js` | **The site map, in one place**: `NAV_SECTIONS`, which the sidebar renders. Add a page here. |
 | `frontend/src/index.css` | Global design system: tokens, focus ring, badge pairs, market card, dark theme |
@@ -63,17 +65,19 @@ Browser → Cloudflare → Nginx → Gunicorn (port 8000) → Flask (API only)
 | `frontend/src/components/Modal.jsx` | Shared modal shell (Escape, focus trap, scroll lock, `aria-modal`) + `ConfirmDialog`. **Use this for anything that covers the page — never a bare div, never `window.confirm`.** It portals out of its caller's subtree, so a surface with its own palette must redeclare its variables (and scrollbar theming) on the dialog — pass `backdropClassName` for that. |
 | `frontend/src/components/EnvRibbon.jsx` | Marks a non-production instance; renders nothing in production |
 | `frontend/src/components/SocketProvider.jsx` | The app's single Socket.IO connection, alive for the whole session. `useSocket()` / `useSocketEvent()`. **Pages attach and detach handlers; a page must never call `socket.disconnect()`** — it would cut off notifications and chat everywhere. |
+| `frontend/src/components/TarotReading.jsx` | The "整体解读" section under the three cards: optional question → `POST /api/tarot/reading` → summary / three positions / one next step → 1–5 fit rating. Reads `retryable` off the error body to decide whether to offer *Try again*. |
 | `frontend/src/pages/` | All page components |
 
 ### Data
 | Path | Contents | Git tracked? |
 |------|----------|-------------|
-| `_data/market.db` | SQLite — **all** structured data: users, sessions, listings, images, categories, memos, messages, friends, groups, games, travel, bills, tasks | No (gitignored) |
+| `_data/market.db` | SQLite — **all** structured data: users, sessions, listings, images, categories, memos, messages, friends, groups, games, travel, bills, tasks, tarot readings, AI usage | No (gitignored) |
 | `_data/notes/` | Per-user note JSON files | Yes |
 | `Backend/data/tarot_deck.json` | 78 Rider–Waite–Smith cards: id, name, arcana, image filename, Waite's 1911 upright text, plus `name_zh` / `keywords_zh`. The Chinese layer is **authored in `scripts/tarot_add_zh.mjs`** (no open Chinese dataset exists) — edit it there and re-run, never in the JSON by hand. | Yes |
 | `frontend/public/tarot/*.jpg` | RWS card scans, 78 files (~7.6 MB) from `metabismuth/tarot-json` (MIT); the deck itself is US public domain | Yes |
 | `_data/users.json.migrated` | Pre-March-2026 JSON store, migrated into SQLite and renamed | Yes (inert) |
 | `Key/r2_config.json` | Cloudflare R2 credentials | No (gitignored) |
+| `Key/ai_config.json` | AI provider + key (`{provider, api_key, model}`; template at `ai_config.example.json`). Env vars `AI_PROVIDER` / `DEEPSEEK_API_KEY` / `ANTHROPIC_API_KEY` / `AI_MODEL` win over the file. `AI_ENABLED=0` is the kill switch. | No (gitignored) |
 | `Doc/ai_service.md` | **Reviewed design** for the AI layer (`Backend/Service/ai/`): contract, quota keys, timezone, the eventlet constraint, tarot reading flow, history/rating tables. Read it before touching anything AI. | Yes |
 | `PRODUCT.md` | Confirmed product record (users, positioning, brand, principles) used by the `impeccable` design skill | Yes |
 | `.impeccable/` | Design-detector config + critique snapshots (`hook.cache.json` is gitignored) | Yes, except the cache |
@@ -118,6 +122,7 @@ bash ~/deploy.sh       # calls scripts/deploy.sh in the project
 - Service: `/etc/systemd/system/horisation.service`
 - Nginx config: `/etc/nginx/conf.d/horizonyhj.com.conf`
 - R2 config: `/home/ec2-user/Horisation/Key/r2_config.json` (manual, never in git)
+- AI config: `/home/ec2-user/Horisation/Key/ai_config.json` (manual, never in git; copy `ai_config.example.json`). Without it every `/reading` answers 503 "config" and nothing else on the site is affected.
 
 ---
 
@@ -184,9 +189,19 @@ naming every role is a gate that does nothing.
 | Method | Route | Description |
 |--------|-------|-------------|
 | GET | `/deck` | All 78 cards — the fan is laid out from this |
-| POST | `/draw` | Three distinct cards, one per position. `secrets.randbelow`, never `random`. The response carries **only** the drawn cards, so the rest of the deck order never leaves the server. |
+| POST | `/draw` | Three distinct cards, one per position. `secrets.randbelow`, never `random`. The response carries **only** the drawn cards, so the rest of the deck order never leaves the server. Since 2026-09-20 it also writes a `tarot_readings` row and returns its `reading_id`. |
+| POST | `/reading` | Body `{reading_id, question?}`. The AI reads the spread **the server drew** — nothing about the cards travels up. 404 if the id is not yours. Idempotent: an already-read spread returns the stored reading without a model call or a quota charge. Errors carry `error_kind`, `retryable` and (for quota) `quota`; status 429 quota, 503 global cap / disabled / no key, 502 model failure. |
+| POST | `/readings/<id>/rating` | `{rating: 1–5, note?}` — how well it fit. Only after a reading exists. Overwritable. |
+| GET | `/readings` | Own interpreted readings, newest first (`limit` ≤ 50, `before` ISO cursor). No page uses it yet (P1). |
 
 Upright only — the deck file carries no reversed meanings.
+
+**AI reading.** Quota is per person per Chicago day: `user` 1, `vip`/`svip` 3, `admin`/`horizon` unlimited;
+a site-wide cap of 100 ok calls per 24h and `AI_ENABLED=0` sit above that. A failed call is logged but
+not charged; one automatic retry on timeout / 5xx. The model answers in JSON (`past`, `present`,
+`future`, `summary`, `next_step`); if it breaks the schema the raw text is kept, shown whole, and still
+charged. Prompt text lives in `Backend/Service/ai/prompts/tarot.py` and is versioned (`tarot-v1`);
+bump `PROMPT_VERSION` whenever the wording changes so ratings stay comparable across versions.
 
 The flow since 2026-09-12: *Start* (after the on-screen instruction to hold a question and
 say it three times) → shuffle → take three; **each card turns over the moment it lands** and

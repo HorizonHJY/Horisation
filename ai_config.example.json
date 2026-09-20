@@ -1,0 +1,6 @@
+{
+  "_comment": "Copy to Key/ai_config.json and fill in (Key/ is gitignored; this example is not). Environment variables AI_PROVIDER, AI_MODEL and DEEPSEEK_API_KEY override the file.",
+  "provider": "deepseek",
+  "api_key": "sk-...",
+  "model": "deepseek-chat"
+}

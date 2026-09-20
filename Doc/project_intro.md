@@ -91,7 +91,7 @@ Images are stored in Cloudflare R2; only the public URL is kept in the database.
 | Friends | `/friends` | All | Friend system: search, add, private chat, contact sharing with approval flow |
 | Groups | `/groups` | All | Build a group by username, independent of the friend graph; group chat. See `Doc/groups.md` |
 | Tasks | `/tasks` | All | Bounty / task board |
-| Tarot | `/tarot` | All | 78-card Rider–Waite–Smith deck: shuffle, choose your own three, past / present / future, tap a card to look closer. Server-side shuffle. `horizon`-only 09-08 → 09-10, open to everyone since |
+| Tarot | `/tarot` | All | 78-card Rider–Waite–Smith deck: shuffle, choose your own three, past / present / future, tap a card to look closer, then an optional AI reading of the three together (DeepSeek; user 1 / vip 3 / admin ∞ per Chicago day) with a 1–5 fit rating. Server-side shuffle; the AI reads the spread the server drew, by id. `horizon`-only 09-08 → 09-10, open to everyone since |
 | Profile | `/profile` | All | Update display name, email, password, avatar, contact info (with hide toggle) |
 | Gomoku (Online) | `/fun/gomoku-online` | horizon, admin, svip | Real-time multiplayer Five in a Row via Socket.IO |
 | Travel Planner | `/travel` | horizon, admin, svip, vip | Multi-day itinerary planner, shareable 6-char plan id |

@@ -204,6 +204,37 @@ If the site's domain changes, or the bucket is replaced, this must be redone —
 nothing in the repo can do it. Users who exported before the fix may need one
 hard refresh, to drop cached image responses that carry no CORS header.
 
+## AI provider key — the tarot reading needs one
+
+The AI reading (`POST /api/tarot/reading`) calls DeepSeek over HTTPS from the server. The key is
+**never in git**; it lives in one of two places, checked in this order:
+
+1. Environment — `DEEPSEEK_API_KEY` (and optionally `AI_PROVIDER`, `AI_MODEL`). In the systemd unit:
+   ```ini
+   [Service]
+   Environment=DEEPSEEK_API_KEY=sk-...
+   ```
+   then `sudo systemctl daemon-reload && sudo systemctl restart horisation`.
+2. File — `/home/ec2-user/Horisation/Key/ai_config.json`, same folder as `r2_config.json`:
+   ```bash
+   cp ai_config.example.json Key/ai_config.json && nano Key/ai_config.json   # fill api_key
+   sudo systemctl restart horisation
+   ```
+
+Without either, every `/reading` answers 503 with `error_kind: config` and a Chinese message; the
+rest of the tarot page, and the rest of the site, are unaffected.
+
+**Kill switch:** `AI_ENABLED=0` in the unit's `Environment=` turns the feature off (503 `disabled`)
+without touching the key — for a leaked key or a runaway bill. The site-wide cap of 100 ok calls
+per 24h (`Backend/Service/ai/quota.py`) is the automatic version of the same thing.
+
+**What to look at after the first real reading:** `sqlite3 _data/market.db "select model, ok,
+error_kind, latency_ms, prompt_tokens, completion_tokens, cost_usd from ai_usage order by
+created_at desc limit 5"`. Latency should be 3–12 s; DeepSeek can be slower at US evening hours
+(China daytime), which is what the 30 s read timeout and the single retry are for.
+
+---
+
 ## Cloudflare SSL Mode
 
 Set to **Full** or **Full (strict)**

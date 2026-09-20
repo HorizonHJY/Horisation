@@ -27,7 +27,9 @@ backup beyond the repository itself.
 
 ## SQLite Database — `_data/market.db`
 
-Created automatically on app startup via `init_db()` in `market_db.py`.
+Created automatically on app startup via `init_db()` in `market_db.py`. A few modules own their
+own tables on the same file and create them from their own `init_*_db()` in `app.py`: `travel_db`,
+`bill_db`, `market_task_db`, `tarot_db`, and the AI layer's `Backend/Service/ai/usage.py`.
 Built with SQLAlchemy ORM — can migrate to PostgreSQL by changing the engine URL (one line).
 
 ### Table: `user`
@@ -279,6 +281,64 @@ See `Doc/groups.md` for API design.
 
 ---
 
+### Table: `tarot_readings` (塔罗牌阵 + AI 解读 + 打分)
+
+> Added 2026-09-20. Created at startup by `init_tarot_db()` (`Backend/Controller/tarot_db.py`).
+> 一次 `/api/tarot/draw` 一行——抽了没求解读的也是一行（这也是数据：多少人抽了没问）。
+> `/reading` 把问题、模型原文、解析后的 JSON 填进来；打分再填 `rating`。
+> 这是业务数据，将来做历史页、训练集都从这里出；**AI 层的记账在 `ai_usage`，不在这里**。
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | TEXT (32 hex) | PK, `uuid4().hex` |
+| username | TEXT | 所有者；所有读取都按 username 过滤，错人 = 404 |
+| spread_json | TEXT | `[{position, card}] × 3`，抽到时原样 |
+| question | TEXT | 可空，≤ 200 字 |
+| reading_raw | TEXT | 模型回复原文，未动 |
+| reading_json | TEXT | 解析后的 `{past, present, future, summary, next_step}`；模型离格时 NULL（原文仍在 `reading_raw`） |
+| model | TEXT | 例 `deepseek-chat` |
+| prompt_version | TEXT | 例 `tarot-v1` —— 换 prompt 必须升版本，打分才可比 |
+| rating | INTEGER | 1–5 贴合度，可空，可改 |
+| rating_note | TEXT | ≤ 100 字，可空 |
+| rated_at | DATETIME | UTC |
+| created_at | DATETIME | UTC，抽牌时刻 |
+| read_at | DATETIME | UTC，解读时刻；NULL = 抽了没问 |
+
+Index: `(username, created_at)`.
+
+**Managed by:** `Backend/Controller/tarot_db.py`；API 见 `POST /api/tarot/draw`（建行）、`POST /reading`（填解读）、
+`POST /readings/<id>/rating`、`GET /readings`。
+
+---
+
+### Table: `ai_usage` (AI 调用记账 —— AI 层私有)
+
+> Added 2026-09-20. Created at startup by `init_ai_db()` (`Backend/Service/ai/usage.py`，自带 engine，
+> 故意不 import `market_db` —— 这张表跟着 AI 层走，哪天拆成独立服务它一起搬）。
+> **每次调用一行，成功失败都记**。配额只数 `ok=1`（超时不扣次数），但失败也留痕，否则不知道失败率、烧了多少。
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | TEXT (UUID) | PK |
+| feature | TEXT | `tarot`… 每个 AI 功能一个名 |
+| username | TEXT | 调用者 |
+| quota_key | TEXT | 例 `user:zwy:tarot:2026-09-20`（业务日 = America/Chicago） |
+| model | TEXT | 实际模型 |
+| prompt_version | TEXT | |
+| prompt_tokens / completion_tokens | INTEGER | 厂商返回的用量 |
+| cost_usd | REAL | 按写入时的单价表估算；单价变了旧行不改 |
+| latency_ms | INTEGER | |
+| attempts | INTEGER | 1 或 2（自动重试一次） |
+| ok | INTEGER | 1 / 0 |
+| error_kind | TEXT | `timeout` / `provider` / `rate_limit` / `config` / `parse`；成功为 NULL |
+| created_at | DATETIME | UTC |
+
+Indexes: `(quota_key, ok)`（配额计数）、`(feature, created_at)`（全站 24h 上限）。
+
+**Managed by:** `Backend/Service/ai/usage.py`（`UsageStore`）；没有对外 API，管理页读它是 P2。
+
+---
+
 ## Cloudflare R2 (Object Storage)
 
 Used to store image files. Accessed via `boto3` (S3-compatible API).
@@ -334,7 +394,8 @@ _data/
 └── notes/               ← per-user note JSON files (git tracked)
 
 Key/
-└── r2_config.json       ← R2 credentials (gitignored)
+├── r2_config.json       ← R2 credentials (gitignored)
+└── ai_config.json       ← AI provider + key (gitignored; template: ai_config.example.json at the repo root)
 
 Backend/data/
 └── tarot_deck.json      ← 78 cards: id, name, arcana, image filename, Waite 1911 text

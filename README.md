@@ -15,7 +15,7 @@ A private web platform for close friends — tools, community, and games in one 
 | **Message Board** | Threaded replies and likes |
 | **Friends** | Requests, private chat, and separately-approved contact sharing |
 | **Groups** | Group chat, independent of the friend graph |
-| **Tarot** | 78-card Rider–Waite–Smith deck: shuffle, choose your own three, past / present / future, tap a card to look closer. Shuffle happens server-side |
+| **Tarot** | 78-card Rider–Waite–Smith deck: shuffle, choose your own three, past / present / future, tap a card to look closer. Shuffle happens server-side. Optional AI reading of the three together (DeepSeek, quota per person per day) with a 1–5 fit rating |
 | **Online Gomoku** | Real-time multiplayer Five in a Row over Socket.IO |
 | **Memo** | Personal memo & task tracker with priorities and tags |
 | **Travel Planner** | Multi-day itineraries with a shareable plan id |
@@ -73,7 +73,7 @@ Pulls latest code, installs deps, builds frontend, restarts service.
 | `Doc/project_intro.md` | Full architecture & feature overview |
 | `Doc/data_storage.md` | How and where data is stored |
 | `Doc/server.md` | Server configuration reference |
-| `Doc/ai_service.md` | AI service layer design (reviewed; tarot reading is the first feature) |
+| `Doc/ai_service.md` | AI service layer (`Backend/Service/ai/`): design, decisions, and the P0 implementation record. Tarot reading is the first feature |
 | `Doc/log.md` | Change log |
 | `CLAUDE.md` | Guide for AI-assisted development |
 

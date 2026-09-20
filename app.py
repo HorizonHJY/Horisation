@@ -35,6 +35,13 @@ init_bill_db()
 from Backend.Controller.market_task_db import init_task_db
 init_task_db()
 
+from Backend.Controller.tarot_db import init_tarot_db
+init_tarot_db()
+
+# The AI layer owns its own table (ai_usage). See Doc/ai_service.md.
+from Backend.Service.ai import init_ai_db
+init_ai_db()
+
 from Backend.Controller.bill_controller import bill_bp
 from Backend.Controller.market_task_controller import task_bp
 from Backend.Controller.weather_controller import weather_bp

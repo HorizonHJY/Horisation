@@ -1,10 +1,10 @@
 # AI Service Layer — 设计方案
 
-状态：**已评审，待实现（P0）**
+状态：**P0 已实现（2026-09-20），待填 API key 上线**。代码：`Backend/Service/ai/`、`Backend/Controller/tarot_db.py`、`frontend/src/components/TarotReading.jsx`；测试 `tests/test_ai_service.py`（14 例）。
 作者：小思（草案 2026-09-20）
 评审：Claude（2026-09-20），修订处标 **【评审修订】**；新增 §12 历史 / 打分 / 训练数据
 
-> 目标是让 Horizon 决定「要不要做、做成什么样」，再动手。所有代码路径均为建议，尚未写入仓库。
+> 本文写于实现之前，是设计与决策记录。P0 落地后代码路径已与文中一致；以后改实现请同时改这里，不然半年后这份文档就是唯一还在被相信的谎言。
 > 评审后 Horizon 已拍板：**按此方案做**。§11 记录了每个待定项的答案。
 
 ---
@@ -333,7 +333,7 @@ GET  /api/tarot/readings                             （新增，§12，本人�
 
 | 阶段 | 内容 | 说明 |
 |------|------|------|
-| **P0（本期）** | `ai/` 模块 + `ai_usage` + `tarot_readings` + `/draw` 落库 + `/reading` + 打分接口 + 前端"整体解读"一节（含可选问题框、打分） + 总开关 + 全局日上限 + 测试 | 约一天，直接闭环。原 P1 并入 |
+| **P0（已完成 2026-09-20）** | `ai/` 模块 + `ai_usage` + `tarot_readings` + `/draw` 落库 + `/reading` + 打分接口 + 前端"整体解读"一节（含可选问题框、打分） + 总开关 + 全局日上限 + 测试 | 直接闭环。原 P1 并入。实现与设计的出入见 §14 |
 | P1 | `GET /api/tarot/readings` 本人历史 + 前端历史页 | 表已经在了，只是加读接口和页面 |
 | P2 | 按 role 差异化配额 + 成本看板（管理页读 `ai_usage`） | 运营需要时 |
 | P3 | 第二个 AI 功能接入，验证抽象是否够用 | 真正的验收 |
@@ -403,3 +403,26 @@ POST /api/tarot/readings/<id>/rating   body: { rating: 1-5, note?: ≤ 100 字 }
 2. **§8.5 eventlet 单 worker**：`client.py` 用 `requests`，不引 SDK，硬超时。这个库特有，原稿没提。
 3. `client.py` 厂商无关；`prompts/` 包；表的归属划线；`today_key()` 收口时区；JSON 解析兜底；自动重试一次；`AI_ENABLED` 总开关；全局日上限提前到 P0；测试。
 4. §12 历史 / 打分 / 训练数据是 Horizon 在评审后追加的需求，表结构已按此调整。
+
+---
+
+## 14. 实现记录（P0，2026-09-20）
+
+按 §2–§12 落地，出入只有这几处，都是实现时才看见的：
+
+| 处 | 设计 | 实现 | 为什么 |
+|----|------|------|--------|
+| 配置来源 | `Key/ai_config.json` | 环境变量优先（`AI_PROVIDER` / `DEEPSEEK_API_KEY` / `ANTHROPIC_API_KEY` / `AI_MODEL`），没有再读文件；仓库里放 `ai_config.example.json` 做模板 | `Key/` 整个目录被 gitignore，模板放不进去；env 让本地/CI 不用碰文件 |
+| `GET /api/tarot/readings` | P1 | 接口 P0 就有了（`list_readings`，limit ≤ 50，`before` 游标），页面没做 | 表、查询函数、鉴权都在同一个文件里，多十行；历史**页**仍是 P1 |
+| 前端错误细节 | 假定 `retryable` 能到组件 | 发现 `frontend/src/api.js` 对非 2xx 只保留 `error` 和 `status`，把 `retryable` / `error_kind` / `quota` 全丢了。改为整个 body 透传 | 这是全站的 fetch 封装，改动对其他调用方无害——多出来的字段以前谁也没读过 |
+| Windows 时区 | `zoneinfo` | `requirements.txt` 加 `tzdata` | Windows 没有系统 tz 数据库，`ZoneInfo('America/Chicago')` 直接抛；服务器（Amazon Linux）不需要但装了无害 |
+| 重试范围 | "超时 / 5xx" | `RETRY_KINDS = {'timeout', 'provider'}`；`rate_limit`（429）和 `config` 不重试 | 429 重试只会再吃一次 429；`config` 是人的事 |
+| 模型 | 未定 | DeepSeek `deepseek-chat`，`response_format: json_object`；Anthropic 路径保留（预填 `{`） | Horizon 拍板 DeepSeek |
+
+**上线还差一步（Horizon 手动）：** 在 EC2 上 `cp ai_config.example.json Key/ai_config.json` 并填 DeepSeek key
+（或在 systemd unit 里加 `Environment=DEEPSEEK_API_KEY=...`），重启服务。没有 key 时 `/reading` 回 503
+`config`，前端显示"AI 功能还没配置好。"，牌阵本身照常能抽。要临时关掉：`AI_ENABLED=0`。
+
+**验证方式：** 后端 14 个单测（假厂商 + 内存表：配额按角色、跨日新桶、失败不扣额且重试一次、429 不重试、全局上限、
+总开关、离格回复保留并扣额、解析容错、prompt 内容、Chicago 与 UTC 的日期差）；前端用 stub 过的 fetch 走了
+ok / quota / timeout / parse 四种分支——就是这一步抓到了 `api.js` 丢字段的 bug。真模型的端到端要等 key。

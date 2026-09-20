@@ -7,11 +7,16 @@ Last Updated: 2026-09-20
 ### Current Working Version
 - **Completed**: 全站设计系统统一；邀请码系统；功能角色门控；好友/私信系统；SQLite 迁移；二手市集（配送选项 + Restore + 动态分类 + System Management + 价格拆分 + 响应式按钮 + 浏览量计数 + 分类图标 + 多选 filter + 两行 meta + 中文配送标签 + EditModal 修复）；**留言板（Weibo 式线程回复 + 点赞 + 翻页）**；用户公开主页；**非好友直接私信**；**Market Reach Out 直接开 DM**；**Login 页 Safari 全面兼容修复**；**群组系统（独立建组 + 按用户名拉人 + 群聊，`/api/groups`）**；**品牌改名 Arch Bay（可见文案 'Horisation'→'Arch Bay'，提交 f0fc7f6）**；**市集意向成单流（trade_intents）**
   ；**全局实时通知（一条 session 级 socket + `/api/friends/notifications` 快照）**
-  ；**塔罗牌 section（78 张 RWS 牌，洗牌动画 + 自己点选三张 + 三张牌阵 + 点开细看，服务端洗牌，2026-09-10 起全员开放）**
+  ；**塔罗牌 section（78 张 RWS 牌，洗牌动画 + 自己点选三张 + 三张牌阵 + 点开细看，服务端洗牌，2026-09-10 起全员开放；09-20 起 AI 整体解读 + 打分）**；**AI 服务层 `Backend/Service/ai/`（统一入口、配额、记账、总开关，DeepSeek）**
 - **In Progress**: 无
-- **Blocked / Not Solved**: 密码明文存储（待迁 bcrypt）；`SECRET_KEY` 硬编码；首页天气卡片（todo #1）
+- **Blocked / Not Solved**: 密码明文存储（待迁 bcrypt）；`SECRET_KEY` 硬编码；首页天气卡片（todo #1）；**AI 解读等 DeepSeek key 放到服务器才真正可用**
 
 ### Latest Summary
+2026-09-20 晚：**塔罗牌 v5 —— AI 整体解读 + 打分**，顺带立起 **AI 服务层**（`Backend/Service/ai/`，一个 `ai.run` 入口、
+按角色按 Chicago 日的配额、全站日上限、总开关、失败不扣次数、`ai_usage` 记账、厂商无关 `requests` 调用）。
+每次抽牌落 `tarot_readings`，解读与 1–5 贴合度评分填回去。14 个后端单测；前端四条分支用 stub 走通，
+抓到 `api.js` 吞错误细节的老问题（Pattern 19）。真模型待 key。
+
 2026-09-20 修了**导出长图缩略图全空白**：两层原因——R2 桶没有 CORS 策略（控制台加），以及 Chrome 把页面普通加载的无 CORS 头响应缓存在同一 URL 下、导出时跨域请求撞上被拒（代码改：导出用 `?export=1` + `crossOrigin` 单独取一份）。见 Pattern 18。同日侧边栏改为按钮开合（见下）。
 
 2026-09-10 翻开的牌**可以拿起来看**：牌位变成按钮，点开后卡片从原地放大到接近扫描件原尺寸，
@@ -173,6 +178,11 @@ Last Updated: 2026-09-20
 - **Root Cause**: 本地 dev（Vite :5173）、本地生产测试（Flask :5000）、线上，三者界面完全一致，浏览器标签标题也一样。cookie 是 per-browser 的，视觉上没有任何线索提示"你现在看的不是你以为的那个"
 - **Reusable Solution**: 非生产实例必须自带视觉标识。双信号判定最稳：`import.meta.env.DEV`（Vite dev）**或**后端下发的 `local_dev`（覆盖构建产物由 Flask 直接服务的场景，此时前端信号为 false）。标识用刻意跳出产品配色的颜色，并改写 `document.title`——多窗口时标签标题往往是唯一可见的线索
 
+### Pattern 19: 统一的 fetch 封装在错误路径上"只保留 error"，会把服务端刻意给的细节全部吞掉
+- **Symptom**: 服务端在 4xx/5xx 的 body 里带了 `retryable` / `error_kind` / `quota`，组件却永远只拿到 `{ok:false, error, status}`。表现为"超时后应该出现的 Try again 按钮从来不出现"——后端单测全过，前端代码看起来也对
+- **Root Cause**: `api.js` 的 `request()` 在 `!res.ok` 分支只透传 `body.error`。写它时所有错误都是一句话，这样够用；第一个需要**结构化错误**的功能一来就不够了，而且没有任何东西会报错——字段只是安静地不在
+- **Reusable Solution**: 错误路径和成功路径一样，**整个 body 透传**，封装只负责保证 `ok:false` 和一个可读的 `error` 一定在。另一条：**前端分支要用 stub 过的 fetch 逐个走一遍**（ok / 配额满 / 超时可重试 / 离格回复），不要只测后端——这个 bug 就是这样抓到的，后端 14 个单测对它毫无感知
+
 ### Pattern 18: 同一个 URL 先普通加载、再 CORS 加载，会被缓存里那份"没有 CORS 头"的响应顶掉
 - **Symptom**: Market 页面上图片正常，导出长图时每张缩略图都是灰块。R2 桶加了 CORS 策略之后**仍然**灰块，强刷也没用。Chrome 控制台："No 'Access-Control-Allow-Origin' header is present on the requested resource"——可是用 `curl -H "Origin: …"` 去请求，头明明在
 - **Root Cause**: 两层。① R2 公开桶默认没有 CORS 策略，`canvas.drawImage` 跨域图片必须有 `Access-Control-Allow-Origin`（普通 `<img>` 不需要，所以页面上看得见）。② 加了策略还是不行，因为 Market 页面先用普通 `<img>` 把每张图请求过一遍——那次请求**没带 Origin**，服务器就**没返回** CORS 头，Chrome 把这份响应按 URL 缓存了；导出时 html2canvas（`useCORS: true`）对**同一个 URL** 发跨域请求，Chrome 从缓存里拿出那份没有头的响应，CORS 校验失败。服务端有 `Vary: Origin` 也救不了，Chrome 的图片内存缓存不认
@@ -223,6 +233,37 @@ Last Updated: 2026-09-20
 ---
 
 ## 3. Iteration History
+
+---
+
+### 2026-09-20 — 塔罗牌 v5：AI 整体解读 + 打分（AI 层 P0）
+
+#### Goal
+三张牌翻开后，多一步**可选**的整体解读：写不写问题都行，AI 把三张牌当一件事讲，
+最后给一件明天能做的小事；读者打 1–5 分说贴不贴。同时把"调 AI"这件事做成一个
+**独立的层**，下一个 AI 功能只需要写 prompt 和注册一行。存下每次牌阵、问题、模型原文、
+评分——将来做历史页和训练集。
+
+#### Design（`Doc/ai_service.md`，小思草案 + 评审 + Horizon 拍板）
+- **一个入口**：`ai.run(feature, user, role, quota_key, payload) → AIResult(ok, text, data, error, error_kind, usage, quota, prompt_version)`。业务代码只见这个，不见厂商、不见表。
+- **配额外置**：调用方给 `quota_key`（`user:<u>:tarot:<Chicago 日期>`），AI 层只数数。角色限额 user 1 / vip·svip 3 / admin·horizon ∞；全站 100 次/24h；`AI_ENABLED=0` 总开关。
+- **失败不扣次数**：`ai_usage` 成功失败都记，配额只数 `ok=1`；timeout / 5xx 自动重试一次，429 和配置错误不重试。
+- **离格回复不丢**：模型没守 JSON 就把原文整段给用户看，照常扣次数（它确实回答了）。
+- **解读接口不抽牌**：`/draw` 落库返回 `reading_id`，`/reading` 只认 id——改牌阵求解读堵死，幂等白送（重复请求回存好的，不再调模型不再扣次数）。
+- **厂商无关 + eventlet 安全**：`client.py` 用 `requests` 硬超时 (5, 30)，不引 SDK——生产是 `-k eventlet -w 1`，一个 green-patch 不到的阻塞调用就是全站卡死。DeepSeek 默认，Anthropic 路径保留。
+- **两张表，两个主人**：`tarot_readings`（业务：牌阵/问题/原文/JSON/评分，`tarot_db.py`）和 `ai_usage`（记账：token/成本/延迟/成败，`Service/ai/usage.py` 自带 engine）。拆服务时后者跟着走。
+
+#### Files
+- 新：`Backend/Service/ai/{__init__,service,client,quota,usage}.py`、`prompts/tarot.py`（`tarot-v1`，中文，暖但具体，不预言）、`features/__init__.py`（注册表）
+- 新：`Backend/Controller/tarot_db.py`；改：`tarot_controller.py`（`/draw` 落库；`+/reading`、`/readings/<id>/rating`、`/readings`）
+- 新：`frontend/src/components/TarotReading.jsx` + `index.css` 的 `.tarot-read*`；改：`Tarot.jsx` 接 `reading_id`
+- 改：`frontend/src/api.js` —— 错误 body 整个透传（Pattern 19）
+- 新：`tests/test_ai_service.py`（14 例）、`ai_config.example.json`；`requirements.txt` +`requests` +`tzdata`；`app.py` 两个 `init_*_db()`
+
+#### Verification
+- 后端：假厂商 + 内存表，14/14。覆盖配额按角色、跨日新桶、失败不扣额且重试一次、429 不重试、全局上限、总开关、离格保留并扣额、解析容错、prompt 含牌名与问题、`today_key()` Chicago 晚上 ≠ UTC 次日。
+- 前端：stub 掉 fetch，走了 ok / quota / timeout / parse 四条分支——抓到 `api.js` 吞字段（Pattern 19）。桌面 + 375px 无横向溢出。`npm run build` 干净，detector 无报。
+- 未验：真模型端到端——**要等 Horizon 把 DeepSeek key 放到 EC2**（`Key/ai_config.json` 或 unit 里 `DEEPSEEK_API_KEY`）。没有 key 时 `/reading` 回 503 `config`，牌阵本身不受影响。
 
 ---
 

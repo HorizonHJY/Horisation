@@ -31,8 +31,11 @@ async function request(path, options = {}) {
   try {
     const body = await parseBody(res)
     if (!res.ok) {
-      // Backend error: prefer its message, fall back to HTTP status.
-      return failure(body.error || `HTTP ${res.status}`, res.status)
+      // Backend error: prefer its message, fall back to HTTP status. The rest
+      // of the body rides along — an error can carry detail the caller needs
+      // (tarot's `retryable`, `error_kind`, `quota`), and dropping it here
+      // would hide what the server took care to say.
+      return failure(body.error || `HTTP ${res.status}`, res.status, body)
     }
     // Some endpoints only set .ok in the body; ensure it's present & serializable.
     return body && typeof body === 'object' ? { ok: body.ok !== false, ...body } : { ok: true, data: body }
@@ -57,7 +60,7 @@ export const api = {
     }
     try {
       const body = await parseBody(res)
-      if (!res.ok) return failure(body.error || `HTTP ${res.status}`, res.status)
+      if (!res.ok) return failure(body.error || `HTTP ${res.status}`, res.status, body)
       return body && typeof body === 'object' ? { ok: body.ok !== false, ...body } : { ok: true, data: body }
     } catch {
       return failure(`HTTP ${res.status}`)
