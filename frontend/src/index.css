@@ -2300,7 +2300,9 @@ textarea.form-control { height: auto; padding: .55rem .85rem; line-height: 1.55;
    rules here. The shell height leaves room for the topbar and page padding
    and lets the two inner columns scroll on their own; the page itself never
    scrolls on desktop. */
-.fr-page { padding: 1rem 1.25rem 1.5rem; max-width: 1180px; }
+/* Wide enough to use a big monitor; the bubbles' own max-width keeps a line
+   readable, so the pane can grow without the text sprawling. */
+.fr-page { padding: 1rem 1.25rem 1.5rem; max-width: 1400px; }
 .fr-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
 .fr-head > i { color: var(--accent); font-size: 1.2rem; }
 .fr-title { font-family: var(--font-display); font-size: 1.6rem; margin: 0; color: var(--text-primary); }
@@ -2311,6 +2313,11 @@ textarea.form-control { height: auto; padding: .55rem .85rem; line-height: 1.55;
   background: var(--bg-surface); border: 1px solid var(--border-soft);
   border-radius: var(--radius-lg); box-shadow: var(--shadow-md);
   height: calc(100vh - var(--topbar-h) - 6.5rem); min-height: 480px; overflow: hidden;
+}
+/* dvh follows the browser chrome as it shows and hides; 100vh on a phone is
+   the tallest the viewport ever gets, so the composer sat under the toolbar. */
+@supports (height: 1dvh) {
+  .fr-shell { height: calc(100dvh - var(--topbar-h) - 6.5rem); }
 }
 /* min-height: 0 on both columns is what keeps a long conversation INSIDE the
    pane. A grid item's default min-height is its content, so without it a
@@ -2463,7 +2470,7 @@ button.fr-chip:hover { filter: brightness(.96); }
   .fr-pane { display: none; }
   .fr-shell.is-chat .fr-rail { display: none; }
   .fr-shell.is-chat .fr-pane {
-    display: flex; height: calc(100vh - var(--topbar-h) - 5.5rem); min-height: 420px;
+    display: flex; height: calc(100vh - var(--topbar-h) - 5.5rem); height: calc(100dvh - var(--topbar-h) - 5.5rem); min-height: 420px;
     background: var(--bg-surface); border: 1px solid var(--border-soft); border-radius: var(--radius-lg); overflow: hidden;
   }
   .fr-back { display: inline-flex; }

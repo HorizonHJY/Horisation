@@ -366,10 +366,19 @@ export default function Friends() {
 
   // Auto-scroll the message column, not the page — scrollIntoView on a
   // two-pane layout drags the whole document down and hides the header.
+  // On open, jump to the newest. After that, follow new messages only while
+  // the reader is already near the bottom — someone scrolled up reading last
+  // month should not be yanked down by every incoming line.
+  const stickToBottom = useRef(true)
   useEffect(() => {
     const el = msgsRef.current
-    if (el) el.scrollTop = el.scrollHeight
+    if (!el) return
+    if (stickToBottom.current) el.scrollTop = el.scrollHeight
   }, [chatHistory])
+  const onMsgsScroll = () => {
+    const el = msgsRef.current
+    if (el) stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+  }
 
   // Auto-open chat if navigated here from Market with state
   useEffect(() => {
@@ -417,6 +426,7 @@ export default function Friends() {
     window.__hzActiveChatWith = person.username
     setActiveChat(person)
     setChatHistory([])
+    stickToBottom.current = true
     setChatInput('')                 // a draft belongs to one conversation
     clearUnread(person.username)
     setConversations(prev => prev.map(c => c.username === person.username ? { ...c, unread: 0 } : c))
@@ -858,7 +868,7 @@ export default function Friends() {
                 )
               })()}
 
-              <div className="fr-msgs" ref={msgsRef}>
+              <div className="fr-msgs" ref={msgsRef} onScroll={onMsgsScroll}>
                 {chatHistory.length === 0 && (
                   <div className="fr-empty my-auto"><p>No messages yet. Say hello!</p></div>
                 )}
