@@ -106,10 +106,20 @@ def get_weather():
 
     weather_info = WMO_CODES.get(wmo_code, {'icon': 'fa-question', 'label': 'Unknown'})
 
+    # Open-Meteo answers in Celsius unless told otherwise; the site showed those
+    # numbers with an F sign until 2026-09-20. Both units go out now, and the
+    # unit is in the key so that mistake cannot come back quietly.
+    def c_to_f(c):
+        return round(c * 9 / 5 + 32)
+
     result = {
         'city':       'St. Louis',
-        'temp':       round(temp) if temp is not None else None,
-        'feels_like': round(feels_like) if feels_like is not None else None,
+        'temp':       c_to_f(temp) if temp is not None else None,          # °F, for older clients
+        'feels_like': c_to_f(feels_like) if feels_like is not None else None,
+        'temp_c':       round(temp) if temp is not None else None,
+        'temp_f':       c_to_f(temp) if temp is not None else None,
+        'feels_like_c': round(feels_like) if feels_like is not None else None,
+        'feels_like_f': c_to_f(feels_like) if feels_like is not None else None,
         'icon':       weather_info['icon'],
         'label':      weather_info['label'],
         'sunrise':    sunrise,

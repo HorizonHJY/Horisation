@@ -45,7 +45,7 @@ Browser → Cloudflare → Nginx → Gunicorn (port 8000) → Flask (API only)
 | `Backend/Controller/travel_controller.py` / `travel_db.py` | `/api/travel/*` — multi-day itinerary planner, shareable 6-char plan id |
 | `Backend/Controller/bill_controller.py` / `bill_db.py` | `/api/bill/*` — bill splitting, shareable 6-char bill id |
 | `Backend/Controller/market_task_controller.py` / `market_task_db.py` | `/api/market/tasks/*` — bounty/task board |
-| `Backend/Controller/weather_controller.py` | `/api/weather` — Open-Meteo current weather for St. Louis, 10-min in-memory cache |
+| `Backend/Controller/weather_controller.py` | `/api/weather` — Open-Meteo current weather for St. Louis, 10-min in-memory cache. Returns both units (`temp_f` / `temp_c`, `feels_like_f` / `feels_like_c`); Open-Meteo answers in Celsius, and the site mislabelled that as °F until 2026-09-20. |
 | `Backend/Controller/r2_manager.py` | Cloudflare R2 upload/delete via boto3 |
 | `Backend/Controller/tarot_controller.py` | `/api/tarot/*` — three-card spread. The shuffle runs here, not in the browser: a reading you can re-roll from devtools is not a reading. Also the AI reading (`/reading`), rating and history routes — thin: quota, retries and the model call all live in the AI layer. |
 | `Backend/Controller/tarot_db.py` | `tarot_readings` table: one row per `/draw` (the spread), filled in by `/reading` (question, model text, parsed JSON) and by the rating. Owner-only lookups. **Business data; not the AI layer's table.** |

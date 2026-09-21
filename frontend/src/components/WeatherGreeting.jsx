@@ -45,7 +45,11 @@ export default function WeatherGreeting({ name }) {
 
     const greet = weather.greeting.replace('{name}', name)
     const emoji = wmoEmoji(weather.icon)
-    const sub = `${weather.city} \u00b7 ${emoji} ${weather.temp}\u00b0F ${weather.label} \u00b7 Feels like ${weather.feels_like}\u00b0F`
+    // Both units: the readers are Chinese friends living in the US, and
+    // neither scale is "the" one at that table.
+    const t = `${weather.temp_f}\u00b0F / ${weather.temp_c}\u00b0C`
+    const f = `${weather.feels_like_f}\u00b0F / ${weather.feels_like_c}\u00b0C`
+    const sub = `${weather.city} \u00b7 ${emoji} ${t} ${weather.label} \u00b7 Feels like ${f}`
     return { text: greet, sub }
   }
 
