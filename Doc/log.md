@@ -7,11 +7,14 @@ Last Updated: 2026-09-20
 ### Current Working Version
 - **Completed**: 全站设计系统统一；邀请码系统；功能角色门控；好友/私信系统；SQLite 迁移；二手市集（配送选项 + Restore + 动态分类 + System Management + 价格拆分 + 响应式按钮 + 浏览量计数 + 分类图标 + 多选 filter + 两行 meta + 中文配送标签 + EditModal 修复）；**留言板（Weibo 式线程回复 + 点赞 + 翻页）**；用户公开主页；**非好友直接私信**；**Market Reach Out 直接开 DM**；**Login 页 Safari 全面兼容修复**；**群组系统（独立建组 + 按用户名拉人 + 群聊，`/api/groups`）**；**品牌改名 Arch Bay（可见文案 'Horisation'→'Arch Bay'，提交 f0fc7f6）**；**市集意向成单流（trade_intents）**
   ；**全局实时通知（一条 session 级 socket + `/api/friends/notifications` 快照）**
-  ；**塔罗牌 section（78 张 RWS 牌，洗牌动画 + 自己点选三张 + 三张牌阵 + 点开细看，服务端洗牌，2026-09-10 起全员开放；09-20 起 AI 整体解读 + 打分）**；**AI 服务层 `Backend/Service/ai/`（统一入口、配额、记账、总开关，DeepSeek）**
+  ；**塔罗牌 section（78 张 RWS 牌，洗牌动画 + 自己点选三张 + 三张牌阵 + 点开细看，服务端洗牌，2026-09-10 起全员开放；09-20 起 AI 整体解读 + 打分）**；**Travel Planner 全员开放（09-20）**；**首页天气 °F / °C**；**AI 服务层 `Backend/Service/ai/`（统一入口、配额、记账、总开关，DeepSeek）**
 - **In Progress**: 无
-- **Blocked / Not Solved**: 密码明文存储（待迁 bcrypt）；`SECRET_KEY` 硬编码；首页天气卡片（todo #1）；**AI 解读等 DeepSeek key 放到服务器才真正可用**
+- **Blocked / Not Solved**: 密码明文存储（待迁 bcrypt）；`SECRET_KEY` 硬编码
 
 ### Latest Summary
+2026-09-20 深夜四个小改：打分备注按钮改 Submit；My Listings 加 "Copy my page link"（`/u/<username>`，仍需登录，Horizon 决定不公开）；
+Travel Planner 对全员开放（前端三处，后端本来没门）；首页天气加摄氏度，并修掉一个上线就在的错标——Open-Meteo 回的是摄氏，页面写的是 °F。
+
 2026-09-20 晚：**塔罗牌 v5 —— AI 整体解读 + 打分**，顺带立起 **AI 服务层**（`Backend/Service/ai/`，一个 `ai.run` 入口、
 按角色按 Chicago 日的配额、全站日上限、总开关、失败不扣次数、`ai_usage` 记账、厂商无关 `requests` 调用）。
 每次抽牌落 `tarot_readings`，解读与 1–5 贴合度评分填回去。14 个后端单测；前端四条分支用 stub 走通，
@@ -233,6 +236,32 @@ Last Updated: 2026-09-20
 ---
 
 ## 3. Iteration History
+
+---
+
+### 2026-09-20 — 上线后的四个小改：提交按钮、复制主页链接、Travel Planner 放开、天气单位
+
+#### Goal
+塔罗 AI 解读上线后 Horizon 边用边提的四件事，每件一个提交，当天全部上线。
+
+#### 改动
+1. **打分备注按钮 "Save 保存" → "Submit 提交"**（`TarotReading.jsx`）。星星点下去分数就已经存了，这个按钮只交备注；"保存"让人以为不点分数就丢了。
+2. **My Listings 加 "Copy my page link"**（`Market.jsx`，`60d5890`）。放在 Export as image 旁边，复制 `/u/<username>`。
+   用页面已有的 `handleCopyLink`，剪贴板不可用时把链接显示在 toast 里。
+   顺带确认过：**这个链接非用户打不开**——路由在 `PrivateRoute` 里，两个接口都 `@login_required`。
+   Horizon 决定保留现状，不对外公开（公开意味着任何人能看到在卖什么、多少钱、display name 和头像）。
+3. **Travel Planner 对全员开放**（`8a98147`）。前端三处：`features.js` 删 `travelPlanner`、`App.jsx` 去 `FeatureRoute`、`nav.js` 去 `feature` 键。
+   后端 `/api/travel/*` 本来就没有角色门。Bill Split 仍 vip+。
+4. **首页天气加摄氏度，顺手修了单位错标**（`b80a450`）。Open-Meteo 默认回**摄氏**，`weather_controller.py` 的请求没带 `temperature_unit`，
+   前端 `WeatherGreeting.jsx` 却写 °F——九月底显示 "27°F Overcast"，其实是 27°C。现在后端两种单位都算好返回，
+   **key 里带单位**（`temp_f` / `temp_c` / `feels_like_f` / `feels_like_c`），老的 `temp` 保留但改成真华氏；首页显示 `78°F / 26°C`。
+
+#### Verification
+1、3 看 bundle：线上 JS 里 `travelPlanner` 字符串数为 0。4 本地对真 Open-Meteo 跑了一次：`temp_c 26, temp_f 78`。2 走已有的复制逻辑，没有新分支。
+
+#### 教训
+天气那个错标从 2026-09 上线起就在，没人发现是因为**数字看起来像天气**——27 在圣路易斯不管是 F 还是 C 都有可能。
+带单位的外部数据，进来的第一步就把单位写进字段名（`temp_c`），别靠注释或默认值。
 
 ---
 

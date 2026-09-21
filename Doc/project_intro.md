@@ -84,9 +84,9 @@ Images are stored in Cloudflare R2; only the public URL is kept in the database.
 
 | Feature | Route | Roles | Description |
 |---------|-------|-------|-------------|
-| Home | `/home` | All | Personal dashboard with feature overview |
+| Home | `/home` | All | Personal dashboard with feature overview; greeting line with St. Louis weather in °F / °C (Open-Meteo, 10-min cache) |
 | Hormemo | `/hormemo` | All | Personal memo / task tracker (CRUD, priority, tags) |
-| Market | `/market` | All | Second-hand trading — browse, post listings with images, Reach Out to sellers, seller profile modal. Categories (slug/label/order/active) stored in DB and configurable via System Management. Currency: USD ($). |
+| Market | `/market` | All | Second-hand trading — browse, post listings with images, Reach Out to sellers, seller profile modal. My Listings can be exported as one tall image, or its `/u/<username>` page link copied (that page still needs login — the site is invite-only). Categories (slug/label/order/active) stored in DB and configurable via System Management. Currency: USD ($). |
 | Message Board | `/feedback` | All | Community message board, all users can post |
 | Friends | `/friends` | All | Friend system: search, add, private chat, contact sharing with approval flow |
 | Groups | `/groups` | All | Build a group by username, independent of the friend graph; group chat. See `Doc/groups.md` |

@@ -8,16 +8,16 @@ Last updated: 2026-09-20
 
 | Priority | Item | Notes |
 |----------|------|-------|
-| **Next** | Put the DeepSeek key on the server | AI reading (P0) shipped 2026-09-20 but answers 503 `config` until `Key/ai_config.json` exists on EC2 (copy `ai_config.example.json`) or `DEEPSEEK_API_KEY` is in the unit file. Then one real end-to-end reading, and read the first few `ai_usage` rows for latency / tokens. |
-| **Next** | Tarot P1: history page | `GET /api/tarot/readings` already serves it; the page is not written. v1 deck + spread (09-08); v2 choose your own three (09-09); v3 tap to look closer (09-10); v4 Start-first copy, reveal-as-you-pick, Chinese names + keywords (09-12); v5 AI reading + rating (09-20). Still open: reversed cards, other spreads (Celtic Cross), Chinese rendering of Waite's long text (only keywords are bilingual). |
 | High | Certificate auto-renewal is broken | Expired 2026-09-11 and took the site down (526) for ~3h; renewed by hand. Find out why `certbot.timer` stopped (cause never established; port 80 does answer, with a 301 — read `journalctl -u certbot`, see `Doc/server.md`) and fix it before ~2026-12-10, or add an expiry check to `scripts/deploy.sh` so a deploy warns inside 14 days. |
 | High | Password hashing (bcrypt) | Currently stored plaintext. Anyone with `market.db` — including via the admin "Download DB" button — has every user's password in the clear. Also move `SECRET_KEY` out of `app.py`. |
 | High | Login 401 has no visible feedback? | During the 2026-09-07 session a user entered a wrong password 5 times and reported "nothing happens". Verify `Login.jsx` surfaces the 401; same defect class as the Market posting flow. |
+| Medium | Tarot P1: history page | `GET /api/tarot/readings` already serves it; the page is not written. v1 deck + spread (09-08); v2 choose your own three (09-09); v3 tap to look closer (09-10); v4 Start-first copy, reveal-as-you-pick, Chinese names + keywords (09-12); v5 AI reading + rating (09-20). Still open: reversed cards, other spreads (Celtic Cross), Chinese rendering of Waite's long text (only keywords are bilingual). |
 
 | Medium | Apply the Market fixes to `Tasks.jsx` | Tasks carries a byte-identical `useToast`, `.search` block, `radio-inputs` header and toast markup, and has already drifted in language and labelling. Extract a shared `ModuleShell` so they cannot drift again. |
 | Medium | Register page tagline overlaps the form at ≤600px | The rule hiding `.login-tagline` is `@media (max-width:1024px) and (min-width:601px)`, so 375px falls outside it |
 | Medium | Listing image re-upload in Edit | When editing a listing, allow replacing/removing images; requires R2 delete + multipart PUT |
 | Low | `side-tab` detector findings | `Hormemo.jsx:181` is a true positive by rule definition (4px coloured left border on a card) though the colour encodes memo priority. `Feedback.jsx:40/344` judged false positives — blockquote left rules on reply quotes. Decide: fix, ignore, or leave. |
+| Low | Read the first `ai_usage` rows | Key is on the server and real readings work (2026-09-20 evening). Worth one look at latency / tokens / cost after a few days of use, and at the first ratings. |
 
 ---
 

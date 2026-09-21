@@ -1,6 +1,6 @@
 # AI Service Layer — 设计方案
 
-状态：**P0 已实现（2026-09-20），待填 API key 上线**。代码：`Backend/Service/ai/`、`Backend/Controller/tarot_db.py`、`frontend/src/components/TarotReading.jsx`；测试 `tests/test_ai_service.py`（14 例）。
+状态：**P0 已上线（2026-09-20，key 已配，真解读跑通）**。代码：`Backend/Service/ai/`、`Backend/Controller/tarot_db.py`、`frontend/src/components/TarotReading.jsx`；测试 `tests/test_ai_service.py`（14 例）。
 作者：小思（草案 2026-09-20）
 评审：Claude（2026-09-20），修订处标 **【评审修订】**；新增 §12 历史 / 打分 / 训练数据
 
