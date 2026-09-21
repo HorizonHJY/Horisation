@@ -2312,8 +2312,14 @@ textarea.form-control { height: auto; padding: .55rem .85rem; line-height: 1.55;
   border-radius: var(--radius-lg); box-shadow: var(--shadow-md);
   height: calc(100vh - var(--topbar-h) - 6.5rem); min-height: 480px; overflow: hidden;
 }
-.fr-rail { border-right: 1px solid var(--border-medium); display: flex; flex-direction: column; min-width: 0; }
-.fr-pane { display: flex; flex-direction: column; min-width: 0; position: relative; }
+/* min-height: 0 on both columns is what keeps a long conversation INSIDE the
+   pane. A grid item's default min-height is its content, so without it a
+   thousand-message chat made the pane taller than the shell, the message
+   column stopped being the thing that scrolls, and focusing the input then
+   scrolled the overflow-hidden shell itself — rail tabs and chat header
+   pushed up out of sight. Seen on production 2026-09-21. */
+.fr-rail { border-right: 1px solid var(--border-medium); display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.fr-pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; position: relative; }
 
 /* rail header */
 .fr-tabs { display: flex; gap: 2px; margin: 12px 12px 8px; padding: 3px; background: var(--bg-subtle); border-radius: var(--radius-md); }
@@ -2334,7 +2340,7 @@ textarea.form-control { height: auto; padding: .55rem .85rem; line-height: 1.55;
 }
 .fr-search::placeholder { color: var(--text-muted); }
 .fr-search.mb-0 { margin: 0; width: auto; flex: 1; }
-.fr-list { overflow: auto; overflow-x: hidden; padding: 4px 8px 8px; flex: 1; }
+.fr-list { overflow: auto; overflow-x: hidden; padding: 4px 8px 8px; flex: 1; min-height: 0; }
 .fr-sec { padding: 10px 12px 4px; color: var(--text-muted); font-size: .7rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
 
 /* avatar with presence dot */
@@ -2432,7 +2438,7 @@ button.fr-chip:hover { filter: brightness(.96); }
   border-bottom: 1px solid var(--border-soft);
 }
 .fr-banner__btn { background: var(--bg-surface); color: var(--badge-warn-fg); border: 1px solid transparent; white-space: nowrap; }
-.fr-msgs { flex: 1; overflow: auto; padding: 16px; background: var(--bg); display: flex; flex-direction: column; gap: 8px; }
+.fr-msgs { flex: 1; min-height: 0; overflow: auto; padding: 16px; background: var(--bg); display: flex; flex-direction: column; gap: 8px; }
 .fr-day { align-self: center; font-size: .7rem; color: var(--text-muted); background: var(--bg-subtle); padding: 2px 10px; border-radius: 999px; margin: 4px 0; user-select: none; }
 .fr-msg {
   max-width: 68%; padding: 8px 12px; border-radius: 14px 14px 14px 4px;

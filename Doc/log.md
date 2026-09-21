@@ -184,6 +184,12 @@ Travel Planner 对全员开放（前端三处，后端本来没门）；首页�
 - **Root Cause**: 本地 dev（Vite :5173）、本地生产测试（Flask :5000）、线上，三者界面完全一致，浏览器标签标题也一样。cookie 是 per-browser 的，视觉上没有任何线索提示"你现在看的不是你以为的那个"
 - **Reusable Solution**: 非生产实例必须自带视觉标识。双信号判定最稳：`import.meta.env.DEV`（Vite dev）**或**后端下发的 `local_dev`（覆盖构建产物由 Flask 直接服务的场景，此时前端信号为 false）。标识用刻意跳出产品配色的颜色，并改写 `document.title`——多窗口时标签标题往往是唯一可见的线索
 
+### Pattern 20: 两栏聊天布局里，长对话把整个外壳"顶走"——grid/flex 子项的 min-height 默认是内容高
+- **Symptom**: 消息少的会话正常；消息多的会话一点开，左栏空白、右栏看不到头部，只剩消息和输入框。页面本身没滚
+- **Root Cause**: 外壳是固定高 + `overflow:hidden` 的 grid，右栏是 flex 列，消息区 `flex:1; overflow:auto`。但 grid/flex 子项的 `min-height` 默认 `auto` = 内容高，
+  于是长对话让右栏长过外壳，消息区不再是滚动容器。接着 `input.focus()` 为了把输入框露出来，会滚动**所有 overflow:hidden 的祖先**——外壳被滚到底，左栏的 tab 和右栏的头部一起被推出可视区
+- **Reusable Solution**: 嵌套滚动的每一层子项都写 `min-height: 0`（横向同理 `min-width: 0`）；程序化聚焦用 `focus({ preventScroll: true })`。验证方法：造一个 40 条以上的会话，点开后检查 `shell.scrollTop === 0` 且消息区 `scrollHeight > clientHeight`
+
 ### Pattern 19: 统一的 fetch 封装在错误路径上"只保留 error"，会把服务端刻意给的细节全部吞掉
 - **Symptom**: 服务端在 4xx/5xx 的 body 里带了 `retryable` / `error_kind` / `quota`，组件却永远只拿到 `{ok:false, error, status}`。表现为"超时后应该出现的 Try again 按钮从来不出现"——后端单测全过，前端代码看起来也对
 - **Root Cause**: `api.js` 的 `request()` 在 `!res.ok` 分支只透传 `body.error`。写它时所有错误都是一句话，这样够用；第一个需要**结构化错误**的功能一来就不够了，而且没有任何东西会报错——字段只是安静地不在
@@ -278,6 +284,8 @@ Horizon："好友系统发消息整体做的指引不是很好，Contact 和眼�
 走通：Chats 列表含陌生人并排序正确 → 点开 → 发消息（Enter 与按钮）→ 行提到最上、预览更新 → 陌生人横幅 → Request contact → chip 变
 "Requested · waiting" → bob 批准后变 "View contact" → Requests 三组各一条 → Accept / Share → ··· 菜单含 "Stop sharing" → Remove friend 弹确认。
 375px：列表 → 聊天 → 返回，无横向溢出。detector 无报。测试账号只在本地 `_data/market.db`（gitignored）。
+
+**上线后第一个 bug（同日修）**：长对话点开后左栏空白、头部不见——grid 子项 `min-height:auto` 让右栏长过外壳，`focus()` 又把 overflow:hidden 的外壳滚走了。加 `min-height:0` + `focus({preventScroll:true})`，用 41 条消息的会话验证。见 Pattern 20。
 
 **测试时的坑**：Vite 代理 + Werkzeug 的 websocket 升级报 "Invalid frame header"，socket 不停重连，消息发不出去——不是代码问题，
 改用 Flask 直接服务 `dist/`（:5000）测就正常了。线上是 gunicorn+eventlet，不受影响。

@@ -423,7 +423,9 @@ export default function Friends() {
     api.post(`/api/friends/${person.username}/read`)
     const d = await api.get(`/api/friends/${person.username}/history`)
     if (d.ok) setChatHistory(d.messages)
-    requestAnimationFrame(() => inputRef.current?.focus())
+    // preventScroll: a plain focus() scrolls every overflow-hidden ancestor
+    // to reveal the input, which drags the shell's content out of frame.
+    requestAnimationFrame(() => inputRef.current?.focus({ preventScroll: true }))
     return person
   }
 
