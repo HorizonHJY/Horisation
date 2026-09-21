@@ -1,64 +1,90 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { useSocket, useSocketEvent } from '../components/SocketProvider'
 import HandLoader from '../components/HandLoader'
+import Modal, { ConfirmDialog } from '../components/Modal'
 import { useAuth, useNotifications } from '../App'
 
-function Avatar({ display, avatar, size = 40 }) {
-  if (avatar) return (
-    <img src={avatar} alt={display}
-      style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-  )
+/**
+ * Friends — really the messages page.
+ *
+ * Two panes on a desktop, like Teams: the left rail holds four tabs (Chats,
+ * Friends, Requests, Add) and the right pane holds the open conversation. On
+ * a phone it is one pane at a time — list, tap, chat with a back arrow.
+ *
+ * Chats is the default and lists every conversation, newest first, including
+ * people who are not friends (Market's Reach Out lets anyone write). Before
+ * 2026-09-21 a non-friend's message raised the badge but had no row anywhere
+ * to open it from.
+ *
+ * The contact-sharing state is one text chip with four values. Everything
+ * else about a person lives behind "···", written as a full sentence — the
+ * old row had five unlabelled icons, two of them the same eye meaning
+ * opposite things.
+ */
+
+function Avatar({ display, avatar, size = 40, online = false }) {
+  const inner = avatar
+    ? <img src={avatar} alt="" style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover' }} />
+    : <div className="fr-av__fallback" style={{ width: size, height: size, fontSize: size * 0.4 }}>{display?.[0]?.toUpperCase() || '?'}</div>
   return (
-    <div style={{
-      width: size, height: size, borderRadius: '50%', background: '#6b9cdb', color: '#fff',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontWeight: 700, fontSize: size * 0.4, flexShrink: 0,
-    }}>
-      {display?.[0]?.toUpperCase() || '?'}
-    </div>
+    <span className="fr-av" style={{ width: size, height: size }}>
+      {inner}
+      {online && <span className="fr-av__dot" aria-label="online" />}
+    </span>
   )
 }
 
-// ── Message rendering helpers ────────────────────────────────────────────────
+// ── Time helpers (St. Louis) ───────────────────────────────────────────────────
+const CT = { timeZone: 'America/Chicago' }
 
-// Format date label in Central Time (St. Louis)
 function cstDateLabel(isoStr) {
   const d = new Date(isoStr)
-  const opts = { timeZone: 'America/Chicago' }
-  const dStr = d.toLocaleDateString('zh-CN', opts)
+  const dStr = d.toLocaleDateString('zh-CN', CT)
   const now = new Date()
-  const nowStr = now.toLocaleDateString('zh-CN', opts)
+  const nowStr = now.toLocaleDateString('zh-CN', CT)
   const yest = new Date(now); yest.setDate(yest.getDate() - 1)
-  const yStr = yest.toLocaleDateString('zh-CN', opts)
+  const yStr = yest.toLocaleDateString('zh-CN', CT)
   if (dStr === nowStr) return '今天'
   if (dStr === yStr) return '昨天'
-  return d.toLocaleDateString('zh-CN', { timeZone: 'America/Chicago', month: 'long', day: 'numeric' })
+  return d.toLocaleDateString('zh-CN', { ...CT, month: 'long', day: 'numeric' })
 }
 
-// Detect travel/bill-split join URLs
+// The time column of the Chats list: today → "21:14", yesterday → "Yesterday", else "Sep 14".
+function listTime(isoStr) {
+  if (!isoStr) return ''
+  const d = new Date(isoStr)
+  const dStr = d.toLocaleDateString('en-US', CT)
+  const now = new Date()
+  if (dStr === now.toLocaleDateString('en-US', CT)) {
+    return d.toLocaleTimeString('en-GB', { ...CT, hour: '2-digit', minute: '2-digit' })
+  }
+  const yest = new Date(now); yest.setDate(yest.getDate() - 1)
+  if (dStr === yest.toLocaleDateString('en-US', CT)) return 'Yesterday'
+  return d.toLocaleDateString('en-US', { ...CT, month: 'short', day: 'numeric' })
+}
+
+// ── Message rendering ──────────────────────────────────────────────────────────
 function parseJoinUrl(text) {
   const m = text.match(/https?:\/\/[^\s]*(\/(travel|bill-split))\?join=([A-Z0-9]+)/i)
   if (!m) return null
   return { type: m[2], code: m[3].toUpperCase(), url: text.match(/https?:\/\/[^\s]+/)[0] }
 }
 
-// Render text with plain clickable links
 function renderContent(text, isMe) {
   const urlRegex = /(https?:\/\/[^\s]+)/g
   const parts = text.split(urlRegex)
   return parts.map((part, i) =>
     urlRegex.test(part)
       ? <a key={i} href={part} target="_blank" rel="noopener noreferrer"
-          style={{ color: isMe ? '#d4eaff' : '#3b82f6', textDecoration: 'underline', wordBreak: 'break-all' }}>
+          style={{ color: isMe ? '#d4eaff' : 'var(--accent-text)', textDecoration: 'underline', wordBreak: 'break-all' }}>
           {part}
         </a>
       : part
   )
 }
 
-// Render full message content — share card or plain text
 function renderMessageContent(content, isMe) {
   const join = parseJoinUrl(content)
   if (join) {
@@ -66,22 +92,22 @@ function renderMessageContent(content, isMe) {
     return (
       <a href={join.url} style={{ textDecoration: 'none', display: 'block', minWidth: 200 }}>
         <div style={{
-          background: isMe ? 'rgba(255,255,255,0.18)' : '#eff6ff',
-          border: `1px solid ${isMe ? 'rgba(255,255,255,0.35)' : '#bfdbfe'}`,
+          background: isMe ? 'rgba(255,255,255,0.18)' : 'var(--badge-info-bg)',
+          border: `1px solid ${isMe ? 'rgba(255,255,255,0.35)' : 'var(--border-medium)'}`,
           borderRadius: 10, padding: '8px 12px',
         }}>
           <div className="d-flex align-items-center gap-2">
             <i className={`fas ${isTravel ? 'fa-route' : 'fa-receipt'}`}
-               style={{ color: isMe ? '#fff' : '#3b82f6', fontSize: '1.2rem', flexShrink: 0 }} />
+               style={{ color: isMe ? '#fff' : 'var(--badge-info-fg)', fontSize: '1.2rem', flexShrink: 0 }} aria-hidden="true" />
             <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 700, fontSize: '.85rem', color: isMe ? '#fff' : '#1e3a5f' }}>
+              <div style={{ fontWeight: 700, fontSize: '.85rem', color: isMe ? '#fff' : 'var(--text-primary)' }}>
                 {isTravel ? '旅行计划邀请' : '分账邀请'}
               </div>
               <div style={{ fontSize: '.72rem', opacity: 0.65, fontFamily: 'monospace', letterSpacing: '.08em' }}>
                 {join.code}
               </div>
             </div>
-            <span style={{ fontSize: '.72rem', color: isMe ? '#d4eaff' : '#3b82f6', flexShrink: 0 }}>
+            <span style={{ fontSize: '.72rem', color: isMe ? '#d4eaff' : 'var(--badge-info-fg)', flexShrink: 0 }}>
               点击加入 →
             </span>
           </div>
@@ -90,6 +116,72 @@ function renderMessageContent(content, isMe) {
     )
   }
   return renderContent(content, isMe)
+}
+
+// One line for the Chats list. A share card reads as what it is, not as a URL.
+function previewText(content, isMine) {
+  const join = parseJoinUrl(content)
+  const body = join ? (join.type === 'travel' ? '旅行计划邀请' : '分账邀请') : content
+  return (isMine ? 'You: ' : '') + body
+}
+
+// ── "···" menu ─────────────────────────────────────────────────────────────────
+/* A small popover of full sentences. Outside click and Escape close it; the
+   items are real buttons so the keyboard reaches them. */
+function RowMenu({ label, items, align = 'right' }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+  useEffect(() => {
+    if (!open) return
+    const onDoc = (e) => { if (!ref.current?.contains(e.target)) setOpen(false) }
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', onDoc)
+    document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onKey) }
+  }, [open])
+  return (
+    <span className="fr-more" ref={ref}>
+      <button type="button" className="fr-more__btn" aria-haspopup="menu" aria-expanded={open}
+              aria-label={label} onClick={() => setOpen(o => !o)}>
+        <i className="fas fa-ellipsis-h" aria-hidden="true" />
+      </button>
+      {open && (
+        <div className="fr-menu" role="menu" style={align === 'left' ? { left: 0, right: 'auto' } : undefined}>
+          {items.map((it, i) => it.section
+            ? <small key={i} className="fr-menu__sec">{it.section}</small>
+            : (
+              <button key={i} type="button" role="menuitem"
+                      className={`fr-menu__item${it.danger ? ' is-danger' : ''}`}
+                      onClick={() => { setOpen(false); it.onClick() }}>
+                <i className={`fas ${it.icon}`} aria-hidden="true" />{it.label}
+              </button>
+            ))}
+        </div>
+      )}
+    </span>
+  )
+}
+
+// The contact-sharing chip. One of four things, always in words.
+function ContactChip({ status, onView, onRequest }) {
+  if (status === 'approved') return (
+    <button type="button" className="fr-chip fr-chip--good" onClick={onView}>
+      <i className="fas fa-id-card" aria-hidden="true" />View contact
+    </button>
+  )
+  if (status === 'pending') return (
+    <span className="fr-chip fr-chip--warn"><i className="fas fa-clock" aria-hidden="true" />Requested · waiting</span>
+  )
+  if (status === 'hidden') return (
+    <span className="fr-chip fr-chip--neutral" title="They keep their contact details private">
+      <i className="fas fa-lock" aria-hidden="true" />Contact hidden
+    </span>
+  )
+  return (
+    <button type="button" className="fr-chip fr-chip--info" onClick={onRequest}>
+      <i className="fas fa-address-card" aria-hidden="true" />Request contact
+    </button>
+  )
 }
 
 export default function Friends() {
@@ -103,31 +195,110 @@ export default function Friends() {
   const { socket } = useSocket()
   const location      = useLocation()
   const navigate      = useNavigate()
-  const chatEndRef    = useRef(null)
+  const msgsRef       = useRef(null)
+  const inputRef      = useRef(null)
   const activeChatRef = useRef(null)   // mirror of activeChat for socket handler
-  const tabRef        = useRef('friends')
+  const tabRef        = useRef('chats')
 
-  const [tab, setTab]               = useState('friends')
-  const [friends, setFriends]       = useState([])
-  const [searchQuery, setSearchQuery]   = useState('')
+  const [tab, setTab]                 = useState('chats')
+  const [conversations, setConversations] = useState([])
+  const [friends, setFriends]         = useState([])
+  const [friendFilter, setFriendFilter] = useState('')
+  const [chatFilter, setChatFilter]   = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState([])
-  const [searching, setSearching]   = useState(false)
-  const [sentSet, setSentSet]       = useState(new Set())
-  const [activeChat, setActiveChat] = useState(null)
+  const [searching, setSearching]     = useState(false)
+  const [sentSet, setSentSet]         = useState(new Set())
+  const [activeChat, setActiveChat]   = useState(null)
   const [chatHistory, setChatHistory] = useState([])
-  const [chatInput, setChatInput]   = useState('')
-  const [onlineSet, setOnlineSet]   = useState(new Set())
+  const [chatInput, setChatInput]     = useState('')
+  const [onlineSet, setOnlineSet]     = useState(new Set())
   const [contactModal, setContactModal]   = useState(null)
   const [sharedContacts, setSharedContacts] = useState([])  // approved contact reqs where I am to_user
-  // contactStatusMap: { [username]: 'pending' | 'approved' | 'declined' }
+  // contactStatusMap: { [username]: 'pending' | 'approved' | 'declined' | 'hidden' }
   const [contactStatusMap, setContactStatusMap] = useState({})
-  const [toast, setToast]           = useState(null)
-  const [loading, setLoading]       = useState(false)
+  const [confirmUnfriend, setConfirmUnfriend] = useState(null)   // { username, display_name }
+  const [toast, setToast]             = useState(null)
+  const [loading, setLoading]         = useState(false)
+  const toastTimer = useRef(null)
 
-  const flash = (msg, type = 'success') => {
+  const flash = useCallback((msg, type = 'success') => {
+    if (toastTimer.current) clearTimeout(toastTimer.current)
     setToast({ msg, type })
-    setTimeout(() => setToast(null), 3000)
+    toastTimer.current = setTimeout(() => setToast(null), 3000)
+  }, [])
+  useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current) }, [])
+
+  const friendSet = new Set(friends.map(f => f.username))
+  const isFriend  = (username) => friendSet.has(username)
+
+  // ── Data loaders ────────────────────────────────────────────────────────────
+  async function loadConversations() {
+    const d = await api.get('/api/friends/conversations')
+    if (d.ok) setConversations(d.conversations)
   }
+
+  async function loadFriends() {
+    const [fRes, cRes, sRes] = await Promise.all([
+      api.get('/api/friends/list'),
+      api.get('/api/friends/contact/sent'),
+      api.get('/api/friends/contact/shared'),
+    ])
+    if (fRes.ok) setFriends(fRes.friends)
+    if (cRes.ok) {
+      const map = {}
+      // requests are ordered created_at DESC — first entry per user is the latest; skip older duplicates
+      cRes.requests.forEach(r => {
+        if (!(r.to_user in map)) map[r.to_user] = r.status
+      })
+      setContactStatusMap(map)
+    }
+    if (sRes.ok) setSharedContacts(sRes.requests)
+  }
+
+  async function loadPending() {
+    // Both request lists come from NotificationsProvider, which keeps them
+    // live over the socket; only "shared with" is local to this page.
+    const sRes = await api.get('/api/friends/contact/shared')
+    if (sRes.ok) setSharedContacts(sRes.requests)
+    refreshNotifications()
+  }
+
+  async function loadSentRequests() {
+    const d = await api.get('/api/friends/requests/sent')
+    if (d.ok) {
+      const pendingTo = d.requests.filter(r => r.status === 'pending').map(r => r.to_user)
+      setSentSet(new Set(pendingTo))
+    }
+  }
+
+  // Friends and contact state are needed by every tab (the chip in the chat
+  // header, the "not friends" banner), so they load once up front.
+  useEffect(() => {
+    setLoading(true)
+    Promise.all([loadConversations(), loadFriends()]).finally(() => setLoading(false))
+  }, [])
+
+  useEffect(() => {
+    tabRef.current = tab
+    if (tab === 'chats')    loadConversations()
+    if (tab === 'friends')  loadFriends()
+    if (tab === 'requests') loadPending()
+    if (tab === 'add')      loadSentRequests()
+    else { setSearchQuery(''); setSearchResults([]) }
+  }, [tab])
+
+  // Refresh when the user comes back to the tab.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return
+      loadConversations()
+      if (tabRef.current === 'friends') loadFriends()
+      else if (tabRef.current === 'requests') loadPending()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [])
 
   // ── Socket ──────────────────────────────────────────────────────────────────
   /* The connection itself is owned by SocketProvider and lives for the whole
@@ -137,7 +308,7 @@ export default function Friends() {
 
      Friend and contact requests are handled in NotificationsProvider so they
      arrive wherever the user is; what stays here is presence, the open
-     conversation, and send errors. */
+     conversation, the Chats list, and send errors. */
   useEffect(() => {
     if (!socket) return
 
@@ -145,10 +316,23 @@ export default function Friends() {
     const onOnline   = ({ online }) => setOnlineSet(new Set(online))
     const onAccepted = ({ from_user }) => {
       flash(`${from_user} accepted your friend request!`, 'success')
-      loadFriends()
+      loadFriends(); loadConversations()
     }
     const onChatMessage = (msg) => {
       const chat = activeChatRef.current
+      const [sa, sb] = msg.room_key.split(':')
+      const other = sa === user.username ? sb : sa
+      // Keep the Chats list current without a refetch: move the row up and
+      // rewrite its last line. A brand-new correspondent gets a refetch,
+      // because the identity (name, avatar) is not on the message.
+      setConversations(prev => {
+        const idx = prev.findIndex(c => c.username === other)
+        if (idx < 0) { loadConversations(); return prev }
+        const isOpen = chat && chat.username === other
+        const row = { ...prev[idx], last_sender: msg.sender, last_content: msg.content, last_at: msg.created_at,
+                      unread: (msg.sender === user.username || isOpen) ? 0 : (prev[idx].unread || 0) + 1 }
+        return [row, ...prev.filter((_, i) => i !== idx)]
+      })
       if (!chat) return
       const [ua, ub] = [user.username, chat.username].sort()
       if (msg.room_key !== `${ua}:${ub}`) return
@@ -180,30 +364,12 @@ export default function Friends() {
   useSocketEvent('friend_request_incoming', () => flash('New friend request!', 'info'))
   useSocketEvent('contact_request_incoming', () => flash('New contact request!', 'info'))
 
-  // Auto-scroll chat
+  // Auto-scroll the message column, not the page — scrollIntoView on a
+  // two-pane layout drags the whole document down and hides the header.
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const el = msgsRef.current
+    if (el) el.scrollTop = el.scrollHeight
   }, [chatHistory])
-
-  // Load on tab change
-  useEffect(() => {
-    tabRef.current = tab
-    if (tab === 'friends') loadFriends()
-    if (tab === 'pending') loadPending()
-    if (tab === 'add')     loadSentRequests()
-    else { setSearchQuery(''); setSearchResults([]) }
-  }, [tab])
-
-  // Refresh when user returns to this tab (skip if chat is open — already real-time)
-  useEffect(() => {
-    const onVisible = () => {
-      if (document.visibilityState !== 'visible' || activeChatRef.current) return
-      if (tabRef.current === 'friends') loadFriends()
-      else if (tabRef.current === 'pending') loadPending()
-    }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [])
 
   // Auto-open chat if navigated here from Market with state
   useEffect(() => {
@@ -218,54 +384,6 @@ export default function Friends() {
     })
   }, [])
 
-  // ── Data loaders ────────────────────────────────────────────────────────────
-  async function loadFriends() {
-    setLoading(true)
-    const [fRes, cRes, sRes] = await Promise.all([
-      api.get('/api/friends/list'),
-      api.get('/api/friends/contact/sent'),
-      api.get('/api/friends/contact/shared'),
-    ])
-    if (fRes.ok) setFriends(fRes.friends)
-    if (cRes.ok) {
-      const map = {}
-      // requests are ordered created_at DESC — first entry per user is the latest; skip older duplicates
-      cRes.requests.forEach(r => {
-        if (!(r.to_user in map)) map[r.to_user] = r.status
-      })
-      setContactStatusMap(map)
-    }
-    if (sRes.ok) setSharedContacts(sRes.requests)
-    setLoading(false)
-  }
-
-  async function loadPending() {
-    setLoading(true)
-    // Both request lists come from NotificationsProvider, which keeps them
-    // live over the socket; only "shared with" is local to this page.
-    const sRes = await api.get('/api/friends/contact/shared')
-    if (sRes.ok) setSharedContacts(sRes.requests)
-    refreshNotifications()
-    setLoading(false)
-  }
-
-  async function loadSentRequests() {
-    const d = await api.get('/api/friends/requests/sent')
-    if (d.ok) {
-      const pending = d.requests.filter(r => r.status === 'pending').map(r => r.to_user)
-      setSentSet(new Set(pending))
-    }
-  }
-
-  async function handleSearch(e) {
-    e.preventDefault()
-    if (searchQuery.trim().length < 2) return
-    setSearching(true)
-    const d = await api.get(`/api/friends/users?q=${encodeURIComponent(searchQuery.trim())}`)
-    if (d.ok) setSearchResults(d.users)
-    setSearching(false)
-  }
-
   // ── Actions ─────────────────────────────────────────────────────────────────
   const sendRequest = async (toUser) => {
     const d = await api.post('/api/friends/requests', { to_user: toUser })
@@ -277,28 +395,36 @@ export default function Friends() {
     const d = await api.put(`/api/friends/requests/${reqId}`, { action })
     if (d.ok) {
       dismissFriendRequest(reqId)
-      if (action === 'accept') { flash('Friend added!'); loadFriends() }
+      if (action === 'accept') { flash('Friend added!'); loadFriends(); loadConversations() }
     } else flash(d.error, 'danger')
   }
 
-  const unfriend = async (username) => {
-    if (!window.confirm(`Remove ${username} from friends?`)) return
+  const unfriend = async () => {
+    const { username } = confirmUnfriend
     const d = await api.delete(`/api/friends/${username}`)
-    if (d.ok) { setFriends(prev => prev.filter(f => f.username !== username)); flash('Removed from friends.') }
+    setConfirmUnfriend(null)
+    if (d.ok) {
+      setFriends(prev => prev.filter(f => f.username !== username))
+      setConversations(prev => prev.map(c => c.username === username ? { ...c, is_friend: false } : c))
+      flash('Removed from friends.')
+    } else flash(d.error, 'danger')
   }
 
-  const openChat = async (friend) => {
-    activeChatRef.current = friend
+  const openChat = async (person) => {
+    activeChatRef.current = person
     // NotificationsProvider listens for every message app-wide; this tells it
     // not to raise a badge for the conversation already on screen.
-    window.__hzActiveChatWith = friend.username
-    setActiveChat(friend)
+    window.__hzActiveChatWith = person.username
+    setActiveChat(person)
     setChatHistory([])
-    clearUnread(friend.username)
-    api.post(`/api/friends/${friend.username}/read`)
-    const d = await api.get(`/api/friends/${friend.username}/history`)
+    setChatInput('')                 // a draft belongs to one conversation
+    clearUnread(person.username)
+    setConversations(prev => prev.map(c => c.username === person.username ? { ...c, unread: 0 } : c))
+    api.post(`/api/friends/${person.username}/read`)
+    const d = await api.get(`/api/friends/${person.username}/history`)
     if (d.ok) setChatHistory(d.messages)
-    return friend
+    requestAnimationFrame(() => inputRef.current?.focus())
+    return person
   }
 
   const closeChat = () => {
@@ -317,10 +443,10 @@ export default function Friends() {
     setChatInput('')
   }
 
-  const showContact = async (friend) => {
-    const d = await api.get(`/api/friends/${friend.username}/contact`)
+  const showContact = async (person) => {
+    const d = await api.get(`/api/friends/${person.username}/contact`)
     if (d.ok) setContactModal({
-      name: friend.display_name,
+      name: person.display_name,
       phone: d.phone, wechat: d.wechat,
       address: d.address, postal_code: d.postal_code,
     })
@@ -331,7 +457,7 @@ export default function Friends() {
     const d = await api.put(`/api/friends/contact/requests/${reqId}`, { action: 'revoke' })
     if (d.ok) {
       setSharedContacts(prev => prev.filter(r => r.id !== reqId))
-      flash(`Contact access revoked for ${fromUser}.`)
+      flash(`${fromUser} can no longer see your contact.`)
     } else flash(d.error, 'danger')
   }
 
@@ -358,438 +484,425 @@ export default function Friends() {
     } else flash(d.error, 'danger')
   }
 
+  // The "···" for one person, shared by the Friends row and the chat header.
+  const personMenu = (p, { inChat = false } = {}) => {
+    const sharedReq = sharedContacts.find(r => r.from_user === p.username)
+    const items = inChat ? [] : [{ label: 'Open chat', icon: 'fa-comment-dots', onClick: () => openChat(p) }]
+    items.push({ label: 'View profile', icon: 'fa-user', onClick: () => navigate(`/u/${p.username}`) })
+    if (isFriend(p.username)) {
+      // The chat header's chip is hidden on a phone, so the menu carries the
+      // contact action there too. On desktop it is simply a second way in.
+      if (inChat) {
+        const st = contactStatusMap[p.username]
+        if (st === 'approved') items.push({ label: 'View contact', icon: 'fa-id-card', onClick: () => showContact(p) })
+        else if (!st || st === 'declined') items.push({ label: 'Request contact', icon: 'fa-address-card', onClick: () => requestContact(p.username) })
+      }
+      if (sharedReq) {
+        items.push({ section: 'Sharing' })
+        items.push({ label: `Stop sharing my contact with ${p.display_name}`, icon: 'fa-eye-slash',
+                     onClick: () => revokeContact(sharedReq.id, p.display_name) })
+      }
+      items.push({ label: 'Remove friend', icon: 'fa-user-minus', danger: true,
+                   onClick: () => setConfirmUnfriend(p) })
+    } else if (!sentSet.has(p.username)) {
+      items.push({ label: 'Add friend', icon: 'fa-user-plus', onClick: () => sendRequest(p.username) })
+    }
+    return items
+  }
+
+  const requestCount = pending.length + contactReqs.length
+  const totalUnread  = conversations.reduce((n, c) => n + (c.unread || 0), 0)
+
+  const visibleConvos  = conversations.filter(c => !chatFilter ||
+    `${c.display_name} ${c.username}`.toLowerCase().includes(chatFilter.toLowerCase()))
+  const visibleFriends = friends.filter(f => !friendFilter ||
+    `${f.display_name} ${f.username}`.toLowerCase().includes(friendFilter.toLowerCase()))
+
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
-    <div className="container-fluid py-3" style={{ maxWidth: 720 }}>
-
-      {/* Toast */}
+    <div className="fr-page">
       {toast && (
-        <div className={`alert alert-${toast.type} position-fixed top-0 end-0 m-3`}
-          style={{ zIndex: 9999, minWidth: 240 }}>
-          {toast.msg}
-        </div>
+        <div className={`alert alert-${toast.type} app-toast`} role="alert" aria-live="assertive">{toast.msg}</div>
       )}
 
-      {/* Contact info modal */}
       {contactModal && (
-        <div className="modal show d-block" style={{ background: 'rgba(0,0,0,.4)' }}
-          onClick={() => setContactModal(null)}>
-          <div className="modal-dialog modal-sm modal-dialog-centered"
-            onClick={e => e.stopPropagation()}>
-            <div className="modal-content">
+        <Modal onClose={() => setContactModal(null)} title={`${contactModal.name}'s contact`} scrollable={false}>
+          {({ titleId }) => (
+            <>
               <div className="modal-header">
-                <h6 className="modal-title">{contactModal.name}'s Contact</h6>
-                <button className="btn-close" onClick={() => setContactModal(null)} />
+                <h5 className="modal-title fw-semibold" id={titleId} style={{ fontSize: '1rem' }}>{contactModal.name}'s contact</h5>
+                <button type="button" className="btn-close" aria-label="Close" onClick={() => setContactModal(null)} />
               </div>
               <div className="modal-body px-3 py-2">
                 {[
-                  { icon: 'fas fa-phone',          color: '#6b9cdb', label: 'Phone',    value: contactModal.phone },
-                  { icon: 'fab fa-weixin',          color: '#07c160', label: 'WeChat',   value: contactModal.wechat },
-                  { icon: 'fas fa-map-marker-alt',  color: '#e74c3c', label: 'Address',
+                  { icon: 'fas fa-phone',          label: 'Phone',   value: contactModal.phone },
+                  { icon: 'fab fa-weixin',          label: 'WeChat',  value: contactModal.wechat },
+                  { icon: 'fas fa-map-marker-alt',  label: 'Address',
                     value: [contactModal.address, contactModal.postal_code].filter(Boolean).join('  ') },
                 ].filter(row => row.value).map(row => (
                   <div key={row.label} className="d-flex align-items-center gap-3 py-3 border-bottom">
-                    <i className={`${row.icon}`} style={{ color: row.color, width: 18, textAlign: 'center', fontSize: '1rem' }} />
+                    <i className={row.icon} style={{ color: 'var(--accent-text)', width: 18, textAlign: 'center' }} aria-hidden="true" />
                     <div className="flex-grow-1 overflow-hidden">
-                      <div style={{ fontSize: '.7rem', color: '#888', marginBottom: 1 }}>{row.label}</div>
-                      <div className="fw-semibold text-truncate" style={{ fontSize: '.95rem' }}>{row.value}</div>
+                      <div className="fr-sub">{row.label}</div>
+                      <div className="fw-semibold text-truncate">{row.value}</div>
                     </div>
-                    <button
-                      className="btn btn-sm btn-outline-secondary flex-shrink-0"
-                      style={{ fontSize: '.75rem', padding: '2px 8px' }}
-                      onClick={() => { navigator.clipboard.writeText(row.value); flash('Copied!') }}
-                    >
-                      <i className="fas fa-copy" />
+                    <button type="button" className="btn btn-sm btn-outline-secondary flex-shrink-0"
+                            aria-label={`Copy ${row.label}`}
+                            onClick={() => { navigator.clipboard.writeText(row.value); flash('Copied!') }}>
+                      <i className="fas fa-copy" aria-hidden="true" />
                     </button>
                   </div>
                 ))}
               </div>
-            </div>
-          </div>
-        </div>
+            </>
+          )}
+        </Modal>
       )}
 
-      {/* ── Chat view ─────────────────────────────────────────────────────── */}
-      {activeChat ? (
-        <div className="d-flex flex-column" style={{ height: 'calc(100vh - 110px)' }}>
-          {/* Header */}
-          <div className="d-flex align-items-center gap-3 mb-3">
-            <button className="btn btn-outline-secondary btn-sm" onClick={closeChat}>
-              <i className="fas fa-arrow-left" />
-            </button>
-            <Avatar display={activeChat.display_name} avatar={activeChat.avatar_url} size={36} />
-            <div className="flex-grow-1">
-              <div className="fw-semibold">{activeChat.display_name}</div>
-              <div className="text-muted small" style={{ fontSize: '.75rem' }}>
-                {onlineSet.has(activeChat.username) ? '🟢 Online' : '⚪ Offline'}
-              </div>
-            </div>
-            {contactStatusMap[activeChat.username] === 'approved' ? (
-              <button className="btn btn-outline-success btn-sm" onClick={() => showContact(activeChat)}>
-                <i className="fas fa-id-card me-1" />Contact
-              </button>
-            ) : contactStatusMap[activeChat.username] === 'pending' ? (
-              <span className="badge bg-warning text-dark">Contact Pending</span>
-            ) : (
-              <button className="btn btn-outline-primary btn-sm" onClick={() => requestContact(activeChat.username)}>
-                <i className="fas fa-address-card me-1" />Request Contact
-              </button>
-            )}
-          </div>
+      {confirmUnfriend && (
+        <ConfirmDialog
+          title="Remove friend?"
+          message={`${confirmUnfriend.display_name} will no longer see you as a friend. Your messages stay.`}
+          confirmLabel="Remove"
+          onConfirm={unfriend}
+          onClose={() => setConfirmUnfriend(null)}
+        />
+      )}
 
-          {/* Someone asked to see your contact details and is waiting. It used
-              to live only in the Requests tab, so you could be mid-conversation
-              with them and never know. Answerable right here. */}
-          {(() => {
-            const req = contactRequestFrom(activeChat.username)
-            if (!req) return null
-            return (
-              <div className="alert alert-warning d-flex align-items-center gap-3 py-2 mb-3"
-                   role="status" style={{ fontSize: '.88rem' }}>
-                <i className="fas fa-address-card" aria-hidden="true" />
-                <div className="flex-grow-1">
-                  <strong>{activeChat.display_name}</strong> asked to see your contact details
-                  <span className="label-zh">想看你的联系方式</span>
-                </div>
-                <div className="d-flex gap-2 flex-shrink-0">
-                  <button className="btn btn-sm btn-success"
-                          onClick={() => respondContact(req.id, 'approve', req.from_user)}>
-                    <i className="fas fa-check me-1" aria-hidden="true" />Share
-                  </button>
-                  <button className="btn btn-sm btn-outline-secondary"
-                          onClick={() => respondContact(req.id, 'decline', req.from_user)}>
-                    Decline
-                  </button>
-                </div>
-              </div>
-            )
-          })()}
+      <div className="fr-head">
+        <i className="fas fa-user-friends" aria-hidden="true" />
+        <h1 className="fr-title">Friends</h1>
+      </div>
 
-          {/* Messages */}
-          <div className="flex-grow-1 overflow-auto border rounded p-3 d-flex flex-column gap-2"
-            style={{ background: '#f8f9fa' }}>
-            {chatHistory.length === 0 && (
-              <div className="text-center text-muted my-auto" style={{ fontSize: '.875rem' }}>
-                No messages yet. Say hello!
-              </div>
-            )}
-            {(() => {
-              let lastDate = null
-              return chatHistory.flatMap(m => {
-                const isMe = m.sender === user.username
-                const dateLabel = cstDateLabel(m.created_at)
-                const items = []
-                if (dateLabel !== lastDate) {
-                  lastDate = dateLabel
-                  items.push(
-                    <div key={`sep-${m.id}`} className="text-center my-1">
-                      <span style={{ background: '#dde3ea', color: '#555', fontSize: '.7rem',
-                        padding: '2px 12px', borderRadius: 10, userSelect: 'none' }}>
-                        {dateLabel}
-                      </span>
-                    </div>
-                  )
-                }
-                const isCard = !!parseJoinUrl(m.content)
-                items.push(
-                  <div key={m.id} className={`d-flex ${isMe ? 'justify-content-end' : 'justify-content-start'}`}>
-                    <div style={{
-                      maxWidth: '70%', padding: isCard ? '6px 8px' : '8px 14px',
-                      borderRadius: isMe ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-                      background: isMe ? '#6b9cdb' : '#fff',
-                      color: isMe ? '#fff' : '#333',
-                      boxShadow: '0 1px 3px rgba(0,0,0,.08)',
-                      fontSize: '.9rem', wordBreak: 'break-word',
-                    }}>
-                      {renderMessageContent(m.content, isMe)}
-                      <div style={{ fontSize: '.65rem', opacity: .6, marginTop: 3, textAlign: 'right' }}>
-                        {new Date(m.created_at).toLocaleTimeString('zh-CN', {
-                          hour: '2-digit', minute: '2-digit', timeZone: 'America/Chicago'
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                )
-                return items
-              })
-            })()}
-            <div ref={chatEndRef} />
-          </div>
-
-          {/* Input bar */}
-          <div className="d-flex gap-2 mt-3">
-            <input
-              className="form-control"
-              placeholder="Type a message…"
-              value={chatInput}
-              onChange={e => setChatInput(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
-              maxLength={1000}
-              autoFocus
-            />
-            <button className="btn btn-primary px-3" onClick={sendMessage}>
-              <i className="fas fa-paper-plane" />
-            </button>
-          </div>
-        </div>
-
-      ) : (
-        /* ── Tabs view ──────────────────────────────────────────────────────── */
-        <>
-          <div className="d-flex align-items-center gap-2 mb-4">
-            <i className="fas fa-user-friends fa-lg text-primary" />
-            <h4 className="mb-0 fw-bold">Friends</h4>
-            {(pending.length + contactReqs.length) > 0 && <span className="badge bg-danger">{pending.length + contactReqs.length}</span>}
-          </div>
-
-          <div className="radio-inputs mb-4">
+      <div className={`fr-shell${activeChat ? ' is-chat' : ''}`}>
+        {/* ── Left rail ─────────────────────────────────────────────────────── */}
+        <div className="fr-rail">
+          <div className="fr-tabs" role="tablist" aria-label="Friends sections">
             {[
-              { key: 'friends', label: 'Friends' },
-              { key: 'pending', label: (pending.length + contactReqs.length) > 0 ? `Requests (${pending.length + contactReqs.length})` : 'Requests' },
-              { key: 'add',     label: 'Add' },
+              { key: 'chats',    label: 'Chats',    count: totalUnread },
+              { key: 'friends',  label: 'Friends' },
+              { key: 'requests', label: 'Requests', count: requestCount },
+              { key: 'add',      label: 'Add' },
             ].map(t => (
-              <label className="radio" key={t.key}>
-                <input
-                  type="radio"
-                  name="friends-tab"
-                  checked={tab === t.key}
-                  onChange={() => setTab(t.key)}
-                />
-                <span className="name">{t.label}</span>
-              </label>
+              <button key={t.key} type="button" role="tab" aria-selected={tab === t.key}
+                      className="fr-tab" onClick={() => setTab(t.key)}>
+                {t.label}{t.count > 0 && <span className="fr-tab__dot">{t.count > 99 ? '99+' : t.count}</span>}
+              </button>
             ))}
           </div>
 
           {loading ? (
             <div className="text-center py-5"><HandLoader /></div>
 
-          ) : tab === 'friends' ? (
-            friends.length === 0 ? (
-              <div className="text-center py-5 text-muted">
-                <i className="fas fa-user-friends fa-3x mb-3 d-block opacity-25" />
-                <p>No friends yet. Use the Add tab to connect!</p>
-              </div>
-            ) : (
-              <div className="d-flex flex-column gap-2">
-                {friends.map(f => {
-                  const cStatus  = contactStatusMap[f.username]
-                  const sharedReq = sharedContacts.find(r => r.from_user === f.username)
-                  return (
-                  <div key={f.username} className="card px-3 py-2 d-flex flex-row align-items-center gap-3">
-                    <div
-                      className="position-relative"
-                      style={{ cursor: 'pointer' }}
-                      onClick={() => navigate(`/u/${f.username}`)}
-                      title={`View ${f.display_name}'s profile`}
-                    >
-                      <Avatar display={f.display_name} avatar={f.avatar_url} size={42} />
-                      {onlineSet.has(f.username) && (
-                        <span style={{
-                          position: 'absolute', bottom: 1, right: 1,
-                          width: 11, height: 11, borderRadius: '50%',
-                          background: '#22c55e', border: '2px solid #fff',
-                        }} />
-                      )}
-                    </div>
-                    <div className="flex-grow-1 overflow-hidden">
-                      <div className="d-flex align-items-center gap-2">
-                        <span className="fw-semibold text-truncate">{f.display_name}</span>
-                        {unreadMap[f.username] > 0 && (
-                          <span className="badge bg-danger" style={{ fontSize: '.65rem', minWidth: 18 }}>
-                            {unreadMap[f.username] > 99 ? '99+' : unreadMap[f.username]}
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-muted small">{f.username}</div>
-                    </div>
-                    <div className="d-flex gap-1 flex-shrink-0 flex-wrap justify-content-end">
-                      {/* Contact status */}
-                      {cStatus === 'approved' ? (
-                        <button className="btn btn-sm btn-outline-success" onClick={() => showContact(f)}
-                          data-full="Contact" data-icon="fas fa-id-card">
-                          <i className="fas fa-id-card" /> <span className="d-none d-sm-inline">Contact</span>
-                        </button>
-                      ) : cStatus === 'pending' ? (
-                        <span className="badge bg-warning text-dark align-self-center px-1" title="Contact request pending">
-                          <i className="fas fa-clock" />
-                        </span>
-                      ) : cStatus === 'hidden' ? (
-                        <span className="badge bg-secondary align-self-center px-1" title="They hid their contact">
-                          <i className="fas fa-eye-slash" />
-                        </span>
-                      ) : (
-                        <button className="btn btn-sm btn-outline-primary px-1" onClick={() => requestContact(f.username)}
-                          title="Request Contact">
-                          <i className="fas fa-address-card" /> <span className="d-none d-sm-inline">Contact</span>
-                        </button>
-                      )}
-                      <button className="btn btn-sm btn-primary px-2" onClick={() => openChat(f)}>
-                        <i className="fas fa-comment-dots" /> <span className="d-none d-sm-inline">Chat</span>
-                      </button>
-                      {sharedReq && (
-                        <button className="btn btn-sm btn-outline-warning px-2"
-                          title="Withdraw contact access"
-                          onClick={() => revokeContact(sharedReq.id, f.display_name)}>
-                          <i className="fas fa-eye-slash" />
-                        </button>
-                      )}
-                      <button className="btn btn-sm btn-outline-danger px-2" onClick={() => unfriend(f.username)}
-                        title="Unfriend">
-                        <i className="fas fa-user-minus" />
-                      </button>
-                    </div>
+          ) : tab === 'chats' ? (
+            <>
+              {conversations.length > 4 && (
+                <input className="fr-search" placeholder="Search chats" aria-label="Search chats"
+                       value={chatFilter} onChange={e => setChatFilter(e.target.value)} />
+              )}
+              <div className="fr-list" role="list">
+                {conversations.length === 0 ? (
+                  <div className="fr-empty">
+                    <i className="fas fa-comment-dots" aria-hidden="true" />
+                    <p>No conversations yet.</p>
+                    <p className="fr-sub">Open a friend and say hello, or wait for someone to Reach Out on Market.</p>
                   </div>
-                )})}
+                ) : visibleConvos.map(c => (
+                  <button key={c.username} type="button" role="listitem"
+                          className={`fr-conv${c.unread > 0 ? ' is-unread' : ''}`}
+                          aria-current={activeChat?.username === c.username ? 'true' : undefined}
+                          onClick={() => openChat(c)}>
+                    <Avatar display={c.display_name} avatar={c.avatar_url} size={44} online={onlineSet.has(c.username)} />
+                    <span className="fr-conv__body">
+                      <span className="fr-conv__top">
+                        <span className="fr-conv__name">{c.display_name}</span>
+                        <span className="fr-conv__time">{listTime(c.last_at)}</span>
+                      </span>
+                      <span className="fr-conv__last">{previewText(c.last_content, c.last_sender === user.username)}</span>
+                      {!c.is_friend && (
+                        <span className="fr-chip fr-chip--warn fr-chip--xs">
+                          <i className="fas fa-user-plus" aria-hidden="true" />Not friends
+                        </span>
+                      )}
+                    </span>
+                    {c.unread > 0 && <span className="fr-conv__count">{c.unread > 99 ? '99+' : c.unread}</span>}
+                  </button>
+                ))}
               </div>
-            )
+            </>
 
-          ) : tab === 'pending' ? (
-            pending.length === 0 && contactReqs.length === 0 && sharedContacts.length === 0 ? (
-              <div className="text-center py-5 text-muted">
-                <i className="fas fa-bell fa-3x mb-3 d-block opacity-25" />
-                <p>No pending requests.</p>
+          ) : tab === 'friends' ? (
+            <>
+              {friends.length > 4 && (
+                <input className="fr-search" placeholder="Search friends" aria-label="Search friends"
+                       value={friendFilter} onChange={e => setFriendFilter(e.target.value)} />
+              )}
+              <div className="fr-list">
+                {friends.length === 0 ? (
+                  <div className="fr-empty">
+                    <i className="fas fa-user-friends" aria-hidden="true" />
+                    <p>No friends yet.</p>
+                    <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => setTab('add')}>Find someone</button>
+                  </div>
+                ) : visibleFriends.map(f => (
+                  <div key={f.username} className="fr-row">
+                    <button type="button" className="fr-row__hit" onClick={() => openChat(f)}
+                            aria-label={`Open chat with ${f.display_name}`}>
+                      <Avatar display={f.display_name} avatar={f.avatar_url} size={44} online={onlineSet.has(f.username)} />
+                      <span className="fr-row__body">
+                        <span className="fr-row__name">{f.display_name}</span>
+                        <span className="fr-sub">{f.username}{onlineSet.has(f.username) ? ' · online' : ''}</span>
+                      </span>
+                    </button>
+                    <span className="fr-row__acts">
+                      <ContactChip status={contactStatusMap[f.username]}
+                                   onView={() => showContact(f)} onRequest={() => requestContact(f.username)} />
+                      <RowMenu label={`More for ${f.display_name}`} items={personMenu(f)} />
+                    </span>
+                  </div>
+                ))}
               </div>
-            ) : (
-              <div className="d-flex flex-column gap-3">
-                {/* Friend requests */}
-                {pending.length > 0 && (
-                  <>
-                    <div className="text-muted small fw-semibold text-uppercase" style={{ letterSpacing: '.06em' }}>
-                      Friend Requests
-                    </div>
-                    {pending.map(r => (
-                      <div key={r.id} className="card px-3 py-2 d-flex flex-row align-items-center gap-3">
-                        <Avatar display={r.from_display || r.from_user} avatar={r.from_avatar} size={42} />
-                        <div className="flex-grow-1">
-                          <div className="fw-semibold">{r.from_display || r.from_user}</div>
-                          <div className="text-muted small">
-                            {r.message || 'wants to be your friend'}
-                          </div>
-                        </div>
-                        <div className="d-flex gap-2 flex-shrink-0">
-                          <button className="btn btn-sm btn-success" onClick={() => respond(r.id, 'accept')}>
-                            <i className="fas fa-check me-1" />Accept
-                          </button>
-                          <button className="btn btn-sm btn-outline-secondary" onClick={() => respond(r.id, 'reject')}>
-                            Decline
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </>
-                )}
+            </>
 
-                {/* Contact requests */}
-                {contactReqs.length > 0 && (
-                  <>
-                    <div className="text-muted small fw-semibold text-uppercase mt-2" style={{ letterSpacing: '.06em' }}>
-                      Contact Requests
-                    </div>
-                    {contactReqs.map(r => (
-                      <div key={r.id} className="card px-3 py-2 d-flex flex-row align-items-center gap-3">
-                        <Avatar display={r.from_display || r.from_user} avatar={r.from_avatar} size={42} />
-                        <div className="flex-grow-1">
-                          <div className="fw-semibold">{r.from_display || r.from_user}</div>
-                          <div className="text-muted small">wants to see your contact info</div>
+          ) : tab === 'requests' ? (
+            <div className="fr-list">
+              {pending.length === 0 && contactReqs.length === 0 && sharedContacts.length === 0 ? (
+                <div className="fr-empty">
+                  <i className="fas fa-bell" aria-hidden="true" />
+                  <p>Nothing waiting on you.</p>
+                </div>
+              ) : (
+                <>
+                  {pending.length > 0 && (
+                    <>
+                      <div className="fr-sec">Friend requests</div>
+                      {pending.map(r => (
+                        <div key={r.id} className="fr-row fr-row--stack">
+                          <span className="fr-row__hit fr-row__hit--static">
+                            <Avatar display={r.from_display || r.from_user} avatar={r.from_avatar} size={44} />
+                            <span className="fr-row__body">
+                              <span className="fr-row__name">{r.from_display || r.from_user}</span>
+                              <span className="fr-sub">{r.message || 'wants to be friends'}</span>
+                            </span>
+                          </span>
+                          <span className="fr-row__acts">
+                            <button type="button" className="btn btn-sm btn-primary" onClick={() => respond(r.id, 'accept')}>Accept</button>
+                            <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => respond(r.id, 'reject')}>Decline</button>
+                          </span>
                         </div>
-                        <div className="d-flex gap-2 flex-shrink-0">
-                          <button className="btn btn-sm btn-success" onClick={() => respondContact(r.id, 'approve', r.from_user)}>
-                            <i className="fas fa-check me-1" />Share
-                          </button>
-                          <button className="btn btn-sm btn-outline-secondary" onClick={() => respondContact(r.id, 'decline', r.from_user)}>
-                            Decline
-                          </button>
+                      ))}
+                    </>
+                  )}
+                  {contactReqs.length > 0 && (
+                    <>
+                      <div className="fr-sec">Wants to see your contact</div>
+                      {contactReqs.map(r => (
+                        <div key={r.id} className="fr-row fr-row--stack">
+                          <span className="fr-row__hit fr-row__hit--static">
+                            <Avatar display={r.from_display || r.from_user} avatar={r.from_avatar} size={44} />
+                            <span className="fr-row__body">
+                              <span className="fr-row__name">{r.from_display || r.from_user}</span>
+                              <span className="fr-sub">asked to see your phone, WeChat, address</span>
+                            </span>
+                          </span>
+                          <span className="fr-row__acts">
+                            <button type="button" className="btn btn-sm btn-primary" onClick={() => respondContact(r.id, 'approve', r.from_user)}>Share</button>
+                            <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => respondContact(r.id, 'decline', r.from_user)}>Not now</button>
+                          </span>
                         </div>
-                      </div>
-                    ))}
-                  </>
-                )}
-
-                {/* Shared with */}
-                {sharedContacts.length > 0 && (
-                  <>
-                    <div className="text-muted small fw-semibold text-uppercase mt-2" style={{ letterSpacing: '.06em' }}>
-                      Shared With
-                    </div>
-                    {sharedContacts.map(r => (
-                      <div key={r.id} className="card px-3 py-2 d-flex flex-row align-items-center gap-3">
-                        <Avatar display={r.from_display || r.from_user} avatar={r.from_avatar} size={42} />
-                        <div className="flex-grow-1">
-                          <div className="fw-semibold">{r.from_display || r.from_user}</div>
-                          <div className="text-muted small">can see your contact info</div>
+                      ))}
+                    </>
+                  )}
+                  {sharedContacts.length > 0 && (
+                    <>
+                      <div className="fr-sec">People who can see your contact</div>
+                      {sharedContacts.map(r => (
+                        <div key={r.id} className="fr-row fr-row--stack">
+                          <span className="fr-row__hit fr-row__hit--static">
+                            <Avatar display={r.from_display || r.from_user} avatar={r.from_avatar} size={44} />
+                            <span className="fr-row__body">
+                              <span className="fr-row__name">{r.from_display || r.from_user}</span>
+                              <span className="fr-sub">can see your contact details</span>
+                            </span>
+                          </span>
+                          <span className="fr-row__acts">
+                            <button type="button" className="btn btn-sm btn-outline-secondary"
+                                    onClick={() => revokeContact(r.id, r.from_display || r.from_user)}>
+                              <i className="fas fa-eye-slash me-1" aria-hidden="true" />Stop sharing
+                            </button>
+                          </span>
                         </div>
-                        <button className="btn btn-sm btn-outline-danger flex-shrink-0"
-                          onClick={() => revokeContact(r.id, r.from_display || r.from_user)}>
-                          <i className="fas fa-eye-slash me-1" />Revoke
-                        </button>
-                      </div>
-                    ))}
-                  </>
-                )}
-              </div>
-            )
+                      ))}
+                    </>
+                  )}
+                </>
+              )}
+            </div>
 
           ) : (
-            /* Add tab */
-            <div>
-              <form className="d-flex gap-2 mb-4" onSubmit={handleSearch}>
-                <input
-                  className="form-control"
-                  placeholder="Search by username or display name…"
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  minLength={2}
-                />
-                <button className="btn btn-primary flex-shrink-0" type="submit" disabled={searching}>
-                  {searching
-                    ? <span className="spinner-border spinner-border-sm" />
-                    : <i className="fas fa-search" />}
+            /* Add */
+            <div className="fr-list">
+              <form className="d-flex gap-2 mb-3" onSubmit={async (e) => {
+                e.preventDefault()
+                if (searchQuery.trim().length < 2) return
+                setSearching(true)
+                const d = await api.get(`/api/friends/users?q=${encodeURIComponent(searchQuery.trim())}`)
+                if (d.ok) setSearchResults(d.users)
+                setSearching(false)
+              }}>
+                <input className="fr-search mb-0" placeholder="Search by username or name" aria-label="Search people"
+                       value={searchQuery} onChange={e => setSearchQuery(e.target.value)} minLength={2} />
+                <button className="btn btn-primary flex-shrink-0" type="submit" disabled={searching} aria-label="Search">
+                  {searching ? <span className="spinner-border spinner-border-sm" /> : <i className="fas fa-search" aria-hidden="true" />}
                 </button>
               </form>
-
               {searchResults.length === 0 && !searching && (
-                <div className="text-center py-4 text-muted" style={{ fontSize: '.9rem' }}>
-                  {searchQuery.length >= 2
-                    ? 'No users found.'
-                    : 'Type at least 2 characters to search.'}
+                <div className="fr-empty">
+                  <i className="fas fa-user-plus" aria-hidden="true" />
+                  <p>{searchQuery.length >= 2 ? 'No one by that name.' : 'Type at least 2 characters.'}</p>
+                </div>
+              )}
+              {searchResults.map(u => {
+                const friend  = isFriend(u.username)
+                const waiting = sentSet.has(u.username)
+                return (
+                  <div key={u.username} className="fr-row">
+                    <button type="button" className="fr-row__hit" onClick={() => openChat(u)}
+                            aria-label={`Open chat with ${u.display_name}`}>
+                      <Avatar display={u.display_name} avatar={u.avatar_url} size={44} />
+                      <span className="fr-row__body">
+                        <span className="fr-row__name">{u.display_name}</span>
+                        <span className="fr-sub">{u.username}</span>
+                      </span>
+                    </button>
+                    <span className="fr-row__acts">
+                      {friend
+                        ? <span className="fr-chip fr-chip--good"><i className="fas fa-check" aria-hidden="true" />Friends</span>
+                        : waiting
+                          ? <span className="fr-chip fr-chip--warn"><i className="fas fa-clock" aria-hidden="true" />Request sent</span>
+                          : <button type="button" className="fr-chip fr-chip--info" onClick={() => sendRequest(u.username)}>
+                              <i className="fas fa-user-plus" aria-hidden="true" />Add friend
+                            </button>}
+                      <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => openChat(u)}
+                              aria-label={`Message ${u.display_name}`}>
+                        <i className="fas fa-comment-dots" aria-hidden="true" />
+                      </button>
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* ── Right pane ────────────────────────────────────────────────────── */}
+        <div className="fr-pane">
+          {!activeChat ? (
+            <div className="fr-empty fr-empty--pane">
+              <i className="fas fa-comment-dots" aria-hidden="true" />
+              <p>Pick a chat on the left.</p>
+              <p className="fr-sub">选一个对话</p>
+            </div>
+          ) : (
+            <>
+              <div className="fr-ph">
+                <button type="button" className="btn btn-sm fr-back" onClick={closeChat} aria-label="Back to chats">
+                  <i className="fas fa-arrow-left" aria-hidden="true" />
+                </button>
+                <Avatar display={activeChat.display_name} avatar={activeChat.avatar_url} size={36} online={onlineSet.has(activeChat.username)} />
+                <div className="fr-ph__who">
+                  <b>{activeChat.display_name}</b>
+                  <span className="fr-sub">
+                    {activeChat.username} · {onlineSet.has(activeChat.username) ? 'online' : 'offline'}
+                    {!isFriend(activeChat.username) && ' · not a friend'}
+                  </span>
+                </div>
+                {isFriend(activeChat.username) && (
+                  <ContactChip status={contactStatusMap[activeChat.username]}
+                               onView={() => showContact(activeChat)} onRequest={() => requestContact(activeChat.username)} />
+                )}
+                <RowMenu label={`More for ${activeChat.display_name}`} items={personMenu(activeChat, { inChat: true })} />
+              </div>
+
+              {!isFriend(activeChat.username) && (
+                <div className="fr-banner" role="status">
+                  <i className="fas fa-user-plus" aria-hidden="true" />
+                  <span>You're not friends yet. Messages still get through.
+                    <span className="label-zh">还不是好友，消息照样能发</span></span>
+                  {sentSet.has(activeChat.username)
+                    ? <span className="fr-chip fr-chip--warn ms-auto"><i className="fas fa-clock" aria-hidden="true" />Request sent</span>
+                    : <button type="button" className="btn btn-sm fr-banner__btn ms-auto" onClick={() => sendRequest(activeChat.username)}>Add friend</button>}
                 </div>
               )}
 
-              <div className="d-flex flex-column gap-2">
-                {searchResults.map(u => {
-                  const isFriend  = friends.some(f => f.username === u.username)
-                  const isPending = sentSet.has(u.username)
-                  return (
-                    <div key={u.username} className="card px-3 py-2 d-flex flex-row align-items-center gap-3">
-                      <Avatar display={u.display_name} avatar={u.avatar_url} size={42} />
-                      <div className="flex-grow-1 overflow-hidden">
-                        <div className="fw-semibold text-truncate">{u.display_name}</div>
-                        <div className="text-muted small">{u.username}</div>
+              {/* Someone asked to see your contact details and is waiting. It used
+                  to live only in the Requests tab, so you could be mid-conversation
+                  with them and never know. Answerable right here. */}
+              {(() => {
+                const req = contactRequestFrom(activeChat.username)
+                if (!req) return null
+                return (
+                  <div className="fr-banner" role="status">
+                    <i className="fas fa-address-card" aria-hidden="true" />
+                    <span><strong>{activeChat.display_name}</strong> asked to see your contact details
+                      <span className="label-zh">想看你的联系方式</span></span>
+                    <span className="d-flex gap-2 ms-auto flex-shrink-0">
+                      <button type="button" className="btn btn-sm btn-primary"
+                              onClick={() => respondContact(req.id, 'approve', req.from_user)}>Share</button>
+                      <button type="button" className="btn btn-sm fr-banner__btn"
+                              onClick={() => respondContact(req.id, 'decline', req.from_user)}>Not now</button>
+                    </span>
+                  </div>
+                )
+              })()}
+
+              <div className="fr-msgs" ref={msgsRef}>
+                {chatHistory.length === 0 && (
+                  <div className="fr-empty my-auto"><p>No messages yet. Say hello!</p></div>
+                )}
+                {(() => {
+                  let lastDate = null
+                  return chatHistory.flatMap(m => {
+                    const isMe = m.sender === user.username
+                    const dateLabel = cstDateLabel(m.created_at)
+                    const items = []
+                    if (dateLabel !== lastDate) {
+                      lastDate = dateLabel
+                      items.push(<div key={`sep-${m.id}`} className="fr-day">{dateLabel}</div>)
+                    }
+                    const isCard = !!parseJoinUrl(m.content)
+                    items.push(
+                      <div key={m.id} className={`fr-msg${isMe ? ' is-me' : ''}`}
+                           style={isCard ? { padding: '6px 8px' } : undefined}>
+                        {renderMessageContent(m.content, isMe)}
+                        <small>{new Date(m.created_at).toLocaleTimeString('zh-CN', { ...CT, hour: '2-digit', minute: '2-digit' })}</small>
                       </div>
-                      <div className="flex-shrink-0 d-flex align-items-center gap-1">
-                        {isFriend && <span className="badge bg-success px-1" style={{fontSize:'.7rem'}}>Friends</span>}
-                        {!isFriend && (isPending
-                          ? <span className="badge bg-warning text-dark px-1" style={{fontSize:'.7rem'}}>Pending</span>
-                          : <button className="btn btn-sm btn-outline-primary px-2" onClick={() => sendRequest(u.username)} title="Add friend">
-                              <i className="fas fa-user-plus" />
-                            </button>
-                        )}
-                        <button
-                          className="btn btn-sm btn-primary px-2"
-                          onClick={() => { setTab('friends'); openChat(u) }}
-                          title="Send a message"
-                        >
-                          <i className="fas fa-comment-dots" />
-                        </button>
-                      </div>
-                    </div>
-                  )
-                })}
+                    )
+                    return items
+                  })
+                })()}
               </div>
-            </div>
+
+              <div className="fr-compose">
+                <input
+                  ref={inputRef}
+                  className="fr-compose__in"
+                  placeholder="Type a message…"
+                  aria-label={`Message ${activeChat.display_name}`}
+                  value={chatInput}
+                  onChange={e => setChatInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() } }}
+                  maxLength={1000}
+                />
+                <button type="button" className="btn btn-primary" onClick={sendMessage} disabled={!chatInput.trim()}>
+                  <i className="fas fa-paper-plane" aria-hidden="true" /><span className="d-none d-sm-inline ms-1">Send</span>
+                </button>
+              </div>
+              <div className="fr-compose__hint">Enter to send</div>
+            </>
           )}
-        </>
-      )}
+        </div>
+      </div>
     </div>
   )
 }

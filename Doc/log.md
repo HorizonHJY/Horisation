@@ -2,16 +2,19 @@
 
 
 ## 0. Current Status
-Last Updated: 2026-09-20
+Last Updated: 2026-09-21
 
 ### Current Working Version
 - **Completed**: 全站设计系统统一；邀请码系统；功能角色门控；好友/私信系统；SQLite 迁移；二手市集（配送选项 + Restore + 动态分类 + System Management + 价格拆分 + 响应式按钮 + 浏览量计数 + 分类图标 + 多选 filter + 两行 meta + 中文配送标签 + EditModal 修复）；**留言板（Weibo 式线程回复 + 点赞 + 翻页）**；用户公开主页；**非好友直接私信**；**Market Reach Out 直接开 DM**；**Login 页 Safari 全面兼容修复**；**群组系统（独立建组 + 按用户名拉人 + 群聊，`/api/groups`）**；**品牌改名 Arch Bay（可见文案 'Horisation'→'Arch Bay'，提交 f0fc7f6）**；**市集意向成单流（trade_intents）**
   ；**全局实时通知（一条 session 级 socket + `/api/friends/notifications` 快照）**
-  ；**塔罗牌 section（78 张 RWS 牌，洗牌动画 + 自己点选三张 + 三张牌阵 + 点开细看，服务端洗牌，2026-09-10 起全员开放；09-20 起 AI 整体解读 + 打分）**；**Travel Planner 全员开放（09-20）**；**首页天气 °F / °C**；**AI 服务层 `Backend/Service/ai/`（统一入口、配额、记账、总开关，DeepSeek）**
+  ；**塔罗牌 section（78 张 RWS 牌，洗牌动画 + 自己点选三张 + 三张牌阵 + 点开细看，服务端洗牌，2026-09-10 起全员开放；09-20 起 AI 整体解读 + 打分）**；**Travel Planner 全员开放（09-20）**；**Friends 页重做：Teams 式两栏、Chats 默认、非好友会话可见、联系方式文字 chip（09-21）**；**首页天气 °F / °C**；**AI 服务层 `Backend/Service/ai/`（统一入口、配额、记账、总开关，DeepSeek）**
 - **In Progress**: 无
 - **Blocked / Not Solved**: 密码明文存储（待迁 bcrypt）；`SECRET_KEY` 硬编码
 
 ### Latest Summary
+2026-09-21：**Friends 页重做**——桌面 Teams 式两栏，默认落在 Chats（所有会话，含非好友，最后一句 + 时间 + 未读）；
+好友行五个图标收成一个文字 chip + `···` 整句菜单；顺手修了非好友私信在页面上无处可点的 bug（新 `GET /api/friends/conversations`）。
+
 2026-09-20 深夜四个小改：打分备注按钮改 Submit；My Listings 加 "Copy my page link"（`/u/<username>`，仍需登录，Horizon 决定不公开）；
 Travel Planner 对全员开放（前端三处，后端本来没门）；首页天气加摄氏度，并修掉一个上线就在的错标——Open-Meteo 回的是摄氏，页面写的是 °F。
 
@@ -236,6 +239,48 @@ Travel Planner 对全员开放（前端三处，后端本来没门）；首页�
 ---
 
 ## 3. Iteration History
+
+---
+
+### 2026-09-21 — Friends 页重做：Teams 式两栏，Chats 优先
+
+#### Goal
+Horizon："好友系统发消息整体做的指引不是很好，Contact 和眼睛不够 self-explain。"看图诊断后拍板：默认落在 Chats，
+桌面做成 Teams 那样左右两栏，先出预览再动手。
+
+#### 诊断（改之前）
+1. 一行五个图标、三种颜色、两个都叫 Contact：绿 🪪 = 看对方联系方式，蓝 📇 = 向对方申请，黄 🕐 = 等对方批，
+   灰 🙈 = 对方隐藏了，橙 🙈 = 撤回我给对方的权限。**同一个眼睛出现两次、意思相反**，全靠 hover 的 title，手机上没有 hover。
+2. 没有"会话"概念：Chat 按钮是唯一入口，列表按好友顺序，没有最后一句、没有时间。
+3. **真 bug**：Market 的 Reach Out 允许非好友私信，`get_unread_counts` 也把非好友算进侧栏红点——但 Friends 页只列好友，
+   那条消息**没有任何一行能点开**。
+4. Requests 里混着好友申请、联系方式申请、"我分享给了谁"，第三组叫 "Shared With"，按钮叫 "Revoke"。
+
+#### 改动
+- **后端**：`market_db.get_conversations(username)` + `GET /api/friends/conversations`——每个 DM 房间的对方身份、`is_friend`、
+  最后一条、时间、未读，按最近排序，非好友一样有。旧行的 naive UTC 时间戳排序前补 tz，不然和新行比大小直接抛。
+- **`Friends.jsx` 重写**（socket、联系方式那些函数保留）：
+  - 桌面两栏（340px 左栏 + 右栏），`calc(100vh - topbar - 6.5rem)` 高，两栏各自滚；手机一次一栏，`is-chat` 切换，返回箭头。
+  - 四个 tab：**Chats（默认）**/ Friends / Requests / Add，Chats 和 Requests 带计数。
+  - Chats 行：头像、名字、最后一句（自己发的带 "You:"，分享卡片显示为"分账邀请"而不是 URL）、时间（今天 21:14 / Yesterday / Sep 14）、
+    未读数；非好友带 `Not friends` 标签。**点整行**。收到消息时本地把这行提到最上并改最后一句，不重新拉。
+  - Friends 行：一个文字 chip 四态——`View contact` / `Request contact` / `Requested · waiting` / `Contact hidden`——
+    加一个 `···`：Open chat / View profile / **Stop sharing my contact with 某某** / Remove friend（红，走 `ConfirmDialog`）。眼睛没了。
+  - 聊天头部：非好友显示横幅 *"You're not friends yet. Messages still get through."* + Add friend；对方申请看联系方式的横幅保留。
+    手机上头部的 chip 隐藏，同样的动作进 `···`（`personMenu(p, {inChat:true})`）。
+  - Requests 第三组改名 *People who can see your contact*，按钮 *Stop sharing*；申请行改成两行（人 / 动作），340px 里才放得下。
+  - 消息列表自己滚（`msgsRef.scrollTop`），不再 `scrollIntoView`——两栏布局下它会把整页拖下去。
+  - 联系方式弹窗改走共享 `Modal`；删好友改走 `ConfirmDialog`（原来是 `window.confirm`）。
+- CSS 全部 `.fr-*`，只用站内 token，暗色不用另写。
+
+#### Verification
+本地起真后端（`LOCAL_DEV=1`，threading 模式，无 Redis）+ 生产构建，造了四个测试账号：alice 与 bob/dave 是好友，carol 是发过消息的陌生人。
+走通：Chats 列表含陌生人并排序正确 → 点开 → 发消息（Enter 与按钮）→ 行提到最上、预览更新 → 陌生人横幅 → Request contact → chip 变
+"Requested · waiting" → bob 批准后变 "View contact" → Requests 三组各一条 → Accept / Share → ··· 菜单含 "Stop sharing" → Remove friend 弹确认。
+375px：列表 → 聊天 → 返回，无横向溢出。detector 无报。测试账号只在本地 `_data/market.db`（gitignored）。
+
+**测试时的坑**：Vite 代理 + Werkzeug 的 websocket 升级报 "Invalid frame header"，socket 不停重连，消息发不出去——不是代码问题，
+改用 Flask 直接服务 `dist/`（:5000）测就正常了。线上是 gunicorn+eventlet，不受影响。
 
 ---
 

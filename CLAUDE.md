@@ -38,7 +38,7 @@ Browser → Cloudflare → Nginx → Gunicorn (port 8000) → Flask (API only)
 | `Backend/Controller/feedback_controller.py` | `/api/feedback/*` — message board |
 | `Backend/Controller/market_db.py` | SQLAlchemy models + helpers: User, UserSession, Listing, ListingImage, Category, Message, MessageLike, Memo, GameRoom, friends/groups tables. Also owns the additive column migrations (`_migrate_columns`, `_migrate_category_labels`). |
 | `Backend/Controller/groups_controller.py` | `/api/groups/*` — 群组：建组/拉人/群聊（独立于好友） |
-| `Backend/Controller/friends_controller.py` | `/api/friends/*` — search, requests, private chat, contact-sharing approval |
+| `Backend/Controller/friends_controller.py` | `/api/friends/*` — search, requests, private chat, contact-sharing approval, and `/conversations` (every DM room with last line + unread, **non-friends included** — the Chats list) |
 | `Backend/Controller/friends_socket.py` | **The app's only `connect`/`disconnect` handler** plus private chat and the push helpers. python-socketio keys handlers by event name, so a second `@socketio.on('connect')` anywhere would silently replace this one — put per-connection work here instead. |
 | `Backend/Controller/socketio_instance.py` | Shared `socketio` object and the sid→user registry that the single connect handler fills (`user_for_sid`) |
 | `Backend/Controller/game_controller.py` | `/api/game/*` + Socket.IO events: online Gomoku rooms and moves |
@@ -65,6 +65,7 @@ Browser → Cloudflare → Nginx → Gunicorn (port 8000) → Flask (API only)
 | `frontend/src/components/Modal.jsx` | Shared modal shell (Escape, focus trap, scroll lock, `aria-modal`) + `ConfirmDialog`. **Use this for anything that covers the page — never a bare div, never `window.confirm`.** It portals out of its caller's subtree, so a surface with its own palette must redeclare its variables (and scrollbar theming) on the dialog — pass `backdropClassName` for that. |
 | `frontend/src/components/EnvRibbon.jsx` | Marks a non-production instance; renders nothing in production |
 | `frontend/src/components/SocketProvider.jsx` | The app's single Socket.IO connection, alive for the whole session. `useSocket()` / `useSocketEvent()`. **Pages attach and detach handlers; a page must never call `socket.disconnect()`** — it would cut off notifications and chat everywhere. |
+| `frontend/src/pages/Friends.jsx` | Really the messages page. Desktop: two panes, Teams-style — left rail with Chats / Friends / Requests / Add, right pane the open conversation; phone: one at a time with a back arrow. **Chats is the default** and lists every DM including non-friends (Market Reach Out). Contact sharing is one text chip (View contact / Request contact / Requested · waiting / Contact hidden); everything else about a person is behind `···` as a full sentence. Rewritten 2026-09-21 — the old row had five unlabelled icons. |
 | `frontend/src/components/TarotReading.jsx` | The "整体解读" section under the three cards: optional question → `POST /api/tarot/reading` → summary / three positions / one next step → 1–5 fit rating. Reads `retryable` off the error body to decide whether to offer *Try again*. |
 | `frontend/src/pages/` | All page components |
 
@@ -216,6 +217,7 @@ not**, and the two must not be conflated when changing this page.
 ### Friends `/api/friends/` — notification surface
 | Method | Route | Description |
 |--------|-------|-------------|
+| GET | `/conversations` | **The Chats list.** Every DM room the caller is in — friends and non-friends — with the other person's identity, `is_friend`, `last_sender` / `last_content` / `last_at`, `unread`; newest first. Added 2026-09-21: before it, a non-friend's message raised the badge but had no row anywhere to open it from. |
 | GET | `/notifications` | **Snapshot the client asks for on every socket connect and on a 5-min fallback timer**: unread counts, pending friend requests, pending contact requests, all with sender identity attached. This is what makes state self-heal after a reconnect. |
 | GET | `/unread` | Unread message counts only. Superseded by `/notifications`; kept but unused by the SPA. |
 | GET | `/requests/pending` | Pending friend requests. Same — superseded, still served. |

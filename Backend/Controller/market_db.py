@@ -1678,6 +1678,58 @@ def get_unread_counts(username: str) -> dict:
         return result
 
 
+def get_conversations(username: str) -> list:
+    """Every DM room this user is in — friends and non-friends alike — with
+    the last message and the unread count, newest first.
+
+    This is what the Chats list is drawn from. A non-friend who wrote via
+    Market's Reach Out has a room here like anyone else; before 2026-09-21
+    such a message raised the badge but had no row anywhere to open it from.
+    """
+    from sqlalchemy import or_
+    with Session() as s:
+        room_keys = [
+            row[0] for row in
+            s.query(PrivateChatMessage.room_key).filter(
+                or_(
+                    PrivateChatMessage.room_key.like(f'{username}:%'),
+                    PrivateChatMessage.room_key.like(f'%:{username}'),
+                )
+            ).distinct().all()
+        ]
+        out = []
+        for room_key in room_keys:
+            parts = room_key.split(':', 1)
+            if len(parts) != 2:
+                continue
+            user_a, user_b = parts
+            other = user_b if user_a == username else user_a
+            last = (s.query(PrivateChatMessage).filter_by(room_key=room_key)
+                     .order_by(PrivateChatMessage.created_at.desc()).first())
+            if last is None:
+                continue
+            read_row  = s.query(ChatRead).filter_by(username=username, room_key=room_key).first()
+            last_read = read_row.read_at if read_row else datetime(1970, 1, 1)
+            unread = s.query(func.count(PrivateChatMessage.id)).filter(
+                PrivateChatMessage.room_key == room_key,
+                PrivateChatMessage.sender   == other,
+                PrivateChatMessage.created_at > last_read,
+            ).scalar() or 0
+            out.append({
+                'username':     other,
+                'last_sender':  last.sender,
+                'last_content': last.content,
+                'last_at':      _fmt_ct(last.created_at),
+                # Rows written before the tz-aware default are naive UTC; make them comparable.
+                '_sort':        last.created_at if last.created_at.tzinfo else last.created_at.replace(tzinfo=timezone.utc),
+                'unread':       unread,
+            })
+        out.sort(key=lambda c: c['_sort'], reverse=True)
+        for c in out:
+            del c['_sort']
+        return out
+
+
 # ── Invite code helpers ────────────────────────────────────────────────────────
 
 def _invite_code_to_dict(r: InviteCode) -> dict:

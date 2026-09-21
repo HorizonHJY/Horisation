@@ -126,6 +126,25 @@ def get_friends():
     return jsonify({'ok': True, 'friends': result})
 
 
+@friends_bp.route('/conversations', methods=['GET'])
+@login_required
+def get_conversations():
+    """The Chats list: every DM the caller is part of, newest first, with the
+    other person's identity, whether they are a friend, the last line and the
+    unread count. Non-friends included — that is the point of the list."""
+    me      = request.current_user['username']
+    convos  = market_db.get_conversations(me)
+    friends = set(market_db.get_friends(me))
+    users   = user_manager._load_users()
+    result  = []
+    for c in convos:
+        _, u = user_manager._find_user(users, c['username'])
+        if not u:
+            continue                      # a deleted account's room: nothing to open
+        result.append({**_enrich_user(u), **c, 'is_friend': c['username'] in friends})
+    return jsonify({'ok': True, 'conversations': result})
+
+
 @friends_bp.route('/<username>', methods=['DELETE'])
 @login_required
 def unfriend(username):

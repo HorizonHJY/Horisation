@@ -13,7 +13,7 @@ A private web platform for close friends — tools, community, and games in one 
 | **Market** | Second-hand trading — listings with photos, categories, and a two-step deal flow (interest → seller accepts → buyer confirms received) |
 | **Tasks** | Bounty board — post a job, someone picks it up |
 | **Message Board** | Threaded replies and likes |
-| **Friends** | Requests, private chat, and separately-approved contact sharing |
+| **Friends** | Chats-first messages page (two panes on desktop): every conversation incl. non-friends, friend requests, and separately-approved contact sharing |
 | **Groups** | Group chat, independent of the friend graph |
 | **Tarot** | 78-card Rider–Waite–Smith deck: shuffle, choose your own three, past / present / future, tap a card to look closer. Shuffle happens server-side. Optional AI reading of the three together (DeepSeek, quota per person per day) with a 1–5 fit rating |
 | **Online Gomoku** | Real-time multiplayer Five in a Row over Socket.IO |

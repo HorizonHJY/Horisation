@@ -1,6 +1,6 @@
 # Horisation — To-Do List
 
-Last updated: 2026-09-20
+Last updated: 2026-09-21
 
 ---
 
@@ -87,6 +87,7 @@ card names read `The Star 星星`, positions read `Past 过去`.
 
 | Item | Date | Notes |
 |------|------|-------|
+| Friends 页重做（Teams 式两栏，Chats 默认） | 2026-09-21 | 桌面左栏 Chats / Friends / Requests / Add + 右栏对话，手机一次一栏。Chats 列出所有会话含非好友（新 `GET /api/friends/conversations`，修了非好友私信无处可点的 bug）。好友行五个图标 → 一个文字 chip（View contact / Request contact / Requested · waiting / Contact hidden）+ `···` 整句菜单；眼睛图标没了。删好友走 ConfirmDialog。 |
 | 首页天气：华氏 + 摄氏，顺手修了单位错标 | 2026-09-20 | Open-Meteo 默认回摄氏度，后端没传 `temperature_unit`，前端却写 °F——"27°F Overcast" 其实是 27°C。现在后端两种单位都算好返回（key 里带单位），首页显示 `78°F / 26°C`。 |
 | Travel Planner 对全员开放 | 2026-09-20 | 同塔罗牌的做法：删 `features.js` 的 `travelPlanner`、路由的 `FeatureRoute`、侧边栏条目的 `feature`。后端 `/api/travel/*` 本来就只查登录和所有权，没有角色门。Bill Split 仍是 vip+。 |
 | My Listings 加 "Copy my page link" | 2026-09-20 | Export as image 旁边多一个按钮，复制 `/u/<username>` 公开页链接，方便发群里。 |

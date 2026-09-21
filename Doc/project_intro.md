@@ -88,7 +88,7 @@ Images are stored in Cloudflare R2; only the public URL is kept in the database.
 | Hormemo | `/hormemo` | All | Personal memo / task tracker (CRUD, priority, tags) |
 | Market | `/market` | All | Second-hand trading — browse, post listings with images, Reach Out to sellers, seller profile modal. My Listings can be exported as one tall image, or its `/u/<username>` page link copied (that page still needs login — the site is invite-only). Categories (slug/label/order/active) stored in DB and configurable via System Management. Currency: USD ($). |
 | Message Board | `/feedback` | All | Community message board, all users can post |
-| Friends | `/friends` | All | Friend system: search, add, private chat, contact sharing with approval flow |
+| Friends | `/friends` | All | Messages page, Teams-style two panes on desktop. Chats (default) lists every DM incl. non-friends; Friends with a text chip for contact-sharing state and a ··· menu; Requests; Add. Contact sharing with approval flow |
 | Groups | `/groups` | All | Build a group by username, independent of the friend graph; group chat. See `Doc/groups.md` |
 | Tasks | `/tasks` | All | Bounty / task board |
 | Tarot | `/tarot` | All | 78-card Rider–Waite–Smith deck: shuffle, choose your own three, past / present / future, tap a card to look closer, then an optional AI reading of the three together (DeepSeek; user 1 / vip 3 / admin ∞ per Chicago day) with a 1–5 fit rating. Server-side shuffle; the AI reads the spread the server drew, by id. `horizon`-only 09-08 → 09-10, open to everyone since |
@@ -181,7 +181,7 @@ Horisation/
 │           ├── Hormemo.jsx
 │           ├── Market.jsx            # Browse / My Listings / Post Item; seller modal; Reach Out
 │           ├── Feedback.jsx
-│           ├── Friends.jsx           # Friends list, search, private chat, contact requests
+│           ├── Friends.jsx           # Messages page: Chats (all DMs) / Friends / Requests / Add, two panes on desktop
 │           ├── Profile.jsx
 │           ├── AdminUsers.jsx
 │           ├── UnderDevelopment.jsx
