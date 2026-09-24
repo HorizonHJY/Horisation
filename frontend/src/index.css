@@ -2319,6 +2319,11 @@ textarea.form-control { height: auto; padding: .55rem .85rem; line-height: 1.55;
 @supports (height: 1dvh) {
   .fr-shell { height: calc(100dvh - var(--topbar-h) - 6.5rem); }
 }
+/* Desktop is the roomiest surface, so the list gets a little more of it — a
+   wider rail means longer names and a fuller preview line fit without work. */
+@media (min-width: 1280px) {
+  .fr-shell { grid-template-columns: 380px minmax(0, 1fr); }
+}
 /* min-height: 0 on both columns is what keeps a long conversation INSIDE the
    pane. A grid item's default min-height is its content, so without it a
    thousand-message chat made the pane taller than the shell, the message
@@ -2400,6 +2405,12 @@ textarea.form-control { height: auto; padding: .55rem .85rem; line-height: 1.55;
   font-size: .75rem; font-weight: 600; white-space: nowrap; line-height: 1.2;
 }
 .fr-chip--xs { padding: 2px 7px; font-size: .68rem; margin-top: 3px; }
+/* In the rail the chip sits beside the name, and the rail is only 340px. A
+   four-word chip there pushed "Fanfan0315" to "Fanfa…" at every width from
+   768px up. The word moves into title/aria-label and the icon stands for it;
+   the chat header still shows the words, where there is room. */
+.fr-row__acts .fr-chip { padding: 5px 8px; }
+.fr-row__acts .fr-chip--word { display: none; }
 .fr-chip--good    { background: var(--badge-good-bg);    color: var(--badge-good-fg); }
 .fr-chip--info    { background: var(--badge-info-bg);    color: var(--badge-info-fg); }
 .fr-chip--warn    { background: var(--badge-warn-bg);    color: var(--badge-warn-fg); }
@@ -2414,6 +2425,13 @@ button.fr-chip:hover { filter: brightness(.96); }
   display: flex; align-items: center; justify-content: center;
 }
 .fr-more__btn:hover { background: var(--bg-subtle); }
+/* On touch a row's two controls are both under --tap-min: the chip is 26px
+   tall, the ··· a 32px square. --xs is a label inside a row, not a target. */
+@media (pointer: coarse) {
+  .fr-chip:not(.fr-chip--xs) { min-height: var(--tap-min); }
+  /* Grow the hit box, not the glyph — it stays a small square icon. */
+  .fr-more__btn { width: auto; height: auto; min-width: var(--tap-min); min-height: var(--tap-min); }
+}
 .fr-menu {
   position: absolute; top: 38px; right: 0; z-index: 20; min-width: 260px; padding: 6px;
   background: var(--bg-surface); border: 1px solid var(--border-medium); border-radius: var(--radius-md);
@@ -2474,9 +2492,11 @@ button.fr-chip:hover { filter: brightness(.96); }
     background: var(--bg-surface); border: 1px solid var(--border-soft); border-radius: var(--radius-lg); overflow: hidden;
   }
   .fr-back { display: inline-flex; }
-  /* The name has no room next to a text chip on a phone. The chip goes; the
-     same action sits in the header's ··· menu (see personMenu's inChat). */
-  .fr-ph .fr-chip { display: none; }
+  /* A phone row has no room for the chip at all — the name truncated to
+     "Fanfa…" in 390px. The contact chip goes and the same action sits in the
+     ··· menu (see personMenu). Only the contact chip: "Add friend" and
+     "Not friends" are the only word for what that row offers. */
+  .fr-chip--contact { display: none; }
   .fr-msg { max-width: 84%; }
   .fr-compose__hint { display: none; }
   .fr-tab { font-size: .8rem; }

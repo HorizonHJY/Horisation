@@ -162,24 +162,31 @@ function RowMenu({ label, items, align = 'right' }) {
   )
 }
 
-// The contact-sharing chip. One of four things, always in words.
+/* The contact-sharing chip. One of four things, always in words.
+   `fr-chip--contact` marks all four so the phone rule can drop them — a
+   contact chip is the only chip a row can do without (see personMenu).
+   `fr-chip--word` is the label span: in the narrow rail the word collapses
+   and the icon carries the meaning (title + aria-label keep it readable),
+   while the chat header keeps the full text. */
 function ContactChip({ status, onView, onRequest }) {
   if (status === 'approved') return (
-    <button type="button" className="fr-chip fr-chip--good" onClick={onView}>
-      <i className="fas fa-id-card" aria-hidden="true" />View contact
+    <button type="button" className="fr-chip fr-chip--contact fr-chip--good" onClick={onView} title="View contact">
+      <i className="fas fa-id-card" aria-hidden="true" /><span className="fr-chip--word">View contact</span>
     </button>
   )
   if (status === 'pending') return (
-    <span className="fr-chip fr-chip--warn"><i className="fas fa-clock" aria-hidden="true" />Requested · waiting</span>
+    <span className="fr-chip fr-chip--contact fr-chip--warn" title="Contact requested — waiting">
+      <i className="fas fa-clock" aria-hidden="true" /><span className="fr-chip--word">Requested · waiting</span>
+    </span>
   )
   if (status === 'hidden') return (
-    <span className="fr-chip fr-chip--neutral" title="They keep their contact details private">
-      <i className="fas fa-lock" aria-hidden="true" />Contact hidden
+    <span className="fr-chip fr-chip--contact fr-chip--neutral" title="They keep their contact details private">
+      <i className="fas fa-lock" aria-hidden="true" /><span className="fr-chip--word">Contact hidden</span>
     </span>
   )
   return (
-    <button type="button" className="fr-chip fr-chip--info" onClick={onRequest}>
-      <i className="fas fa-address-card" aria-hidden="true" />Request contact
+    <button type="button" className="fr-chip fr-chip--contact fr-chip--info" onClick={onRequest} title="Request contact">
+      <i className="fas fa-address-card" aria-hidden="true" /><span className="fr-chip--word">Request contact</span>
     </button>
   )
 }
@@ -502,13 +509,15 @@ export default function Friends() {
     const items = inChat ? [] : [{ label: 'Open chat', icon: 'fa-comment-dots', onClick: () => openChat(p) }]
     items.push({ label: 'View profile', icon: 'fa-user', onClick: () => navigate(`/u/${p.username}`) })
     if (isFriend(p.username)) {
-      // The chat header's chip is hidden on a phone, so the menu carries the
-      // contact action there too. On desktop it is simply a second way in.
-      if (inChat) {
-        const st = contactStatusMap[p.username]
-        if (st === 'approved') items.push({ label: 'View contact', icon: 'fa-id-card', onClick: () => showContact(p) })
-        else if (!st || st === 'declined') items.push({ label: 'Request contact', icon: 'fa-address-card', onClick: () => requestContact(p.username) })
-      }
+      // The chip is hidden on a phone — in the row as well as in the chat
+      // header — so the menu is the only way to contact there. On desktop it
+      // is simply a second way in. The two waiting states have no action, so
+      // they come through as a label: the state still has to be readable.
+      const st = contactStatusMap[p.username]
+      if (st === 'approved') items.push({ label: 'View contact', icon: 'fa-id-card', onClick: () => showContact(p) })
+      else if (st === 'pending') items.push({ section: 'Contact requested · waiting' })
+      else if (st === 'hidden') items.push({ section: 'Contact hidden' })
+      else items.push({ label: 'Request contact', icon: 'fa-address-card', onClick: () => requestContact(p.username) })
       if (sharedReq) {
         items.push({ section: 'Sharing' })
         items.push({ label: `Stop sharing my contact with ${p.display_name}`, icon: 'fa-eye-slash',
