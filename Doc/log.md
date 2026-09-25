@@ -2,7 +2,7 @@
 
 
 ## 0. Current Status
-Last Updated: 2026-09-21
+Last Updated: 2026-09-24
 
 ### Current Working Version
 - **Completed**: 全站设计系统统一；邀请码系统；功能角色门控；好友/私信系统；SQLite 迁移；二手市集（配送选项 + Restore + 动态分类 + System Management + 价格拆分 + 响应式按钮 + 浏览量计数 + 分类图标 + 多选 filter + 两行 meta + 中文配送标签 + EditModal 修复）；**留言板（Weibo 式线程回复 + 点赞 + 翻页）**；用户公开主页；**非好友直接私信**；**Market Reach Out 直接开 DM**；**Login 页 Safari 全面兼容修复**；**群组系统（独立建组 + 按用户名拉人 + 群聊，`/api/groups`）**；**品牌改名 Arch Bay（可见文案 'Horisation'→'Arch Bay'，提交 f0fc7f6）**；**市集意向成单流（trade_intents）**
@@ -12,6 +12,8 @@ Last Updated: 2026-09-21
 - **Blocked / Not Solved**: 密码明文存储（待迁 bcrypt）；`SECRET_KEY` 硬编码
 
 ### Latest Summary
+2026-09-24：**好友行不再截断名字，四端一致**。手机（≤767px）上联系方式 chip 让出整行——动作本来就在 `···` 菜单里（`personMenu` 现对好友行也给 View/Request contact，等待/隐藏状态以菜单标签呈现）；平板/桌面 chip 保留但收成图标，文字进 `title`/`aria-label`。同一轮补上触控点击区：`.fr-chip` 26px、`.fr-more__btn` 32×32 都低于本站自己的 `--tap-min: 44px`，`(pointer: coarse)` 规则统一修掉。桌面作为最宽的一端把左栏加到 380px（≥1280px）。390/768/1280/1440 实测名字均不再截断，build 通过，`74809e5`。流程沉淀见 `Doc/dev_workflow.md`，原则见 `mobile_ux_principles.md` 第 6–8 条。
+
 2026-09-21：**Friends 页重做**——桌面 Teams 式两栏，默认落在 Chats（所有会话，含非好友，最后一句 + 时间 + 未读）；
 好友行五个图标收成一个文字 chip + `···` 整句菜单；顺手修了非好友私信在页面上无处可点的 bug（新 `GET /api/friends/conversations`）。
 
