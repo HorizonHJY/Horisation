@@ -515,13 +515,18 @@ function ListingCard({
         type="button"
         className="market-card__open"
         onClick={onDetail}
-        aria-label={`Open listing: ${listing.title}`}
+        aria-label={`Open listing: ${listing.title}${isSold ? ' — sold' : ''}`}
       >
-        <span className="market-card__img">
+        <span className={`market-card__img${isSold ? ' market-card__img--sold' : ''}`}>
           {firstImg
             ? <img src={firstImg} alt="" />
             : <i className="fas fa-image placeholder-icon" aria-hidden="true" />
           }
+          {isSold && (
+            <span className="market-card__sold-overlay" aria-hidden="true">
+              <span className="market-card__sold-mark">Sold<span className="zh">已售出</span></span>
+            </span>
+          )}
         </span>
         <span className="market-card__title" title={listing.title}>{listing.title}</span>
       </button>
@@ -733,16 +738,31 @@ function ListingDetailModal({
           <div className="modal-body">
             {listing.images?.length > 0 && (
               <div className="mb-3">
-                <img
-                  src={listing.images[imgIndex].url}
-                  alt={`${listing.title} — photo ${imgIndex + 1} of ${listing.images.length}`}
-                  style={{
-                    width: '100%', maxHeight: 380, objectFit: 'contain',
-                    background: 'var(--bg-page)',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--border-soft)',
-                  }}
-                />
+                <div style={{ position: 'relative' }}>
+                  <img
+                    src={listing.images[imgIndex].url}
+                    alt={`${listing.title} — photo ${imgIndex + 1} of ${listing.images.length}`}
+                    style={{
+                      width: '100%', maxHeight: 380, objectFit: 'contain',
+                      background: 'var(--bg-page)',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px solid var(--border-soft)',
+                      display: 'block',
+                    }}
+                  />
+                  {isSold && (
+                    <div aria-hidden="true" style={{
+                      position: 'absolute', inset: 0, borderRadius: 'var(--radius-md)',
+                      background: 'rgba(20, 22, 26, 0.46)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      pointerEvents: 'none',
+                    }}>
+                      <span className="market-card__sold-mark market-card__sold-mark--detail">
+                        Sold<span className="zh">已售出</span>
+                      </span>
+                    </div>
+                  )}
+                </div>
                 {listing.images.length > 1 && (
                   <div style={{ display: 'flex', gap: 8, marginTop: 8 }} role="group" aria-label="Photos">
                     {listing.images.map((img, i) => (
@@ -953,18 +973,24 @@ function SellerListingCard({ listing, categoryLabel, onOpen }) {
         type="button"
         className="market-card__open"
         onClick={onOpen}
-        aria-label={`Open listing: ${listing.title}`}
+        aria-label={`Open listing: ${listing.title}${listing.status === 'sold' ? ' — sold' : ''}`}
       >
-        <span className="market-card__img">
+        <span className={`market-card__img${listing.status === 'sold' ? ' market-card__img--sold' : ''}`}>
           {firstImg
             ? <img src={firstImg} alt="" />
             : <i className="fas fa-image placeholder-icon" aria-hidden="true" />
           }
+          {listing.status === 'sold' && (
+            <span className="market-card__sold-overlay" aria-hidden="true">
+              <span className="market-card__sold-mark">Sold<span className="zh">已售出</span></span>
+            </span>
+          )}
         </span>
         <span className="market-card__title" title={listing.title}>{listing.title}</span>
       </button>
       <div className="market-card__meta">
         <span className="market-card__category">{cat.label}</span>
+        {listing.status === 'sold' && <span className="market-card__sold-badge">Sold</span>}
         {listing.status === 'reserved' && (
           <span className="badge-pill badge-pill--warn"><Label en="Reserved" zh="已谈成" /></span>
         )}

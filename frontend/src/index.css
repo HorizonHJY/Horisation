@@ -705,6 +705,7 @@ h1, h2, h3, h4, h5, h6,
 }
 
 .market-card__img {
+  position: relative;
   transition: transform 0.35s ease-out;
   display: flex; justify-content: center; align-items: center;
   overflow: hidden;
@@ -721,6 +722,83 @@ h1, h2, h3, h4, h5, h6,
 }
 .market-card__img img { width: 100%; height: 100%; object-fit: contain; }
 .market-card__img .placeholder-icon { font-size: 2.2rem; color: var(--text-muted); }
+
+/* ── Sold-out mask ─────────────────────────────────────────────────────────
+   A sold listing used to just vanish (Browse hides status=sold), so a seller
+   could never see what they'd moved. Now it stays put under a grey wash with
+   a rotated SOLD stamp — the 闲鱼 treatment. The wash is a neutral scrim, not
+   a colour, so it reads as "gone" in both themes and never competes with the
+   red badge that already sits in the card meta.
+   Pointer-events are off so the whole card stays one click target: the image
+   is inside .market-card__open, and swallowing clicks here would kill the
+   only keyboard/tap path into the listing. */
+.market-card__img--sold::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(20, 22, 26, 0.46);
+  pointer-events: none;
+  z-index: 1;
+}
+.market-card__img .market-card__sold-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 2;
+}
+.market-card__sold-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #fff;
+  padding: 6px 16px;
+  border: 2px solid rgba(255, 255, 255, 0.92);
+  border-radius: 6px;
+  background: rgba(20, 22, 26, 0.35);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
+  transform: rotate(-12deg);
+  white-space: nowrap;
+}
+.market-card__sold-mark .zh {
+  font-family: var(--font-serif-cn);
+  font-size: 0.92em;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+/* Phone: the image is ~131px wide here, so a full SOLD + 已售出 chip wraps and
+   covers the thumbnail. Scale the stamp down and drop the Chinese gloss.
+   Scoped to `.market-card__img` so the same class used in the detail modal —
+   which has a full-width image — keeps its size and both words. */
+@media (max-width: 575.98px) {
+  .market-card__img .market-card__sold-mark {
+    font-size: 0.74rem;
+    letter-spacing: 0.12em;
+    padding: 4px 10px;
+    gap: 4px;
+  }
+  .market-card__img .market-card__sold-mark .zh { display: none; }
+}
+/* Detail modal: the image is large (full-width, up to 380px tall), so the
+   stamp earns a bump and always keeps its Chinese gloss regardless of
+   viewport. */
+.market-card__sold-mark--detail {
+  font-size: 1.35rem;
+  padding: 8px 22px;
+}
+/* The sold card shouldn't lift on hover — nothing is for sale to click into,
+   and the image desaturates + dims so "gone" reads in BOTH themes. A plain
+   dark scrim alone was invisible in dark mode, where the thumbnail backdrop is
+   already dark; greyscale is the theme-neutral signal. */
+.market-card:has(.market-card__img--sold):hover .market-card__img { transform: none; }
+.market-card__img--sold img { filter: grayscale(1); opacity: 0.55; }
 
 .market-card__title {
   display: block; width: 100%; max-width: 100%;
