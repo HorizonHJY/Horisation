@@ -171,6 +171,10 @@
   outline: none;
 }
 .groups-input input:focus { border-color: #1976f2; }
+.groups-input input:focus-visible {
+  outline: 2px solid #1976f2;
+  outline-offset: 2px;
+}
 .groups-input .btn { border-radius: 20px; padding: 8px 16px; }
 
 /* empty */

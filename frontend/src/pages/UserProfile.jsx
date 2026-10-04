@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../App'
 import HandLoader from '../components/HandLoader'
+import { fmtDateJoin } from '../utils'
 
 export default function UserProfile() {
   const { username }      = useParams()
@@ -82,7 +83,7 @@ export default function UserProfile() {
             <div className="text-muted small">@{profile.username}</div>
             {profile.created_at && (
               <div className="text-muted mt-1" style={{ fontSize: '.75rem' }}>
-                Joined {new Date(profile.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                Joined {fmtDateJoin(profile.created_at)}
               </div>
             )}
           </div>

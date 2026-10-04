@@ -24,7 +24,7 @@ export default function Topbar({ onMenuClick, menuButtonVisible = true }) {
           open — the close button is in the sidebar's own header then. */}
       {menuButtonVisible && (
         <button className="hamburger-btn" onClick={onMenuClick} aria-label="Open the menu" title="Menu  [ ">
-          <i className="fas fa-bars" />
+          <i className="fas fa-bars" aria-hidden="true" />
         </button>
       )}
       <span className="me-auto" />
@@ -63,6 +63,7 @@ export default function Topbar({ onMenuClick, menuButtonVisible = true }) {
               src={user.avatar_url}
               alt={user.display_name}
               className="user-avatar"
+              width="32" height="32"
               style={{ objectFit: 'cover' }}
             />
           ) : (

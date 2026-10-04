@@ -124,7 +124,14 @@ export default function Gomoku() {
             <div
               key={`${r}-${c}`}
               className="gomoku-cell"
+              role="button"
+              tabIndex={!winner && !cell ? 0 : -1}
+              aria-label={`Row ${r + 1}, column ${c + 1}${cell ? `, ${cell}` : ', empty'}`}
+              aria-disabled={!!winner || !!cell}
               onClick={() => handleClick(r, c)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick(r, c) }
+              }}
             >
               {cell && (
                 <div className={`gomoku-stone ${cell} ${isWinCell(r, c) ? 'win' : ''}`} />

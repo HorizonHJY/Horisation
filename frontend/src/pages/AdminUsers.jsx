@@ -241,7 +241,7 @@ export default function AdminUsers() {
       <div className="mb-3">
         <input
           className="form-control"
-          placeholder="Search users..."
+          placeholder="Search users…"
           value={search}
           onChange={e => setSearch(e.target.value)}
         />

@@ -249,8 +249,8 @@ export default function Groups() {
                 value={draft}
                 onChange={e => setDraft(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg() } }}
-                placeholder="输入消息…" maxLength={1000} />
-              <button className="btn btn-primary" onClick={sendMsg}><i className="fas fa-paper-plane" /></button>
+                placeholder="输入消息…" maxLength={1000} aria-label="群消息输入框" />
+              <button className="btn btn-primary" onClick={sendMsg} aria-label="发送消息"><i className="fas fa-paper-plane" aria-hidden="true" /></button>
             </div>
           </>
         )}

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../App'
 import HandLoader from '../components/HandLoader'
+import { fmtDateMed } from '../utils'
 
 /* ═══════════════════════════════════════════════════════════════════
    Task/Bounty categories with icons and colors
@@ -170,7 +171,7 @@ function TaskCard({ task, currentUser, onEdit, onDelete, onInProgress, onComplet
           {task.poster_display || task.poster_username}
         </span>
         <span style={{ fontSize: '.65rem', color: 'var(--text-muted)', marginLeft: 'auto' }}>
-          {new Date(task.created_at).toLocaleDateString()}
+          {fmtDateMed(task.created_at)}
         </span>
       </div>
 
@@ -414,7 +415,7 @@ function TaskCreateForm({ categories, onSubmit, submitting }) {
                 <textarea
                   className="form-control"
                   rows={3}
-                  placeholder="详细说明需要做什么、有什么要求..."
+                  placeholder="详细说明需要做什么、有什么要求…"
                   value={form.description}
                   onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
                 />

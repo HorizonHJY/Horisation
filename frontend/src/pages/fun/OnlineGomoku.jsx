@@ -261,7 +261,18 @@ export default function OnlineGomoku() {
           }}
         >
           {board.map((cell, i) => (
-            <div key={i} className="gomoku-cell" onClick={() => makeMove(i)}>
+            <div
+              key={i}
+              className="gomoku-cell"
+              role="button"
+              tabIndex={isMyTurn && cell === null ? 0 : -1}
+              aria-label={`Row ${Math.floor(i / SIZE) + 1}, column ${(i % SIZE) + 1}${cell ? `, ${cell}` : ', empty'}`}
+              aria-disabled={!isMyTurn || cell !== null}
+              onClick={() => makeMove(i)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); makeMove(i) }
+              }}
+            >
               {cell && (
                 <div
                   className={`gomoku-stone ${cell}`}

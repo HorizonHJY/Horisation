@@ -68,9 +68,11 @@ function MsgCard({ m, topLevelId, currentUser, isAdmin, isReply, onLike, onReply
       {m.reply_to && <QuoteBlock replyTo={m.reply_to} />}
 
       <div className="d-flex align-items-center gap-2 mb-1">
-        <div style={{ cursor: 'pointer' }} onClick={() => navigate('/u/' + m.username)}>
+        <button type="button" className="btn p-0 border-0 bg-transparent" style={{ cursor: 'pointer' }}
+                onClick={() => navigate('/u/' + m.username)}
+                aria-label={`查看 ${m.display_name || m.username} 的主页`}>
           <UserAvatar displayName={m.display_name} avatarUrl={m.avatar_url} size={isReply ? 28 : 36} />
-        </div>
+        </button>
         <div className="flex-grow-1 overflow-hidden">
           <span className="fw-semibold" style={{ fontSize: isReply ? '.88rem' : '1rem' }}>
             {m.display_name}
@@ -347,8 +349,8 @@ export default function Feedback() {
               <p className="mb-0 text-muted text-truncate">{replyTo.content}</p>
             </div>
             <button className="btn btn-sm btn-link text-muted p-0 flex-shrink-0"
-              onClick={() => setReplyTo(null)} title="Cancel reply">
-              <i className="fas fa-times" />
+              onClick={() => setReplyTo(null)} title="Cancel reply" aria-label="Cancel reply">
+              <i className="fas fa-times" aria-hidden="true" />
             </button>
           </div>
         )}

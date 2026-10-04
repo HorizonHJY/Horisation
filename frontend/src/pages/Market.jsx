@@ -4,6 +4,7 @@ import { api } from '../api'
 import { useAuth } from '../App'
 import HandLoader from '../components/HandLoader'
 import Modal, { ConfirmDialog } from '../components/Modal'
+import { fmtDateMed, fmtDateLong } from '../utils'
 
 /* Interface language is English; Chinese rides along as an accent (PRODUCT.md).
    Categories carry the same pair from the database as `label` / `label_zh`. */
@@ -519,7 +520,7 @@ function ListingCard({
       >
         <span className={`market-card__img${isSold ? ' market-card__img--sold' : ''}`}>
           {firstImg
-            ? <img src={firstImg} alt="" />
+            ? <img src={firstImg} alt="" width="320" height="320" loading="lazy" />
             : <i className="fas fa-image placeholder-icon" aria-hidden="true" />
           }
           {isSold && (
@@ -582,7 +583,7 @@ function ListingCard({
             {listing.seller_display || listing.seller_username}
           </span>
           <span style={{ display: 'block', fontSize: '.68rem' }}>
-            {new Date(listing.created_at).toLocaleDateString()}
+            {fmtDateMed(listing.created_at)}
           </span>
         </span>
       </button>
@@ -841,7 +842,7 @@ function ListingDetailModal({
                   {listing.seller_display || listing.seller_username}
                 </span>
                 <span style={{ display: 'block', fontSize: '.75rem', color: 'var(--text-muted)' }}>
-                  Posted {new Date(listing.created_at).toLocaleDateString()}
+                  Posted {fmtDateMed(listing.created_at)}
                   {listing.view_count > 0 && (
                     <span className="ms-2 tnum">
                       <i className="fas fa-eye me-1" aria-hidden="true" />
@@ -977,7 +978,7 @@ function SellerListingCard({ listing, categoryLabel, onOpen }) {
       >
         <span className={`market-card__img${listing.status === 'sold' ? ' market-card__img--sold' : ''}`}>
           {firstImg
-            ? <img src={firstImg} alt="" />
+            ? <img src={firstImg} alt="" width="320" height="320" loading="lazy" />
             : <i className="fas fa-image placeholder-icon" aria-hidden="true" />
           }
           {listing.status === 'sold' && (
@@ -1090,7 +1091,7 @@ function ExportModal({ listings, categoryLabel, onClose, showToast }) {
   const [rendering, setRendering] = useState(false)
   const [rendered, setRendered]   = useState(null)
   const active = listings.filter(l => l.status === 'active')
-  const stamp  = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+  const stamp  = fmtDateLong(new Date())
 
   async function handleRender() {
     if (!exportRef.current) return
@@ -1128,6 +1129,7 @@ function ExportModal({ listings, categoryLabel, onClose, showToast }) {
                 <img
                   src={rendered}
                   alt="Your listings, rendered for sharing"
+                  width="720" height="1000"
                   style={{ maxWidth: '100%', border: '1px solid var(--border-soft)', borderRadius: 'var(--radius-md)' }}
                 />
                 <p className="small mt-2 mb-0" style={{ color: 'var(--text-muted)' }}>
@@ -1861,7 +1863,7 @@ export default function Market() {
                   onChange={e => setSearchQuery(e.target.value)}
                 />
                 <span className="search__button" aria-hidden="true">
-                  <i className="fas fa-search" />
+                  <i className="fas fa-search" aria-hidden="true" />
                 </span>
                 {searchQuery && (
                   <button className="search__clear" onClick={() => setSearchQuery('')} aria-label="Clear search">

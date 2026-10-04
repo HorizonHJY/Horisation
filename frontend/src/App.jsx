@@ -38,6 +38,10 @@ function ThemeProvider({ children }) {
     document.documentElement.setAttribute('data-theme', t)
     document.documentElement.setAttribute('data-bs-theme', t)
     localStorage.setItem('theme', t)
+    // Keep the browser UI (address bar / status bar) in step with the page,
+    // otherwise dark pages keep a stark white chrome. Values match --bg above.
+    const meta = document.querySelector('meta[name="theme-color"]')
+    if (meta) meta.setAttribute('content', isDark ? '#0f172a' : '#ffffff')
   }, [isDark])
 
   const toggleTheme = () => setIsDark(d => !d)
