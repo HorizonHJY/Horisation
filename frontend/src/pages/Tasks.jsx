@@ -27,10 +27,10 @@ const EMPTY_FORM = {
 }
 
 const STATUS_CONFIG = {
-  open:         { label: 'Open',    color: '#27ae60', bg: 'rgba(39,174,96,0.08)' },
-  in_progress:  { label: '进行中',   color: '#e67e22', bg: 'rgba(230,126,34,0.08)' },
-  completed:    { label: '已完成',   color: '#7f8c8d', bg: 'rgba(127,140,141,0.08)' },
-  cancelled:    { label: '已取消',   color: '#c0392b', bg: 'rgba(192,57,43,0.08)' },
+  open:         { label: 'Open',    color: 'var(--success-text)', bg: 'rgba(39,174,96,0.08)' },
+  in_progress:  { label: '进行中',   color: 'var(--warning-text)', bg: 'rgba(230,126,34,0.08)' },
+  completed:    { label: '已完成',   color: 'var(--text-muted)', bg: 'rgba(127,140,141,0.08)' },
+  cancelled:    { label: '已取消',   color: 'var(--danger-text)', bg: 'rgba(192,57,43,0.08)' },
 }
 
 
@@ -76,7 +76,7 @@ function PosterAvatar({ username, displayName, avatarUrl, size = 28, onClick }) 
   return (
     <div style={{
       ...style,
-      background: '#6b9cdb', color: '#fff',
+      background: 'var(--accent-solid)', color: '#fff',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       fontWeight: 700, fontSize: size * 0.4,
     }} onClick={onClick}>
@@ -192,7 +192,7 @@ function TaskCard({ task, currentUser, onEdit, onDelete, onInProgress, onComplet
         )}
         {isMine && task.status === 'in_progress' && (
           <>
-            <button className="market-card__btn" style={{ color: '#27ae60', borderColor: 'rgba(39,174,96,0.3)' }}
+            <button className="market-card__btn" style={{ color: 'var(--success-text)', borderColor: 'rgba(39,174,96,0.3)' }}
               onClick={() => onComplete(task.id)}>
               <i className="fas fa-check-circle" />完成
             </button>
