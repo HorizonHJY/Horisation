@@ -5,8 +5,7 @@
  * that anything else that ever needs the map reads the same one.
  *
  * `feature` gates an item through features.js; an item without one is open
- * to every member. `horizonOnly` is the one entry that is not a feature flag
- * but a role check. Sections with nothing visible are not rendered.
+ * to every member. Sections with nothing visible are not rendered.
  */
 
 export const NAV_SECTIONS = [
@@ -39,7 +38,6 @@ export const NAV_SECTIONS = [
       { to: '/hormemo',    icon: 'fa-clipboard-list', label: 'Memo' },
       { to: '/travel',     icon: 'fa-route',          label: 'Travel Planner' },
       { to: '/bill-split', icon: 'fa-receipt',        label: 'Bill Split',     feature: 'billSplit' },
-      { to: '/csv',        icon: 'fa-file-csv',       label: 'CSV Workspace',  horizonOnly: true },
     ],
   },
 ]

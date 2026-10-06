@@ -10,7 +10,6 @@ import { canAccess } from './features'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import Home from './pages/Home'
-import CSV from './pages/CSV'
 import Hormemo from './pages/Hormemo'
 import Profile from './pages/Profile'
 import AdminUsers from './pages/AdminUsers'
@@ -273,7 +272,6 @@ export default function App() {
           <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
             <Route index element={<Navigate to="/home" replace />} />
             <Route path="/home"              element={<Home />} />
-            <Route path="/csv"               element={<CSV />} />
             <Route path="/hormemo"           element={<Hormemo />} />
             <Route path="/profile"           element={<Profile />} />
             <Route path="/admin"             element={<AdminUsers />} />

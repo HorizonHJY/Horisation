@@ -16,7 +16,6 @@ from Backend.Controller.travel_db import init_travel_db
 init_travel_db()
 
 # Import Blueprints (user_manager is instantiated during these imports)
-from Backend.Controller.csvcontroller import bp as csv_bp
 from Backend.Controller.auth_controller import auth_bp
 from Backend.Controller.notes_controller import notes_bp
 from Backend.Controller.memos_controller import memos_bp
@@ -78,7 +77,6 @@ else:
     socketio.init_app(app, message_queue='redis://', async_mode='eventlet', cors_allowed_origins='*')
 
 # Register API blueprints
-app.register_blueprint(csv_bp)
 app.register_blueprint(auth_bp)
 app.register_blueprint(notes_bp)
 app.register_blueprint(memos_bp)

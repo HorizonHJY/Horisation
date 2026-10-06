@@ -98,7 +98,6 @@ Images are stored in Cloudflare R2; only the public URL is kept in the database.
 | Bill Split | `/bill-split` | horizon, admin, svip, vip | Bill splitting, shareable 6-char bill id |
 | Admin | `/admin` | admin permission | User management (create, edit, reset password, delete, role) + invite code management (horizon only) |
 | System Management | `/admin/system` | admin permission | Manage market category list (slug, label, order, active toggle) |
-| CSV Workspace | `/csv` | horizon (sidebar only) | Upload, preview, and summarise CSV / Excel files. The **sidebar entry** is horizon-only; the route itself is not role-gated, so the URL works for any signed-in user |
 
 > `Gomoku.jsx` (local 2-player) exists under `pages/fun/` but has **no route and no
 > nav entry** — it is currently unreachable. It used to be listed here as
@@ -141,7 +140,6 @@ Horisation/
 ├── Backend/
 │   └── Controller/
 │       ├── auth_controller.py        # /api/auth/* — login, register, profile, avatar
-│       ├── csvcontroller.py          # /api/csv/*
 │       ├── memos_controller.py       # /api/memos/*
 │       ├── notes_controller.py       # /api/notes/*
 │       ├── market_controller.py      # /api/market/*
@@ -177,7 +175,6 @@ Horisation/
 │           ├── Login.jsx             # Full-screen flower animation + frosted-glass card; link to Register
 │           ├── Register.jsx          # Public self-registration (invite code required)
 │           ├── Home.jsx
-│           ├── CSV.jsx
 │           ├── Hormemo.jsx
 │           ├── Market.jsx            # Browse / My Listings / Post Item; seller modal; Reach Out
 │           ├── Feedback.jsx
@@ -219,7 +216,6 @@ Horisation/
     For Fun → Tarot, Toolkit → Memo, Travel Planner
   - `horizon` / `admin` / `svip` additionally see: For Fun → Online Gomoku
   - `vip` and above additionally see: Toolkit → Bill Split
-  - `horizon` additionally sees: Toolkit → CSV Workspace
   - Users with `admin` permission: the Admin section
   - A section only renders if at least one of its items is visible
 

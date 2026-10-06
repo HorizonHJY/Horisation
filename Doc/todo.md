@@ -81,7 +81,6 @@ card names read `The Star 星星`, positions read `Past 过去`.
 |------|-------|
 | Avalon board game | Social deduction game |
 | More games | Expand "For Fun" section |
-| Data visualisation tools | Charts/graphs in CSV Workspace |
 | Push notifications | Browser push for new messages / friend requests |
 
 ## Recently Done

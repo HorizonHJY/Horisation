@@ -29,13 +29,11 @@ const Sidebar = forwardRef(function Sidebar(
   const navigate = useNavigate()
 
   const isAdmin   = user?.role_info?.permissions?.includes('admin')
-  const isHorizon = user?.role === 'horizon'
 
   /* Each item is gated on its own flag. `canAccess` reads the same FEATURES
      map the routes do, so the sidebar and FeatureRoute cannot disagree. */
   const allowed = (item) =>
-    (!item.feature || canAccess(user?.role, item.feature))
-    && (!item.horizonOnly || isHorizon)
+    !item.feature || canAccess(user?.role, item.feature)
 
   const sections = NAV_SECTIONS
     .map(s => ({ ...s, items: s.items.filter(allowed) }))
