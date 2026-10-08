@@ -8,6 +8,7 @@
   /* Layout */
   --sidebar-w:      240px;
   --topbar-h:       60px;
+  --nav-slide:      .28s cubic-bezier(.2, .8, .2, 1);   /* desktop sidebar open/close */
 
   /* Surfaces */
   --bg:             #f7f5f0;          /* page background — warm cream */
@@ -257,11 +258,14 @@ h1, h2, h3, h4, h5, h6,
 /* ═══ Desktop sidebar: open or closed, on a button ═══════════
    Closed is the default and closed means gone — no rail, no hover zone,
    nothing but the menu button at the top-left of the page. Open docks the
-   panel and the content moves over. The change is instant on purpose: a
-   deliberate click deserves a deliberate result, and animating a 240px
-   reflow of the whole page buys nothing but jank. Phone rules further down
-   are untouched. */
+   panel and the content moves over. The panel slides and the page follows
+   on the same curve, so the eye sees one movement, not a panel arriving
+   after the content has already jumped. Reduced motion shortens it to a
+   blink via the global rule. Phone rules further down are untouched. */
 @media (min-width: 768px) {
+  .sidebar       { transition: transform var(--nav-slide); }
+  .topbar        { transition: left var(--nav-slide); }
+  .main-content  { transition: margin-left var(--nav-slide); }
   .shell[data-nav="closed"] .sidebar       { transform: translateX(-100%); }
   .shell[data-nav="closed"] .topbar        { left: 0; }
   .shell[data-nav="closed"] .main-content  { margin-left: 0; }
