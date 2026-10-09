@@ -177,7 +177,8 @@ SELECT COUNT(*) FROM ai_usage WHERE quota_key = ? AND ok = 1;
 CREATE TABLE tarot_readings (
   id             TEXT PRIMARY KEY,          -- 抽牌时生成，前端只拿这个 id 来要解读
   username       TEXT NOT NULL,
-  spread_json    TEXT NOT NULL,             -- 抽到的三张牌 + 位置，/draw 时写入
+  spread_json    TEXT NOT NULL,             -- 已选的牌 + 位置 + seat；/draw 写 '[]'，每次 /pick 追加一张
+  deck_order_json TEXT,                     -- 2026-10-09 新增：/draw 洗好的 78 张顺序（按 seat），永不下发
   question       TEXT,                      -- 用户要解读时才填，可为 NULL
   reading_raw    TEXT,                      -- 模型原文，一字不改（训练/评估用）
   reading_json   TEXT,                      -- 解析后的结构；解析失败为 NULL
@@ -228,16 +229,29 @@ def today_key() -> str:
 ## 6. 调用流程（塔罗）
 
 **【评审修订】原稿在解读请求里重新抽牌，与线上流程冲突。** 线上塔罗是：点 Start 时
-`/draw` 由服务端抽好三张 → 用户从 78 张里自己点选 → 逐张翻开 → 释义。解读是**翻开之后**
+`/draw` 由服务端洗牌 → 用户从 78 张里自己点选 → 逐张翻开 → 释义。
+
+**2026-10-09 改：用户点的那张就是翻开的那张。** 之前 `/draw` 直接定好三张，用户点哪张都只是
+按顺序领下一张——公平，但「我选的」是假的。现在 `/draw` 只洗牌、把顺序存在服务端；
+扇形按 `/deck` 的固定顺序排，座位号不透露任何信息；每点一张，前端把座位号发给 `/pick`，
+服务端翻开它洗进那个座位的牌。选择是真的，devtools 依旧看不到也改不了。解读是**翻开之后**
 的可选第二步。所以解读接口**不抽牌**，它指向服务端已经抽过、已经落库的那一副。
 
 ```
-POST /api/tarot/draw                                （现有，改动：落库）
+POST /api/tarot/draw
   1. 登录校验
-  2. 服务端 secrets 抽三张（现有逻辑）
-  3. INSERT tarot_readings(id, username, spread_json)       ← 新增
-  4. 返回 { spread, reading_id }                             ← 新增 reading_id
+  2. 服务端 secrets.SystemRandom 洗 78 张
+  3. INSERT tarot_readings(id, username, spread_json='[]', deck_order_json)
+  4. 返回 { reading_id }                                     ← 不再返回任何牌
   抽牌不计额度、不花钱，随便抽。
+
+POST /api/tarot/pick                                 （2026-10-09 新增）
+  body: { reading_id, seat }        seat = 这张牌在 /deck 顺序里的下标（0–77）
+  1. 不是你的 / 没有洗牌顺序 → 404；seat 越界或类型不对 → 400
+  2. 已选满三张 / 这个 seat 已选过 → 409
+  3. card = deck_order[seat]，填进下一个空位（过去 → 现在 → 未来）
+  4. 以旧 spread_json 为条件更新（compare-and-swap），并发抢写的那次 → 409
+  5. 返回 { pick: {position, card, seat}, done }
 
 POST /api/tarot/reading                              （新增）
   body: { reading_id, question? }

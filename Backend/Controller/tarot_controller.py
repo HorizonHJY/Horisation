@@ -7,8 +7,14 @@ browser: a reading whose outcome can be inspected or re-rolled from devtools is
 not a reading. `secrets` rather than `random` for the same reason — this is the
 one thing the feature is for, so it should not be a predictable PRNG.
 
-The same rule reaches the AI reading. /draw records the spread and hands back
-a reading_id; /reading takes only that id. The three cards the model is told
+The card you touch is the card you get. /draw shuffles the whole deck on the
+server and keeps the order there; the fan in the browser is laid out in the
+static deck order, so a seat says nothing about which card sits under it.
+/pick turns over the card at the seat you touched. The choice is real, and
+still nobody can see or steer it from devtools.
+
+The same rule reaches the AI reading. /draw hands back a reading_id; /reading
+takes only that id. The three cards the model is told
 about are the three the server drew, never three the client sent — or you
 could change the spread and then ask.
 
@@ -81,11 +87,10 @@ def get_deck():
 @tarot_bp.route('/draw', methods=['POST'])
 @login_required
 def draw():
-    """Draw three distinct cards, one per position, and remember them.
+    """Shuffle the deck and remember the order. Nothing is turned over yet.
 
-    Distinct because a spread with the same card twice is not a spread. The
-    client is told which cards came up and where; it is never told the order of
-    the rest of the deck, so nothing about the next draw leaks.
+    The client is never told the order — only a reading_id. Cards come out
+    one at a time through /pick, at the seats the reader touches.
 
     Drawing is free and unmetered. The reading is what is rationed.
     """
@@ -93,20 +98,48 @@ def draw():
     if len(deck) < len(POSITIONS):
         return jsonify({'ok': False, 'error': 'Deck is incomplete.'}), 500
 
-    picked = []
-    seen = set()
-    while len(picked) < len(POSITIONS):
-        card = deck[secrets.randbelow(len(deck))]
-        if card['id'] in seen:
-            continue
-        seen.add(card['id'])
-        picked.append(card)
-
-    spread = [{'position': POSITIONS[i], 'card': picked[i]} for i in range(len(POSITIONS))]
+    order = [c['id'] for c in deck]
+    secrets.SystemRandom().shuffle(order)
     username, _ = _me()
-    reading_id = tarot_db.create_reading(username, spread)
+    reading_id = tarot_db.create_reading(username, order)
 
-    return jsonify({'ok': True, 'spread': spread, 'reading_id': reading_id})
+    return jsonify({'ok': True, 'reading_id': reading_id})
+
+
+@tarot_bp.route('/pick', methods=['POST'])
+@login_required
+def pick():
+    """Turn over the card at one seat of the shuffled fan.
+
+    Body: { reading_id, seat } — seat is 0..77, the card's place in the fan.
+    The card fills the next empty position (past, then present, then future).
+    """
+    body = request.get_json(silent=True) or {}
+    rid = str(body.get('reading_id') or '').strip()
+    seat = body.get('seat')
+    if not rid or not isinstance(seat, int) or isinstance(seat, bool):
+        return jsonify({'ok': False, 'error': 'reading_id and seat are required'}), 400
+
+    username, _ = _me()
+    row = tarot_db.get_reading(rid, username)
+    if row is None or not row.deck_order_json:
+        return jsonify({'ok': False, 'error': 'No such spread.'}), 404
+
+    order = json.loads(row.deck_order_json)
+    spread = json.loads(row.spread_json)
+    if not 0 <= seat < len(order):
+        return jsonify({'ok': False, 'error': 'No card at that seat.'}), 400
+    if len(spread) >= len(POSITIONS):
+        return jsonify({'ok': False, 'error': 'All three cards are already taken.'}), 409
+    if any(e.get('seat') == seat for e in spread):
+        return jsonify({'ok': False, 'error': 'That card is already taken.'}), 409
+
+    by_id = {c['id']: c for c in _deck()}
+    entry = {'position': POSITIONS[len(spread)], 'card': by_id[order[seat]], 'seat': seat}
+    if not tarot_db.append_pick(rid, row.spread_json, spread + [entry]):
+        return jsonify({'ok': False, 'error': 'Another pick landed first. Try again.'}), 409
+
+    return jsonify({'ok': True, 'pick': entry, 'done': len(spread) + 1 == len(POSITIONS)})
 
 
 @tarot_bp.route('/reading', methods=['POST'])
@@ -130,6 +163,10 @@ def reading():
     if row.read_at is not None:
         return jsonify({'ok': True, 'reading': row.to_dict(include_spread=False), 'cached': True})
 
+    spread = json.loads(row.spread_json)
+    if len(spread) < len(POSITIONS):
+        return jsonify({'ok': False, 'error': 'Take all three cards first.'}), 409
+
     question = body.get('question')
     if question is not None:
         question = _CONTROL.sub('', str(question)).strip()
@@ -138,7 +175,6 @@ def reading():
         if not question:
             question = None
 
-    spread = json.loads(row.spread_json)
     result = ai.run(
         feature='tarot',
         user=username,

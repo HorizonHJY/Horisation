@@ -15,12 +15,10 @@ import TarotReading from '../components/TarotReading'
  * over. Each of those beats is a phase here, and the deck is the one thing on
  * screen that moves.
  *
- * On which card is "yours": the server picks the three the moment the shuffle
- * starts, and the card you touch takes the next one in that order. That is
- * exactly as true as a physical reading — the deck was shuffled before your
- * hand went near it, and which slice of a shuffled deck you touch tells you
- * nothing. What the interaction has to be honest about is that you couldn't
- * have known, and you couldn't.
+ * On which card is "yours": the one you touch. The shuffle happens on the
+ * server and its order stays there; the fan is laid out in the static deck
+ * order, so a seat tells you nothing. Touching a card sends its seat to
+ * /pick, and the server turns over whatever it shuffled into that seat.
  *
  * Cards: Rider-Waite-Smith scans from metabismuth/tarot-json (MIT); the deck
  * is public domain in the US. Card text is Waite's Pictorial Key (1911).
@@ -334,7 +332,7 @@ export default function Tarot() {
   const [focusSeatIndex, setFocusSeatIndex] = useState(0)   // roving tab stop
   const [inspecting, setInspecting] = useState(null)        // { index, fromRect }
 
-  const drawnRef = useRef([])        // the server's three, in order
+  const picksRef = useRef([])        // per slot: the /pick request for the card flying there
   const [readingId, setReadingId] = useState(null)   // the server's record of this spread
   const deckElRef = useRef(null)
   const slotRefs = useRef([])
@@ -425,7 +423,7 @@ export default function Tarot() {
       setPhase('ready')
       return
     }
-    drawnRef.current = d.spread
+    picksRef.current = []
     setReadingId(d.reading_id || null)
 
     const wait = reducedMotion ? 0 : RIFFLE_MS + deck.length * RIFFLE_STAGGER_MS
@@ -437,10 +435,20 @@ export default function Tarot() {
      you reach for the next one, and its reading appears below as you go.
      The old way held all three face down and turned them together at the
      end, which made the choosing feel like a formality. */
-  const land = useCallback((slotIndex) => {
+  const land = useCallback(async (slotIndex) => {
+    // The request went out when the card was touched; by the end of the
+    // flight it has almost always answered.
+    const d = await picksRef.current[slotIndex]
+    if (!d?.ok) {
+      clearTimers()
+      setError(d?.error || 'The card would not turn over. Shuffle again.')
+      setFlight(null)
+      setPhase('ready')
+      return
+    }
     setSlots(prev => {
       const next = [...prev]
-      next[slotIndex] = drawnRef.current[slotIndex]
+      next[slotIndex] = d.pick
       return next
     })
     const settle = reducedMotion ? 0 : SETTLE_MS
@@ -448,16 +456,24 @@ export default function Tarot() {
       setRevealedCount(slotIndex + 1)
       if (slotIndex === POSITION_COUNT - 1) setPhase('done')
     }, settle))
-  }, [reducedMotion])
+  }, [reducedMotion, clearTimers])
 
   const pick = useCallback((card, el) => {
     // One card in the air at a time, or two fast clicks would both aim at the
     // same slot and the second would overwrite the first.
     if (phase !== 'choosing' || flight) return
-    const slotIndex = slots.filter(Boolean).length
+    // Counted from requests sent, not cards landed — a card waiting on the
+    // server has not landed yet, but its slot is spoken for.
+    const slotIndex = picksRef.current.length
     if (slotIndex >= POSITION_COUNT) return
 
     const target = slotRefs.current[slotIndex]
+    // The seat is the card's place in the static deck layout, which is what
+    // the server's shuffled order is indexed by.
+    picksRef.current[slotIndex] = api.post('/api/tarot/pick', {
+      reading_id: readingId,
+      seat: deck.findIndex(c => c.id === card.id),
+    })
 
     /* The card that was taken is about to unmount, and with it the deck's only
        tab stop — leaving a keyboard user on <body> with no way back in. The
@@ -486,7 +502,7 @@ export default function Tarot() {
       from: { cx: from.left + from.width / 2, cy: from.top + from.height / 2 },
       to: { cx: to.left + to.width / 2, cy: to.top + to.height / 2, scale: to.width / w },
     })
-  }, [phase, flight, slots, reducedMotion, land])
+  }, [phase, flight, reducedMotion, land, readingId, deck, remaining.length])
 
   useLayoutEffect(() => {
     if (!flight || !flyerRef.current) return

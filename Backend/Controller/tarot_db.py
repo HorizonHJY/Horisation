@@ -7,7 +7,9 @@ This is business data and stays with the app; `ai_usage` (the AI layer's
 accounting) is a different table with a different owner. Kept apart on
 purpose: this one grows into history, sharing, and one day a training set.
 
-One row per /draw, whether or not a reading is ever requested. The rows that
+One row per /draw, whether or not a reading is ever requested. /draw stores
+the whole shuffled deck in `deck_order_json` and an empty spread; each /pick
+turns over the card at the seat the reader touched and appends it. The rows that
 never get one are data too — how many people drew and did not ask.
 """
 
@@ -15,7 +17,7 @@ import json
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, Integer, String, Text, create_engine, event, Index
+from sqlalchemy import Column, DateTime, Integer, String, Text, create_engine, event, Index, text
 from sqlalchemy.orm import sessionmaker, declarative_base
 
 
@@ -37,7 +39,8 @@ class TarotReading(Base):
     __tablename__ = 'tarot_readings'
     id             = Column(String(36), primary_key=True)
     username       = Column(String(64), nullable=False)
-    spread_json    = Column(Text, nullable=False)        # [{position, card}] × 3, as drawn
+    spread_json    = Column(Text, nullable=False)        # [{position, card, seat}], grows to 3 as picked
+    deck_order_json = Column(Text, nullable=True)        # card ids by seat, as shuffled; never sent out
     question       = Column(Text, nullable=True)
     reading_raw    = Column(Text, nullable=True)         # the model's reply, untouched
     reading_json   = Column(Text, nullable=True)         # parsed; NULL if it broke the schema
@@ -71,16 +74,33 @@ class TarotReading(Base):
 
 def init_tarot_db() -> None:
     Base.metadata.create_all(engine)
+    # create_all does not add columns to a table that already exists.
+    with engine.begin() as c:
+        cols = {row[1] for row in c.execute(text('PRAGMA table_info(tarot_readings)'))}
+        if 'deck_order_json' not in cols:
+            c.execute(text('ALTER TABLE tarot_readings ADD COLUMN deck_order_json TEXT'))
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def create_reading(username: str, spread: list) -> str:
+def create_reading(username: str, deck_order: list[str]) -> str:
     rid = uuid.uuid4().hex
     with Session() as s:
-        s.add(TarotReading(id=rid, username=username, spread_json=json.dumps(spread, ensure_ascii=False)))
+        s.add(TarotReading(id=rid, username=username, spread_json='[]',
+                           deck_order_json=json.dumps(deck_order)))
         s.commit()
     return rid
+
+
+def append_pick(rid: str, old_spread_json: str, spread: list) -> bool:
+    """Write the grown spread only if nobody else wrote first — two picks
+    racing on the same row must not both land in the same position."""
+    with Session() as s:
+        n = (s.query(TarotReading)
+              .filter(TarotReading.id == rid, TarotReading.spread_json == old_spread_json)
+              .update({'spread_json': json.dumps(spread, ensure_ascii=False)}))
+        s.commit()
+        return n == 1
 
 
 def get_reading(rid: str, username: str) -> TarotReading | None:
