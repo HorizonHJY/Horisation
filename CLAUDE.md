@@ -304,6 +304,26 @@ the entry point.
 
 ---
 
+## Before Every Push — update the docs
+
+Every push to `main` ships, so the docs ship with it. Before `git push`, update
+whichever of these the change touched, and commit them in the same push:
+
+| Doc | Update when |
+|-----|-------------|
+| `Doc/log.md` | **Always.** A dated entry at the top of *Latest Summary* (what changed, why, how it was verified, commit hash); bump *Last Updated*; add a row to the decision table if a choice was made. |
+| `CLAUDE.md` | A route, file, table, column or convention changed — the *Key Files* and *API Endpoints* tables must match the code. |
+| `PRODUCT.md` | Horizon confirmed a product decision ("Confirmed YYYY-MM-DD: …"). |
+| `Doc/ai_service.md` | Anything under `Backend/Service/ai/` or the tarot flow changed. |
+| Other `Doc/*.md` | The doc that owns the area (`groups.md`, `server.md`, `data_storage.md`, `mobile_ux_principles.md`, `dev_workflow.md`, `todo.md`). |
+
+A PreToolUse hook (`.claude/hooks/docs-before-push.sh`) blocks a `git push` whose
+commits change code but no `.md` file. It can only check that *some* doc moved,
+not that the right one did — that part is on you. For a change that truly needs
+no doc, put `[no-docs]` in a commit message.
+
+---
+
 ## Git Commit (OVERRIDE — Windows environment)
 
 **Never use `git commit` directly.** PyCharm holds file locks on Windows, causing `index file corrupt` and `HEAD.lock` errors. Always use git plumbing:
