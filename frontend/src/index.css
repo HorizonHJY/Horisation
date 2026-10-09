@@ -2619,3 +2619,220 @@ button.fr-chip:hover { filter: brightness(.96); }
   .fr-tab { font-size: .8rem; }
   .fr-menu { min-width: 230px; }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   Admin user list (.ulist) — rows that split, stretch and snap
+   One set of rows, three layouts, picked by the card's own width
+   (container query), not the viewport — so opening the sidebar is
+   what moves it, on the same page at the same window size.
+     compact  < 640px   one line: avatar · name @handle · dot · role · ···
+     split   >= 640px   @handle splits out into a column; icon header row;
+                        status gets words; actions come out of the ··· menu
+     wide    >= 1180px  + email and joined columns
+   When a layout flips, every cell replays a short blur-in. The animation
+   name differs per layout, so the browser restarts it on the flip; --i
+   (row index, set inline) staggers it top to bottom. Fill is `backwards`
+   only, so a settled cell keeps no filter/opacity — a stacking context
+   there would put the next row on top of an open ··· menu.
+   ═══════════════════════════════════════════════════════════ */
+.ulist {
+  container: ulist / inline-size;
+  --ulist-act: 6.6rem;                 /* three 32px buttons + gaps */
+}
+.ulist__table { display: block; }
+
+.ulist__head,
+.ulist__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  grid-template-areas: "who status role actions";
+  align-items: center;
+  column-gap: 10px;
+  padding: 10px 14px;
+}
+.ulist__row {
+  min-height: 56px;
+  border-bottom: 1px solid var(--border-soft);
+  transition: background-color .15s;
+}
+.ulist__row:last-child { border-bottom: 0; border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
+.ulist__row:hover { background: var(--bg-subtle); }
+
+/* Compact: the header is for screen readers only */
+.ulist__head {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+.ulist__head + .ulist__row { border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+.ulist__head + .ulist__row:last-child { border-radius: var(--radius-lg); }
+
+.ulist__who     { grid-area: who; }
+.ulist__handle  { grid-area: handle; }
+.ulist__email   { grid-area: email; }
+.ulist__role    { grid-area: role; }
+.ulist__status  { grid-area: status; }
+.ulist__date    { grid-area: date; }
+.ulist__actions { grid-area: actions; }
+
+/* Columns that only exist when there is room */
+.ulist__handle, .ulist__email, .ulist__date, .ulist__inline { display: none; }
+
+.ulist__handle, .ulist__email, .ulist__date {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: .85rem; color: var(--text-secondary);
+}
+.ulist__handle { color: var(--text-muted); }
+.ulist__none { color: var(--text-muted); }
+
+/* Name cell */
+.ulist__who { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.ulist__avatar {
+  flex-shrink: 0;
+  width: 34px; height: 34px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--accent-soft); color: var(--accent-text);
+  font-weight: 700; font-size: .9rem;
+}
+/* The name keeps its full width and only truncates when it alone cannot
+   fit; the inline @handle takes whatever is left. (Shrinking both by flex
+   ratio cut a fraction of a pixel off short names and ellipsized them.) */
+.ulist__name {
+  flex: 0 0 auto; max-width: calc(100% - 44px);   /* 44 = avatar + gap */
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-weight: 600;
+}
+.ulist__handle-inline {
+  flex: 1 1 0; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--text-muted); font-size: .85rem;
+}
+.ulist__row.is-inactive .ulist__name   { color: var(--text-muted); }
+.ulist__row.is-inactive .ulist__avatar { background: var(--bg-subtle); color: var(--text-muted); }
+
+/* Role: the badge is the select */
+.ulist__pill {
+  position: relative;
+  display: inline-flex; align-items: center;
+  padding: 0;
+}
+.ulist__select {
+  appearance: none; -webkit-appearance: none;
+  border: 0; background: transparent; color: inherit;
+  font: inherit; letter-spacing: inherit;
+  padding: 3px 22px 3px 10px;
+  border-radius: 20px;
+  cursor: pointer;
+}
+.ulist__select option { color: var(--text-primary); background: var(--bg-surface); }
+.ulist__pill > i {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  font-size: .5rem; pointer-events: none; opacity: .8;
+}
+
+/* Status: a dot in compact (words stay for screen readers), dot + word when split */
+.ulist__status { display: flex; align-items: center; gap: 6px; font-size: .82rem; color: var(--text-secondary); }
+.ulist__dot {
+  flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--success-text);
+}
+.ulist__row.is-inactive .ulist__dot { background: transparent; box-shadow: inset 0 0 0 1.5px var(--text-muted); }
+.ulist__status-text {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap;
+}
+
+/* Actions */
+.ulist__actions { display: flex; justify-content: flex-end; }
+.ulist__inline  { gap: 2px; }
+.ulist__btn {
+  width: 32px; height: 32px; padding: 0;
+  display: inline-grid; place-items: center;
+  border: 1px solid transparent; border-radius: var(--radius-sm);
+  background: transparent; color: var(--text-muted);
+  font-size: .85rem; cursor: pointer;
+  transition: background-color .15s, color .15s;
+}
+.ulist__btn:hover          { background: var(--bg-surface); border-color: var(--border-medium); color: var(--text-primary); }
+.ulist__btn--warn:hover    { color: var(--warning-text); }
+.ulist__btn--ok            { color: var(--success-text); }
+.ulist__btn--danger:hover  { color: var(--danger-text); }
+.ulist__btn--void          { visibility: hidden; }
+
+@media (pointer: coarse) {
+  .ulist { --ulist-act: 8.6rem; }      /* three 44px targets */
+  .ulist__btn    { width: auto; height: auto; min-width: var(--tap-min); min-height: var(--tap-min); }
+  .ulist__select { min-height: var(--tap-min); }
+}
+
+/* Header icons */
+.ulist__th { color: var(--text-muted); font-size: .78rem; line-height: 1; }
+.ulist__th.ulist__actions { justify-content: flex-end; padding-right: 9px; }
+.ulist__th.ulist__who     { padding-left: 11px; }   /* over the avatar's centre */
+
+/* A phone-width card leaves the inline @handle two or three characters
+   ("@…"); that is noise, not information. Drop it until there is room. */
+@container ulist (max-width: 479px) {
+  .ulist__handle-inline { display: none; }
+}
+
+/* ── split ── */
+@container ulist (min-width: 640px) {
+  .ulist__head,
+  .ulist__row {
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) 7.5rem 6.5rem var(--ulist-act);
+    grid-template-areas: "who handle role status actions";
+    column-gap: 16px;
+    padding-inline: 20px;
+  }
+  .ulist__head {
+    position: static; width: auto; height: auto; margin: 0; overflow: visible; clip: auto;
+    padding-block: 10px 8px;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .ulist__head + .ulist__row { border-radius: 0; }
+  .ulist__head + .ulist__row:last-child { border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
+  .ulist__handle, .ulist__th.ulist__handle { display: block; }
+  .ulist__inline { display: inline-flex; }
+  .ulist__handle-inline, .ulist__more { display: none; }
+  .ulist__status-text { position: static; width: auto; height: auto; overflow: visible; clip: auto; }
+}
+
+/* ── wide ── */
+@container ulist (min-width: 1180px) {
+  .ulist__head,
+  .ulist__row {
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1.6fr) 7.5rem 6.5rem 7.5rem var(--ulist-act);
+    grid-template-areas: "who handle email role status date actions";
+  }
+  .ulist__email, .ulist__date { display: block; }
+}
+
+/* ── the snap ── */
+.ulist__head > *,
+.ulist__row > :not(.ulist__who),
+.ulist__who > :not(.ulist__avatar) {
+  animation: ulist-snap-c .36s cubic-bezier(.2, .8, .2, 1) backwards;
+  animation-delay: calc(var(--i, 0) * 24ms);
+}
+@container ulist (min-width: 640px) {
+  .ulist__head > *,
+  .ulist__row > :not(.ulist__who),
+  .ulist__who > :not(.ulist__avatar) { animation-name: ulist-snap-s; }
+}
+@container ulist (min-width: 1180px) {
+  .ulist__head > *,
+  .ulist__row > :not(.ulist__who),
+  .ulist__who > :not(.ulist__avatar) { animation-name: ulist-snap-w; }
+}
+/* Three identical keyframes: only the name has to change for a restart. */
+@keyframes ulist-snap-c { from { opacity: 0; filter: blur(6px); } }
+@keyframes ulist-snap-s { from { opacity: 0; filter: blur(6px); } }
+@keyframes ulist-snap-w { from { opacity: 0; filter: blur(6px); } }
+
+/* The global rule shortens durations but not delays; a row would sit
+   invisible through its stagger. Snap instantly instead. */
+@media (prefers-reduced-motion: reduce) {
+  .ulist__head > *,
+  .ulist__row > *,
+  .ulist__who > * { animation: none !important; }
+}

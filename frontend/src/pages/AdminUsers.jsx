@@ -11,6 +11,24 @@ const ROLE_COLORS = {
   svip: 'role-vip1', vip: 'role-vip2', user: 'role-user',
 }
 
+// User list columns: [class suffix, header icon, accessible name]. The header
+// is icons only; the name is what a screen reader announces.
+const ULIST_COLS = [
+  ['who',     'fa-user',          'Name'],
+  ['handle',  'fa-at',            'Username'],
+  ['email',   'fa-envelope',      'Email'],
+  ['role',    'fa-shield-halved', 'Role'],
+  ['status',  'fa-circle-check',  'Status'],
+  ['date',    'fa-calendar',      'Joined'],
+  ['actions', 'fa-sliders',       'Actions'],
+]
+
+// created_at arrives as a naive ISO string ("2025-03-14T09:21:33.1"); show the day.
+function fmtDate(iso) {
+  const d = new Date(iso)
+  return isNaN(d) ? iso : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
 const EMPTY_NEW       = { username: '', password: '', role: 'user', email: '', display_name: '' }
 const EMPTY_CODE_FORM = { code: '', valid_from: '', valid_to: '' }
 
@@ -247,70 +265,147 @@ export default function AdminUsers() {
         />
       </div>
 
-      {/* User list */}
-      <div className="card">
+      {/* User list — one set of rows, three layouts. The card is a size
+          container; .ulist CSS picks compact / split / wide from the card's own
+          width, so the sidebar opening or closing is what makes it snap. */}
+      <div className="card ulist">
         {loading ? (
           <div className="text-center p-5"><HandLoader /></div>
         ) : (
-          <div className="list-group list-group-flush">
-            {filtered.map(u => (
-              <div key={u.username} className="list-group-item d-flex align-items-center gap-3 py-3">
-                <div
-                  className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
-                  style={{ width: 40, height: 40, background: '#6b9cdb1a', color: '#6b9cdb', fontWeight: 700 }}
-                >
-                  {u.display_name?.[0]?.toUpperCase()}
+          <div className="ulist__table" role="table" aria-label="Users">
+            <div className="ulist__head" role="row" style={{ '--i': 0 }}>
+              {ULIST_COLS.map(([key, icon, label]) => (
+                <span key={key} className={`ulist__th ulist__${key}`} role="columnheader" aria-label={label} title={label}>
+                  <i className={`fas ${icon}`} aria-hidden="true" />
+                </span>
+              ))}
+            </div>
+
+            {filtered.map((u, i) => (
+              // --i drives the top-to-bottom stagger; capped so a long list
+              // does not leave the bottom rows waiting.
+              <div key={u.username} className={`ulist__row${u.is_active ? '' : ' is-inactive'}`} role="row" style={{ '--i': Math.min(i + 1, 12) }}>
+                <div className="ulist__who" role="cell">
+                  <span className="ulist__avatar" aria-hidden="true">{u.display_name?.[0]?.toUpperCase()}</span>
+                  <span className="ulist__name">{u.display_name}</span>
+                  {/* Inline in compact; splits out into its own column when wide */}
+                  <span className="ulist__handle-inline">@{u.username}</span>
                 </div>
 
-                <div className="flex-grow-1">
-                  <div className="fw-semibold">
-                    {u.display_name} <span className="text-muted fw-normal">@{u.username}</span>
-                  </div>
-                  <span className={`role-badge ${ROLE_COLORS[u.role] ?? 'role-user'}`}>{u.role}</span>
+                <div className="ulist__handle" role="cell">@{u.username}</div>
+
+                <div className="ulist__email" role="cell">
+                  {u.email || <span className="ulist__none" aria-label="No email">—</span>}
                 </div>
 
-                <div className="d-flex align-items-center gap-2 flex-shrink-0">
-                  {/* Role selector */}
-                  <select
-                    className="form-select form-select-sm"
-                    style={{ width: 130 }}
-                    value={u.role}
-                    onChange={e => updateRole(u.username, e.target.value)}
-                  >
-                    {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-                  </select>
-
-                  {/* Edit button */}
-                  <button
-                    className="btn btn-sm btn-outline-primary"
-                    data-bs-toggle="modal"
-                    data-bs-target="#editModal"
-                    onClick={() => openEdit(u)}
-                  >
-                    <i className="fas fa-pen" />
-                  </button>
-
-                  {/* Activate / Deactivate */}
-                  <button
-                    className={`btn btn-sm ${u.is_active ? 'btn-outline-warning' : 'btn-outline-success'}`}
-                    onClick={() => toggleStatus(u.username, !u.is_active)}
-                  >
-                    {u.is_active ? 'Deactivate' : 'Activate'}
-                  </button>
-
-                  {/* Delete (hide for root admin) */}
-                  {u.username !== 'horizon' && (
-                    <button
-                      className="btn btn-sm btn-outline-danger"
-                      onClick={() => deleteUser(u.username)}
+                <div className="ulist__role" role="cell">
+                  {/* The badge is the control: one pill shows the role and changes it */}
+                  <span className={`ulist__pill role-badge ${ROLE_COLORS[u.role] ?? 'role-user'}`}>
+                    <select
+                      className="ulist__select"
+                      aria-label={`Role for ${u.username}`}
+                      value={u.role}
+                      onChange={e => updateRole(u.username, e.target.value)}
                     >
-                      <i className="fas fa-trash" />
+                      {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                    <i className="fas fa-chevron-down" aria-hidden="true" />
+                  </span>
+                </div>
+
+                <div className="ulist__status" role="cell">
+                  <span className="ulist__dot" aria-hidden="true" />
+                  <span className="ulist__status-text">{u.is_active ? 'Active' : 'Inactive'}</span>
+                </div>
+
+                <div className="ulist__date tnum" role="cell">
+                  {u.created_at
+                    ? <time dateTime={u.created_at} title={u.created_at}>{fmtDate(u.created_at)}</time>
+                    : <span className="ulist__none">—</span>}
+                </div>
+
+                <div className="ulist__actions" role="cell">
+                  {/* Split / wide: every action inline */}
+                  <span className="ulist__inline">
+                    <button
+                      type="button"
+                      className="ulist__btn"
+                      data-bs-toggle="modal"
+                      data-bs-target="#editModal"
+                      onClick={() => openEdit(u)}
+                      aria-label={`Edit ${u.username}`}
+                      title="Edit"
+                    >
+                      <i className="fas fa-pen" aria-hidden="true" />
                     </button>
-                  )}
+                    <button
+                      type="button"
+                      className={`ulist__btn ${u.is_active ? 'ulist__btn--warn' : 'ulist__btn--ok'}`}
+                      onClick={() => toggleStatus(u.username, !u.is_active)}
+                      aria-label={`${u.is_active ? 'Deactivate' : 'Activate'} ${u.username}`}
+                      title={u.is_active ? 'Deactivate' : 'Activate'}
+                    >
+                      <i className={`fas ${u.is_active ? 'fa-user-slash' : 'fa-user-check'}`} aria-hidden="true" />
+                    </button>
+                    {/* Delete (hide for root admin) — the slot stays so columns line up */}
+                    {u.username !== 'horizon' ? (
+                      <button
+                        type="button"
+                        className="ulist__btn ulist__btn--danger"
+                        onClick={() => deleteUser(u.username)}
+                        aria-label={`Delete ${u.username}`}
+                        title="Delete"
+                      >
+                        <i className="fas fa-trash" aria-hidden="true" />
+                      </button>
+                    ) : <span className="ulist__btn ulist__btn--void" aria-hidden="true" />}
+                  </span>
+
+                  {/* Compact: the same actions behind ··· */}
+                  <div className="dropdown ulist__more">
+                    <button
+                      type="button"
+                      className="ulist__btn"
+                      data-bs-toggle="dropdown"
+                      aria-expanded="false"
+                      aria-label={`Actions for ${u.username}`}
+                    >
+                      <i className="fas fa-ellipsis" aria-hidden="true" />
+                    </button>
+                    <ul className="dropdown-menu dropdown-menu-end">
+                      <li>
+                        <button
+                          type="button"
+                          className="dropdown-item"
+                          data-bs-toggle="modal"
+                          data-bs-target="#editModal"
+                          onClick={() => openEdit(u)}
+                        >
+                          <i className="fas fa-pen me-2" aria-hidden="true" />Edit
+                        </button>
+                      </li>
+                      <li>
+                        <button type="button" className="dropdown-item" onClick={() => toggleStatus(u.username, !u.is_active)}>
+                          <i className={`fas ${u.is_active ? 'fa-user-slash' : 'fa-user-check'} me-2`} aria-hidden="true" />
+                          {u.is_active ? 'Deactivate' : 'Activate'}
+                        </button>
+                      </li>
+                      {u.username !== 'horizon' && (
+                        <li>
+                          <button type="button" className="dropdown-item text-danger" onClick={() => deleteUser(u.username)}>
+                            <i className="fas fa-trash me-2" aria-hidden="true" />Delete
+                          </button>
+                        </li>
+                      )}
+                    </ul>
+                  </div>
                 </div>
               </div>
             ))}
           </div>
+        )}
+        {!loading && filtered.length === 0 && (
+          <div className="text-center py-4 text-muted small">No users match.</div>
         )}
       </div>
 
