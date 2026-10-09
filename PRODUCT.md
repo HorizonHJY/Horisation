@@ -79,6 +79,17 @@ Confirmed 2026-09-07: exporting one's own listings as a shareable image, for pos
 circle (e.g. WeChat Moments), is a real product need and not a leftover. It must work on iOS Safari,
 which is where it is used most.
 
+Confirmed 2026-09-28: **a sold listing keeps its face.** Marking an item sold does not delete it or
+blank it out — the thumbnail stays, desaturated under a grey wash with a rotated `SOLD 已售出` stamp
+(the 闲鱼 treatment), on the card and in the detail modal. A seller should be able to see what they've
+moved, and a browse past a sold card should read as "gone", not "broken image". The overlay is
+`pointer-events: none` so the card remains one click/keyboard target, and a sold card no longer lifts
+on hover.
+
+Also confirmed 2026-09-28: **Browse lists active items only.** The browse query stays scoped to
+`status='active'` (sold items do not return), so the sold mask is seen on My Listings and a seller's
+public page — not in Browse. This is deliberate, not a gap to "fix".
+
 ## Brand Commitments
 
 - **Name in the interface: Arch Bay.** Settled 2026-09-07. The name has flipped twice — the

@@ -2,16 +2,20 @@
 
 
 ## 0. Current Status
-Last Updated: 2026-09-24
+Last Updated: 2026-09-28
 
 ### Current Working Version
-- **Completed**: 全站设计系统统一；邀请码系统；功能角色门控；好友/私信系统；SQLite 迁移；二手市集（配送选项 + Restore + 动态分类 + System Management + 价格拆分 + 响应式按钮 + 浏览量计数 + 分类图标 + 多选 filter + 两行 meta + 中文配送标签 + EditModal 修复）；**留言板（Weibo 式线程回复 + 点赞 + 翻页）**；用户公开主页；**非好友直接私信**；**Market Reach Out 直接开 DM**；**Login 页 Safari 全面兼容修复**；**群组系统（独立建组 + 按用户名拉人 + 群聊，`/api/groups`）**；**品牌改名 Arch Bay（可见文案 'Horisation'→'Arch Bay'，提交 f0fc7f6）**；**市集意向成单流（trade_intents）**
+- **Completed**: 全站设计系统统一；邀请码系统；功能角色门控；好友/私信系统；SQLite 迁移；二手市集（配送选项 + Restore + 动态分类 + System Management + 价格拆分 + 响应式按钮 + 浏览量计数 + 分类图标 + 多选 filter + 两行 meta + 中文配送标签 + EditModal 修复 + 已售灰蒙版 Sold Out）；**留言板（Weibo 式线程回复 + 点赞 + 翻页）**；用户公开主页；**非好友直接私信**；**Market Reach Out 直接开 DM**；**Login 页 Safari 全面兼容修复**；**群组系统（独立建组 + 按用户名拉人 + 群聊，`/api/groups`）**；**品牌改名 Arch Bay（可见文案 'Horisation'→'Arch Bay'，提交 f0fc7f6）**；**市集意向成单流（trade_intents）**
   ；**全局实时通知（一条 session 级 socket + `/api/friends/notifications` 快照）**
   ；**塔罗牌 section（78 张 RWS 牌，洗牌动画 + 自己点选三张 + 三张牌阵 + 点开细看，服务端洗牌，2026-09-10 起全员开放；09-20 起 AI 整体解读 + 打分）**；**Travel Planner 全员开放（09-20）**；**Friends 页重做：Teams 式两栏、Chats 默认、非好友会话可见、联系方式文字 chip（09-21）**；**首页天气 °F / °C**；**AI 服务层 `Backend/Service/ai/`（统一入口、配额、记账、总开关，DeepSeek）**
 - **In Progress**: 无
 - **Blocked / Not Solved**: 密码明文存储（待迁 bcrypt）；`SECRET_KEY` 硬编码
 
 ### Latest Summary
+2026-09-28：**已售商品加灰蒙版（“闲鱼”式 Sold Out）**。卖家 Mark Sold 后，商品不再从 My Listings 里“消失”——图片盖一层灰色蒙版、去色变暗，中间压一个旋转 −12° 的 `SOLD 已售出` 印章；商品卡片和详情弹窗都有。蒙版本体 `pointer-events: none`，整张卡仍是唯一可点/可键盘进入的控件；已售卡片 hover 不再上浮（没什么可点进去的了）；`aria-label` 追加 `— sold` 供读屏（印章是装饰，`aria-hidden`）。深色主题下单纯加深看不出效果，改用灰度 + 变暗。390/768/1440 三端实测：无横向溢出、印章不裁切、文字不截断、点击区完好，build 通过，`be03101`。
+
+**决定**：Browse 保持只显示在售（不返回 sold），蒙版只在 My Listings / 卖家页可见 —— Horizon 2026-09-28 拍板。
+
 2026-09-24：**好友行不再截断名字，四端一致**。手机（≤767px）上联系方式 chip 让出整行——动作本来就在 `···` 菜单里（`personMenu` 现对好友行也给 View/Request contact，等待/隐藏状态以菜单标签呈现）；平板/桌面 chip 保留但收成图标，文字进 `title`/`aria-label`。同一轮补上触控点击区：`.fr-chip` 26px、`.fr-more__btn` 32×32 都低于本站自己的 `--tap-min: 44px`，`(pointer: coarse)` 规则统一修掉。桌面作为最宽的一端把左栏加到 380px（≥1280px）。390/768/1280/1440 实测名字均不再截断，build 通过，`74809e5`。流程沉淀见 `Doc/dev_workflow.md`，原则见 `mobile_ux_principles.md` 第 6–8 条。
 
 2026-09-21：**Friends 页重做**——桌面 Teams 式两栏，默认落在 Chats（所有会话，含非好友，最后一句 + 时间 + 未读）；
@@ -94,6 +98,8 @@ Travel Planner 对全员开放（前端三处，后端本来没门）；首页�
 | 2026-09-07 | 通知状态集中到 `NotificationsContext` + 单一快照端点 `/api/friends/notifications` | 未读数、好友请求、联系方式请求分散在三处、三个端点、三种更新时机，导致侧边栏/列表/聊天窗口显示不一致 | 多一个聚合端点；三类数据耦合在一个 context 里，将来若某类膨胀需要再拆 |
 | 2026-09-07 | 全应用只保留一处 `connect`/`disconnect` 处理器，共享注册表放 `socketio_instance` | python-socketio 同名事件是覆盖不是串联，两个模块各注册一个必然有一个静默失效 | 需要在连接时做事的模块必须改为被那一处调用，多一层间接；换来的是不会再出现"某模块 socket 逻辑无声失效" |
 | 2026-09-07 | 兜底轮询 30s → 5min，但同时加 `visibilitychange`/`focus` 重新同步 | 有了实时推送后 30 秒轮询是浪费；但只降间隔不加 visibility 会让后台标签页漏事件的窗口从 30 秒变成 5 分钟（本次实际踩到） | 切回标签页会多一次请求；换来漏事件几乎立刻自愈 |
+| 2026-09-28 | 已售商品保留商品图，盖灰蒙版 + 旋转 `SOLD 已售出` 印章（闲鱼式），而不是隐藏或置空 | 卖家应当能看到自己卖掉了什么；买家翻过一张已售卡片应读作“没了”，而不是“图挂了”。此前 Mark Sold 后商品从 My Listings 直接消失 | 蒙版 `pointer-events:none`，整卡仍是唯一点击/键盘入口；已售卡 hover 不再上浮。深色主题下单纯加深无效，改用灰度 + 变暗（两主题都成立） |
+| 2026-09-28 | Browse 保持只返回 `status='active'`，蒙版只在 My Listings / 卖家页可见 | Horizon 拍板：浏览页就是“在售”列表，已售的不该占位 | 买家在 Browse 看不到“刚卖掉的同款成交价”——若将来要这个信号，得单独加一个“最近成交”区域，而不是把 sold 混进 Browse 列表 |
 | 2026-09-20 | 桌面端侧栏改为**按钮开合、默认收起**（ChatGPT 式），撤掉 09-11 的书脊/悬停/面包屑 | 用户明确不喜欢：路径不要显示，不要鼠标悬停自动展开；要按钮 | 收起时导航完全不可见，新成员要先发现左上角的 ☰。开合不做动画（整页 240px 重排不值得逐帧动） |
 | 2026-09-12 | 塔罗的中文牌名/牌义**自己写**（`scripts/tarot_add_zh.mjs`），不再坚持"只用现成素材" | 找遍 GitHub 没有开源的中文塔罗数据（两个 MIT 数据集都只有英文，中文牌义站点是版权内容）；78 个牌名是固定惯例，关键词是通行的正位含义，不是创作 | 中文那行是本项目写的通行关键词，**不是** Waite 原文的翻译——两种读法并列，界面上用字体和位置区分，不能混为一谈；Waite 的长释义仍只有英文 |
 | 2026-09-12 | 每张牌落位即翻面、释义即时出现，取消"三张齐了再一起翻" | 用户反馈攒到最后一起翻让选牌像走过场；边抽边看才有"我选了这张"的感觉 | 少了一个三张依次翻开的集体高潮；换来每一次选择都有即时回应 |
