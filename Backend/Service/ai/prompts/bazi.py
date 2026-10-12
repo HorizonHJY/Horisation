@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import json
 
+from ..scope import prompt_block
+
 PROMPT_VERSION = 'bazi-v1'
 
 _SYSTEM = """你是一位精通传统四柱八字命理的顶级命理师，熟悉《子平真诠》《三命通会》《滴天髓》等经典体系，只使用八字命理、十神、生克制化、大运流年进行判断，不使用心理学、安慰性语言或模糊占卜话术。
@@ -130,3 +132,65 @@ def parse(text: str) -> dict | None:
         return None
     out['liu_nian'].sort(key=lambda x: x['year'])
     return out
+
+
+# ── Follow-up questions ──────────────────────────────────────────────
+# Asked about one chart, after its reading. The model sees the chart, the
+# reading it gave, which of its checks the reader marked right or wrong, and
+# the conversation so far — the marks matter most: they are the only ground
+# truth about this person the model will ever get.
+
+FOLLOWUP_VERSION = 'bazi-ask-v2'   # v2: scope rules from scope.md (2026-10-12)
+MAX_QUESTION_CHARS = 300
+HISTORY_TURNS = 8
+
+_FOLLOWUP_SYSTEM = _SYSTEM.split('输出：')[0] + """你已经为这张命盘做过一次完整解读（见下）。现在对方就自己的命盘继续提问。
+
+回答规则：
+- 三到六句，直接回答问题，先给结论，再给命理依据（点名具体干支、大运、流年、十神、刑冲合害）。
+- 对方标记为「准」的验证项是已知事实，可以作为依据；标记为「不准」的，说明原判断有偏差，回答时要相应修正，不要坚持原说法。
+- 问未来：只谈倾向和时间窗口（哪一年、哪步运更有利或更需谨慎），不断言具体事件会发生。
+- 问与命盘无关的事（技术问题、闲聊等），一句话说明你只回答与这张命盘相关的问题。
+- 不预测生死、重病、官司输赢、具体投资结果；碰到这类问题，回到命盘上该注意的方面。
+- 只输出回答本身，纯文本，不要 JSON，不要标题。"""
+
+
+def _reading_brief(reading: dict | None, raw: str | None) -> str:
+    if not reading:
+        return (raw or '')[:3000]
+    gods = '；'.join(f"{k}：{v['element']}" for k, v in reading['gods'].items() if v.get('element'))
+    years = '；'.join(f"{y['year']}{y['ganzhi']} {y['event']}" for y in reading['liu_nian'])
+    runs = '；'.join(f"{d['ganzhi']} {d['theme']}：{d['reading']}" for d in reading['da_yun'])
+    return '\n'.join([
+        f"判词：{reading['verdict']}（{reading['strength']['level']}，{reading['pattern']['name']}）",
+        f"用喜忌闲：{gods}",
+        f"大运：{runs}",
+        f"流年回溯：{years}",
+        f"总评：{reading['summary']}",
+    ])
+
+
+def build_followup(payload: dict) -> list[dict]:
+    """payload: chart, reading (parsed or None), reading_text, verify
+    ({index: 'yes'|'no'}), history [(question, answer)], question."""
+    reading = payload.get('reading')
+    marks = payload.get('verify') or {}
+    checks = reading['verify'] if reading else []
+    verified = '\n'.join(
+        f"- {q} → {'准' if marks.get(str(i)) == 'yes' else '不准'}"
+        for i, q in enumerate(checks) if marks.get(str(i)) in ('yes', 'no')
+    ) or '（对方还没有标记）'
+    context = (f"{describe(payload['chart'])}\n\n你之前的解读：\n"
+               f"{_reading_brief(reading, payload.get('reading_text'))}\n\n对方对验证项的标记：\n{verified}")
+    messages = [{'role': 'system', 'content': _FOLLOWUP_SYSTEM + prompt_block()},
+                {'role': 'user', 'content': context + '\n\n（以上是背景。接下来是对方的提问。）'},
+                {'role': 'assistant', 'content': '明白，请问。'}]
+    for q, a in (payload.get('history') or [])[-HISTORY_TURNS:]:
+        messages += [{'role': 'user', 'content': q}, {'role': 'assistant', 'content': a}]
+    messages.append({'role': 'user', 'content': payload['question']})
+    return messages
+
+
+def parse_followup(text: str) -> dict | None:
+    t = (text or '').strip()
+    return {'answer': t} if t else None

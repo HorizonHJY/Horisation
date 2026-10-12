@@ -91,7 +91,7 @@ function CastForm({ cities, initial, onCast, busy }) {
 
       <div className="bz-form__foot">
         <button type="submit" className="bz-btn" disabled={busy}>{busy ? '排盘中…' : '排盘'}</button>
-        <p className="bz-fine">你的出生信息只用来排你自己的盘，只有你看得到，随时可以在页面底部删除。</p>
+        <p className="bz-fine">命盘和解读只有你自己看得到。你可以随时从自己的记录里删除；网站会保留存档，用于分析和改进解读。</p>
       </div>
     </form>
   )
@@ -185,15 +185,16 @@ function firstEl(s) { return [...(s || '')].find(ch => EL_CLASS[ch]) }
 
 function Reading({ item, chart }) {
   const r = item.reading
-  const storeKey = `bazi-verify:${item.id}`
-  const [marks, setMarks] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(storeKey)) || {} } catch { return {} }
-  })
-  const mark = (i, v) => setMarks(prev => {
-    const next = { ...prev, [i]: prev[i] === v ? undefined : v }
-    localStorage.setItem(storeKey, JSON.stringify(next))
-    return next
-  })
+  // Kept on the server, so they follow the reader to another device and the
+  // follow-up answers can lean on them.
+  const [marks, setMarks] = useState(item.verify || {})
+  useEffect(() => { setMarks(item.verify || {}) }, [item.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  const mark = (i, v) => {
+    const next = { ...marks }
+    if (next[i] === v) delete next[i]; else next[i] = v
+    setMarks(next)
+    api.put(`/api/bazi/readings/${item.id}/verify`, { marks: next })
+  }
 
   if (!r) {
     return <section className="bz-read"><p className="bz-read__raw">{item.reading_text}</p></section>
@@ -287,7 +288,107 @@ function Reading({ item, chart }) {
         <p>{r.summary}</p>
       </div>
       <p className="bz-fine">由 AI 根据程序排出的命盘推演生成。流年回溯是推演，不是事实，所以请逐条验证。</p>
+
+      <AskBox item={item} />
     </section>
+  )
+}
+
+// ── Follow-up questions ────────────────────────────────────────────
+const MAX_Q = 300
+
+function AskBox({ item }) {
+  const [list, setList] = useState(item.followups || [])
+  const [q, setQ] = useState('')
+  const [err, setErr] = useState('')
+  const timers = useRef({})
+
+  useEffect(() => { setList(item.followups || []) }, [item.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => Object.values(timers.current).forEach(clearTimeout), [])
+
+  const watch = useCallback((fid, started = Date.now()) => {
+    clearTimeout(timers.current[fid])
+    timers.current[fid] = setTimeout(async () => {
+      const d = await api.get(`/api/bazi/followups/${fid}`)
+      if (!d.ok) return
+      setList(prev => prev.map(f => (f.id === fid ? d.followup : f)))
+      if (d.followup.state === 'pending' && Date.now() - started < POLL_GIVE_UP_MS) watch(fid, started)
+    }, 2500)
+  }, [])
+
+  // Questions still being answered when the page opened.
+  useEffect(() => {
+    list.filter(f => f.state === 'pending' && !timers.current[f.id]).forEach(f => watch(f.id))
+  }, [list, watch])
+
+  const busy = list.some(f => f.state === 'pending')
+
+  const send = async (e) => {
+    e.preventDefault()
+    const question = q.trim()
+    if (!question || busy) return
+    setErr('')
+    const d = await api.post(`/api/bazi/readings/${item.id}/ask`, { question })
+    if (!d.ok) { setErr(d.error); return }
+    setQ('')
+    setList(prev => [...prev, d.followup])
+    watch(d.followup.id)
+  }
+
+  return (
+    <div className="bz-askbox">
+      <div className="bz-kicker bz-kicker--rule">追问 <small>就这张命盘接着问</small></div>
+      {list.length > 0 && (
+        <ol className="bz-qa" aria-live="polite">
+          {list.map(f => (
+            <li key={f.id} className="bz-qa__turn">
+              <p className="bz-qa__q">{f.question}</p>
+              {f.state === 'done' && <p className="bz-qa__a">{f.answer}</p>}
+              {f.state === 'pending' && (
+                <p className="bz-qa__a bz-qa__a--wait"><span className="bz-wait__brush" aria-hidden="true" />正在看盘…</p>
+              )}
+              {f.state === 'error' && <p className="bz-qa__a bz-qa__a--err">{f.error?.error || '没有答上来，请换个说法再问一次。'}</p>}
+            </li>
+          ))}
+        </ol>
+      )}
+      <form className="bz-askbox__form" onSubmit={send}>
+        <textarea
+          className="bz-askbox__input"
+          rows={2}
+          maxLength={MAX_Q}
+          value={q}
+          onChange={e => setQ(e.target.value)}
+          placeholder={list.length ? '接着问…' : '比如：今年适合换工作吗？我适合自己创业还是跟人合伙？'}
+          aria-label="向命理师追问"
+          onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) send(e) }}
+        />
+        <div className="bz-askbox__row">
+          <span className="bz-fine">{q.length}/{MAX_Q} · 回答会参考你点的「准 / 不准」</span>
+          <button type="submit" className="bz-btn" disabled={busy || !q.trim()}>{busy ? '作答中…' : '提问'}</button>
+        </div>
+        {err && <p className="bz-qa__a--err" role="alert">{err}</p>}
+      </form>
+    </div>
+  )
+}
+
+// ── Past charts ────────────────────────────────────────────────────
+function History({ items, currentId, onOpen, onHide }) {
+  if (!items.length) return <p className="bz-fine">还没有排过盘。</p>
+  return (
+    <ul className="bz-hist">
+      {items.map(h => (
+        <li key={h.id} className={`bz-hist__row${h.id === currentId ? ' is-current' : ''}`}>
+          <button type="button" className="bz-hist__open" onClick={() => onOpen(h.id)}>
+            <span className="bz-hist__bazi">{h.bazi}</span>
+            <span className="bz-hist__meta">{h.gender_label} · {h.birth} · {h.place}</span>
+            {h.verdict && <span className="bz-hist__verdict">{h.verdict}</span>}
+          </button>
+          <button type="button" className="bz-hist__del" onClick={() => onHide(h.id)} aria-label={`删除 ${h.bazi}`}>删除</button>
+        </li>
+      ))}
+    </ul>
   )
 }
 
@@ -300,6 +401,8 @@ export default function Bazi() {
   const [editing, setEditing] = useState(false)
   const [formInit, setFormInit] = useState(null)
   const [error, setError] = useState('')
+  const [history, setHistory] = useState(null)   // null until first opened
+  const [showHistory, setShowHistory] = useState(false)
   const pollRef = useRef(null)
   const pollStart = useRef(0)
 
@@ -326,15 +429,41 @@ export default function Bazi() {
     if (item?.state === 'pending' && !pollRef.current) { pollStart.current = Date.now(); poll(item.id) }
   }, [item, poll])
 
+  const stopPoll = () => { clearTimeout(pollRef.current); pollRef.current = null }
+
+  const loadHistory = async () => {
+    const d = await api.get('/api/bazi/readings')
+    if (d.ok) setHistory(d.items)
+  }
+  const toggleHistory = () => {
+    if (!showHistory) loadHistory()
+    setShowHistory(v => !v)
+  }
+  const open = async (rid) => {
+    const d = await api.get(`/api/bazi/readings/${rid}`)
+    if (!d.item) { setError(d.error); return }
+    stopPoll()
+    setItem(d.item); setEditing(false); setShowHistory(false)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+  const hide = async (rid) => {
+    if (!window.confirm('从你的记录里删除这张命盘？')) return
+    const d = await api.delete(`/api/bazi/readings/${rid}`)
+    if (!d.ok) return
+    setHistory(h => h.filter(x => x.id !== rid))
+    if (item?.id === rid) { stopPoll(); setItem(null) }
+  }
+
   const cast = async (body, raw) => {
     setCasting(true); setError('')
     const d = await api.post('/api/bazi/chart', body)
     setCasting(false)
     if (!d.ok) { setError(d.error); return }
-    clearTimeout(pollRef.current); pollRef.current = null
+    stopPoll()
     setFormInit(raw)
-    setItem({ id: d.reading_id, chart: d.chart, state: 'none', reading: null })
+    setItem({ id: d.reading_id, chart: d.chart, state: 'none', reading: null, verify: {}, followups: [] })
     setEditing(false)
+    setHistory(null)
   }
 
   const read = async () => {
@@ -346,9 +475,9 @@ export default function Bazi() {
   }
 
   const forget = async () => {
-    if (!window.confirm('删除你在这里排过的所有命盘和解读？出生信息也会一起删除。')) return
+    if (!window.confirm('从你的记录里删除所有命盘、解读和追问？')) return
     const d = await api.delete('/api/bazi/mine')
-    if (d.ok) { setItem(null); setFormInit(null) }
+    if (d.ok) { stopPoll(); setItem(null); setFormInit(null); setHistory([]) }
   }
 
   if (loading) return <div className="bazi"><div className="bazi__inner text-center py-5"><HandLoader /></div></div>
@@ -366,13 +495,24 @@ export default function Bazi() {
 
         {error && <div className="bz-alert" role="alert">{error}</div>}
 
-        {showForm ? (
-          <CastForm cities={cities} initial={formInit} onCast={cast} busy={casting} />
-        ) : (
-          <div className="bz-recast">
-            <button type="button" className="bz-btn bz-btn--quiet" onClick={() => setEditing(true)}>重新排盘</button>
-          </div>
+        <div className="bz-recast">
+          <button type="button" className="bz-btn bz-btn--quiet" onClick={toggleHistory} aria-expanded={showHistory}>
+            {showHistory ? '收起历史' : '历史命盘'}
+          </button>
+          {!showForm && (
+            <button type="button" className="bz-btn bz-btn--quiet" onClick={() => setEditing(true)}>新排一盘</button>
+          )}
+          {editing && item && (
+            <button type="button" className="bz-btn bz-btn--quiet" onClick={() => setEditing(false)}>回到命盘</button>
+          )}
+        </div>
+        {showHistory && (
+          <section className="bz-histbox" aria-label="历史命盘">
+            {history ? <History items={history} currentId={item?.id} onOpen={open} onHide={hide} /> : <HandLoader />}
+          </section>
         )}
+
+        {showForm && <CastForm cities={cities} initial={formInit} onCast={cast} busy={casting} />}
 
         {item && !editing && (
           <>
@@ -398,7 +538,10 @@ export default function Bazi() {
             )}
             {item.state === 'done' && <Reading item={item} chart={item.chart} />}
 
-            <p className="bz-forget"><button type="button" onClick={forget}>删除我的命盘记录</button></p>
+            <p className="bz-forget">
+              <button type="button" onClick={forget}>删除我的全部命盘记录</button>
+              <span className="bz-fine">删除后你在这里看不到这些记录；网站会保留存档，用于分析和改进解读。</span>
+            </p>
           </>
         )}
       </div>

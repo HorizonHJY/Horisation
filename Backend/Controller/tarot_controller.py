@@ -37,6 +37,7 @@ from Backend.Controller.auth_controller import login_required
 from Backend.Controller import tarot_db
 from Backend.Service.ai import ai, today_key
 from Backend.Service.ai.prompts.tarot import MAX_QUESTION_CHARS
+from Backend.Service.ai import scope
 
 tarot_bp = Blueprint('tarot', __name__, url_prefix='/api/tarot')
 
@@ -174,6 +175,12 @@ def reading():
             return jsonify({'ok': False, 'error': f'Question is too long (max {MAX_QUESTION_CHARS} characters).'}), 400
         if not question:
             question = None
+        # Out of scope or unlawful: answered here, before the model — no
+        # tokens, no turn spent. The rules live in prompts/scope.md.
+        screened = scope.screen(question)
+        if screened:
+            kind, reply = screened
+            return jsonify({'ok': False, 'error': reply, 'error_kind': kind, 'retryable': False}), 422
 
     result = ai.run(
         feature='tarot',

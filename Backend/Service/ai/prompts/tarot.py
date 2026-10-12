@@ -15,7 +15,9 @@ from __future__ import annotations
 
 import json
 
-PROMPT_VERSION = 'tarot-v1'
+from ..scope import prompt_block
+
+PROMPT_VERSION = 'tarot-v2'   # v2: scope rules from scope.md (2026-10-12)
 
 MAX_QUESTION_CHARS = 200
 
@@ -72,7 +74,7 @@ def build(spread: list[dict], question: str | None) -> list[dict]:
         ask = "对方没有写下问题。请读此刻的处境。"
     user = f"{ask}\n\n抽到的三张牌：\n\n{cards}\n\n请按规定的 JSON 格式解读。"
     return [
-        {'role': 'system', 'content': _SYSTEM},
+        {'role': 'system', 'content': _SYSTEM + prompt_block(json_reply=True)},
         {'role': 'user', 'content': user},
     ]
 

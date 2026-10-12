@@ -55,6 +55,17 @@ FEATURES: dict[str, Feature] = {
         temperature=0.6,
         read_timeout=120,
     ),
+    # A question about a chart already read: short plain-text answer.
+    'bazi_ask': Feature(
+        name='bazi_ask',
+        prompt_version=bazi_prompt.FOLLOWUP_VERSION,
+        build=bazi_prompt.build_followup,
+        parse=bazi_prompt.parse_followup,
+        json_mode=False,
+        max_tokens=800,
+        temperature=0.6,
+        read_timeout=60,
+    ),
 }
 
 

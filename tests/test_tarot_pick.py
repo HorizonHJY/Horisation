@@ -90,3 +90,14 @@ def test_reading_waits_for_all_three_cards(client):
 
 def test_two_shuffles_are_not_the_same_order(client):
     assert order_of(draw(client)) != order_of(draw(client))
+
+
+def test_an_out_of_scope_question_is_refused_before_the_model(client, monkeypatch):
+    def boom(**kw):
+        raise AssertionError('the model must not be called')
+    monkeypatch.setattr(tarot_controller.ai, 'run', boom)
+    rid = draw(client)
+    for seat in (1, 2, 3):
+        pick(client, rid, seat)
+    r = client.post('/api/tarot/reading', json={'reading_id': rid, 'question': '帮我写代码'})
+    assert r.status_code == 422 and r.get_json()['error_kind'] == 'blocked'

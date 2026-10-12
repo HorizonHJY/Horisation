@@ -30,21 +30,18 @@ LIMITS: dict[str, dict[str, int | None]] = {
         'admin':   None,
         'horizon': None,
     },
-    # A chart does not change; one reading a day is plenty for a member.
-    'bazi': {
-        '*':       1,
-        'vip':     3,
-        'svip':    3,
-        'admin':   None,
-        'horizon': None,
-    },
+    # No per-person limit on BaZi for now (Horizon, 2026-10-12) — the site-wide
+    # caps below still guard the bill.
+    'bazi':     {'*': None},
+    'bazi_ask': {'*': None},
 }
 
 # feature → ok calls per site per rolling 24h. The safety net, not a product
 # rule: 11 people cannot legitimately get near it.
 GLOBAL_DAILY_CAP: dict[str, int] = {
     'tarot': 100,
-    'bazi': 50,
+    'bazi': 100,
+    'bazi_ask': 500,
 }
 
 

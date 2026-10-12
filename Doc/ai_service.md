@@ -422,10 +422,12 @@ POST /api/tarot/readings/<id>/rating   body: { rating: 1-5, note?: ≤ 100 字 }
 
 ## 13.5 第二个 feature：八字（2026-10-12）
 
-- 注册：`features/__init__.py` 里的 `'bazi'`，`prompts/bazi.py`（`bazi-v1`）；配额 `quota.py`：成员每天 1 次、VIP/SVIP 3 次、admin/horizon 不限；全站每天 50 次。
+- 注册：`features/__init__.py` 里的 `'bazi'`（`bazi-v1`）和 `'bazi_ask'`（追问，`bazi-ask-v1`，纯文本、60 秒、800 token），都在 `prompts/bazi.py`。配额 `quota.py`：两者都不设个人上限（Horizon 2026-10-12），只留全站日上限：解读 100、追问 500。
 - `Feature.read_timeout`（新增，默认 30 秒）：八字是 120 秒、`max_tokens` 3500。`client.chat` 多了 `read_timeout` 参数，其余 feature 行为不变。
 - 调用不在请求里同步做：`bazi_controller` 用 `socketio.start_background_task` 起后台任务（生产 eventlet 下是 greenthread，本地 `LOCAL_DEV=1` 下是线程），结果写回 `bazi_readings`，前端每 3 秒轮询。原因：一次解读 40–90 秒，nginx 默认 `proxy_read_timeout` 60 秒。
 - 排盘不交给模型：`Backend/Service/bazi/chart.py` 算好整张盘，`prompts/bazi.py` 把它写成成品表交给模型，并明令不得重排。
+
+- 回答范围（2026-10-12）：`Backend/Service/ai/scope.py` 读 `prompts/scope.md`。`screen()` 在调用前按拦截词 / 危机词拦下问题（零 token）；`prompt_block()` 把只回答 / 不回答 / 拒答话术拼进塔罗和八字追问的系统提示词（塔罗是 JSON 输出，改为「忽略问题、按无问题解读、summary 首句写拒答话术」）。
 
 ## 14. 实现记录（P0，2026-09-20）
 
