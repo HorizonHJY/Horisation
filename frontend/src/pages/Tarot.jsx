@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../api'
 import HandLoader from '../components/HandLoader'
 import Modal from '../components/Modal'
@@ -649,8 +650,15 @@ export default function Tarot() {
   return (
     <div className="tarot">
       <div className="tarot__inner">
-        <h1 className="tarot__title">Tarot</h1>
-        <p className="tarot__subtitle">三张牌 — 过去 · 现在 · 未来</p>
+        <div className="tarot__head">
+          <div>
+            <h1 className="tarot__title">Tarot</h1>
+            <p className="tarot__subtitle">三张牌 — 过去 · 现在 · 未来</p>
+          </div>
+          <Link to="/tarot/history" className="tarot__head-link">
+            <i className="fas fa-clock-rotate-left" aria-hidden="true" /> History 历史
+          </Link>
+        </div>
 
         {error && <div className="alert alert-danger" role="alert">{error}</div>}
 

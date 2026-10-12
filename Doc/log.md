@@ -12,6 +12,8 @@ Last Updated: 2026-10-09
 - **Blocked / Not Solved**: 密码明文存储（待迁 bcrypt）；`SECRET_KEY` 硬编码
 
 ### Latest Summary
+2026-10-09：**塔罗「历史牌阵」页 `/tarot/history`**。后端 `GET /api/tarot/readings` 早就有（09-20），一直没有页面用。现在每条显示三张缩略图、日期、星级、问题（没问题就显示总结），点开看完整解读和当时的「一件小事」、评分备注；每页 20 条，「更早的」按 `read_at` 往前翻。只列解读过的牌阵。塔罗页标题右侧加 History 入口，历史页有返回。纯前端，无后端改动。用临时 DB 副本灌 4 条样例，1440 / 768 / 390 实测无横向溢出、无报错，分页两页不重叠，build 通过。
+
 2026-10-09：**塔罗：点哪张就是哪张**。之前 `/draw` 一次定好三张，用户点扇形里哪张都只是按顺序领下一张。现在 `/draw` 只在服务端洗牌（`secrets.SystemRandom`），顺序存进新列 `tarot_readings.deck_order_json`，只回 `reading_id`；每点一张，前端把这张牌在 `/deck` 里的下标作为 seat 发给新接口 `POST /api/tarot/pick`，服务端翻开洗进那个座位的牌。防作弊不变：浏览器拿不到顺序；同一 seat 不能选两次、不能选第四张、别人的牌局 404；并发写用 compare-and-swap。`/reading` 要三张选满才放行。新列由 `init_tarot_db()` 启动时 `ALTER TABLE` 补上。`tests/test_tarot_pick.py` 5 例，全部 19 例通过；本地 1440 / 390 实测三次点击 = 三次 `/pick` = 三张对应牌，build 通过。
 
 2026-10-09：**Admin 用户表按自身宽度切三种布局**（手机 / 平板或侧栏打开 / 桌面），窄屏操作收进 `···`，`a213dca`。

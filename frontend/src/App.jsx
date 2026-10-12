@@ -24,6 +24,7 @@ import TravelPlanner from './pages/TravelPlanner'
 import BillSplit from './pages/BillSplit'
 import Tasks from './pages/Tasks'
 import Tarot from './pages/Tarot'
+import TarotHistory from './pages/TarotHistory'
 
 // ── Theme Context ────────────────────────────────────────────────
 export const ThemeContext = createContext(null)
@@ -291,6 +292,7 @@ export default function App() {
             <Route path="/bill-split" element={<FeatureRoute feature="billSplit"><BillSplit /></FeatureRoute>} />
             <Route path="/tasks" element={<Tasks />} />
             <Route path="/tarot" element={<Tarot />} />
+            <Route path="/tarot/history" element={<TarotHistory />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/home" replace />} />

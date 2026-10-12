@@ -1952,6 +1952,96 @@ textarea.form-control { height: auto; padding: .55rem .85rem; line-height: 1.55;
   color: rgba(185, 166, 143, .6);
 }
 
+/* ── Title row: the page title, and the way to the other tarot page ───── */
+.tarot__head {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
+}
+.tarot__head-link {
+  flex: none;
+  display: inline-flex; align-items: center; gap: 8px;
+  min-height: var(--tap-min, 44px);
+  padding: 0 14px;
+  margin-top: 6px;
+  border: 1px solid var(--t-edge);
+  border-radius: 999px;
+  font-family: var(--font-body);
+  font-size: .86rem;
+  color: var(--t-ink-dim);
+  text-decoration: none;
+  transition: color .15s, border-color .15s;
+}
+.tarot__head-link:hover { color: var(--t-ink); border-color: var(--t-gilt); }
+.tarot__head-link:focus-visible { outline: 2px solid var(--t-gilt); outline-offset: 2px; }
+
+/* ── History: past spreads, one <details> each ──────────────── */
+.tarot-hist { max-width: 860px; margin: 0 auto; }
+.tarot-hist__list { display: flex; flex-direction: column; gap: 12px; }
+.tarot-hist__item {
+  border: 1px solid var(--t-edge);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, .18);
+}
+.tarot-hist__item[open] { background: rgba(0, 0, 0, .26); }
+.tarot-hist__summary {
+  display: flex; align-items: center; gap: 16px;
+  padding: 14px 16px;
+  cursor: pointer;
+  list-style: none;
+}
+.tarot-hist__summary::-webkit-details-marker { display: none; }
+.tarot-hist__summary:focus-visible { outline: 2px solid var(--t-gilt); outline-offset: -2px; border-radius: 10px; }
+.tarot-hist__cards { flex: none; display: flex; gap: 4px; }
+.tarot-hist__cards img {
+  width: 38px; height: 65px;
+  object-fit: cover;
+  border-radius: 3px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .45);
+}
+.tarot-hist__meta { flex: 1 1 auto; min-width: 0; }
+.tarot-hist__top {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  font-family: var(--font-body);
+  font-size: .8rem;
+  color: var(--t-ink-dim);
+  font-variant-numeric: tabular-nums;
+}
+.tarot-hist__stars { display: inline-flex; gap: 2px; font-size: .74rem; color: rgba(185, 166, 143, .35); }
+.tarot-hist__stars .is-on { color: var(--t-gilt); }
+.tarot-hist__unrated { font-size: .74rem; }
+.tarot-hist__names {
+  font-family: var(--font-serif-cn);
+  font-size: 1rem;
+  color: var(--t-ink);
+  margin-top: 4px;
+}
+.tarot-hist__teaser {
+  margin: 4px 0 0;
+  font-family: var(--font-serif-cn);
+  font-size: .88rem;
+  color: var(--t-ink-dim);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.tarot-hist__chev { flex: none; color: var(--t-ink-dim); transition: transform .2s; }
+.tarot-hist__item[open] .tarot-hist__chev { transform: rotate(180deg); }
+.tarot-hist__body { padding: 4px 16px 18px; border-top: 1px solid var(--t-edge); margin-top: 0; }
+.tarot-hist__body > .tarot-read__summary { margin-top: 16px; }
+.tarot-hist__pos-card { font-family: var(--font-serif-cn); letter-spacing: 0; text-transform: none; color: var(--t-ink-dim); }
+.tarot-hist__note { margin: 14px 0 0; font-family: var(--font-serif-cn); font-style: italic; color: var(--t-ink-dim); }
+.tarot-hist__empty { text-align: center; padding: 40px 0; color: var(--t-ink-dim); font-family: var(--font-body); }
+.tarot-hist__empty .tarot__btn { display: inline-block; margin-top: 14px; text-decoration: none; }
+@media (max-width: 767.98px) {
+  .tarot__head-link { padding: 0 12px; font-size: .8rem; }
+  .tarot-hist__summary { gap: 12px; padding: 12px; align-items: flex-start; }
+  .tarot-hist__cards img { width: 28px; height: 48px; }
+  .tarot-hist__chev { margin-top: 4px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tarot-hist__chev { transition: none; }
+}
+
 /* ── Holding one card up to the light ─────────────────────── */
 /* The palette is redeclared here because the modal is portalled to the top of
    the page, outside .tarot, so it inherits none of the cloth's variables. */
@@ -2836,3 +2926,4 @@ button.fr-chip:hover { filter: brightness(.96); }
   .ulist__row > *,
   .ulist__who > * { animation: none !important; }
 }
+
