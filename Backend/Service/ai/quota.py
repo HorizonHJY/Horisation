@@ -30,12 +30,21 @@ LIMITS: dict[str, dict[str, int | None]] = {
         'admin':   None,
         'horizon': None,
     },
+    # A chart does not change; one reading a day is plenty for a member.
+    'bazi': {
+        '*':       1,
+        'vip':     3,
+        'svip':    3,
+        'admin':   None,
+        'horizon': None,
+    },
 }
 
 # feature → ok calls per site per rolling 24h. The safety net, not a product
 # rule: 11 people cannot legitimately get near it.
 GLOBAL_DAILY_CAP: dict[str, int] = {
     'tarot': 100,
+    'bazi': 50,
 }
 
 

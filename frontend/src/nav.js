@@ -30,6 +30,7 @@ export const NAV_SECTIONS = [
     items: [
       { to: '/fun/gomoku-online', icon: 'fa-globe', label: 'Online Gomoku', feature: 'onlineGomoku' },
       { to: '/tarot',             icon: 'fa-moon',  label: 'Tarot' },
+      { to: '/bazi',              icon: 'fa-yin-yang', label: 'BaZi 八字' },
     ],
   },
   {

@@ -37,6 +37,9 @@ init_task_db()
 from Backend.Controller.tarot_db import init_tarot_db
 init_tarot_db()
 
+from Backend.Controller.bazi_db import init_bazi_db
+init_bazi_db()
+
 # The AI layer owns its own table (ai_usage). See Doc/ai_service.md.
 from Backend.Service.ai import init_ai_db
 init_ai_db()
@@ -45,6 +48,7 @@ from Backend.Controller.bill_controller import bill_bp
 from Backend.Controller.market_task_controller import task_bp
 from Backend.Controller.weather_controller import weather_bp
 from Backend.Controller.tarot_controller import tarot_bp
+from Backend.Controller.bazi_controller import bazi_bp
 
 # Paths
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
@@ -90,6 +94,7 @@ app.register_blueprint(bill_bp)
 app.register_blueprint(task_bp)
 app.register_blueprint(weather_bp)
 app.register_blueprint(tarot_bp)
+app.register_blueprint(bazi_bp)
 
 # Import user manager for session validation
 from Backend.Controller.user_manager import user_manager

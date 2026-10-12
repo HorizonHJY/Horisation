@@ -119,7 +119,8 @@ class AIService:
             attempts += 1
             try:
                 resp = self._chat(messages, model=cfg.model, max_tokens=feat.max_tokens,
-                                  temperature=feat.temperature, json_mode=feat.json_mode, config=cfg)
+                                  temperature=feat.temperature, json_mode=feat.json_mode, config=cfg,
+                                  read_timeout=feat.read_timeout)
             except default_client.ProviderError as e:
                 last_err = e
                 if e.kind not in RETRY_KINDS:

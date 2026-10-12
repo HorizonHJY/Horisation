@@ -420,6 +420,13 @@ POST /api/tarot/readings/<id>/rating   body: { rating: 1-5, note?: ≤ 100 字 }
 
 ---
 
+## 13.5 第二个 feature：八字（2026-10-12）
+
+- 注册：`features/__init__.py` 里的 `'bazi'`，`prompts/bazi.py`（`bazi-v1`）；配额 `quota.py`：成员每天 1 次、VIP/SVIP 3 次、admin/horizon 不限；全站每天 50 次。
+- `Feature.read_timeout`（新增，默认 30 秒）：八字是 120 秒、`max_tokens` 3500。`client.chat` 多了 `read_timeout` 参数，其余 feature 行为不变。
+- 调用不在请求里同步做：`bazi_controller` 用 `socketio.start_background_task` 起后台任务（生产 eventlet 下是 greenthread，本地 `LOCAL_DEV=1` 下是线程），结果写回 `bazi_readings`，前端每 3 秒轮询。原因：一次解读 40–90 秒，nginx 默认 `proxy_read_timeout` 60 秒。
+- 排盘不交给模型：`Backend/Service/bazi/chart.py` 算好整张盘，`prompts/bazi.py` 把它写成成品表交给模型，并明令不得重排。
+
 ## 14. 实现记录（P0，2026-09-20）
 
 按 §2–§12 落地，出入只有这几处，都是实现时才看见的：

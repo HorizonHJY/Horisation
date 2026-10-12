@@ -13,6 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Callable
 
+from ..prompts import bazi as bazi_prompt
 from ..prompts import tarot as tarot_prompt
 
 
@@ -25,6 +26,7 @@ class Feature:
     json_mode: bool = True
     max_tokens: int = 1200
     temperature: float = 0.7
+    read_timeout: int = 30                     # seconds; a long answer needs longer
 
 
 def _tarot_build(payload: dict) -> list[dict]:
@@ -40,6 +42,18 @@ FEATURES: dict[str, Feature] = {
         json_mode=True,
         max_tokens=1200,
         temperature=0.75,
+    ),
+    # A full chart reading is ~2,500 tokens of JSON — several times a tarot
+    # reading — so it gets the room and the wait that takes.
+    'bazi': Feature(
+        name='bazi',
+        prompt_version=bazi_prompt.PROMPT_VERSION,
+        build=lambda payload: bazi_prompt.build(payload['chart']),
+        parse=bazi_prompt.parse,
+        json_mode=True,
+        max_tokens=3500,
+        temperature=0.6,
+        read_timeout=120,
     ),
 }
 

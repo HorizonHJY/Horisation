@@ -100,6 +100,7 @@ def chat(
     temperature: float = 0.7,
     json_mode: bool = False,
     config: ProviderConfig | None = None,
+    read_timeout: int = READ_TIMEOUT_S,
 ) -> ChatResponse:
     """One round trip. `messages` is the OpenAI-style list of
     {role, content}; the first may be a system message."""
@@ -108,10 +109,10 @@ def chat(
     started = time.monotonic()
     try:
         if cfg.provider == 'deepseek':
-            return _deepseek(messages, cfg, model, max_tokens, temperature, json_mode, started)
-        return _anthropic(messages, cfg, model, max_tokens, temperature, json_mode, started)
+            return _deepseek(messages, cfg, model, max_tokens, temperature, json_mode, started, read_timeout)
+        return _anthropic(messages, cfg, model, max_tokens, temperature, json_mode, started, read_timeout)
     except requests.exceptions.Timeout as e:
-        raise ProviderError('timeout', f'{cfg.provider} did not answer within {READ_TIMEOUT_S}s') from e
+        raise ProviderError('timeout', f'{cfg.provider} did not answer within {read_timeout}s') from e
     except requests.exceptions.ConnectionError as e:
         raise ProviderError('provider', f'could not reach {cfg.provider}') from e
 
@@ -131,7 +132,7 @@ def _raise_for(resp: requests.Response, provider: str) -> None:
         raise ProviderError('config', f'{provider} rejected the request ({resp.status_code}) {detail}'.strip())
 
 
-def _deepseek(messages, cfg, model, max_tokens, temperature, json_mode, started) -> ChatResponse:
+def _deepseek(messages, cfg, model, max_tokens, temperature, json_mode, started, read_timeout=READ_TIMEOUT_S) -> ChatResponse:
     body = {
         'model': model,
         'messages': messages,
@@ -145,7 +146,7 @@ def _deepseek(messages, cfg, model, max_tokens, temperature, json_mode, started)
         'https://api.deepseek.com/chat/completions',
         headers={'Authorization': f'Bearer {cfg.api_key}', 'Content-Type': 'application/json'},
         json=body,
-        timeout=(CONNECT_TIMEOUT_S, READ_TIMEOUT_S),
+        timeout=(CONNECT_TIMEOUT_S, read_timeout),
     )
     _raise_for(resp, 'deepseek')
     data = resp.json()
@@ -159,7 +160,7 @@ def _deepseek(messages, cfg, model, max_tokens, temperature, json_mode, started)
     )
 
 
-def _anthropic(messages, cfg, model, max_tokens, temperature, json_mode, started) -> ChatResponse:
+def _anthropic(messages, cfg, model, max_tokens, temperature, json_mode, started, read_timeout=READ_TIMEOUT_S) -> ChatResponse:
     system = '\n\n'.join(m['content'] for m in messages if m['role'] == 'system')
     turns = [m for m in messages if m['role'] != 'system']
     if json_mode and turns:
@@ -173,7 +174,7 @@ def _anthropic(messages, cfg, model, max_tokens, temperature, json_mode, started
         'https://api.anthropic.com/v1/messages',
         headers={'x-api-key': cfg.api_key, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json'},
         json=body,
-        timeout=(CONNECT_TIMEOUT_S, READ_TIMEOUT_S),
+        timeout=(CONNECT_TIMEOUT_S, read_timeout),
     )
     _raise_for(resp, 'anthropic')
     data = resp.json()
