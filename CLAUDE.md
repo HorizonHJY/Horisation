@@ -60,7 +60,7 @@ Browser → Cloudflare → Nginx → Gunicorn (port 8000) → Flask (API only)
 | `frontend/src/App.jsx` | Router, AuthContext, ThemeContext, UnreadContext, PrivateRoute / FeatureRoute |
 | `frontend/src/api.js` | Fetch wrapper (`credentials: include`). Never throws; every result has `ok`. On a non-2xx response the **whole error body rides along** (`retryable`, `error_kind`, `quota`…), not just `error`. |
 | `frontend/src/features.js` | Per-role feature flags (`canAccess`) — the frontend half of role gating |
-| `frontend/src/nav.js` | **The site map, in one place**: `NAV_SECTIONS`, which the sidebar renders. Add a page here. |
+| `frontend/src/nav.js` | **The site map, in one place**: `NAV_SECTIONS`, which the sidebar renders. Add a page here. Icons are **Lucide React components** (`import { Home, Store, … } from 'lucide-react'`), passed as the `icon` field. The sidebar renders them as `<Icon size={16} strokeWidth={1.75} />`. |
 | `frontend/src/index.css` | Global design system: tokens, focus ring, badge pairs, market card, dark theme |
 | `frontend/src/components/Layout.jsx` | The shell. Desktop: the sidebar is **closed by default and toggled by a button** — the ☰ at the top-left opens it (docked, content moves over), the `«` in its header closes it; `[` does the same. Remembered in `localStorage['archbay.nav']` as `open`/`closed`. No hover, no rail, no breadcrumb — a menu you asked for or no menu (the ChatGPT pattern; the owner rejected a hover-revealed spine on 2026-09-20). Phone: hamburger + drawer, unchanged. |
 | `frontend/src/components/Sidebar.jsx` | The navigation panel itself, rendered from `nav.js`. Takes `hidden` and sets `inert` when off-screen so Tab cannot walk into an invisible menu. |

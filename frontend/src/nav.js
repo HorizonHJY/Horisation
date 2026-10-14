@@ -8,37 +8,52 @@
  * to every member. Sections with nothing visible are not rendered.
  */
 
+import {
+  Home,
+  Store,
+  Megaphone,
+  MessageSquare,
+  UserRound,
+  Users,
+  Globe,
+  Moon,
+  Sparkles,
+  ClipboardList,
+  Route,
+  Receipt,
+} from 'lucide-react'
+
 export const NAV_SECTIONS = [
   {
     key: 'main', title: 'Main',
     items: [
-      { to: '/home', icon: 'fa-home', label: 'Home' },
+      { to: '/home', icon: Home, label: 'Home' },
     ],
   },
   {
     key: 'community', title: 'Community',
     items: [
-      { to: '/market',   icon: 'fa-store',        label: 'Market' },
-      { to: '/tasks',    icon: 'fa-bullhorn',     label: 'Tasks' },
-      { to: '/feedback', icon: 'fa-comments',     label: 'Message Board' },
-      { to: '/friends',  icon: 'fa-user-friends', label: 'Friends' },
-      { to: '/groups',   icon: 'fa-users',        label: 'Groups' },
+      { to: '/market',   icon: Store,         label: 'Market' },
+      { to: '/tasks',    icon: Megaphone,     label: 'Tasks' },
+      { to: '/feedback', icon: MessageSquare, label: 'Message Board' },
+      { to: '/friends',  icon: UserRound,     label: 'Friends' },
+      { to: '/groups',   icon: Users,         label: 'Groups' },
     ],
   },
   {
     key: 'fun', title: 'For Fun',
     items: [
-      { to: '/fun/gomoku-online', icon: 'fa-globe', label: 'Online Gomoku', feature: 'onlineGomoku' },
-      { to: '/tarot',             icon: 'fa-moon',  label: 'Tarot' },
-      { to: '/bazi',              icon: 'fa-yin-yang', label: 'BaZi 八字' },
+      { to: '/fun/gomoku-online', icon: Globe,    label: 'Online Gomoku', feature: 'onlineGomoku' },
+      { to: '/tarot',             icon: Moon,     label: 'Tarot' },
+      { to: '/bazi',              icon: Sparkles, label: 'BaZi 八字' },
     ],
   },
   {
     key: 'toolkit', title: 'Toolkit',
     items: [
-      { to: '/hormemo',    icon: 'fa-clipboard-list', label: 'Memo' },
-      { to: '/travel',     icon: 'fa-route',          label: 'Travel Planner' },
-      { to: '/bill-split', icon: 'fa-receipt',        label: 'Bill Split',     feature: 'billSplit' },
+      { to: '/hormemo',    icon: ClipboardList, label: 'Memo' },
+      { to: '/travel',     icon: Route,         label: 'Travel Planner' },
+      { to: '/bill-split', icon: Receipt,       label: 'Bill Split',     feature: 'billSplit' },
     ],
   },
 ]

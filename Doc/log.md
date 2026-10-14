@@ -2,16 +2,18 @@
 
 
 ## 0. Current Status
-Last Updated: 2026-10-09
+Last Updated: 2026-10-14
 
 ### Current Working Version
 - **Completed**: 全站设计系统统一；邀请码系统；功能角色门控；好友/私信系统；SQLite 迁移；二手市集（配送选项 + Restore + 动态分类 + System Management + 价格拆分 + 响应式按钮 + 浏览量计数 + 分类图标 + 多选 filter + 两行 meta + 中文配送标签 + EditModal 修复 + 已售灰蒙版 Sold Out）；**留言板（Weibo 式线程回复 + 点赞 + 翻页）**；用户公开主页；**非好友直接私信**；**Market Reach Out 直接开 DM**；**Login 页 Safari 全面兼容修复**；**群组系统（独立建组 + 按用户名拉人 + 群聊，`/api/groups`）**；**品牌改名 Arch Bay（可见文案 'Horisation'→'Arch Bay'，提交 f0fc7f6）**；**市集意向成单流（trade_intents）**
   ；**全局实时通知（一条 session 级 socket + `/api/friends/notifications` 快照）**
-  ；**塔罗牌 section（78 张 RWS 牌，洗牌动画 + 自己点选三张 + 三张牌阵 + 点开细看，服务端洗牌，2026-09-10 起全员开放；09-20 起 AI 整体解读 + 打分）**；**Travel Planner 全员开放（09-20）**；**Friends 页重做：Teams 式两栏、Chats 默认、非好友会话可见、联系方式文字 chip（09-21）**；**首页天气 °F / °C**；**AI 服务层 `Backend/Service/ai/`（统一入口、配额、记账、总开关，DeepSeek）**
+  ；**塔罗牌 section（78 张 RWS 牌，洗牌动画 + 自己点选三张 + 三张牌阵 + 点开细看，服务端洗牌，2026-09-10 起全员开放；09-20 起 AI 整体解读 + 打分）**；**Travel Planner 全员开放（09-20）**；**Friends 页重做：Teams 式两栏、Chats 默认、非好友会话可见、联系方式文字 chip（09-21）**；**首页天气 °F / °C**；**AI 服务层 `Backend/Service/ai/`（统一入口、配额、记账、总开关，DeepSeek）**；**侧边栏图标 Lucide 化（10-14）**
 - **In Progress**: 无
 - **Blocked / Not Solved**: 密码明文存储（待迁 bcrypt）；`SECRET_KEY` 硬编码
 
 ### Latest Summary
+2026-10-14：**侧边栏图标换成 Lucide**。Horizon 想定一个图标库，统一后好扩展。原来侧边栏 11 个入口用的是 FontAwesome class 字符串（`fa-home` 之类），通过 `<i className="fas fa-..." />` 渲染。现在改成 Lucide React：`nav.js` 直接 `import { Home, Store, Megaphone, MessageSquare, UserRound, Users, Globe, Moon, Sparkles, ClipboardList, Route, Receipt } from 'lucide-react'`，`icon` 字段存组件引用；`Sidebar.jsx` 渲染方式改为 `<Icon size={16} strokeWidth={1.75} aria-hidden="true" />`。Home 页的 Quick Access 卡片复用 `nav.js`，一并自动换掉。tree-shaking 后 bundle 从 549kB → 557kB（+8kB，只打了 12 个图标）。本地 1440 / 834 / 390 三端截图确认：侧边栏层级清晰、图标风格统一、Home 卡片的图标也对上。原来页面里散落的 FontAwesome 图标暂不动。build ✅。
+
 2026-10-12（傍晚）：**塔罗 / 八字 AI 加回答范围，规则写在 md 里**。Horizon 要求回答自由提问的 AI 按文档办事，防止别人问违法或无关的问题浪费 token。`Backend/Service/ai/prompts/scope.md` 一份文档两层用：「拦截词 / 危机词」由服务器在调模型前检查——命中拦截词直接回拒答话术，命中危机词回 988 / 12356 热线，都不调模型、不花 token；「只回答 / 不回答 / 拒答话术」写进塔罗（`tarot-v2`）和八字追问（`bazi-ask-v2`）的系统提示词，兜住词表漏掉的。八字追问里被拦下的问题照样存档（`model = screen:*`），便于分析大家都在问什么。新增 3 个测试（共 36）。同日关掉了 OpenClaw 心跳（`agents.defaults.heartbeat.every = 0m`）：它和 Horizon 的消息撞车，吞掉了 13:14、13:56、13:57 三条。
 
 2026-10-12（下午）：**八字加「追问」、历史命盘，删除改为隐藏**。解读下面可以就这张命盘接着问（新 feature `bazi_ask`，纯文本，三到六句），模型能看到命盘、整篇解读、用户点的「准 / 不准」和最近 8 轮问答——「不准」的项要求它修正原判断。「准 / 不准」从浏览器 localStorage 改存服务器（`verify_json`），换设备不丢。新增历史命盘列表，可重新打开或删除单张。按 Horizon 决定：不设个人额度（只留全站上限防账单失控：解读 100/天、追问 500/天）；用户删除只是隐藏（`deleted_at`），数据库保留用于分析，页面上如实告知。两个新列由 `init_bazi_db()` 启动时补上，已在旧表上验证可重复执行。测试 33 个全过；本地 stub 走通：排两张盘 → 解读 → 标记 → 追问两轮 → 刷新后问答和标记都在 → 历史删一张，库里仍是 2 行、1 行带 `deleted_at`。

@@ -77,14 +77,14 @@ const Sidebar = forwardRef(function Sidebar(
         {sections.map(({ key, title, items }) => (
           <div className="nav-section" key={key}>
             <div className="nav-title">{title}</div>
-            {items.map(({ to, icon, label }) => (
+            {items.map(({ to, icon: Icon, label }) => (
               <NavLink
                 key={label}
                 to={to}
                 onClick={onClose}
                 className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
               >
-                <i className={`fas ${icon}`} />
+                <Icon size={16} strokeWidth={1.75} aria-hidden="true" />
                 <span>{label}</span>
                 {to === '/friends' && badgeTotal > 0 && (
                   <span className="badge bg-danger ms-auto" style={{ fontSize: '.65rem', minWidth: 18 }}>
