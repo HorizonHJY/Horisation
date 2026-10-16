@@ -59,7 +59,7 @@ function CastForm({ cities, initial, onCast, busy }) {
         </label>
         <label className="bz-field">
           <span>出生地<small>用来校正真太阳时</small></span>
-          <input list="bz-cities" required value={f.place} onChange={set('place')} placeholder="如：石河子" autoComplete="off" />
+          <input list="bz-cities" required value={f.place} onChange={set('place')} placeholder="如：广州" autoComplete="off" />
           <datalist id="bz-cities">{cities.map(c => <option key={c.name} value={c.name} />)}</datalist>
         </label>
         <fieldset className="bz-field bz-field--gender">
