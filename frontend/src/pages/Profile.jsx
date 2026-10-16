@@ -210,7 +210,7 @@ export default function Profile() {
                 </h6>
                 <div className="d-flex flex-wrap gap-2">
                   {user.role_info?.permissions?.map(p => (
-                    <span key={p} className="badge bg-primary bg-opacity-10 text-primary fw-normal">{p}</span>
+                    <span key={p} className="badge-pill badge-pill--info fw-normal">{p}</span>
                   ))}
                 </div>
               </>

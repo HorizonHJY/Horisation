@@ -94,9 +94,7 @@ export default function Register() {
             border: '1px solid rgba(255,255,255,0.65)',
           }}>
             <h2 style={{ fontWeight: 700, marginBottom: 4, fontSize: '1.3rem', textAlign: 'center' }}>Create Account</h2>
-            <p style={{ color: '#666', marginBottom: '1.4rem', fontSize: '.875rem', textAlign: 'center' }}>
-              You need an invite code to join.
-            </p>
+            <div style={{ marginBottom: '1.4rem' }} />
 
             {error && <div className="alert alert-danger py-2 small mb-3">{error}</div>}
 
