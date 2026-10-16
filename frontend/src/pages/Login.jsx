@@ -179,39 +179,6 @@ export default function Login() {
           {/* Dynamic spacer */}
           <div style={{ flex: '1 1 0', minHeight: '1rem' }} />
 
-          {/* Tagline / Footer */}
-          <div style={{
-            marginTop: 'auto',
-            width: '100%',
-            maxWidth: 500,
-            pointerEvents: 'none',
-            paddingBottom: 'clamp(0.5rem, 2vh, 1rem)',
-          }}>
-            <p style={{
-              fontFamily: "'Playfair Display', serif",
-              fontWeight: 600,
-              fontSize: 'clamp(1rem, 2.2vw, 1.8rem)',
-              color: '#1a1a1a',
-              opacity: 0.82,
-              lineHeight: 1.3,
-              margin: '0 0 0.5rem',
-              letterSpacing: '-0.01em',
-            }}>
-              St. Louis private harbor.
-            </p>
-            <p style={{
-              fontFamily: "'Playfair Display', serif",
-              fontStyle: 'italic',
-              fontSize: 'clamp(0.75rem, 1.4vw, 1rem)',
-              color: '#3a3a3a',
-              opacity: 0.62,
-              lineHeight: 1.7,
-              margin: 0,
-            }}>
-              {'欢迎来到圣路易斯 让我们把村里的生活变得丰富多彩一些吧'} <br />
-              {'希望你们在这里能买到心仪的物品 延续物品的生命'}
-            </p>
-          </div>
         </div>
       </div>
     </div>
