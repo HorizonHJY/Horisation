@@ -1426,19 +1426,12 @@ textarea.form-control { height: auto; padding: .55rem .85rem; line-height: 1.55;
   padding-right: 1rem;
   z-index: 2;  /* sit above tagline; fixes Safari backdrop-filter stacking */
 }
-.login-tagline {
-  bottom: clamp(1.5rem, 3vw, 2.5rem);
-  left:   clamp(1.5rem, 3vw, 2.5rem);
-  max-width: 500px;
-  z-index: 1;
-}
 /* iPad / medium screens */
 @media (max-width: 1024px) and (min-width: 601px) {
   .login-page-overlay {
     padding-top: 1.5rem;
     padding-left: clamp(1.5rem, 5vw, 4rem);
   }
-  .login-tagline { display: none; }
 }
 /* The menu button. Opens the drawer on a phone, docks the sidebar on a
    desktop. Sits at the far left of the topbar on both. */
