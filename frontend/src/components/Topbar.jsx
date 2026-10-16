@@ -15,8 +15,6 @@ export default function Topbar({ onMenuClick, menuButtonVisible = true }) {
     navigate('/login')
   }
 
-  if (!user) return null
-
   return (
     <div className="topbar">
       {/* One control on both form factors: opens the drawer on a phone,
@@ -28,7 +26,25 @@ export default function Topbar({ onMenuClick, menuButtonVisible = true }) {
         </button>
       )}
       <span className="me-auto" />
-      {canToggleTheme && (
+      {!user && (
+        <div className="d-flex align-items-center gap-1">
+          <button
+            className="btn btn-link btn-sm"
+            style={{ padding: '.25rem .5rem', textDecoration: 'none' }}
+            onClick={() => navigate('/login')}
+          >
+            Sign in
+          </button>
+          <button
+            className="btn btn-primary btn-sm"
+            style={{ padding: '.25rem .75rem' }}
+            onClick={() => navigate('/register')}
+          >
+            Register
+          </button>
+        </div>
+      )}
+      {user && canToggleTheme && (
         <div className="toggle-container me-3" style={{ fontSize: '13px' }}>
           <input
             type="checkbox"
@@ -51,42 +67,44 @@ export default function Topbar({ onMenuClick, menuButtonVisible = true }) {
         </div>
       )}
 
-      <div className="dropdown">
-        <div
-          className="d-flex align-items-center gap-2"
-          data-bs-toggle="dropdown"
-          style={{ cursor: 'pointer' }}
-        >
-          <span className="user-name">{user.display_name}</span>
-          {user.avatar_url ? (
-            <img
-              src={user.avatar_url}
-              alt={user.display_name}
-              className="user-avatar"
-              width="32" height="32"
-              style={{ objectFit: 'cover' }}
-            />
-          ) : (
-            <div className="user-avatar">
-              {user.display_name?.[0]?.toUpperCase()}
-            </div>
-          )}
+      {user && (
+        <div className="dropdown">
+          <div
+            className="d-flex align-items-center gap-2"
+            data-bs-toggle="dropdown"
+            style={{ cursor: 'pointer' }}
+          >
+            <span className="user-name">{user.display_name}</span>
+            {user.avatar_url ? (
+              <img
+                src={user.avatar_url}
+                alt={user.display_name}
+                className="user-avatar"
+                width="32" height="32"
+                style={{ objectFit: 'cover' }}
+              />
+            ) : (
+              <div className="user-avatar">
+                {user.display_name?.[0]?.toUpperCase()}
+              </div>
+            )}
+          </div>
+          <ul className="dropdown-menu dropdown-menu-end">
+            <li><h6 className="dropdown-header">{user.role_info?.name}</h6></li>
+            <li>
+              <button className="dropdown-item" onClick={() => navigate('/profile')}>
+                <i className="fas fa-user me-2" />Profile
+              </button>
+            </li>
+            <li><hr className="dropdown-divider" /></li>
+            <li>
+              <button className="dropdown-item text-danger" onClick={handleLogout}>
+                <i className="fas fa-sign-out-alt me-2" />Logout
+              </button>
+            </li>
+          </ul>
         </div>
-        <ul className="dropdown-menu dropdown-menu-end">
-          <li><h6 className="dropdown-header">{user.role_info?.name}</h6></li>
-          <li>
-            <button className="dropdown-item" onClick={() => navigate('/profile')}>
-              <i className="fas fa-user me-2" />Profile
-            </button>
-          </li>
-          <li><hr className="dropdown-divider" /></li>
-          <li>
-            <button className="dropdown-item text-danger" onClick={handleLogout}>
-              <i className="fas fa-sign-out-alt me-2" />Logout
-            </button>
-          </li>
-        </ul>
-      </div>
+      )}
     </div>
   )
 }

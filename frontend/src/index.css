@@ -3372,3 +3372,36 @@ button.fr-chip:hover { filter: brightness(.96); }
 .bz-askbox__form:focus-within { border-color: var(--bz-cinnabar); box-shadow: 0 0 0 1px var(--bz-cinnabar); }
 .bz-askbox__row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 6px; }
 .bz-askbox__row .bz-fine { margin: 0; }
+
+/* ─ Sign-up prompt (guests who try to use a members-only feature) ─────────
+   Fixed overlay above everything, including the sidebar overlay and any
+   page-level modal. The surface is small, the ask is one sentence, and the
+   two primary actions sit flat as peers — Register and Sign in. */
+.guest-prompt-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(15, 23, 42, .55);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 3000;
+  padding: 1rem;
+}
+.guest-prompt {
+  background: var(--card, #fff);
+  color: var(--card-foreground, #0f172a);
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, .25);
+  padding: 1.5rem 1.5rem 1.25rem;
+  max-width: 420px; width: 100%;
+}
+.guest-prompt__title {
+  margin: 0 0 .5rem;
+  font-size: 1.15rem; font-weight: 700;
+}
+.guest-prompt__body {
+  margin: 0 0 1.25rem;
+  font-size: .95rem; line-height: 1.5;
+  color: var(--muted-foreground, #475569);
+}
+.guest-prompt__actions {
+  display: flex; flex-direction: column; gap: .5rem;
+}
+.guest-prompt__actions .btn { width: 100%; }

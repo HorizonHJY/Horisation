@@ -4,7 +4,7 @@ Message board — all logged-in users can post, reply, and like messages.
 """
 
 from flask import Blueprint, request, jsonify
-from Backend.Controller.auth_controller import login_required
+from Backend.Controller.auth_controller import login_required, login_optional
 from Backend.Controller import market_db
 from Backend.Controller.user_manager import user_manager
 
@@ -26,11 +26,11 @@ def _enrich(messages, liked_set, avatar_map):
 
 
 @feedback_bp.route('/messages', methods=['GET'])
-@login_required
+@login_optional
 def get_messages():
     page   = max(1, int(request.args.get('page', 1)))
     result = market_db.get_messages(page=page, per_page=5)
-    me         = request.current_user['username']
+    me         = request.current_user['username'] if request.current_user else None
     avatar_map = _build_avatar_map()
 
     # Collect all ids to batch-check likes
@@ -38,7 +38,7 @@ def get_messages():
     for m in result['messages']:
         all_ids.append(m['id'])
         all_ids.extend(r['id'] for r in m.get('top_replies', []))
-    liked_set = market_db.get_liked_ids(me, all_ids)
+    liked_set = market_db.get_liked_ids(me, all_ids) if me else set()
 
     for m in result['messages']:
         m['avatar_url']   = avatar_map.get(m['username'])
@@ -72,12 +72,12 @@ def post_message():
 
 
 @feedback_bp.route('/messages/<message_id>/replies', methods=['GET'])
-@login_required
+@login_optional
 def get_replies(message_id):
     replies    = market_db.get_replies(message_id)
-    me         = request.current_user['username']
+    me         = request.current_user['username'] if request.current_user else None
     avatar_map = _build_avatar_map()
-    liked_set  = market_db.get_liked_ids(me, [r['id'] for r in replies])
+    liked_set  = market_db.get_liked_ids(me, [r['id'] for r in replies]) if me else set()
     _enrich(replies, liked_set, avatar_map)
     return jsonify({'ok': True, 'replies': replies})
 

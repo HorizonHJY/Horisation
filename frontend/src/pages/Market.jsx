@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, useId } from 'react'
-import { useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams, useLocation, Link } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../App'
 import HandLoader from '../components/HandLoader'
@@ -1273,7 +1273,10 @@ export default function Market() {
   const priceRef = useRef()
 
   // ── URL is the source of truth for tab and filters ──────────────────────────
-  const tab            = searchParams.get('tab') || 'browse'
+  // A guest cannot own listings or create them, so a pasted ?tab=mylistings or
+  // ?tab=create falls back to Browse rather than rendering a blank panel.
+  const rawTab         = searchParams.get('tab') || 'browse'
+  const tab            = (!user && (rawTab === 'mylistings' || rawTab === 'create')) ? 'browse' : rawTab
   const searchQuery    = searchParams.get('q') || ''
   const categoryFilter = useMemo(
     () => new Set((searchParams.get('cat') || '').split(',').filter(Boolean)), [searchParams])
@@ -1343,9 +1346,12 @@ export default function Market() {
 
   async function loadBrowse() {
     setLoading(true)
+    /* A guest has no friends list on the server and must not trigger the 401
+       prompt just by opening Market. The friends-map is a nicety (badges on
+       the seller row), so an empty map is fine for signed-out browsing. */
     const [listRes, friendsRes] = await Promise.all([
       api.get('/api/market/listings'),
-      api.get('/api/friends/list'),
+      user ? api.get('/api/friends/list') : Promise.resolve({ ok: true, friends: [] }),
     ])
 
     const fMap = {}
@@ -1369,6 +1375,13 @@ export default function Market() {
   }
 
   async function refreshIntents() {
+    // Intents are per-person; a guest has none, and asking the server here
+    // would 401 and trip the global sign-up prompt the moment Market loads.
+    if (!user) {
+      setOutgoingIntents([])
+      setIncomingIntents([])
+      return
+    }
     const [outRes, inRes] = await Promise.all([
       api.get('/api/market/intents/outgoing'),
       api.get('/api/market/intents/incoming'),
@@ -1412,7 +1425,7 @@ export default function Market() {
 
   useEffect(() => {
     if (!sellerUsername) { setSellerInfo(null); setSellerListings([]); return }
-    if (sellerUsername === user.username) {
+    if (sellerUsername === user?.username) {
       navigate(`/market?tab=mylistings`, { replace: true })
       return
     }
@@ -1698,7 +1711,7 @@ export default function Market() {
     (list ? (incomingByListing[list.id] || []).filter(isLiveIntent).length : 0)
 
   // ── Filters ─────────────────────────────────────────────────────────────────
-  const browseListing = listings.filter(l => l.seller_username !== user.username)
+  const browseListing = listings.filter(l => l.seller_username !== user?.username)
   const filteredBrowse = browseListing.filter(l => {
     const q = searchQuery.trim().toLowerCase()
     const matchesSearch = !q ||
@@ -1726,7 +1739,7 @@ export default function Market() {
       {detailListing && (
         <ListingDetailModal
           listing={detailListing}
-          currentUser={user.username}
+          currentUser={user?.username}
           categoryLabel={categoryLabel}
           shareUrl={shareUrlFor(detailListing.id)}
           onClose={closeOverlay}
@@ -1830,12 +1843,37 @@ export default function Market() {
         <h1 className="page-title mb-0">Market</h1>
       </div>
 
+      {!user && (
+        <div
+          className="alert d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4"
+          style={{
+            background: 'rgba(107, 156, 219, 0.08)',
+            border: '1px solid rgba(107, 156, 219, 0.25)',
+            borderRadius: 10,
+            color: 'var(--text-primary)',
+            padding: '.65rem .9rem',
+            fontSize: '.9rem',
+            margin: 0,
+          }}
+          role="status"
+        >
+          <span>
+            <i className="fas fa-info-circle me-2" style={{ color: '#6b9cdb' }} aria-hidden="true" />
+            浏览模式 — 要联系卖家或发布商品请
+            <Link to="/register" style={{ color: '#6b9cdb', fontWeight: 600, marginLeft: 4 }}>注册</Link>
+          </span>
+          <Link to="/login" className="btn btn-outline-primary btn-sm" style={{ padding: '.2rem .75rem' }}>
+            Sign in
+          </Link>
+        </div>
+      )}
+
       <div className="radio-inputs mb-4">
-        {[
+        {([
           { key: 'browse',     label: 'Browse' },
-          { key: 'mylistings', label: 'My Listings' },
-          { key: 'create',     label: 'Post Item' },
-        ].map(t => (
+          user && { key: 'mylistings', label: 'My Listings' },
+          user && { key: 'create',     label: 'Post Item' },
+        ].filter(Boolean)).map(t => (
           <label className="radio" key={t.key}>
             <input
               type="radio"
@@ -1984,7 +2022,7 @@ export default function Market() {
           ) : (
             <div className="row row-cols-2 row-cols-sm-3 row-cols-lg-4 row-cols-xl-5 g-2">
               {displayList.map(l => {
-                const mineHere = l.seller_username === user.username
+                const mineHere = l.seller_username === user?.username
                 return (
                   <div className="col" key={l.id}>
                     {/* h-100 is load-bearing: .market-card sizes itself with
@@ -1997,7 +2035,7 @@ export default function Market() {
                       : undefined}>
                       <ListingCard
                         listing={l}
-                        currentUser={user.username}
+                        currentUser={user?.username}
                         categoryLabel={categoryLabel}
                         isAdmin={isAdmin}
                         onSold={handleSold}

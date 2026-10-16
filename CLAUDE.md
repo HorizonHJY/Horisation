@@ -57,7 +57,7 @@ Browser → Cloudflare → Nginx → Gunicorn (port 8000) → Flask (API only)
 ### Frontend
 | File | Purpose |
 |------|---------|
-| `frontend/src/App.jsx` | Router, AuthContext, ThemeContext, UnreadContext, PrivateRoute / FeatureRoute |
+| `frontend/src/App.jsx` | Router, AuthContext (incl. guest mode + `requireAuth`), ThemeContext, UnreadContext, PrivateRoute / PageRoute / FeatureRoute, the global `SignUpPrompt` |
 | `frontend/src/api.js` | Fetch wrapper (`credentials: include`). Never throws; every result has `ok`. On a non-2xx response the **whole error body rides along** (`retryable`, `error_kind`, `quota`…), not just `error`. |
 | `frontend/src/features.js` | Per-role feature flags (`canAccess`) — the frontend half of role gating |
 | `frontend/src/nav.js` | **The site map, in one place**: `NAV_SECTIONS`, which the sidebar renders. Add a page here. Icons are **Lucide React components** (`import { Home, Store, … } from 'lucide-react'`), passed as the `icon` field. The sidebar renders them as `<Icon size={16} strokeWidth={1.75} />`. |
@@ -262,6 +262,9 @@ also fetches must carry the **same shape** — enrich it through
 ### Auth decorators
 ```python
 @login_required      # checks session, sets request.current_user
+@login_optional      # attaches request.current_user when signed in, else None —
+                     #   for GETs a visitor may read (Market, Message Board,
+                     #   Tasks, Tarot, BaZi). Writes stay @login_required.
 @admin_required      # stacks login_required + admin permission check
 ```
 

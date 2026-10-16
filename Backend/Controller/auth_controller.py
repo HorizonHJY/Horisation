@@ -48,6 +48,26 @@ def login_required(f):
 
     return decorated_function
 
+
+def login_optional(f):
+    """Guest-friendly: attaches request.current_user when signed in, else None.
+
+    Use for GETs that must render for a logged-out visitor (Market listings,
+    Message Board, Tasks, Tarot/BaZi pages). The handler decides what, if
+    anything, to withhold from guests."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        request.current_user = None
+        session_token = session.get('session_token')
+        if session_token:
+            user_info = user_manager.validate_session(session_token)
+            if user_info:
+                request.current_user = user_info
+            else:
+                session.pop('session_token', None)
+        return f(*args, **kwargs)
+    return decorated_function
+
 def admin_required(f):
     """管理员权限验证装饰器"""
     @wraps(f)

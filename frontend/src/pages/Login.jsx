@@ -8,8 +8,13 @@ export default function Login() {
   const [form, setForm] = useState({ username: '', password: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const { login } = useAuth()
+  const { login, continueAsGuest } = useAuth()
   const navigate = useNavigate()
+
+  const handleGuest = () => {
+    continueAsGuest()
+    navigate('/home')
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -152,6 +157,24 @@ export default function Login() {
               <p className="text-center mt-3 mb-0" style={{ fontSize: '.85rem', color: '#666' }}>
                 New here?{' '}
                 <Link to="/register" style={{ color: '#6b9cdb', fontWeight: 600 }}>Register with invite code</Link>
+              </p>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '1rem 0 0.75rem', color: '#aaa', fontSize: '.75rem' }}>
+                <span style={{ flex: 1, height: 1, background: '#e2e2e2' }} />
+                <span>or</span>
+                <span style={{ flex: 1, height: 1, background: '#e2e2e2' }} />
+              </div>
+
+              <button
+                type="button"
+                onClick={handleGuest}
+                className="btn btn-outline-secondary w-100"
+                style={{ height: 44, fontSize: '.95rem' }}
+              >
+                Continue as guest
+              </button>
+              <p className="text-center mt-2 mb-0" style={{ fontSize: '.75rem', color: '#888' }}>
+                先看看 — 发帖、聊天、算卦都要注册
               </p>
             </div>
           </div>

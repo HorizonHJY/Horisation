@@ -22,7 +22,7 @@ from datetime import date, datetime
 
 from flask import Blueprint, jsonify, request
 
-from Backend.Controller.auth_controller import login_required
+from Backend.Controller.auth_controller import login_required, login_optional
 from Backend.Controller import bazi_db
 from Backend.Controller.socketio_instance import socketio
 from Backend.Service.ai import ai, today_key
@@ -51,7 +51,7 @@ def _bad(msg: str, status: int = 400):
 
 
 @bazi_bp.route('/cities', methods=['GET'])
-@login_required
+@login_optional
 def cities():
     return jsonify({'ok': True, 'cities': [{'name': k, 'longitude': v} for k, v in CITIES.items()]})
 
@@ -119,10 +119,15 @@ _CRASH = {'error': '出错了，请再试一次。', 'error_kind': 'provider', '
 
 
 @bazi_bp.route('/latest', methods=['GET'])
-@login_required
+@login_optional
 def latest():
-    """Your most recent chart and its reading state, so the page can come back to it."""
-    username, _ = _me()
+    """Your most recent chart and its reading state, so the page can come back to it.
+
+    Guests see nothing of their own — they have no account to attach to —
+    but the page still renders and nudges to register when they try to cast."""
+    if not request.current_user:
+        return jsonify({'ok': True, 'item': None})
+    username = request.current_user['username']
     row = bazi_db.latest(username)
     return jsonify({'ok': True, 'item': _item(row) if row else None})
 

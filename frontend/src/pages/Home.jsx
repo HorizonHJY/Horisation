@@ -3,10 +3,19 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../App'
 import WeatherGreeting from '../components/WeatherGreeting'
 
-const FEATURES = [
-  { icon: 'fa-clipboard-list', color: '#6b9cdb', title: 'Memo',        desc: 'Personal memo and task tracker.',        to: '/hormemo'  },
-  { icon: 'fa-store',          color: '#27ae60', title: 'Market',          desc: 'Browse and post second-hand listings.',  to: '/market'   },
-  { icon: 'fa-comments',       color: '#d97706', title: 'Message Board',   desc: 'Chat and share with everyone.',          to: '/feedback' },
+const FEATURES_MEMBER = [
+  { icon: 'fa-clipboard-list', color: '#6b9cdb', title: 'Memo',          desc: 'Personal memo and task tracker.',       to: '/hormemo'  },
+  { icon: 'fa-store',          color: '#27ae60', title: 'Market',        desc: 'Browse and post second-hand listings.', to: '/market'   },
+  { icon: 'fa-comments',       color: '#d97706', title: 'Message Board', desc: 'Chat and share with everyone.',         to: '/feedback' },
+]
+
+/* Guests see the open pages — Memo is members-only, so it leaves the row;
+   Tarot takes its slot. The point is that every card on the home page
+   should lead somewhere the visitor can actually open. */
+const FEATURES_GUEST = [
+  { icon: 'fa-store',          color: '#27ae60', title: 'Market',        desc: 'Browse second-hand listings.',            to: '/market'   },
+  { icon: 'fa-comments',       color: '#d97706', title: 'Message Board', desc: 'Read the latest from the community.',     to: '/feedback' },
+  { icon: 'fa-moon',           color: '#8b5fbf', title: 'Tarot',         desc: 'See the deck and how a reading works.',   to: '/tarot'    },
 ]
 
 // The flower canvas belongs to the sign-in screens. Home is a working
@@ -15,10 +24,11 @@ const FEATURES = [
 // canvas are gone too — nothing here needs a stacking context any more.
 export default function Home() {
   const { user } = useAuth()
+  const FEATURES = user ? FEATURES_MEMBER : FEATURES_GUEST
 
   return (
     <div>
-      <WeatherGreeting name={user?.display_name} />
+      <WeatherGreeting name={user?.display_name || 'friend'} />
 
       <h5 style={{
         fontFamily: "'Playfair Display', serif",

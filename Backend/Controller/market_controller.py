@@ -7,7 +7,7 @@ Listing metadata is stored in SQLite via market_db.py.
 
 from flask import Blueprint, request, jsonify
 
-from Backend.Controller.auth_controller import login_required, admin_required
+from Backend.Controller.auth_controller import login_required, login_optional, admin_required
 from Backend.Controller import market_db, r2_manager
 from Backend.Controller.user_manager import user_manager
 
@@ -35,7 +35,7 @@ def _validate_image(file):
 # ── Categories ───────────────────────────────────────────────────────────────
 
 @market_bp.route('/categories', methods=['GET'])
-@login_required
+@login_optional
 def list_categories():
     """Return active categories for create/edit forms."""
     return jsonify({'ok': True, 'categories': market_db.get_categories(active_only=True)})
@@ -91,7 +91,7 @@ def delete_category_route(slug):
 # ── Browse all active listings ────────────────────────────────────────────────
 
 @market_bp.route('/listings', methods=['GET'])
-@login_required
+@login_optional
 def list_listings():
     """Browse listings.
 
@@ -99,13 +99,14 @@ def list_listings():
     being bought by the requesting user (so they can still see it and confirm
     receipt / complete the trade after the seller accepted).
     """
-    me = request.current_user['username']
+    me = request.current_user['username'] if request.current_user else None
     listings = market_db.get_all_listings(status='active') or []
     # A reserved listing must stay visible to the buyer who owns the accepted intent.
-    extra = market_db.get_reserved_listings_for_buyer(me)
-    if extra:
-        seen = {l['id'] for l in listings}
-        listings = listings + [l for l in extra if l['id'] not in seen]
+    if me:
+        extra = market_db.get_reserved_listings_for_buyer(me)
+        if extra:
+            seen = {l['id'] for l in listings}
+            listings = listings + [l for l in extra if l['id'] not in seen]
     return jsonify({'ok': True, 'listings': listings})
 
 
@@ -198,7 +199,7 @@ def create_listing():
 # ── Get single listing ────────────────────────────────────────────────────────
 
 @market_bp.route('/listings/<listing_id>', methods=['GET'])
-@login_required
+@login_optional
 def get_listing(listing_id):
     """Fetch one listing.
 

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
-import { api } from './api'
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { api, setLoginRequiredHandler } from './api'
 
 import Layout from './components/Layout'
 import HandLoader from './components/HandLoader'
@@ -197,9 +197,20 @@ export function useFeature(feature) {
   return canAccess(user?.role, feature)
 }
 
+/* A guest is a visitor who said "continue as guest" at /login. They can see
+   the public pages — Home, Market, Message Board, Tasks, Tarot, BaZi — and
+   anything else the server returns to a logged-out request. Trying to use
+   something gated (post, like, chat, cast a chart) pops the sign-up prompt.
+   The flag lives in localStorage so a reload stays in guest mode. */
+const GUEST_KEY = 'archbay.guest'
+
 function AuthProvider({ children }) {
   const [user, setUser]       = useState(null)
   const [loading, setLoading] = useState(true)
+  const [guest, setGuest]     = useState(() => {
+    try { return localStorage.getItem(GUEST_KEY) === '1' } catch { return false }
+  })
+  const [signUpPrompt, setSignUpPrompt] = useState(null) // { action: '...' } | null
   // Reported by check-session whether or not anyone is signed in, so the
   // local-instance marker is already correct on the login page.
   const [backendLocal, setBackendLocal] = useState(false)
@@ -207,21 +218,56 @@ function AuthProvider({ children }) {
   useEffect(() => {
     api.get('/api/auth/check-session')
       .then(data => {
-        if (data.ok && data.logged_in) setUser(data.user)
+        if (data.ok && data.logged_in) {
+          setUser(data.user)
+          // Signing in clears any lingering guest flag.
+          try { localStorage.removeItem(GUEST_KEY) } catch { /* private mode */ }
+          setGuest(false)
+        }
         setBackendLocal(Boolean(data.local_dev))
       })
       .finally(() => setLoading(false))
   }, [])
 
-  const login  = (userData) => setUser(userData)
+  const login = (userData) => {
+    setUser(userData)
+    try { localStorage.removeItem(GUEST_KEY) } catch { /* private mode */ }
+    setGuest(false)
+  }
   const logout = () => {
     api.post('/api/auth/logout').finally(() => setUser(null))
   }
+  const continueAsGuest = useCallback(() => {
+    try { localStorage.setItem(GUEST_KEY, '1') } catch { /* private mode */ }
+    setGuest(true)
+  }, [])
+  /* `action` is a short noun the modal names in its sentence
+     ("to post, you need an account"); it is UI copy, not a permission check. */
+  const requireAuth = useCallback((action) => {
+    if (user) return true
+    setSignUpPrompt({ action: action || null })
+    return false
+  }, [user])
+  const dismissSignUpPrompt = useCallback(() => setSignUpPrompt(null), [])
+
+  // Any 401 LOGIN_REQUIRED from the API pops the sign-up prompt. The handler
+  // is a bare pop, not a bounce — the visitor stays on the page and can see
+  // what they were reading before they decided to interact. A signed-in user
+  // whose session simply expired lands here too; the modal still names the
+  // right next step for them.
+  useEffect(() => {
+    setLoginRequiredHandler(() => setSignUpPrompt({ action: null }))
+    return () => setLoginRequiredHandler(null)
+  }, [])
 
   if (loading) return <HandLoader fullPage />
 
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider value={{
+      user, login, logout,
+      guest, continueAsGuest,
+      requireAuth, signUpPrompt, dismissSignUpPrompt,
+    }}>
       <EnvRibbon backendLocal={backendLocal} />
       {children}
     </AuthContext.Provider>
@@ -229,10 +275,22 @@ function AuthProvider({ children }) {
 }
 
 // ── Route Guards ─────────────────────────────────────────────────
+/* The private pages — Memo, Travel, Bill Split, Friends, Groups, Profile,
+   admin. A guest here bounces to /login. */
 function PrivateRoute({ children }) {
   const { user } = useAuth()
   const location = useLocation()
   if (!user) return <Navigate to="/login" state={{ from: location }} replace />
+  return children
+}
+
+/* The public pages — Home, Market, Message Board, Tasks, Tarot, BaZi — plus
+   the shell around them. A signed-in user or a guest both get in; a bare
+   visitor who has not yet picked goes to /login so they can decide. */
+function PageRoute({ children }) {
+  const { user, guest } = useAuth()
+  const location = useLocation()
+  if (!user && !guest) return <Navigate to="/login" state={{ from: location }} replace />
   return children
 }
 
@@ -260,25 +318,66 @@ function SessionProviders({ children }) {
   )
 }
 
+/* Pops when a guest tries to use something gated. Lives above the router so
+   it never leaves with navigation; the text names what the visitor was
+   trying to do, so the ask reads like a next step rather than a wall. */
+function SignUpPrompt() {
+  const { signUpPrompt, dismissSignUpPrompt } = useAuth()
+  const navigate = useNavigate()
+  if (!signUpPrompt) return null
+  const action = signUpPrompt.action
+  const go = (path) => { dismissSignUpPrompt(); navigate(path) }
+  return (
+    <div
+      className="guest-prompt-backdrop"
+      role="presentation"
+      onClick={dismissSignUpPrompt}
+    >
+      <div
+        className="guest-prompt"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="guest-prompt-title"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 id="guest-prompt-title" className="guest-prompt__title">Join Arch Bay</h3>
+        <p className="guest-prompt__body">
+          {action
+            ? <>加入账号后就能 <strong>{action}</strong>。注册只需要一个邀请码。</>
+            : <>这个功能要先注册账号才能用。邀请制,一分钟搞定。</>}
+        </p>
+        <div className="guest-prompt__actions">
+          <button type="button" className="btn btn-primary" onClick={() => go('/register')}>
+            注册
+          </button>
+          <button type="button" className="btn btn-outline-secondary" onClick={() => go('/login')}>
+            已有账号,登录
+          </button>
+          <button type="button" className="btn btn-link" onClick={dismissSignUpPrompt}>
+            再看看
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── App ───────────────────────────────────────────────────────────
 export default function App() {
   return (
     <BrowserRouter>
       <ThemeProvider>
       <AuthProvider>
+      <SignUpPrompt />
       <SessionProviders>
         <Routes>
           <Route path="/login"    element={<PublicOnlyRoute><Login /></PublicOnlyRoute>} />
           <Route path="/register" element={<PublicOnlyRoute><Register /></PublicOnlyRoute>} />
 
-          <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
+          <Route element={<PageRoute><Layout /></PageRoute>}>
             <Route index element={<Navigate to="/home" replace />} />
+            {/* Public: a guest can see these; a signed-in user owns the extras */}
             <Route path="/home"              element={<Home />} />
-            <Route path="/hormemo"           element={<Hormemo />} />
-            <Route path="/profile"           element={<Profile />} />
-            <Route path="/admin"             element={<AdminUsers />} />
-            <Route path="/admin/system"      element={<SystemManagement />} />
-            <Route path="/fun/gomoku-online" element={<FeatureRoute feature="onlineGomoku"><OnlineGomoku /></FeatureRoute>} />
             {/* A listing and a seller are addressable, so they can be pasted
                 into a group chat and survive a reload. All three render the
                 same page; Market opens the matching overlay from the params. */}
@@ -286,15 +385,22 @@ export default function App() {
             <Route path="/market/l/:listingId"       element={<Market />} />
             <Route path="/market/u/:sellerUsername"  element={<Market />} />
             <Route path="/feedback"          element={<Feedback />} />
-            <Route path="/friends"           element={<Friends />} />
-            <Route path="/groups"            element={<Groups />} />
-            <Route path="/u/:username"       element={<UserProfile />} />
-            <Route path="/travel"     element={<TravelPlanner />} />
-            <Route path="/bill-split" element={<FeatureRoute feature="billSplit"><BillSplit /></FeatureRoute>} />
-            <Route path="/tasks" element={<Tasks />} />
-            <Route path="/tarot" element={<Tarot />} />
-            <Route path="/tarot/history" element={<TarotHistory />} />
-            <Route path="/bazi" element={<Bazi />} />
+            <Route path="/tasks"             element={<Tasks />} />
+            <Route path="/tarot"             element={<Tarot />} />
+            <Route path="/bazi"              element={<Bazi />} />
+
+            {/* Members only: these use the real auth guard */}
+            <Route path="/hormemo"           element={<PrivateRoute><Hormemo /></PrivateRoute>} />
+            <Route path="/profile"           element={<PrivateRoute><Profile /></PrivateRoute>} />
+            <Route path="/admin"             element={<PrivateRoute><AdminUsers /></PrivateRoute>} />
+            <Route path="/admin/system"      element={<PrivateRoute><SystemManagement /></PrivateRoute>} />
+            <Route path="/fun/gomoku-online" element={<PrivateRoute><FeatureRoute feature="onlineGomoku"><OnlineGomoku /></FeatureRoute></PrivateRoute>} />
+            <Route path="/friends"           element={<PrivateRoute><Friends /></PrivateRoute>} />
+            <Route path="/groups"            element={<PrivateRoute><Groups /></PrivateRoute>} />
+            <Route path="/u/:username"       element={<PrivateRoute><UserProfile /></PrivateRoute>} />
+            <Route path="/travel"            element={<PrivateRoute><TravelPlanner /></PrivateRoute>} />
+            <Route path="/bill-split"        element={<PrivateRoute><FeatureRoute feature="billSplit"><BillSplit /></FeatureRoute></PrivateRoute>} />
+            <Route path="/tarot/history"     element={<PrivateRoute><TarotHistory /></PrivateRoute>} />
           </Route>
 
           <Route path="*" element={<Navigate to="/home" replace />} />

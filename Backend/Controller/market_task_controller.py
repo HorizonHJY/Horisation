@@ -6,7 +6,7 @@ grocery runs, airport pickups, and other tasks with a bounty (悬赏金额).
 
 from flask import Blueprint, request, jsonify
 
-from Backend.Controller.auth_controller import login_required
+from Backend.Controller.auth_controller import login_required, login_optional
 from Backend.Controller.market_task_db import (
     get_all_tasks, get_task, get_my_tasks,
     get_tasks_by_category, get_tasks_by_user,
@@ -32,7 +32,7 @@ TASK_CATEGORIES = [
 # ── Categories ───────────────────────────────────────────────────────────────
 
 @task_bp.route('/categories', methods=['GET'])
-@login_required
+@login_optional
 def list_categories():
     """Return available task categories."""
     return jsonify({'ok': True, 'categories': TASK_CATEGORIES})
@@ -41,7 +41,7 @@ def list_categories():
 # ── List / Browse ────────────────────────────────────────────────────────────
 
 @task_bp.route('/', methods=['GET'])
-@login_required
+@login_optional
 def list_tasks():
     """Return open tasks, optionally filtered by category."""
     category = request.args.get('category', '').strip()
@@ -51,7 +51,7 @@ def list_tasks():
 
 
 @task_bp.route('/<task_id>', methods=['GET'])
-@login_required
+@login_optional
 def get_task_route(task_id):
     task = get_task(task_id)
     if not task:

@@ -23,19 +23,24 @@ import {
   Receipt,
 } from 'lucide-react'
 
+/* `guest` says whether a signed-out visitor can open this page. The sidebar
+   drops guest-only hidden items; the public server endpoints behind them
+   decide what, if anything, a guest actually gets back. Private pages are
+   also blocked at the route level, so this field only tightens the sidebar;
+   it is not a security gate. */
 export const NAV_SECTIONS = [
   {
     key: 'main', title: 'Main',
     items: [
-      { to: '/home', icon: Home, label: 'Home' },
+      { to: '/home', icon: Home, label: 'Home', guest: true },
     ],
   },
   {
     key: 'community', title: 'Community',
     items: [
-      { to: '/market',   icon: Store,         label: 'Market' },
-      { to: '/tasks',    icon: Megaphone,     label: 'Tasks' },
-      { to: '/feedback', icon: MessageSquare, label: 'Message Board' },
+      { to: '/market',   icon: Store,         label: 'Market',        guest: true },
+      { to: '/tasks',    icon: Megaphone,     label: 'Tasks',         guest: true },
+      { to: '/feedback', icon: MessageSquare, label: 'Message Board', guest: true },
       { to: '/friends',  icon: UserRound,     label: 'Friends' },
       { to: '/groups',   icon: Users,         label: 'Groups' },
     ],
@@ -44,8 +49,8 @@ export const NAV_SECTIONS = [
     key: 'fun', title: 'For Fun',
     items: [
       { to: '/fun/gomoku-online', icon: Globe,    label: 'Online Gomoku', feature: 'onlineGomoku' },
-      { to: '/tarot',             icon: Moon,     label: 'Tarot' },
-      { to: '/bazi',              icon: Sparkles, label: 'BaZi 八字' },
+      { to: '/tarot',             icon: Moon,     label: 'Tarot',         guest: true },
+      { to: '/bazi',              icon: Sparkles, label: 'BaZi 八字',     guest: true },
     ],
   },
   {

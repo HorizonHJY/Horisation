@@ -90,6 +90,17 @@ Also confirmed 2026-09-28: **Browse lists active items only.** The browse query 
 `status='active'` (sold items do not return), so the sold mask is seen on My Listings and a seller's
 public page — not in Browse. This is deliberate, not a gap to "fix".
 
+Confirmed 2026-10-16: **Looking is open; doing needs an account.** A signed-out visitor may read the
+public surfaces — Home, Market, Message Board, Tasks, Tarot, BaZi — without registering. Every
+*use* of them (post, like, reply, contact a seller, draw a spread, cast a chart) requires an
+account, and the site says so at that moment rather than walling the door up front. When a guest
+clicks a gated action, they get a sign-up prompt over the page they are on; they are never bounced
+to `/login` for merely looking. The private surfaces — Memo, Travel Planner, Bill Split, Friends,
+Groups, Profile, Admin — stay invisible to guests and bounce to `/login`. Rationale: the circle is
+still invitation-only, but there is nothing secret in the public shelves, and a visitor who can see
+the market before signing up is a warmer joiner than one stopped at a login form. Guests see the
+public pages only; `Tarot` and `BaZi` show the deck and the chart form but withhold the reading.
+
 ## Brand Commitments
 
 - **Name in the interface: Arch Bay.** Settled 2026-09-07. The name has flipped twice — the

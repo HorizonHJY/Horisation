@@ -31,9 +31,13 @@ const Sidebar = forwardRef(function Sidebar(
   const isAdmin   = user?.role_info?.permissions?.includes('admin')
 
   /* Each item is gated on its own flag. `canAccess` reads the same FEATURES
-     map the routes do, so the sidebar and FeatureRoute cannot disagree. */
-  const allowed = (item) =>
-    !item.feature || canAccess(user?.role, item.feature)
+     map the routes do, so the sidebar and FeatureRoute cannot disagree. A
+     guest (no user) only sees items the map marks `guest: true`. */
+  const allowed = (item) => {
+    if (!user && !item.guest) return false
+    if (item.feature && !canAccess(user?.role, item.feature)) return false
+    return true
+  }
 
   const sections = NAV_SECTIONS
     .map(s => ({ ...s, items: s.items.filter(allowed) }))
@@ -112,10 +116,31 @@ const Sidebar = forwardRef(function Sidebar(
       </div>
 
       <div className="nav-section" style={{ marginTop: 'auto' }}>
-        <button className="nav-item w-100 border-0 bg-transparent text-start" onClick={handleLogout}>
-          <i className="fas fa-sign-out-alt" />
-          <span>Log Out</span>
-        </button>
+        {user ? (
+          <button className="nav-item w-100 border-0 bg-transparent text-start" onClick={handleLogout}>
+            <i className="fas fa-sign-out-alt" />
+            <span>Log Out</span>
+          </button>
+        ) : (
+          <>
+            <NavLink
+              to="/login"
+              onClick={onClose}
+              className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
+            >
+              <i className="fas fa-sign-in-alt" />
+              <span>Sign In</span>
+            </NavLink>
+            <NavLink
+              to="/register"
+              onClick={onClose}
+              className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
+            >
+              <i className="fas fa-user-plus" />
+              <span>Register</span>
+            </NavLink>
+          </>
+        )}
       </div>
     </div>
   )

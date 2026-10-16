@@ -33,7 +33,7 @@ import secrets
 
 from flask import Blueprint, jsonify, request
 
-from Backend.Controller.auth_controller import login_required
+from Backend.Controller.auth_controller import login_required, login_optional
 from Backend.Controller import tarot_db
 from Backend.Service.ai import ai, today_key
 from Backend.Service.ai.prompts.tarot import MAX_QUESTION_CHARS
@@ -71,7 +71,7 @@ def _me() -> tuple[str, str | None]:
 
 
 @tarot_bp.route('/deck', methods=['GET'])
-@login_required
+@login_optional
 def get_deck():
     """The whole deck, for laying out the fan of face-down cards."""
     deck = _deck()

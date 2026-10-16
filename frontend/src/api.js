@@ -15,6 +15,13 @@ function failure(message, status, extra = {}) {
   return out
 }
 
+/* A guest who clicks a members-only action — post, like, create, cast —
+   gets 401 LOGIN_REQUIRED from the server. The app wants a sign-up prompt
+   on top of the page, not a toast or a bounce to /login. AuthProvider sets
+   this hook at startup; api.js only calls it, keeps no state. */
+let onLoginRequired = null
+export function setLoginRequiredHandler(fn) { onLoginRequired = fn }
+
 async function request(path, options = {}) {
   let res
   try {
@@ -31,6 +38,9 @@ async function request(path, options = {}) {
   try {
     const body = await parseBody(res)
     if (!res.ok) {
+      if (res.status === 401 && body.code === 'LOGIN_REQUIRED' && onLoginRequired) {
+        onLoginRequired(path, options.method || 'GET')
+      }
       // Backend error: prefer its message, fall back to HTTP status. The rest
       // of the body rides along — an error can carry detail the caller needs
       // (tarot's `retryable`, `error_kind`, `quota`), and dropping it here
@@ -60,7 +70,12 @@ export const api = {
     }
     try {
       const body = await parseBody(res)
-      if (!res.ok) return failure(body.error || `HTTP ${res.status}`, res.status, body)
+      if (!res.ok) {
+        if (res.status === 401 && body.code === 'LOGIN_REQUIRED' && onLoginRequired) {
+          onLoginRequired(path, 'POST')
+        }
+        return failure(body.error || `HTTP ${res.status}`, res.status, body)
+      }
       return body && typeof body === 'object' ? { ok: body.ok !== false, ...body } : { ok: true, data: body }
     } catch {
       return failure(`HTTP ${res.status}`)
