@@ -282,7 +282,7 @@ function TaskEditModal({ task, onClose, onSave, categories }) {
                 </div>
                 <div className="col">
                   <label className="form-label fw-medium">
-                    悬赏金额 <span className="text-muted small">(Bounty $)</span>
+                    悬赏金额
                   </label>
                   <input type="number" className="form-control" min={0} step="0.01"
                     value={form.bounty}
@@ -358,9 +358,6 @@ function TaskCreateForm({ categories, onSubmit, submitting }) {
             <h5 className="card-title mb-3 fw-semibold">
               <i className="fas fa-bullhorn me-2" style={{ color: '#e67e22' }} />发布悬赏
             </h5>
-            <p className="text-muted small mb-4">
-              发布任务并设定悬赏金额，其他小伙伴可以来接单！
-            </p>
 
             <form onSubmit={handleSubmit}>
               {err && <div className="alert alert-danger py-2 small">{err}</div>}

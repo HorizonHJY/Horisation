@@ -222,9 +222,6 @@ export default function Profile() {
             <h6 className="fw-semibold mb-3 text-muted text-uppercase" style={{ fontSize: '.75rem', letterSpacing: '.08em' }}>
               Contact Info
             </h6>
-            <p className="text-muted small mb-2">
-              Friends can request to see your contact info. You must approve each request.
-            </p>
             <form onSubmit={async (e) => {
               e.preventDefault()
               setSavingContact(true)
