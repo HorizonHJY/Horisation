@@ -457,7 +457,6 @@ export default function BillSplit() {
             <h2 className="fw-bold mb-0" style={{ fontSize: '1.6rem' }}>
               <i className="fas fa-receipt me-2" style={{ color: '#3b82f6' }} />Bill Split
             </h2>
-            <p className="text-muted small mb-0">智能分账，最少转账次数结清</p>
           </div>
           <div className="d-flex gap-2">
             <button className="btn btn-outline-secondary btn-sm" onClick={() => setJoining(j => !j)}>

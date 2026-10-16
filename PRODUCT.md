@@ -101,6 +101,17 @@ still invitation-only, but there is nothing secret in the public shelves, and a 
 the market before signing up is a warmer joiner than one stopped at a login form. Guests see the
 public pages only; `Tarot` and `BaZi` show the deck and the chart form but withhold the reading.
 
+Confirmed 2026-10-16: **No explanatory small print. The page should read clean.** The owner's
+standing rule: interfaces do not carry little grey captions that explain how the screen works or
+restate what the labels already say (e.g. "this trip's costs count as one trip", "type any name, or
+pick from your friends"). A control that needs a sentence under it is the wrong control — rename it,
+simplify it, or drop it. Keep only text that carries new information the user cannot infer: empty
+states, validation errors, counts and totals, and one-time friction notes where a wrong move is
+expensive. Rationale: the circle comes to be together, not to read a manual; clutter on every screen
+reads as noise on a phone. Cleaned in this round: the guest line under "Continue as guest" on
+`/login`, the Market guest banner's Chinese sentence (now "Sign in to buy or sell"), the trip-scope
+footnote, the participant and share-ID hints, and the Bill Split subtitle.
+
 ## Brand Commitments
 
 - **Name in the interface: Arch Bay.** Settled 2026-09-07. The name has flipped twice — the

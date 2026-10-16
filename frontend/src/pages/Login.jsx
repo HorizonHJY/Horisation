@@ -173,9 +173,6 @@ export default function Login() {
               >
                 Continue as guest
               </button>
-              <p className="text-center mt-2 mb-0" style={{ fontSize: '.75rem', color: '#888' }}>
-                先看看 — 发帖、聊天、算卦都要注册
-              </p>
             </div>
           </div>
 

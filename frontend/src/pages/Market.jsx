@@ -1857,11 +1857,7 @@ export default function Market() {
           }}
           role="status"
         >
-          <span>
-            <i className="fas fa-info-circle me-2" style={{ color: '#6b9cdb' }} aria-hidden="true" />
-            浏览模式 — 要联系卖家或发布商品请
-            <Link to="/register" style={{ color: '#6b9cdb', fontWeight: 600, marginLeft: 4 }}>注册</Link>
-          </span>
+          <span style={{ fontWeight: 500 }}>Sign in to buy or sell</span>
           <Link to="/login" className="btn btn-outline-primary btn-sm" style={{ padding: '.2rem .75rem' }}>
             Sign in
           </Link>

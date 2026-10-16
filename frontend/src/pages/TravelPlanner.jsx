@@ -508,9 +508,6 @@ function PlanView({ plan: initPlan, onBack, showToast }) {
           </span>
         )}
 
-        <span className="text-muted small ms-auto d-none d-sm-inline">
-          分享此 ID 可与好友协作编辑
-        </span>
       </div>
 
       {/* Plan / Expenses switch. The day tabs below belong to Plan only. */}
@@ -795,7 +792,6 @@ function ExpenseTab({ plan, showToast }) {
     <div>
       <div className="d-flex align-items-center flex-wrap gap-2 mb-2">
         <span className="fw-semibold" style={{ fontSize: '.9rem' }}>参与人</span>
-        <span className="text-muted small d-none d-sm-inline">名字随便写，或用好友列表选</span>
       </div>
       <ParticipantPicker
         planId={plan.id}
@@ -915,9 +911,6 @@ function ExpenseTab({ plan, showToast }) {
         </div>
       )}
 
-      <p className="text-muted small mt-3 mb-0">
-        <i className="fas fa-circle-info me-1" />此行程的费用按整趟一起算。
-      </p>
     </div>
   )
 }
@@ -1017,10 +1010,6 @@ function PlanHome({ onOpenPlan, showToast }) {
                 {loadingPlan ? <span className="spinner-border spinner-border-sm" /> : <i className="fas fa-arrow-right" />}
               </button>
             </form>
-            <p className="text-muted small mt-2 mb-0">
-              <i className="fas fa-info-circle me-1" />
-              输入他人分享的行程 ID，即可查看并共同编辑
-            </p>
           </div>
         </div>
       </div>
