@@ -356,6 +356,8 @@ function PlanView({ plan: initPlan, onBack, showToast }) {
   const [nameInput, setNameInput]     = useState(initPlan.name)
   const [saving, setSaving]           = useState(false)
   const [reordering, setReordering]   = useState(false)
+  // 'plan' = the day-by-day itinerary, 'expenses' = the trip's shared pot.
+  const [view, setView]               = useState('plan')
 
   // Sort: display_order first (set after a drag), then time_start for ties
   const dayEntries = plan.entries
@@ -511,6 +513,25 @@ function PlanView({ plan: initPlan, onBack, showToast }) {
         </span>
       </div>
 
+      {/* Plan / Expenses switch. The day tabs below belong to Plan only. */}
+      <ul className="nav nav-pills nav-fill mb-3" style={{ maxWidth: 320 }}>
+        {[{ k: 'plan', label: '行程', icon: 'fa-route' }, { k: 'expenses', label: '费用', icon: 'fa-receipt' }].map(t => (
+          <li className="nav-item" key={t.k}>
+            <button
+              className={`nav-link py-1 ${view === t.k ? 'active' : ''}`}
+              style={{ fontSize: '.85rem' }}
+              onClick={() => setView(t.k)}
+            >
+              <i className={`fas ${t.icon} me-1`} />{t.label}
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      {view === 'expenses' ? (
+        <ExpenseTab plan={plan} showToast={showToast} />
+      ) : (
+      <>
       {/* Day tabs */}
       <div className="d-flex align-items-center gap-1 flex-wrap mb-0">
         {Array.from({ length: plan.num_days }, (_, i) => i + 1).map(d => {
@@ -598,6 +619,305 @@ function PlanView({ plan: initPlan, onBack, showToast }) {
           showToast={showToast}
         />
       )}
+      </>
+      )}
+    </div>
+  )
+}
+
+// ── Plan Expenses (the plan's own bill) ──────────────────────────
+// Same math the Bill Split page uses — one settlement algorithm, so a trip's
+// numbers and a standalone bill's numbers cannot disagree.
+function calcSettlement(participants, expenses) {
+  const actualSet = new Set()
+  expenses.forEach(({ paidBy, splitAmong }) => {
+    if (paidBy) actualSet.add(paidBy)
+    splitAmong.forEach(p => actualSet.add(p))
+  })
+  const active = participants.filter(p => actualSet.has(p))
+  const net = {}
+  active.forEach(p => (net[p] = 0))
+  expenses.forEach(({ paidBy, amount, splitAmong }) => {
+    const amt = parseFloat(amount) || 0
+    const among = splitAmong.filter(p => active.includes(p))
+    if (!among.length) return
+    const share = amt / among.length
+    net[paidBy] = (net[paidBy] || 0) + amt
+    among.forEach(p => { net[p] = (net[p] || 0) - share })
+  })
+  const creditors = [], debtors = []
+  Object.entries(net).forEach(([name, bal]) => {
+    const b = Math.round(bal * 100) / 100
+    if (b > 0.01)  creditors.push({ name, bal: b })
+    if (b < -0.01) debtors.push({ name, bal: b })
+  })
+  creditors.sort((a, b) => b.bal - a.bal)
+  debtors.sort((a, b) => a.bal - b.bal)
+  const txns = []
+  let ci = 0, di = 0
+  while (ci < creditors.length && di < debtors.length) {
+    const c = creditors[ci], d = debtors[di]
+    const transfer = Math.min(c.bal, -d.bal)
+    txns.push({ from: d.name, to: c.name, amount: Math.round(transfer * 100) / 100 })
+    c.bal -= transfer; d.bal += transfer
+    if (Math.abs(c.bal) < 0.01) ci++
+    if (Math.abs(d.bal) < 0.01) di++
+  }
+  return txns
+}
+
+/* Participant picker: a text input backed by a friend datalist. Typing a name
+   that is not on the list still works — Horizon's call, because a trip is not
+   only friends (妈妈, a colleague, a plus-one). */
+function ParticipantPicker({ planId, participants, friends, onRefresh, showToast }) {
+  const [name, setName] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  async function add() {
+    const n = name.trim()
+    if (!n) return
+    if (participants.includes(n)) { showToast('这个名字已在列表中', 'warning'); return }
+    setBusy(true)
+    const d = await api.post(`/api/travel/plans/${planId}/bill/participants`, { name: n })
+    setBusy(false)
+    if (d.ok) { setName(''); onRefresh(d.bill) }
+    else showToast(d.error || '添加失败', 'danger')
+  }
+
+  async function remove(p) {
+    const d = await api.delete(`/api/travel/plans/${planId}/bill/participants/${encodeURIComponent(p)}`)
+    if (d.ok) onRefresh(d.bill)
+    else showToast(d.error || '删除失败', 'danger')
+  }
+
+  return (
+    <div className="d-flex flex-wrap align-items-center gap-2 mb-3">
+      {participants.map(p => (
+        <span key={p} className="badge d-inline-flex align-items-center gap-1"
+          style={{ background: '#eef2f7', color: '#334155', fontWeight: 500, fontSize: '.8rem', padding: '.4em .6em' }}>
+          {p}
+          <button className="btn btn-link btn-sm p-0 text-danger" style={{ lineHeight: 1 }}
+            onClick={() => remove(p)} title={`移除 ${p}`}>
+            <i className="fas fa-times" style={{ fontSize: '.6rem' }} />
+          </button>
+        </span>
+      ))}
+      <div className="input-group input-group-sm" style={{ maxWidth: 220 }}>
+        <input
+          className="form-control" list={`plan-friends-${planId}`}
+          placeholder="输入名字，或从好友里选"
+          value={name}
+          onChange={e => setName(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); add() } }}
+        />
+        <datalist id={`plan-friends-${planId}`}>
+          {friends.filter(f => !participants.includes(f.display_name) && !participants.includes(f.username))
+            .map(f => <option key={f.username} value={f.display_name || f.username} />)}
+        </datalist>
+        <button className="btn btn-outline-primary" onClick={add} disabled={busy}>
+          <i className="fas fa-plus" />
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function ExpenseTab({ plan, showToast }) {
+  const [bill, setBill]       = useState(null)
+  const [friends, setFriends] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [adding, setAdding]   = useState(false)
+  const [form, setForm]       = useState({ desc: '', amount: '', paidBy: '', splitAmong: [] })
+  const [saving, setSaving]   = useState(false)
+
+  useEffect(() => {
+    let alive = true
+    api.get(`/api/travel/plans/${plan.id}/bill`).then(d => {
+      if (!alive) return
+      if (d.ok) {
+        setBill(d.bill)
+        setForm(f => ({ ...f, paidBy: d.bill.participants[0] || '', splitAmong: [...d.bill.participants] }))
+      } else showToast(d.error || '费用加载失败', 'danger')
+      setLoading(false)
+    })
+    api.get('/api/travel/friends').then(d => { if (alive && d.ok) setFriends(d.friends) })
+    return () => { alive = false }
+  }, [plan.id])
+
+  function applyBill(b) {
+    setBill(b)
+    setForm(f => ({
+      ...f,
+      paidBy: b.participants.includes(f.paidBy) ? f.paidBy : (b.participants[0] || ''),
+      splitAmong: f.splitAmong.filter(p => b.participants.includes(p)),
+    }))
+  }
+
+  function toggleSplit(p) {
+    setForm(f => ({
+      ...f,
+      splitAmong: f.splitAmong.includes(p) ? f.splitAmong.filter(x => x !== p) : [...f.splitAmong, p],
+    }))
+  }
+
+  async function submit() {
+    if (!form.desc.trim()) { showToast('请填写描述', 'danger'); return }
+    const amt = parseFloat(form.amount)
+    if (!amt || amt <= 0) { showToast('请填写有效金额', 'danger'); return }
+    if (!form.paidBy) { showToast('请选择付款人', 'danger'); return }
+    if (!form.splitAmong.length) { showToast('请至少选择一位分摊人', 'danger'); return }
+    setSaving(true)
+    const d = await api.post(`/api/travel/plans/${plan.id}/bill/expenses`, {
+      desc: form.desc.trim(), amount: amt, paidBy: form.paidBy, splitAmong: form.splitAmong,
+    })
+    setSaving(false)
+    if (d.ok) {
+      applyBill(d.bill)
+      setForm(f => ({ ...f, desc: '', amount: '' }))
+      setAdding(false)
+      showToast('已记录', 'success')
+    } else showToast(d.error || '添加失败', 'danger')
+  }
+
+  async function deleteExpense(id) {
+    const d = await api.delete(`/api/travel/plans/${plan.id}/bill/expenses/${id}`)
+    if (d.ok) applyBill(d.bill)
+    else showToast(d.error || '删除失败', 'danger')
+  }
+
+  if (loading) return <p className="text-muted small">加载中…</p>
+  if (!bill) return <p className="text-muted small">费用记录暂不可用。</p>
+
+  const total = bill.expenses.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0)
+  const txns  = calcSettlement(bill.participants, bill.expenses)
+
+  return (
+    <div>
+      <div className="d-flex align-items-center flex-wrap gap-2 mb-2">
+        <span className="fw-semibold" style={{ fontSize: '.9rem' }}>参与人</span>
+        <span className="text-muted small d-none d-sm-inline">名字随便写，或用好友列表选</span>
+      </div>
+      <ParticipantPicker
+        planId={plan.id}
+        participants={bill.participants}
+        friends={friends}
+        onRefresh={applyBill}
+        showToast={showToast}
+      />
+
+      <div className="d-flex justify-content-between align-items-center mb-2">
+        <span className="text-muted small">
+          共 {bill.expenses.length} 笔 · 总计 <strong style={{ color: '#1a1a1a' }}>${total.toFixed(2)}</strong>
+        </span>
+        {bill.participants.length >= 2 && !adding && (
+          <button className="btn btn-sm btn-primary" onClick={() => setAdding(true)}>
+            <i className="fas fa-plus me-1" />记一笔
+          </button>
+        )}
+      </div>
+
+      {bill.participants.length < 2 && (
+        <div className="alert alert-warning py-2 small mb-3">先添加至少 2 位参与人，才能记账。</div>
+      )}
+
+      {adding && (
+        <div className="card border-0 shadow-sm mb-3" style={{ borderRadius: 12 }}>
+          <div className="card-body">
+            <div className="row g-2 mb-2">
+              <div className="col-7">
+                <label className="form-label small fw-semibold mb-1">描述</label>
+                <input className="form-control form-control-sm" placeholder="如：晚饭、门票…"
+                  value={form.desc} onChange={e => setForm(f => ({ ...f, desc: e.target.value }))} />
+              </div>
+              <div className="col-5">
+                <label className="form-label small fw-semibold mb-1">金额 ($)</label>
+                <input className="form-control form-control-sm" type="number" min="0" step="0.01" placeholder="0.00"
+                  value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} />
+              </div>
+            </div>
+            <div className="mb-2">
+              <label className="form-label small fw-semibold mb-1">付款人</label>
+              <select className="form-select form-select-sm"
+                value={form.paidBy} onChange={e => setForm(f => ({ ...f, paidBy: e.target.value }))}>
+                {bill.participants.map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </div>
+            <div className="mb-3">
+              <div className="d-flex align-items-center gap-2 mb-1">
+                <label className="form-label small fw-semibold mb-0">分摊人</label>
+                <button className="btn btn-link btn-sm p-0 text-decoration-none" style={{ fontSize: '.75rem' }}
+                  onClick={() => setForm(f => ({ ...f, splitAmong: [...bill.participants] }))}>全选</button>
+                <button className="btn btn-link btn-sm p-0 text-decoration-none" style={{ fontSize: '.75rem' }}
+                  onClick={() => setForm(f => ({ ...f, splitAmong: [] }))}>清空</button>
+              </div>
+              <div className="d-flex flex-wrap gap-2">
+                {bill.participants.map(p => (
+                  <label key={p} className="d-flex align-items-center gap-1 small" style={{ cursor: 'pointer' }}>
+                    <input type="checkbox" checked={form.splitAmong.includes(p)} onChange={() => toggleSplit(p)} />
+                    {p}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="d-flex gap-2">
+              <button className="btn btn-primary btn-sm" onClick={submit} disabled={saving}>
+                {saving ? <span className="spinner-border spinner-border-sm me-1" /> : <i className="fas fa-check me-1" />}确认添加
+              </button>
+              <button className="btn btn-outline-secondary btn-sm" onClick={() => setAdding(false)}>取消</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {bill.expenses.length === 0 ? (
+        <p className="text-muted small">还没有费用记录。</p>
+      ) : (
+        <div className="d-flex flex-column gap-2">
+          {bill.expenses.map(e => {
+            const share = (parseFloat(e.amount) / (e.splitAmong.length || 1)).toFixed(2)
+            return (
+              <div key={e.id} className="card border-0 shadow-sm" style={{ borderRadius: 10 }}>
+                <div className="card-body py-2 px-3 d-flex align-items-start gap-3">
+                  <div style={{ flex: 1 }}>
+                    <strong style={{ fontSize: '.9rem' }}>{e.desc}</strong>
+                    <div className="text-muted small mt-1">
+                      <span className="me-2"><i className="fas fa-user me-1" />{e.paidBy} 付款</span>
+                      <span><i className="fas fa-users me-1" />{e.splitAmong.join('、')} 分摊（每人 ${share}）</span>
+                    </div>
+                  </div>
+                  <div className="d-flex flex-column align-items-end">
+                    <strong style={{ fontSize: '1rem', color: '#3b82f6' }}>${parseFloat(e.amount).toFixed(2)}</strong>
+                    <button className="btn btn-link btn-sm p-0 text-danger" style={{ fontSize: '.75rem' }}
+                      onClick={() => deleteExpense(e.id)}>
+                      <i className="fas fa-trash" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {txns.length > 0 && (
+        <div className="mt-4">
+          <div className="fw-semibold mb-2" style={{ fontSize: '.9rem' }}>结算方案</div>
+          <div className="d-flex flex-column gap-1">
+            {txns.map((t, i) => (
+              <div key={i} className="d-flex align-items-center gap-2 small">
+                <span className="badge" style={{ background: '#fee2e2', color: '#b91c1c' }}>{t.from}</span>
+                <i className="fas fa-arrow-right text-muted" style={{ fontSize: '.7rem' }} />
+                <span className="badge" style={{ background: '#dcfce7', color: '#15803d' }}>{t.to}</span>
+                <strong className="ms-auto">${t.amount.toFixed(2)}</strong>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <p className="text-muted small mt-3 mb-0">
+        <i className="fas fa-circle-info me-1" />此行程的费用按整趟一起算。
+      </p>
     </div>
   )
 }

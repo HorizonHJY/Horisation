@@ -1,8 +1,9 @@
-import React, { forwardRef } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import React, { forwardRef, useEffect, useState } from 'react'
+import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth, useNotifications } from '../App'
 import { canAccess } from '../features'
 import { NAV_SECTIONS } from '../nav'
+import { readRecent, recordVisit, labelFor } from '../recent'
 
 export function ArchMark({ className, style }) {
   return (
@@ -27,8 +28,19 @@ const Sidebar = forwardRef(function Sidebar(
   // Messages you have not read plus people waiting on an answer from you.
   const { badgeTotal } = useNotifications()
   const navigate = useNavigate()
+  const location = useLocation()
 
   const isAdmin   = user?.role_info?.permissions?.includes('admin')
+
+  /* Recently visited — recorded on every route change, read on render. The
+     event lets a mounted sidebar refresh when a poll-less navigation lands. */
+  const [recent, setRecent] = useState(() => readRecent())
+  useEffect(() => { recordVisit(location.pathname) }, [location.pathname])
+  useEffect(() => {
+    const sync = () => setRecent(readRecent())
+    window.addEventListener('archbay:recent', sync)
+    return () => window.removeEventListener('archbay:recent', sync)
+  }, [])
 
   /* Each item is gated on its own flag. `canAccess` reads the same FEATURES
      map the routes do, so the sidebar and FeatureRoute cannot disagree. A
@@ -38,6 +50,12 @@ const Sidebar = forwardRef(function Sidebar(
     if (item.feature && !canAccess(user?.role, item.feature)) return false
     return true
   }
+
+  // A remembered path only shows if the *current* viewer may open it. The
+  // recent list is nav-shaped, so reuse the same gate rather than trust it
+  // (a guest who signs out must not keep a Memo shortcut).
+  const navItemFor = (path) =>
+    NAV_SECTIONS.flatMap(s => s.items).find(i => i.to === path)
 
   const sections = NAV_SECTIONS
     .map(s => ({ ...s, items: s.items.filter(allowed) }))
@@ -111,6 +129,26 @@ const Sidebar = forwardRef(function Sidebar(
               <i className="fas fa-cogs" />
               <span>System</span>
             </NavLink>
+          </div>
+        )}
+
+        {recent.filter(p => { const it = navItemFor(p); return it && allowed(it) }).length > 0 && (
+          <div className="nav-section">
+            <div className="nav-title">Recent</div>
+            {recent.filter(p => { const it = navItemFor(p); return it && allowed(it) }).map(p => {
+              const label = labelFor(p)
+              return (
+                <NavLink
+                  key={p}
+                  to={p}
+                  onClick={onClose}
+                  className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
+                >
+                  <i className="fas fa-clock-rotate-left" aria-hidden="true" />
+                  <span>{label}</span>
+                </NavLink>
+              )
+            })}
           </div>
         )}
       </div>

@@ -31,6 +31,15 @@ def _gen_plan_id():
     return ''.join(random.choices(_ID_CHARS, k=6))
 
 
+def new_plan_id(session):
+    """A free plan id. Exposed so the same id can name the plan's bill."""
+    for _ in range(20):
+        pid = _gen_plan_id()
+        if not session.get(TravelPlan, pid):
+            return pid
+    return _gen_plan_id()
+
+
 # ── Models ────────────────────────────────────────────────────────────────────
 
 class TravelPlan(Base):
@@ -40,6 +49,10 @@ class TravelPlan(Base):
     created_by = Column(String(64),  nullable=False)
     num_days   = Column(Integer,     nullable=False, default=1)
     created_at = Column(DateTime,    default=datetime.utcnow)
+    # A plan carries its own bill (see travel_bill.py). Stored here rather than
+    # looked up by convention so an old plan without one reads as None, not as
+    # a missing bill to chase.
+    bill_id    = Column(String(10), nullable=True)
 
 
 class TravelEntry(Base):
@@ -60,6 +73,20 @@ class TravelEntry(Base):
 def init_travel_db():
     """Create tables if they don't exist. Called once on app startup."""
     Base.metadata.create_all(engine)
+    _migrate_columns()
+
+
+def _migrate_columns():
+    """Additive, idempotent column migrations — the pattern market_db uses.
+
+    `create_all` only creates whole tables, so a column added after a table
+    already exists has to be ALTERed in here. Safe to run on every boot.
+    """
+    from sqlalchemy import text as _text
+    with engine.begin() as conn:
+        cols = {row[1] for row in conn.execute(_text('PRAGMA table_info(travel_plans)'))}
+        if 'bill_id' not in cols:
+            conn.execute(_text('ALTER TABLE travel_plans ADD COLUMN bill_id VARCHAR(10)'))
 
 
 # ── Serialisers ───────────────────────────────────────────────────────────────
@@ -80,13 +107,14 @@ def _entry_dict(e):
     }
 
 
-def _plan_dict(p, entries=None):
+def _plan_dict(p, entries=None, bill_id=None):
     return {
         'id':         p.id,
         'name':       p.name,
         'created_by': p.created_by,
         'num_days':   p.num_days,
         'created_at': p.created_at.isoformat() if p.created_at else None,
+        'bill_id':    bill_id if bill_id is not None else getattr(p, 'bill_id', None),
         'entries':    [_entry_dict(e) for e in (entries or [])],
     }
 
@@ -94,16 +122,38 @@ def _plan_dict(p, entries=None):
 # ── Plan helpers ──────────────────────────────────────────────────────────────
 
 def create_plan(name, username):
+    """Create a plan and the bill that will hold its shared expenses.
+
+    Every plan gets a bill up front (id equal to the plan id). Giving them the
+    same code means one string opens both the itinerary and the pot, and the
+    Expenses tab is never "not set up yet".
+    """
+    from Backend.Controller import bill_db
     with Session() as s:
-        for _ in range(10):
-            pid = _gen_plan_id()
-            if not s.get(TravelPlan, pid):
-                break
-        plan = TravelPlan(id=pid, name=name, created_by=username, num_days=1)
+        pid = new_plan_id(s)
+        plan = TravelPlan(id=pid, name=name, created_by=username, num_days=1, bill_id=pid)
         s.add(plan)
         s.commit()
         s.refresh(plan)
-        return _plan_dict(plan)
+    # The bill lives in bill_db's table but on the same SQLite file.
+    bill_db.create_bill_for_plan(pid, name, username)
+    return get_plan(pid)
+
+
+def set_plan_bill_id(plan_id, bill_id):
+    with Session() as s:
+        plan = s.get(TravelPlan, plan_id.upper())
+        if not plan:
+            return False
+        plan.bill_id = bill_id
+        s.commit()
+        return True
+
+
+def bill_id_for(plan_id):
+    with Session() as s:
+        plan = s.get(TravelPlan, plan_id.upper())
+        return plan.bill_id if plan else None
 
 
 def get_plan(plan_id):
@@ -117,7 +167,7 @@ def get_plan(plan_id):
              .order_by(TravelEntry.day_number, TravelEntry.display_order, TravelEntry.time_start)
              .all()
         )
-        return _plan_dict(plan, entries)
+        return _plan_dict(plan, entries, bill_id=plan.bill_id)
 
 
 def get_my_plans(username):
@@ -145,14 +195,27 @@ def update_plan(plan_id, name=None, num_days=None):
 
 
 def delete_plan(plan_id, username):
+    """Remove the itinerary and the bill that went with it.
+
+    Horizon's call (2026-10-16): the two are one thing, so deleting the plan
+    deletes the expenses too. The plan owner's word is final here — a
+    collaborator editing entries still cannot delete the whole trip.
+    """
+    from Backend.Controller import bill_db
     with Session() as s:
         plan = s.get(TravelPlan, plan_id.upper())
         if not plan or plan.created_by != username:
             return False
+        bill_id = plan.bill_id
         s.query(TravelEntry).filter_by(plan_id=plan_id.upper()).delete()
         s.delete(plan)
         s.commit()
-        return True
+    if bill_id:
+        # delete_bill is owner-scoped; the plan creator made the bill, so the
+        # same username passes. Force through anyway — the plan is gone and an
+        # orphan bill would be unreachable.
+        bill_db.delete_bill_force(bill_id)
+    return True
 
 
 # ── Entry helpers ─────────────────────────────────────────────────────────────

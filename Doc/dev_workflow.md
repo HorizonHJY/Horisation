@@ -119,6 +119,9 @@ Once the change is approved:
    back to 5000).
 2. **Stage only the files this change touches.** Never commit the workspace
    litter (`package.json`, root `node_modules/`, `*.bak`, `business-card.html`).
+   Since 2026-10-16 those paths are gitignored and the movable ones are parked
+   in `.trash/` (itself ignored) — the root `node_modules/` + `package*.json`
+   are a dev-only playwright install, not part of the app.
 3. **`npm run build`** in `frontend/` — must pass.
 4. **Write the commit message as *why*, not *what*.**
 5. **`git push origin main`** — this triggers the GitHub Actions deploy to EC2

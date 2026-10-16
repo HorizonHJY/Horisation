@@ -34,3 +34,11 @@ _data/market.db-wal
 # Impeccable design skill — config and critique snapshots are shared, the
 # per-machine hook cache is not.
 .impeccable/hook.cache.json
+
+# Local junk parked for review, never committed
+.trash/
+
+# Root-level node workspace (playwright dev-only), not part of the app
+/node_modules/
+/package.json
+/package-lock.json

@@ -104,6 +104,25 @@ def create_bill(name, username):
         return _bill_dict(bill)
 
 
+def create_bill_for_plan(plan_id, name, username):
+    """The bill behind a travel plan's Expenses tab.
+
+    Same id as the plan, so the id already in the page's URL opens both. The
+    creator is a participant from the start (Horizon's call) — they are on the
+    trip by definition, and an empty participants list would block the first
+    expense. Idempotent: if the bill is already there, only the founder is
+    ensured as a participant.
+    """
+    with Session() as s:
+        bill = s.get(Bill, plan_id.upper())
+        if not bill:
+            bill = Bill(id=plan_id.upper(), name=f'{name} · 费用', created_by=username)
+            s.add(bill)
+            s.commit()
+    add_participant(plan_id, username)
+    return get_bill(plan_id)
+
+
 def get_bill(bill_id):
     with Session() as s:
         bill = s.get(Bill, bill_id.upper())
@@ -149,6 +168,24 @@ def delete_bill(bill_id, username):
     with Session() as s:
         bill = s.get(Bill, bill_id.upper())
         if not bill or bill.created_by != username:
+            return False
+        s.query(BillParticipant).filter_by(bill_id=bill_id.upper()).delete()
+        s.query(BillExpense).filter_by(bill_id=bill_id.upper()).delete()
+        s.delete(bill)
+        s.commit()
+        return True
+
+
+def delete_bill_force(bill_id):
+    """Delete a bill regardless of who owns it.
+
+    Only for the travel-plan path, where the plan's own delete has already run
+    and an orphaned bill would be unreachable. Never call this from a route
+    that takes a bare bill id from the client.
+    """
+    with Session() as s:
+        bill = s.get(Bill, bill_id.upper())
+        if not bill:
             return False
         s.query(BillParticipant).filter_by(bill_id=bill_id.upper()).delete()
         s.query(BillExpense).filter_by(bill_id=bill_id.upper()).delete()
