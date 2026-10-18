@@ -429,6 +429,12 @@ POST /api/tarot/readings/<id>/rating   body: { rating: 1-5, note?: ≤ 100 字 }
 
 - 回答范围（2026-10-12）：`Backend/Service/ai/scope.py` 读 `prompts/scope.md`。`screen()` 在调用前按拦截词 / 危机词拦下问题（零 token）；`prompt_block()` 把只回答 / 不回答 / 拒答话术拼进塔罗和八字追问的系统提示词（塔罗是 JSON 输出，改为「忽略问题、按无问题解读、summary 首句写拒答话术」）。
 
+## 13.6 第三个 feature：八字合盘（2026-10-17）
+
+- 注册：`'bazi_compat'`（`bazi-compat-v1`,JSON,120 秒,3500 token）和 `'bazi_compat_ask'`（追问,`bazi-compat-ask-v1`,纯文本,60 秒,800 token）,都在 `prompts/bazi_compat.py`。配额同八字:两者都不设个人上限,只留全站日上限:合盘解读 60、追问 300（比八字低,因为单次 payload 更大 ≈ 两张盘 + 关系）。
+- 两张盘仍然是算好的,模型不碰:`Backend/Service/bazi/compat.py` 算出日柱合冲（天干五合、相克；地支六合、六冲、相害、相刑）、生肖（年支六合三合冲害）、五行互补（差 ≥ 1.0 算补益,双向都算）、十神（以本命日主为我,对方四柱天干对我的十神;日柱对日柱是夫妻宫的那条 `spouse_god`）、粗分 0-100（天合地合 +25、天克地冲 -20、生肖合 +5、冲 -8、每条五行补益 +3,只做显示）。prompt 复用八字的 `describe()` 把两张盘和算好的关系一起喂,JSON 输出 `verdict / level（上/中上/中/中下/下）/ chemistry / day_pillar / complement / ten_god / zodiac / strengths / cautions / advice / verify / summary`。
+- 库 `bazi_compat_readings` + `bazi_compat_followups`,带 `claim()` 原子锁防双击,结构与 `bazi_db` 完全一致;删除走 `deleted_at` 隐藏。Controller `/api/bazi/compat*` 挂在 `app.py` 的 blueprint 注册段。前端 `BaziCompat.jsx` 独立子组件,`Bazi.jsx` 顶部 Tab 切换。
+
 ## 14. 实现记录（P0，2026-09-20）
 
 按 §2–§12 落地，出入只有这几处，都是实现时才看见的：

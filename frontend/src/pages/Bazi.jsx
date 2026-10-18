@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import HandLoader from '../components/HandLoader'
+import BaziCompat from './BaziCompat'
 
 /**
  * 四柱八字 — cast a chart, then have it read.
@@ -302,6 +303,7 @@ function AskBox({ item }) {
   const [q, setQ] = useState('')
   const [err, setErr] = useState('')
   const timers = useRef({})
+  const sending = useRef(false)
 
   useEffect(() => { setList(item.followups || []) }, [item.id]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => Object.values(timers.current).forEach(clearTimeout), [])
@@ -326,13 +328,19 @@ function AskBox({ item }) {
   const send = async (e) => {
     e.preventDefault()
     const question = q.trim()
-    if (!question || busy) return
+    // ref blocks the double-click gap before `busy` state catches up.
+    if (!question || sending.current || busy) return
+    sending.current = true
     setErr('')
-    const d = await api.post(`/api/bazi/readings/${item.id}/ask`, { question })
-    if (!d.ok) { setErr(d.error); return }
-    setQ('')
-    setList(prev => [...prev, d.followup])
-    watch(d.followup.id)
+    try {
+      const d = await api.post(`/api/bazi/readings/${item.id}/ask`, { question })
+      if (!d.ok) { setErr(d.error); return }
+      setQ('')
+      setList(prev => [...prev, d.followup])
+      watch(d.followup.id)
+    } finally {
+      sending.current = false
+    }
   }
 
   return (
@@ -394,6 +402,27 @@ function History({ items, currentId, onOpen, onHide }) {
 
 // ── Page ───────────────────────────────────────────────────────────
 export default function Bazi() {
+  const [tab, setTab] = useState('cast')
+  return (
+    <div className="bazi">
+      <div className="bazi__inner">
+        <header className="bazi__head">
+          <h1 className="bazi__title">八字<span>BaZi</span></h1>
+          <p className="bazi__sub">四柱排盘 · 真太阳时 · 子平法解读</p>
+        </header>
+        <div className="bz-tabs" role="tablist">
+          <button type="button" role="tab" aria-selected={tab === 'cast'}
+            className={`bz-tab${tab === 'cast' ? ' is-on' : ''}`} onClick={() => setTab('cast')}>算盘</button>
+          <button type="button" role="tab" aria-selected={tab === 'compat'}
+            className={`bz-tab${tab === 'compat' ? ' is-on' : ''}`} onClick={() => setTab('compat')}>合盘</button>
+        </div>
+        {tab === 'cast' ? <BaziCast /> : <BaziCompat />}
+      </div>
+    </div>
+  )
+}
+
+function BaziCast() {
   const [cities, setCities] = useState([])
   const [item, setItem] = useState(null)        // { id, chart, state, reading, error }
   const [loading, setLoading] = useState(true)
@@ -405,6 +434,7 @@ export default function Bazi() {
   const [showHistory, setShowHistory] = useState(false)
   const pollRef = useRef(null)
   const pollStart = useRef(0)
+  const reading = useRef(false)
 
   useEffect(() => {
     Promise.all([api.get('/api/bazi/cities'), api.get('/api/bazi/latest')]).then(([c, l]) => {
@@ -467,11 +497,18 @@ export default function Bazi() {
   }
 
   const read = async () => {
+    // Blocks the double-click gap before `item.state` flips to 'pending'.
+    if (reading.current) return
+    reading.current = true
     setError('')
-    const d = await api.post('/api/bazi/reading', { reading_id: item.id })
-    if (!d.ok) { setError(d.error); return }
-    setItem(d.item)
-    if (d.item.state === 'pending') { pollStart.current = Date.now(); poll(item.id) }
+    try {
+      const d = await api.post('/api/bazi/reading', { reading_id: item.id })
+      if (!d.ok) { setError(d.error); return }
+      setItem(d.item)
+      if (d.item.state === 'pending') { pollStart.current = Date.now(); poll(item.id) }
+    } finally {
+      reading.current = false
+    }
   }
 
   const forget = async () => {
@@ -480,71 +517,64 @@ export default function Bazi() {
     if (d.ok) { stopPoll(); setItem(null); setFormInit(null); setHistory([]) }
   }
 
-  if (loading) return <div className="bazi"><div className="bazi__inner text-center py-5"><HandLoader /></div></div>
+  if (loading) return <div className="text-center py-5"><HandLoader /></div>
 
   const showForm = !item || editing
   const err = item?.state === 'error' ? item.error : null
 
   return (
-    <div className="bazi">
-      <div className="bazi__inner">
-        <header className="bazi__head">
-          <h1 className="bazi__title">八字<span>BaZi</span></h1>
-          <p className="bazi__sub">四柱排盘 · 真太阳时 · 子平法解读</p>
-        </header>
+    <>
+      {error && <div className="bz-alert" role="alert">{error}</div>}
 
-        {error && <div className="bz-alert" role="alert">{error}</div>}
-
-        <div className="bz-recast">
-          <button type="button" className="bz-btn bz-btn--quiet" onClick={toggleHistory} aria-expanded={showHistory}>
-            {showHistory ? '收起历史' : '历史命盘'}
-          </button>
-          {!showForm && (
-            <button type="button" className="bz-btn bz-btn--quiet" onClick={() => setEditing(true)}>新排一盘</button>
-          )}
-          {editing && item && (
-            <button type="button" className="bz-btn bz-btn--quiet" onClick={() => setEditing(false)}>回到命盘</button>
-          )}
-        </div>
-        {showHistory && (
-          <section className="bz-histbox" aria-label="历史命盘">
-            {history ? <History items={history} currentId={item?.id} onOpen={open} onHide={hide} /> : <HandLoader />}
-          </section>
+      <div className="bz-recast">
+        <button type="button" className="bz-btn bz-btn--quiet" onClick={toggleHistory} aria-expanded={showHistory}>
+          {showHistory ? '收起历史' : '历史命盘'}
+        </button>
+        {!showForm && (
+          <button type="button" className="bz-btn bz-btn--quiet" onClick={() => setEditing(true)}>新排一盘</button>
         )}
-
-        {showForm && <CastForm cities={cities} initial={formInit} onCast={cast} busy={casting} />}
-
-        {item && !editing && (
-          <>
-            <Chart chart={item.chart} />
-
-            {item.state === 'none' && (
-              <div className="bz-ask">
-                <button type="button" className="bz-btn" onClick={read}>请先生解读</button>
-                <p className="bz-fine">命盘（不含姓名）会发给 AI 模型生成解读，大约需要一分钟。</p>
-              </div>
-            )}
-            {item.state === 'pending' && (
-              <div className="bz-wait" role="status">
-                <span className="bz-wait__brush" aria-hidden="true" />
-                正在看盘，大约一分钟。可以先离开，回来结果还在。
-              </div>
-            )}
-            {err && (
-              <div className="bz-alert" role="alert">
-                {err.error}
-                {err.retryable && <button type="button" className="bz-btn bz-btn--quiet" onClick={read}>再试一次</button>}
-              </div>
-            )}
-            {item.state === 'done' && <Reading item={item} chart={item.chart} />}
-
-            <p className="bz-forget">
-              <button type="button" onClick={forget}>删除我的全部命盘记录</button>
-              <span className="bz-fine">删除后你在这里看不到这些记录；网站会保留存档，用于分析和改进解读。</span>
-            </p>
-          </>
+        {editing && item && (
+          <button type="button" className="bz-btn bz-btn--quiet" onClick={() => setEditing(false)}>回到命盘</button>
         )}
       </div>
-    </div>
+      {showHistory && (
+        <section className="bz-histbox" aria-label="历史命盘">
+          {history ? <History items={history} currentId={item?.id} onOpen={open} onHide={hide} /> : <HandLoader />}
+        </section>
+      )}
+
+      {showForm && <CastForm cities={cities} initial={formInit} onCast={cast} busy={casting} />}
+
+      {item && !editing && (
+        <>
+          <Chart chart={item.chart} />
+
+          {item.state === 'none' && (
+            <div className="bz-ask">
+              <button type="button" className="bz-btn" onClick={read}>请先生解读</button>
+              <p className="bz-fine">命盘（不含姓名）会发给 AI 模型生成解读，大约需要一分钟。</p>
+            </div>
+          )}
+          {item.state === 'pending' && (
+            <div className="bz-wait" role="status">
+              <span className="bz-wait__brush" aria-hidden="true" />
+              正在看盘，大约一分钟。可以先离开，回来结果还在。
+            </div>
+          )}
+          {err && (
+            <div className="bz-alert" role="alert">
+              {err.error}
+              {err.retryable && <button type="button" className="bz-btn bz-btn--quiet" onClick={read}>再试一次</button>}
+            </div>
+          )}
+          {item.state === 'done' && <Reading item={item} chart={item.chart} />}
+
+          <p className="bz-forget">
+            <button type="button" onClick={forget}>删除我的全部命盘记录</button>
+            <span className="bz-fine">删除后你在这里看不到这些记录；网站会保留存档，用于分析和改进解读。</span>
+          </p>
+        </>
+      )}
+    </>
   )
 }

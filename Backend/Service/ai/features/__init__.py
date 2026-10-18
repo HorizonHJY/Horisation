@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from typing import Callable
 
 from ..prompts import bazi as bazi_prompt
+from ..prompts import bazi_compat as compat_prompt
 from ..prompts import tarot as tarot_prompt
 
 
@@ -61,6 +62,28 @@ FEATURES: dict[str, Feature] = {
         prompt_version=bazi_prompt.FOLLOWUP_VERSION,
         build=bazi_prompt.build_followup,
         parse=bazi_prompt.parse_followup,
+        json_mode=False,
+        max_tokens=800,
+        temperature=0.6,
+        read_timeout=60,
+    ),
+    # 合盘 reading: two charts in, structured JSON out. Longer than a single
+    # chart reading because the model is comparing two tables.
+    'bazi_compat': Feature(
+        name='bazi_compat',
+        prompt_version=compat_prompt.PROMPT_VERSION,
+        build=compat_prompt.build,
+        parse=compat_prompt.parse,
+        json_mode=True,
+        max_tokens=3500,
+        temperature=0.6,
+        read_timeout=120,
+    ),
+    'bazi_compat_ask': Feature(
+        name='bazi_compat_ask',
+        prompt_version=compat_prompt.FOLLOWUP_VERSION,
+        build=compat_prompt.build_followup,
+        parse=compat_prompt.parse_followup,
         json_mode=False,
         max_tokens=800,
         temperature=0.6,

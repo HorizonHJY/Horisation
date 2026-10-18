@@ -32,8 +32,10 @@ LIMITS: dict[str, dict[str, int | None]] = {
     },
     # No per-person limit on BaZi for now (Horizon, 2026-10-12) — the site-wide
     # caps below still guard the bill.
-    'bazi':     {'*': None},
-    'bazi_ask': {'*': None},
+    'bazi':             {'*': None},
+    'bazi_ask':         {'*': None},
+    'bazi_compat':      {'*': None},
+    'bazi_compat_ask':  {'*': None},
 }
 
 # feature → ok calls per site per rolling 24h. The safety net, not a product
@@ -42,6 +44,8 @@ GLOBAL_DAILY_CAP: dict[str, int] = {
     'tarot': 100,
     'bazi': 100,
     'bazi_ask': 500,
+    'bazi_compat': 60,
+    'bazi_compat_ask': 300,
 }
 
 
