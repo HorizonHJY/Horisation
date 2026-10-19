@@ -426,3 +426,130 @@ def complete_intent_route(intent_id):
     from .friends_socket import notify_intent
     notify_intent('trade_intent_completed', res)
     return jsonify({'ok': True, 'intent': res})
+
+
+# ── Wanted (求购) ────────────────────────────────────────────────────────────
+# Reverse of a listing: the buyer posts what they're looking for, sellers see
+# it in Market's Wanted tab and DM the buyer directly (not through intents —
+# a wanted post has no listing to reserve, and the two sides' roles are
+# swapped). When the buyer finds what they wanted, they mark it fulfilled.
+
+def _parse_price(raw):
+    raw = (raw or '').strip() if isinstance(raw, str) else raw
+    if raw in (None, ''):
+        return None
+    try:
+        v = float(raw)
+        return v if v >= 0 else None
+    except (ValueError, TypeError):
+        return None
+
+
+def _parse_wanted_body(body: dict) -> tuple[dict, str | None]:
+    """Return (clean_fields, error_msg). error_msg is None on success."""
+    title       = (body.get('title') or '').strip()
+    description = (body.get('description') or '').strip()
+    category    = (body.get('category') or 'other').strip()
+    contact     = (body.get('contact') or '').strip()
+    condition   = (body.get('condition') or 'any').strip()
+
+    if not title:
+        return {}, 'Title is required.'
+    if not description:
+        return {}, 'Description is required.'
+    if not market_db.category_slug_valid(category):
+        return {}, 'Invalid category.'
+    if condition not in ('any', 'new', 'used'):
+        condition = 'any'
+
+    price_min = _parse_price(body.get('price_min'))
+    price_max = _parse_price(body.get('price_max'))
+    if price_min is not None and price_max is not None and price_min > price_max:
+        return {}, 'Minimum price cannot exceed maximum.'
+
+    return {
+        'title': title[:100], 'description': description, 'category': category,
+        'contact': contact[:200], 'price_min': price_min, 'price_max': price_max,
+        'condition': condition,
+    }, None
+
+
+@market_bp.route('/wanted', methods=['GET'])
+@login_optional
+def list_wanted():
+    """The Wanted feed — open posts, newest first. Optional ?category= filter.
+    Open to guests like /listings, so the Market tab works without login."""
+    category = request.args.get('category') or None
+    return jsonify({'ok': True, 'items': market_db.list_wanted(category)})
+
+
+@market_bp.route('/wanted', methods=['POST'])
+@login_required
+def create_wanted():
+    """Buyer posts a wanted item."""
+    body = request.get_json(silent=True) or {}
+    fields, err = _parse_wanted_body(body)
+    if err:
+        return jsonify({'ok': False, 'error': err}), 400
+    me = request.current_user['username']
+    wid = market_db.create_wanted(buyer=me, **fields)
+    return jsonify({'ok': True, 'item': market_db.get_wanted(wid)}), 201
+
+
+@market_bp.route('/wanted/mine', methods=['GET'])
+@login_required
+def my_wanted():
+    """Everything the caller has ever posted (open / fulfilled / removed)."""
+    me = request.current_user['username']
+    return jsonify({'ok': True, 'items': market_db.list_my_wanted(me)})
+
+
+@market_bp.route('/wanted/<wanted_id>', methods=['GET'])
+@login_optional
+def get_wanted(wanted_id):
+    item = market_db.get_wanted(wanted_id)
+    if not item:
+        return jsonify({'ok': False, 'error': 'Wanted post not found.'}), 404
+    return jsonify({'ok': True, 'item': item})
+
+
+@market_bp.route('/wanted/<wanted_id>', methods=['PUT'])
+@login_required
+def update_wanted(wanted_id):
+    body = request.get_json(silent=True) or {}
+    fields, err = _parse_wanted_body(body)
+    if err:
+        return jsonify({'ok': False, 'error': err}), 400
+    me = request.current_user['username']
+    if not market_db.update_wanted(wanted_id, me, **fields):
+        return jsonify({'ok': False, 'error': 'Not yours, or no longer exists.'}), 404
+    return jsonify({'ok': True, 'item': market_db.get_wanted(wanted_id)})
+
+
+@market_bp.route('/wanted/<wanted_id>/fulfilled', methods=['POST'])
+@login_required
+def mark_wanted_fulfilled(wanted_id):
+    """Buyer found what they wanted. Post falls out of the open feed."""
+    me = request.current_user['username']
+    if not market_db.fulfill_wanted(wanted_id, me):
+        return jsonify({'ok': False, 'error': 'Not yours, or already fulfilled.'}), 400
+    return jsonify({'ok': True, 'item': market_db.get_wanted(wanted_id)})
+
+
+@market_bp.route('/wanted/<wanted_id>/reopen', methods=['POST'])
+@login_required
+def reopen_wanted_route(wanted_id):
+    """Undo a fulfill — put the wanted post back in the open feed."""
+    me = request.current_user['username']
+    if not market_db.reopen_wanted(wanted_id, me):
+        return jsonify({'ok': False, 'error': 'Not yours, or not fulfilled.'}), 400
+    return jsonify({'ok': True, 'item': market_db.get_wanted(wanted_id)})
+
+
+@market_bp.route('/wanted/<wanted_id>', methods=['DELETE'])
+@login_required
+def delete_wanted(wanted_id):
+    me = request.current_user['username']
+    if not market_db.delete_wanted(wanted_id, me):
+        return jsonify({'ok': False, 'error': 'Not yours, or no longer exists.'}), 404
+    return jsonify({'ok': True})

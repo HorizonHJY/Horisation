@@ -36,7 +36,7 @@ Browser → Cloudflare → Nginx → Gunicorn (port 8000) → Flask (API only)
 | `Backend/Controller/notes_controller.py` | `/api/notes/*` — per-user notes |
 | `Backend/Controller/market_controller.py` | `/api/market/*` — marketplace listings |
 | `Backend/Controller/feedback_controller.py` | `/api/feedback/*` — message board |
-| `Backend/Controller/market_db.py` | SQLAlchemy models + helpers: User, UserSession, Listing, ListingImage, Category, Message, MessageLike, Memo, GameRoom, friends/groups tables. Also owns the additive column migrations (`_migrate_columns`, `_migrate_category_labels`). |
+| `Backend/Controller/market_db.py` | SQLAlchemy models + helpers: User, UserSession, Listing, ListingImage, Category, Message, MessageLike, Memo, GameRoom, friends/groups tables, TradeIntent, WantedListing (求购 posts: buyer posts, sellers DM, buyer marks fulfilled). Also owns the additive column migrations (`_migrate_columns`, `_migrate_category_labels`). |
 | `Backend/Controller/groups_controller.py` | `/api/groups/*` — 群组：建组/拉人/群聊（独立于好友） |
 | `Backend/Controller/friends_controller.py` | `/api/friends/*` — search, requests, private chat, contact-sharing approval, and `/conversations` (every DM room with last line + unread, **non-friends included** — the Chats list) |
 | `Backend/Controller/friends_socket.py` | **The app's only `connect`/`disconnect` handler** plus private chat and the push helpers. python-socketio keys handlers by event name, so a second `@socketio.on('connect')` anywhere would silently replace this one — put per-connection work here instead. |
@@ -74,7 +74,8 @@ Browser → Cloudflare → Nginx → Gunicorn (port 8000) → Flask (API only)
 | `frontend/src/pages/BaziCompat.jsx` | `/bazi` tab 合盘 — pick two of your own charts (left = 本命, right = 对象), click 合盘, see the compat result: double mini-chart row, score seal + verdict + chemistry, day-pillar card with 合冲 tint, five-element compare bars with 互补 chips, ten-god 4-pillar cards, 生肖, strengths / cautions / advice, 验证 checkmarks, 追问. Phone: pair stacks, mini-chart pillars go 2x2, columns collapse. 合盘历史 is a separate list under this tab. |
 | `frontend/src/pages/TarotHistory.jsx` | `/tarot/history` — your interpreted spreads, newest first, 20 per page (*Older* pages back by `read_at`). Each row is a `<details>`: three thumbnails, date, rating, question; opens to the full reading. Unread draws are not listed. Linked from the Tarot page title row and back. |
 | `frontend/src/components/TarotReading.jsx` | The "整体解读" section under the three cards: optional question → `POST /api/tarot/reading` → summary / three positions / one next step → 1–5 fit rating. Reads `retryable` off the error body to decide whether to offer *Try again*. |
-| `frontend/src/pages/Market.jsx` | The marketplace page: Browse / My Listings / Post Item tabs, filters in the query string, and the `ListingCard` / `ListingDetailModal` / `SellerModal` surfaces. A sold listing renders with a grey mask + rotated `SOLD` stamp over its image (`.market-card__img--sold`, overlay is `pointer-events:none` so the card stays one click target). **Browse returns `status='active'` only** — the sold mask shows on My Listings and a seller's public page, never in Browse (deliberate, per PRODUCT.md 2026-09-28). |
+| `frontend/src/pages/Market.jsx` | The marketplace page: Browse / **Wanted** / My Listings / Post Item tabs, filters in the query string, and the `ListingCard` / `ListingDetailModal` / `SellerModal` surfaces. A sold listing renders with a grey mask + rotated `SOLD` stamp over its image (`.market-card__img--sold`, overlay is `pointer-events:none` so the card stays one click target). **Browse returns `status='active'` only** — the sold mask shows on My Listings and a seller's public page, never in Browse (deliberate, per PRODUCT.md 2026-09-28). |
+| `frontend/src/pages/MarketWanted.jsx` | Market → Wanted sub-panel. Buyers post what they're looking for; sellers DM them (via `navigate('/friends',{state:{openChat,initialMessage}})`, same mechanism as Market's Reach Out). Three sub-tabs (Browse / My / Post). Open to guests for browse; posting / fulfilling / deleting requires login. Fulfilled cards render dimmed with a line-through title. |
 | `frontend/src/pages/` | All page components |
 
 ### Data
@@ -180,6 +181,16 @@ All login required. Full CRUD + `/complete`, `/statistics`.
 | POST | `/listings/<id>/sold` | login | Mark as sold |
 | POST | `/listings/<id>/restore` | login | Restore sold → active |
 | GET | `/my` | login | Current user's listings |
+| GET | `/wanted` | optional | Open wanted posts (reverse of listings — buyer posts, sellers reach out). Optional `?category=`. Guests can browse. |
+| POST | `/wanted` | login | Create a wanted post `{title, description, category, contact?, price_min?, price_max?, condition='any'|'new'|'used'}` |
+| GET | `/wanted/mine` | login | All your wanted posts (open / fulfilled / removed), newest first |
+| GET | `/wanted/<id>` | optional | Single wanted post |
+| PUT | `/wanted/<id>` | login | Edit (buyer only) |
+| POST | `/wanted/<id>/fulfilled` | login | Buyer marks "I found it" — drops out of the open feed |
+| POST | `/wanted/<id>/reopen` | login | Undo fulfill |
+| DELETE | `/wanted/<id>` | login | Delete |
+
+Reach Out on a wanted post opens a DM with the buyer (same `navigate('/friends',{state:{openChat,initialMessage}})` as listings' Reach Out). No trade_intent is created — a wanted post has no listing to reserve, and the buyer/seller roles are swapped.
 
 ### Feedback `/api/feedback/`
 | Method | Route | Description |

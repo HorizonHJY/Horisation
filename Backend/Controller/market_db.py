@@ -1777,3 +1777,141 @@ def validate_invite_code(code: str) -> bool:
         if not row:
             return False
         return row.valid_from <= now <= row.valid_to
+
+
+# ── Wanted (求购) ─────────────────────────────────────────────────────────────
+# Mirror of Listing but reversed: the buyer posts, sellers reach out. Price is
+# a target range (either bound may be null = "open"). Reach Out reuses the
+# TradeIntent table — the intent references the wanted post via `listing_id`;
+# `buyer`/`seller` get swapped from Listing's semantics (the WantedListing's
+# poster is the one buying; the person reaching out is the seller offering).
+
+class WantedListing(Base):
+    __tablename__ = 'wanted_listings'
+
+    id              = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    buyer_username  = Column(String(100), nullable=False, index=True)
+    title           = Column(String(100), nullable=False)
+    description     = Column(Text,        nullable=False)
+    category        = Column(String(50),  nullable=False, default='other')
+    contact         = Column(String(200), nullable=False)
+    price_min       = Column(Float,       nullable=True)   # null = no floor
+    price_max       = Column(Float,       nullable=True)   # null = no ceiling
+    condition       = Column(String(20),  nullable=False, default='any')  # any / new / used
+    status          = Column(String(20),  nullable=False, default='open') # open / fulfilled / removed
+    expires_at      = Column(DateTime,    nullable=True)   # optional self-expire
+    created_at      = Column(DateTime,    nullable=False, default=lambda: datetime.now(timezone.utc))
+    updated_at      = Column(DateTime,    nullable=False,
+                             default=lambda: datetime.now(timezone.utc),
+                             onupdate=lambda: datetime.now(timezone.utc))
+    fulfilled_at    = Column(DateTime,    nullable=True)
+
+
+def _wanted_to_dict(w: 'WantedListing') -> dict:
+    return {
+        'id':             w.id,
+        'buyer':          w.buyer_username,
+        'title':          w.title,
+        'description':    w.description,
+        'category':       w.category,
+        'contact':        w.contact,
+        'price_min':      w.price_min,
+        'price_max':      w.price_max,
+        'condition':      w.condition,
+        'status':         w.status,
+        'expires_at':     w.expires_at.isoformat() if w.expires_at else None,
+        'created_at':     w.created_at.isoformat() if w.created_at else None,
+        'fulfilled_at':   w.fulfilled_at.isoformat() if w.fulfilled_at else None,
+    }
+
+
+def create_wanted(buyer: str, title: str, description: str, category: str,
+                  contact: str, price_min: float = None, price_max: float = None,
+                  condition: str = 'any', expires_at: datetime = None) -> str:
+    w = WantedListing(
+        buyer_username=buyer, title=title, description=description,
+        category=category, contact=contact,
+        price_min=price_min, price_max=price_max, condition=condition,
+        expires_at=expires_at,
+    )
+    with Session() as s:
+        s.add(w); s.commit(); return w.id
+
+
+def get_wanted(wanted_id: str) -> Optional[dict]:
+    with Session() as s:
+        w = s.query(WantedListing).filter_by(id=wanted_id).first()
+        return _wanted_to_dict(w) if w else None
+
+
+def _wanted_visible(s, now: datetime):
+    """Open posts not past their expiry — the Wanted browse feed."""
+    return (s.query(WantedListing)
+             .filter(WantedListing.status == 'open')
+             .filter((WantedListing.expires_at.is_(None)) | (WantedListing.expires_at > now)))
+
+
+def list_wanted(category: str = None) -> list[dict]:
+    """Open posts, newest first; optionally filtered by category."""
+    now = datetime.now(timezone.utc)
+    with Session() as s:
+        q = _wanted_visible(s, now)
+        if category:
+            q = q.filter(WantedListing.category == category)
+        rows = q.order_by(WantedListing.created_at.desc()).all()
+        return [_wanted_to_dict(w) for w in rows]
+
+
+def list_my_wanted(buyer: str) -> list[dict]:
+    """Everything this buyer has ever posted (open / fulfilled / removed), newest first."""
+    with Session() as s:
+        rows = (s.query(WantedListing)
+                 .filter_by(buyer_username=buyer)
+                 .order_by(WantedListing.created_at.desc()).all())
+        return [_wanted_to_dict(w) for w in rows]
+
+
+def update_wanted(wanted_id: str, buyer: str, **fields) -> bool:
+    allowed = {'title', 'description', 'category', 'contact',
+               'price_min', 'price_max', 'condition', 'expires_at'}
+    with Session() as s:
+        w = s.query(WantedListing).filter_by(id=wanted_id, buyer_username=buyer).first()
+        if not w:
+            return False
+        for k, v in fields.items():
+            if k in allowed:
+                setattr(w, k, v)
+        w.updated_at = datetime.now(timezone.utc)
+        s.commit(); return True
+
+
+def fulfill_wanted(wanted_id: str, buyer: str) -> bool:
+    """Mark as fulfilled (buyer found what they wanted). Row stays, drops out of browse."""
+    with Session() as s:
+        w = s.query(WantedListing).filter_by(id=wanted_id, buyer_username=buyer, status='open').first()
+        if not w:
+            return False
+        w.status       = 'fulfilled'
+        w.fulfilled_at = datetime.now(timezone.utc)
+        w.updated_at   = datetime.now(timezone.utc)
+        s.commit(); return True
+
+
+def reopen_wanted(wanted_id: str, buyer: str) -> bool:
+    """Undo fulfill — put a wanted post back in the open feed."""
+    with Session() as s:
+        w = s.query(WantedListing).filter_by(id=wanted_id, buyer_username=buyer, status='fulfilled').first()
+        if not w:
+            return False
+        w.status       = 'open'
+        w.fulfilled_at = None
+        w.updated_at   = datetime.now(timezone.utc)
+        s.commit(); return True
+
+
+def delete_wanted(wanted_id: str, buyer: str) -> bool:
+    with Session() as s:
+        w = s.query(WantedListing).filter_by(id=wanted_id, buyer_username=buyer).first()
+        if not w:
+            return False
+        s.delete(w); s.commit(); return True

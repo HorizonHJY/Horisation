@@ -5,6 +5,7 @@ import { useAuth } from '../App'
 import HandLoader from '../components/HandLoader'
 import Modal, { ConfirmDialog } from '../components/Modal'
 import { fmtDateMed, fmtDateLong } from '../utils'
+import MarketWanted from './MarketWanted'
 
 /* Interface language is English; Chinese rides along as an accent (PRODUCT.md).
    Categories carry the same pair from the database as `label` / `label_zh`. */
@@ -1276,6 +1277,7 @@ export default function Market() {
   // A guest cannot own listings or create them, so a pasted ?tab=mylistings or
   // ?tab=create falls back to Browse rather than rendering a blank panel.
   const rawTab         = searchParams.get('tab') || 'browse'
+  // Wanted is public-browsable; mylistings / create are owner-only.
   const tab            = (!user && (rawTab === 'mylistings' || rawTab === 'create')) ? 'browse' : rawTab
   const searchQuery    = searchParams.get('q') || ''
   const categoryFilter = useMemo(
@@ -1867,6 +1869,7 @@ export default function Market() {
       <div className="radio-inputs mb-4">
         {([
           { key: 'browse',     label: 'Browse' },
+          { key: 'wanted',     label: 'Wanted' },
           user && { key: 'mylistings', label: 'My Listings' },
           user && { key: 'create',     label: 'Post Item' },
         ].filter(Boolean)).map(t => (
@@ -1881,6 +1884,10 @@ export default function Market() {
           </label>
         ))}
       </div>
+
+      {tab === 'wanted' && (
+        <MarketWanted categories={categories} user={user} />
+      )}
 
       {(tab === 'browse' || tab === 'mylistings') && (
         <>

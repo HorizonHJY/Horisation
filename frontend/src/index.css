@@ -3653,3 +3653,62 @@ button.fr-chip:hover { filter: brightness(.96); }
   .bzc-elrow { grid-template-columns: 44px 1fr; }
   .bzc-elrow__gift { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; }
 }
+
+/* ── Market → Wanted ─────────────────────────────────────────────── */
+.wanted-grid {
+  display: grid; gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+}
+.wanted-card {
+  background: var(--bg-elevated, #fff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 10px; padding: 16px;
+  display: flex; flex-direction: column; gap: 10px;
+  transition: box-shadow .15s, transform .15s;
+}
+.wanted-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.06); transform: translateY(-1px); }
+.wanted-card--fulfilled { opacity: .62; }
+.wanted-card--fulfilled .wanted-card__title { text-decoration: line-through; }
+
+.wanted-card__head {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 10px; flex-wrap: wrap;
+}
+.wanted-card__title {
+  margin: 0; font-size: 1.05rem; font-weight: 600; line-height: 1.3;
+  color: var(--text-primary, #111);
+}
+.wanted-card__meta {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  font-size: .85rem; color: var(--text-secondary, #475569);
+}
+.wanted-card__price {
+  font-weight: 600; color: var(--primary, #0d6efd);
+  font-size: .95rem;
+}
+.wanted-card__sep { color: var(--text-muted, #94a3b8); }
+.wanted-card__buyer {
+  color: var(--text-secondary, #475569); text-decoration: none;
+}
+.wanted-card__buyer:hover { color: var(--primary, #0d6efd); text-decoration: underline; }
+.wanted-card__desc {
+  margin: 0; font-size: .9rem; line-height: 1.5;
+  color: var(--text-primary, #111);
+  display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;
+}
+.wanted-card__contact { margin: 0; }
+.wanted-card__foot {
+  display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+  margin-top: auto; padding-top: 4px;
+}
+.wanted-form {
+  max-width: 640px; margin: 0 auto;
+  background: var(--bg-elevated, #fff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 10px; padding: 20px;
+}
+
+@media (max-width: 640px) {
+  .wanted-grid { grid-template-columns: 1fr; }
+  .wanted-card__head { flex-direction: column; align-items: flex-start; }
+}
