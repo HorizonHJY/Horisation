@@ -36,11 +36,17 @@ export default function WeatherGreeting({ name }) {
     return () => clearInterval(interval)
   }, [fetchWeather])
 
+  function todayLabel() {
+    // Mon \u00b7 Oct 18 \u2014 short enough to live on the same line as the weather.
+    return new Date().toLocaleDateString('en-US',
+      { weekday: 'short', month: 'short', day: 'numeric' })
+  }
+
   function greetingLine() {
     if (!weather || weather.temp == null) {
       const h = new Date().getHours()
       const greet = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'
-      return { text: `${greet}, ${name}`, sub: '' }
+      return { text: `${greet}, ${name}`, sub: todayLabel() }
     }
 
     const greet = weather.greeting.replace('{name}', name)
@@ -49,8 +55,19 @@ export default function WeatherGreeting({ name }) {
     // neither scale is "the" one at that table.
     const t = `${weather.temp_f}\u00b0F / ${weather.temp_c}\u00b0C`
     const f = `${weather.feels_like_f}\u00b0F / ${weather.feels_like_c}\u00b0C`
-    const sub = `${weather.city} \u00b7 ${emoji} ${t} ${weather.label} \u00b7 Feels like ${f}`
-    return { text: greet, sub }
+    const parts = [
+      todayLabel(),
+      `${weather.city} \u00b7 ${emoji} ${t} ${weather.label}`,
+      `Feels like ${f}`,
+    ]
+    const tmr = weather.tomorrow
+    if (tmr) {
+      const tEmoji = wmoEmoji(tmr.icon)
+      const hi = `${tmr.high_f}\u00b0F / ${tmr.high_c}\u00b0C`
+      const lo = (tmr.low_f != null) ? ` \u2193 ${tmr.low_f}\u00b0F / ${tmr.low_c}\u00b0C` : ''
+      parts.push(`Tomorrow ${tEmoji} ${hi}${lo} ${tmr.label}`)
+    }
+    return { text: greet, sub: parts.join(' \u00b7 ') }
   }
 
   const line = greetingLine()

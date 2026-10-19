@@ -83,7 +83,7 @@ def get_weather():
         f'https://api.open-meteo.com/v1/forecast?'
         f'latitude={LAT}&longitude={LON}'
         f'&current=temperature_2m,apparent_temperature,weather_code'
-        f'&daily=sunrise,sunset'
+        f'&daily=sunrise,sunset,temperature_2m_max,temperature_2m_min,weather_code'
         f'&timezone=America/Chicago'
     )
     try:
@@ -104,7 +104,19 @@ def get_weather():
     sunrise    = (daily.get('sunrise') or [''])[0] if daily.get('sunrise') else ''
     sunset     = (daily.get('sunset') or [''])[0] if daily.get('sunset') else ''
 
+    # Tomorrow is index 1 of each daily array. Open-Meteo returns 7 days by
+    # default; if we somehow only got today, hide tomorrow fields.
+    def _idx(arr, i):
+        if not isinstance(arr, list) or len(arr) <= i:
+            return None
+        return arr[i]
+    tmr_max_c  = _idx(daily.get('temperature_2m_max'), 1)
+    tmr_min_c  = _idx(daily.get('temperature_2m_min'), 1)
+    tmr_code   = _idx(daily.get('weather_code'), 1)
+    tmr_date   = _idx(daily.get('time'), 1) if isinstance(daily.get('time'), list) else None
+
     weather_info = WMO_CODES.get(wmo_code, {'icon': 'fa-question', 'label': 'Unknown'})
+    tmr_info     = WMO_CODES.get(tmr_code or -1, {'icon': 'fa-question', 'label': ''})
 
     # Open-Meteo answers in Celsius unless told otherwise; the site showed those
     # numbers with an F sign until 2026-09-20. Both units go out now, and the
@@ -125,6 +137,15 @@ def get_weather():
         'sunrise':    sunrise,
         'sunset':     sunset,
         'greeting':   _greeting('{name}'),  # placeholder, frontend replaces {name}
+        'tomorrow': None if tmr_max_c is None else {
+            'date':   tmr_date,
+            'high_c': round(tmr_max_c),
+            'high_f': c_to_f(tmr_max_c),
+            'low_c':  round(tmr_min_c) if tmr_min_c is not None else None,
+            'low_f':  c_to_f(tmr_min_c) if tmr_min_c is not None else None,
+            'icon':   tmr_info['icon'],
+            'label':  tmr_info['label'],
+        },
     }
 
     _cache['data'] = result
