@@ -3712,3 +3712,62 @@ button.fr-chip:hover { filter: brightness(.96); }
   .wanted-grid { grid-template-columns: 1fr; }
   .wanted-card__head { flex-direction: column; align-items: flex-start; }
 }
+
+/* ── Hero weather greeting (home) ───────────────────────────────── */
+.hero-block--weather .hero-sub {
+  margin: 0;
+  line-height: 1.55;
+  color: var(--text-secondary, #475569);
+}
+/* Today — top row: date + city + condition. */
+.hero-sub--today {
+  font-size: .95rem;
+  margin-top: 2px;
+}
+/* Today — second row: the temperature numbers, slightly tighter. */
+.hero-sub--today-temp {
+  font-size: .9rem;
+  margin-top: 1px !important;
+  color: var(--text-secondary, #475569);
+}
+.wg-hi, .wg-lo {
+  font-size: .78rem;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--text-muted, #94a3b8);
+  margin-right: 2px;
+}
+/* Tomorrow — top row: label + emoji + condition, dimmer than today. */
+.hero-sub--tomorrow {
+  font-size: .82rem;
+  color: var(--text-muted, #94a3b8);
+  margin-top: 4px !important;
+}
+/* Tomorrow — second row: HIGH / LOW numbers, same tier (Horizon 2026-10-19). */
+.hero-sub--tomorrow-temp {
+  font-size: .82rem;
+  color: var(--text-muted, #94a3b8);
+  margin-top: 1px !important;
+}
+.wg-tomorrow-label {
+  display: inline-block;
+  padding: 1px 7px;
+  margin-right: 2px;
+  border-radius: 10px;
+  font-size: .68rem;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--text-secondary, #475569);
+  background: rgba(0, 0, 0, .05);
+}
+.wg-temp { font-weight: 500; color: var(--text-primary, #111); }
+.wg-arrow { color: var(--text-muted, #94a3b8); font-weight: 400; }
+.wg-emoji { font-size: 1em; }
+
+/* On phones, the today line often wraps anyway; keep the two lines clearly
+   separate rather than running them together. */
+@media (max-width: 640px) {
+  .hero-sub--today         { font-size: .9rem;  line-height: 1.5; }
+  .hero-sub--tomorrow      { font-size: .78rem; }
+  .hero-sub--tomorrow-temp { font-size: .78rem; }
+}
