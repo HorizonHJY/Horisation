@@ -18,6 +18,12 @@ LON = -90.1994
 _cache = {'data': None, 'ts': 0}
 CACHE_TTL = 600  # 10 minutes
 
+_hist_cache = {'data': None, 'ts': 0}
+HIST_CACHE_TTL = 3600  # 1 hour — daily data doesn't change hour to hour
+
+PAST_DAYS = 23       # today + 7 forecast + 23 past = 31 points (rolling month)
+FORECAST_DAYS = 7
+
 WMO_CODES = {
     0:  {'icon': 'fa-sun',           'label': 'Clear'},
     1:  {'icon': 'fa-sun',           'label': 'Mostly clear'},
@@ -150,4 +156,56 @@ def get_weather():
 
     _cache['data'] = result
     _cache['ts']   = now
+    return jsonify({'ok': True, **result})
+
+
+@weather_bp.route('/api/weather/history')
+def get_weather_history():
+    """Rolling 30-day temperature chart: 23 past days + today + 7 forecast.
+    One call to Open-Meteo (forecast API with past_days). Cached 1h."""
+    now = time.time()
+    if _hist_cache['data'] and now - _hist_cache['ts'] < HIST_CACHE_TTL:
+        return jsonify({'ok': True, **_hist_cache['data']})
+
+    url = (
+        f'https://api.open-meteo.com/v1/forecast?'
+        f'latitude={LAT}&longitude={LON}'
+        f'&daily=temperature_2m_max,temperature_2m_min,weather_code'
+        f'&timezone=America/Chicago'
+        f'&past_days={PAST_DAYS}&forecast_days={FORECAST_DAYS}'
+    )
+    try:
+        resp = urlopen(url, timeout=5)
+        data = json.loads(resp.read().decode())
+    except Exception as e:
+        if _hist_cache['data']:
+            return jsonify({'ok': True, **_hist_cache['data'], 'stale': True})
+        return jsonify({'ok': False, 'error': str(e)}), 502
+
+    daily = data.get('daily') or {}
+    times = daily.get('time') or []
+    hi_c  = daily.get('temperature_2m_max') or []
+    lo_c  = daily.get('temperature_2m_min') or []
+    codes = daily.get('weather_code') or []
+
+    def c_to_f(c):
+        return None if c is None else round(c * 9 / 5 + 32)
+
+    today = time.strftime('%Y-%m-%d', time.localtime())
+    points = []
+    for i, d in enumerate(times):
+        points.append({
+            'date':  d,
+            'hi_c':  round(hi_c[i], 1) if i < len(hi_c) and hi_c[i] is not None else None,
+            'hi_f':  c_to_f(hi_c[i])  if i < len(hi_c) else None,
+            'lo_c':  round(lo_c[i], 1) if i < len(lo_c) and lo_c[i] is not None else None,
+            'lo_f':  c_to_f(lo_c[i])  if i < len(lo_c) else None,
+            'wmo':   codes[i] if i < len(codes) else None,
+            'is_forecast': d > today,
+            'is_today':    d == today,
+        })
+
+    result = {'city': 'St. Louis', 'today': today, 'points': points}
+    _hist_cache['data'] = result
+    _hist_cache['ts']   = now
     return jsonify({'ok': True, **result})

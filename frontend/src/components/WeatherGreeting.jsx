@@ -1,4 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react'
+
+// Lazy — plotly.js is ~130kB. Don't ship it to anyone who doesn't open the chart.
+const WeatherChart = lazy(() => import('./WeatherChart'))
 
 const ICON_MAP = {
   'fa-sun':              '\u2600\ufe0f',
@@ -17,6 +20,7 @@ function wmoEmoji(icon) {
 
 export default function WeatherGreeting({ name }) {
   const [weather, setWeather] = useState(null)
+  const [showChart, setShowChart] = useState(false)
 
   const fetchWeather = useCallback(async () => {
     try {
@@ -118,6 +122,19 @@ export default function WeatherGreeting({ name }) {
             )}
           </p>
         </>
+      )}
+      {/* Expandable 30-day trend. Hidden by default so plotly (~130kB) only
+          ships to people who open it. */}
+      <button type="button" className="wg-trend-toggle"
+              onClick={() => setShowChart(v => !v)}
+              aria-expanded={showChart}>
+        {showChart ? 'Hide 30-day trend' : 'See 30-day trend'}
+        <span className="wg-trend-caret" aria-hidden="true">{showChart ? '⌃' : '⌄'}</span>
+      </button>
+      {showChart && (
+        <Suspense fallback={<div className="small text-muted py-3">Loading chart…</div>}>
+          <WeatherChart />
+        </Suspense>
       )}
     </div>
   )
