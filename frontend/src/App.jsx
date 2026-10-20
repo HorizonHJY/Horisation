@@ -26,6 +26,7 @@ import Tasks from './pages/Tasks'
 import Tarot from './pages/Tarot'
 import TarotHistory from './pages/TarotHistory'
 import Bazi from './pages/Bazi'
+import Mbti from './pages/Mbti'
 
 // ── Theme Context ────────────────────────────────────────────────
 export const ThemeContext = createContext(null)
@@ -388,6 +389,7 @@ export default function App() {
             <Route path="/tasks"             element={<Tasks />} />
             <Route path="/tarot"             element={<Tarot />} />
             <Route path="/bazi"              element={<Bazi />} />
+            <Route path="/mbti"              element={<Mbti />} />
 
             {/* Members only: these use the real auth guard */}
             <Route path="/hormemo"           element={<PrivateRoute><Hormemo /></PrivateRoute>} />

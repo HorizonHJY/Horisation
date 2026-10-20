@@ -1,6 +1,6 @@
 # Horisation — To-Do List
 
-Last updated: 2026-09-21
+Last updated: 2026-10-19
 
 ---
 
@@ -19,6 +19,8 @@ Last updated: 2026-09-21
 | Medium | Listing image re-upload in Edit | When editing a listing, allow replacing/removing images; requires R2 delete + multipart PUT |
 | Low | `side-tab` detector findings | `Hormemo.jsx:181` is a true positive by rule definition (4px coloured left border on a card) though the colour encodes memo priority. `Feedback.jsx:40/344` judged false positives — blockquote left rules on reply quotes. Decide: fix, ignore, or leave. |
 | Low | Read the first `ai_usage` rows | Key is on the server and real readings work (2026-09-20 evening). Worth one look at latency / tokens / cost after a few days of use, and at the first ratings. |
+| Medium | Horoscope (每日星座运势) | Shelved 2026-10-19 pending MBTI feedback. Plan: profile birthday → derived zodiac; home-page card below weather, collapsed by default; AI feature `horoscope`, cached per (zodiac, date). If users ask for it, revive. |
+| Medium | Feature voting (「待开发投票」) | Shelved 2026-10-19 (Horizon). Home-page backlog list, admin posts items, every user can star-vote one per item, maybe a one-line reason; at 50 stars it flips to "building" and the dev gets notified. Likely needs an admin-side proposal queue first. Revisit after MBTI ships. |
 
 ---
 

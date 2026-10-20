@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../App'
 import HandLoader from '../components/HandLoader'
@@ -14,17 +14,21 @@ export default function UserProfile() {
   const [loading, setLoading]   = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [copied, setCopied]     = useState(false)
+  const [mbti, setMbti]         = useState(null)
 
   useEffect(() => {
     setLoading(true)
     setNotFound(false)
+    setMbti(null)
     Promise.all([
       api.get(`/api/auth/users/${username}/public`),
       api.get(`/api/market/user/${username}`),
-    ]).then(([u, l]) => {
+      api.get(`/api/mbti/user/${username}`),
+    ]).then(([u, l, m]) => {
       if (!u.ok) { setNotFound(true); setLoading(false); return }
       setProfile(u.user)
       if (l.ok) setListings(l.listings)
+      if (m.ok && m.result) setMbti({ ...m.result, type_card: m.type_card })
       setLoading(false)
     })
   }, [username])
@@ -79,8 +83,21 @@ export default function UserProfile() {
 
           {/* Info */}
           <div className="flex-grow-1">
-            <h5 className="mb-0 fw-bold">{profile.display_name}</h5>
+            <div className="d-flex align-items-center gap-2 flex-wrap">
+              <h5 className="mb-0 fw-bold">{profile.display_name}</h5>
+              {mbti && (
+                <Link to="/mbti" className="mbti-badge mbti-badge--sm text-decoration-none"
+                      title={mbti.type_card?.nick || mbti.type}>
+                  {mbti.type}
+                </Link>
+              )}
+            </div>
             <div className="text-muted small">@{profile.username}</div>
+            {mbti?.type_card?.tag && (
+              <div className="text-muted" style={{ fontSize: '.76rem', marginTop: 2 }}>
+                {mbti.type_card.nick} · {mbti.type_card.tag}
+              </div>
+            )}
             {profile.created_at && (
               <div className="text-muted mt-1" style={{ fontSize: '.75rem' }}>
                 Joined {fmtDateJoin(profile.created_at)}

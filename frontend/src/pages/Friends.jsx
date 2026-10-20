@@ -36,6 +36,24 @@ function Avatar({ display, avatar, size = 40, online = false }) {
   )
 }
 
+// MBTI chip next to the chat header's name. Null if the peer has no result or
+// hasn't opted into friends/public visibility — the server does the filtering.
+function PeerMbtiChip({ username }) {
+  const [m, setM] = useState(null)
+  useEffect(() => {
+    let cancelled = false
+    setM(null)
+    api.get(`/api/mbti/user/${encodeURIComponent(username)}`).then(d => {
+      if (!cancelled && d.ok && d.result) setM({ ...d.result, type_card: d.type_card })
+    })
+    return () => { cancelled = true }
+  }, [username])
+  if (!m) return null
+  return (
+    <span className="mbti-chip" title={m.type_card?.nick || m.type}>{m.type}</span>
+  )
+}
+
 // ── Time helpers (St. Louis) ───────────────────────────────────────────────────
 const CT = { timeZone: 'America/Chicago' }
 
@@ -832,7 +850,10 @@ export default function Friends() {
                 </button>
                 <Avatar display={activeChat.display_name} avatar={activeChat.avatar_url} size={36} online={onlineSet.has(activeChat.username)} />
                 <div className="fr-ph__who">
-                  <b>{activeChat.display_name}</b>
+                  <span className="d-inline-flex align-items-center gap-2">
+                    <b>{activeChat.display_name}</b>
+                    <PeerMbtiChip username={activeChat.username} />
+                  </span>
                   <span className="fr-sub">
                     {activeChat.username} · {onlineSet.has(activeChat.username) ? 'online' : 'offline'}
                     {!isFriend(activeChat.username) && ' · not a friend'}

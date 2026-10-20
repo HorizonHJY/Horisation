@@ -21,6 +21,7 @@ import {
   ClipboardList,
   Route,
   Receipt,
+  Brain,
 } from 'lucide-react'
 
 /* `guest` says whether a signed-out visitor can open this page. The sidebar
@@ -51,6 +52,7 @@ export const NAV_SECTIONS = [
       { to: '/fun/gomoku-online', icon: Globe,    label: 'Online Gomoku', feature: 'onlineGomoku' },
       { to: '/tarot',             icon: Moon,     label: 'Tarot',         guest: true },
       { to: '/bazi',              icon: Sparkles, label: 'BaZi 八字',     guest: true },
+      { to: '/mbti',              icon: Brain,    label: 'MBTI',          guest: true },
     ],
   },
   {

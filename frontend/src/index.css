@@ -3799,3 +3799,105 @@ button.fr-chip:hover { filter: brightness(.96); }
   border: 1px solid var(--border, #e5e7eb);
   border-radius: 8px;
 }
+
+/* ── MBTI ────────────────────────────────────────────────────────── */
+.mbti-page { padding: 24px 16px; }
+.mbti-page__inner { max-width: 760px; margin: 0 auto; }
+.mbti-h { font-family: var(--font-display, Georgia, serif); font-weight: 600; margin: 0 0 10px; }
+.mbti-h--title { font-size: 1.8rem; color: var(--text-primary, #111); margin-bottom: 20px; }
+.mbti-h__sub { margin-left: 10px; font-size: .85rem; color: var(--text-muted, #94a3b8);
+               letter-spacing: .15em; font-weight: 400; }
+.mbti-sub   { font-size: .9rem; font-weight: 600; color: var(--text-primary, #111); margin: 16px 0 6px; }
+
+/* Badge — the 4-letter type, used on result + profile + chat */
+.mbti-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 2px 10px; border-radius: 8px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #fff; font-weight: 700; letter-spacing: .04em;
+  font-size: .78rem; line-height: 1;
+}
+.mbti-badge--sm { font-size: .72rem; padding: 2px 8px; }
+.mbti-badge--lg { font-size: 1.4rem; padding: 10px 18px; border-radius: 10px; }
+.mbti-badge--xl { font-size: 2.2rem; padding: 18px 26px; border-radius: 14px;
+                  box-shadow: 0 6px 20px rgba(99, 102, 241, .25); }
+
+/* Intro */
+.mbti-intro { background: var(--bg-elevated, #fff); border: 1px solid var(--border, #e5e7eb);
+              border-radius: 10px; padding: 24px; }
+.mbti-existing { margin-top: 16px; padding: 14px; background: rgba(99, 102, 241, .05);
+                 border-radius: 8px; border: 1px solid rgba(99, 102, 241, .15); }
+.mbti-mode__card { width: 100%; padding: 18px 14px; background: var(--bg-elevated, #fff);
+                   border: 1px solid var(--border, #e5e7eb); border-radius: 10px;
+                   text-align: center; cursor: pointer; transition: all .15s; }
+.mbti-mode__card:hover { border-color: #6366f1; transform: translateY(-2px);
+                         box-shadow: 0 4px 16px rgba(99, 102, 241, .15); }
+.mbti-mode__num  { font-size: 2.4rem; font-weight: 700; color: #6366f1; line-height: 1; }
+.mbti-mode__name { font-size: 1.05rem; font-weight: 600; color: var(--text-primary, #111); margin-top: 4px; }
+.mbti-mode__hint { font-size: .8rem; color: var(--text-muted, #94a3b8); margin-top: 4px; }
+
+/* Quiz */
+.mbti-quiz { background: var(--bg-elevated, #fff); border: 1px solid var(--border, #e5e7eb);
+             border-radius: 10px; padding: 24px; }
+.mbti-progress { position: relative; height: 6px; background: var(--bg, #f1f5f9); border-radius: 3px;
+                 margin-bottom: 24px; }
+.mbti-progress__bar { position: absolute; left: 0; top: 0; height: 100%;
+                      background: linear-gradient(90deg, #6366f1, #8b5cf6);
+                      border-radius: 3px; transition: width .2s; }
+.mbti-progress__label { position: absolute; right: 0; top: 10px; }
+.mbti-q__statement { font-size: 1.15rem; line-height: 1.5; color: var(--text-primary, #111); margin: 20px 0 20px; }
+.mbti-choices { display: flex; flex-direction: column; gap: 10px; }
+.mbti-choice { display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px 16px;
+               background: var(--bg, #f8fafc); border: 1px solid var(--border, #e5e7eb);
+               border-radius: 8px; text-align: left; cursor: pointer; transition: all .15s;
+               font-size: 1rem; color: var(--text-primary, #111); }
+.mbti-choice:hover { background: #fff; border-color: #6366f1; transform: translateX(2px); }
+.mbti-choice__letter { display: inline-flex; align-items: center; justify-content: center;
+                       width: 28px; height: 28px; border-radius: 50%;
+                       background: #6366f1; color: #fff; font-weight: 700; font-size: .85rem;
+                       flex-shrink: 0; }
+.mbti-choice__text { flex: 1; }
+
+/* Result */
+.mbti-result { background: var(--bg-elevated, #fff); border: 1px solid var(--border, #e5e7eb);
+               border-radius: 10px; padding: 24px; }
+.mbti-result__head { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+.mbti-result__name h2 { margin: 0; }
+.mbti-result__tag { font-size: .85rem; color: var(--text-muted, #94a3b8); margin-top: 4px; }
+.mbti-result__desc { font-size: 1rem; line-height: 1.7; color: var(--text-primary, #111); margin: 10px 0; }
+.mbti-dims { margin: 16px 0; display: flex; flex-direction: column; gap: 10px; }
+.mbti-dim { background: var(--bg, #f8fafc); border-radius: 8px; padding: 10px 14px; }
+.mbti-dim__row { display: flex; align-items: center; gap: 10px; }
+.mbti-dim__letter { font-family: var(--font-display, Georgia, serif); font-size: 1.1rem;
+                    font-weight: 700; color: #6366f1; min-width: 20px; text-align: center; }
+.mbti-dim__letter--right { color: #8b5cf6; }
+.mbti-dim__bar { flex: 1; height: 8px; background: linear-gradient(90deg, rgba(99,102,241,.15), rgba(139,92,246,.15));
+                 border-radius: 4px; position: relative; overflow: hidden; }
+.mbti-dim__fill { position: absolute; left: 0; top: 0; height: 100%;
+                  background: #6366f1; border-radius: 4px 0 0 4px; }
+.mbti-dim__nums { display: flex; justify-content: space-between; font-size: .72rem;
+                  color: var(--text-muted, #94a3b8); margin-top: 2px; }
+.mbti-two { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 10px; }
+.mbti-list { list-style: none; padding: 0; margin: 4px 0 0; }
+.mbti-list li { padding: 4px 0 4px 16px; position: relative; font-size: .9rem;
+                color: var(--text-primary, #111); border-bottom: 1px dashed var(--border, #e5e7eb); }
+.mbti-list li:last-child { border-bottom: 0; }
+.mbti-list li::before { content: '✓'; position: absolute; left: 0; top: 4px; color: #6366f1; font-weight: 700; }
+.mbti-list--muted li::before { content: '!'; color: #94a3b8; }
+.mbti-match { margin-top: 10px; }
+.mbti-vis { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border, #e5e7eb); }
+
+/* MBTI chip for chat / profile — tiny inline next to avatar */
+.mbti-chip {
+  display: inline-flex; align-items: center;
+  padding: 1px 6px; border-radius: 6px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #fff; font-size: .62rem; font-weight: 700; letter-spacing: .04em;
+  line-height: 1.3; margin-left: 4px; vertical-align: middle;
+}
+
+@media (max-width: 640px) {
+  .mbti-two { grid-template-columns: 1fr; }
+  .mbti-result__head { flex-direction: column; align-items: flex-start; }
+  .mbti-badge--xl { font-size: 1.8rem; padding: 14px 22px; }
+}

@@ -43,6 +43,9 @@ init_bazi_db()
 from Backend.Controller.bazi_compat_db import init_bazi_compat_db
 init_bazi_compat_db()
 
+from Backend.Controller.mbti_db import init_mbti_db
+init_mbti_db()
+
 # The AI layer owns its own table (ai_usage). See Doc/ai_service.md.
 from Backend.Service.ai import init_ai_db
 init_ai_db()
@@ -53,6 +56,7 @@ from Backend.Controller.weather_controller import weather_bp
 from Backend.Controller.tarot_controller import tarot_bp
 from Backend.Controller.bazi_controller import bazi_bp
 from Backend.Controller.bazi_compat_controller import bazi_compat_bp
+from Backend.Controller.mbti_controller import mbti_bp
 
 # Paths
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
@@ -100,6 +104,7 @@ app.register_blueprint(weather_bp)
 app.register_blueprint(tarot_bp)
 app.register_blueprint(bazi_bp)
 app.register_blueprint(bazi_compat_bp)
+app.register_blueprint(mbti_bp)
 
 # Import user manager for session validation
 from Backend.Controller.user_manager import user_manager
