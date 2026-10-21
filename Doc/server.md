@@ -136,7 +136,12 @@ On 2026-10-19 the on-box `vite build` (plotly chunk) hung for 10 minutes on this
 instance, and because vite empties `dist/` first, `/` answered **404** for ~33 hours
 while `/api` stayed up. Symptom to recognise: `/api/auth/check-session` → 200 but
 `/` → Flask's plain "Not Found" page = `frontend/dist/index.html` is missing, not
-"the server is down". Manual fallback (builds aside, swaps only on success):
+"the server is down". The instance is a **t3.micro (1 GB)**: anything that builds the
+frontend on it can freeze the whole machine — the signature is TCP connects but sshd
+and nginx never answer, and ping is lost. A reboot (public IP unchanged) clears it;
+the real fix is not building there. Monthly cost ≈ $11–12 (EC2 ≈ $7.5 + public IPv4
+≈ $3.6), currently covered by AWS credits expiring 2027-03-01 but projected to run
+out around end of Dec 2026 — check Billing → Credits. Manual fallback (builds aside, swaps only on success):
 `bash scripts/deploy.sh` without `SKIP_BUILD`.
 
 ---
