@@ -129,6 +129,16 @@ git pull
 sudo systemctl restart horisation
 ```
 
+**The frontend is built in CI, not on the box.** A push to `main` builds `frontend/dist`
+on the GitHub runner, uploads it to `frontend/dist.new/`, and runs
+`SKIP_BUILD=1 bash ~/deploy.sh`, which swaps `dist.new` → `dist` and restarts gunicorn.
+On 2026-10-19 the on-box `vite build` (plotly chunk) hung for 10 minutes on this small
+instance, and because vite empties `dist/` first, `/` answered **404** for ~33 hours
+while `/api` stayed up. Symptom to recognise: `/api/auth/check-session` → 200 but
+`/` → Flask's plain "Not Found" page = `frontend/dist/index.html` is missing, not
+"the server is down". Manual fallback (builds aside, swaps only on success):
+`bash scripts/deploy.sh` without `SKIP_BUILD`.
+
 ---
 
 ## Certificate renewal — this has failed once

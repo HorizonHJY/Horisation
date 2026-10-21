@@ -22,14 +22,41 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # Build here, not on the EC2 box: 1 GB of RAM cannot build the plotly chunk
+      # (the build hung for 10 min and left the site with no index.html).
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Upload frontend build
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: 34.201.2.158
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: frontend/dist/*
+          target: /home/ec2-user/Horisation/frontend/dist.new
+          strip_components: 2
+          rm: true
+
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.2.2
         with:
           host: 34.201.2.158
           username: ec2-user
           key: ${{ secrets.EC2_SSH_KEY }}
+          command_timeout: 8m
           script: |
             set -e
             echo "🚀 Running deploy..."
-            bash ~/deploy.sh
+            SKIP_BUILD=1 bash ~/deploy.sh
             echo "✅ Deploy complete!"

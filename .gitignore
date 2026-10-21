@@ -42,3 +42,5 @@ _data/market.db-wal
 /node_modules/
 /package.json
 /package-lock.json
+frontend/dist.new/
+frontend/dist.old/
