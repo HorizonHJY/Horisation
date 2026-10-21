@@ -29,6 +29,7 @@ echo "      Done."
 # thrashed memory for 10 minutes, and because vite empties dist/ first, the site
 # answered 404 on / for ~33 hours while /api stayed up. Building on the box is
 # kept only as a manual fallback, and it too builds aside and swaps at the end.
+pkill -f "vite build" 2>/dev/null || true   # a timed-out build can outlive its ssh session and eat the RAM
 if [ "$SKIP_BUILD" = "1" ]; then
   echo "[3/5] Using the frontend built in CI..."
   [ -f "$FRONTEND_DIR/dist.new/index.html" ] || { echo "ERROR: frontend/dist.new/index.html missing"; exit 1; }

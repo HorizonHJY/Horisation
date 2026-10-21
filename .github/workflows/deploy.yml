@@ -58,5 +58,5 @@ jobs:
           script: |
             set -e
             echo "🚀 Running deploy..."
-            SKIP_BUILD=1 bash ~/deploy.sh
+            SKIP_BUILD=1 bash /home/ec2-user/Horisation/scripts/deploy.sh
             echo "✅ Deploy complete!"
