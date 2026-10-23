@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import HandLoader from '../components/HandLoader'
 import BaziCompat from './BaziCompat'
-import ReadingChat from '../components/ReadingChat'
+import BaziAsk from './BaziAsk'
 import ReadingFeedback from '../components/ReadingFeedback'
 
 /**
@@ -274,6 +274,7 @@ function Reading({ item, chart }) {
 
       {/* ④ is for checking — so it is a checklist. */}
       <div className="bz-kicker bz-kicker--rule">验证 <small>{answered ? `${yes} / ${answered} 准` : '逐条点一下'}</small></div>
+      <p className='bz-fine'>每次点一下，下一次解读就更贴合你。</p>
       <ul className="bz-verify">
         {r.verify.map((q, i) => (
           <li key={i} className={`bz-check${marks[i] ? ` is-${marks[i]}` : ''}`}>
@@ -293,67 +294,7 @@ function Reading({ item, chart }) {
       <p className="bz-fine">由 AI 根据程序排出的命盘推演生成。流年回溯是推演，不是事实，所以请逐条验证。</p>
 
       <ReadingFeedback feature="bazi" readingId={item.id} />
-
-      <AskBox item={item} />
     </section>
-  )
-}
-
-// ── Follow-up questions ────────────────────────────────────────────
-const MAX_Q = 300
-
-function AskBox({ item }) {
-  const [list, setList] = useState(item.followups || [])
-  const [open, setOpen] = useState(false)
-  const timers = useRef({})
-
-  useEffect(() => { setList(item.followups || []) }, [item.id]) // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => () => Object.values(timers.current).forEach(clearTimeout), [])
-
-  const watch = useCallback((fid, started = Date.now()) => {
-    clearTimeout(timers.current[fid])
-    timers.current[fid] = setTimeout(async () => {
-      const d = await api.get(`/api/bazi/followups/${fid}`)
-      if (!d.ok) return
-      setList(prev => prev.map(f => (f.id === fid ? d.followup : f)))
-      if (d.followup.state === 'pending' && Date.now() - started < POLL_GIVE_UP_MS) watch(fid, started)
-    }, 2500)
-  }, [])
-
-  // Questions still being answered when the page opened.
-  useEffect(() => {
-    list.filter(f => f.state === 'pending' && !timers.current[f.id]).forEach(f => watch(f.id))
-  }, [list, watch])
-
-  const busy = list.some(f => f.state === 'pending')
-
-  const ask = async (question) => {
-    const d = await api.post(`/api/bazi/readings/${item.id}/ask`, { question })
-    if (!d.ok) throw new Error(d.error || '没有发出去，再试一次。')
-    setList(prev => [...prev, d.followup])
-    watch(d.followup.id)
-  }
-
-  return (
-    <>
-      <div className="ask-launch">
-        <button type="button" className="ask-launch__btn" onClick={() => setOpen(true)}>
-          <i className="fas fa-comments" aria-hidden="true" />
-          追问<small>就这张命盘接着问</small>
-        </button>
-        {list.length > 0 && <span className="ask-launch__count">已问 {list.length} 个</span>}
-      </div>
-      <ReadingChat
-        open={open}
-        onClose={() => setOpen(false)}
-        title="追问"
-        subtitle="就这张命盘接着问"
-        turns={list}
-        onSend={ask}
-        busy={busy}
-        placeholder="比如：今年适合换工作吗？"
-      />
-    </>
   )
 }
 
@@ -391,8 +332,10 @@ export default function Bazi() {
             className={`bz-tab${tab === 'cast' ? ' is-on' : ''}`} onClick={() => setTab('cast')}>算盘</button>
           <button type="button" role="tab" aria-selected={tab === 'compat'}
             className={`bz-tab${tab === 'compat' ? ' is-on' : ''}`} onClick={() => setTab('compat')}>合盘</button>
+          <button type='button' role='tab' aria-selected={tab === 'ask'}
+            className={'bz-tab' + (tab === 'ask' ? ' is-on' : '')} onClick={() => setTab('ask')}>提问</button>
         </div>
-        {tab === 'cast' ? <BaziCast /> : <BaziCompat />}
+        {tab === 'cast' ? <BaziCast /> : tab === 'compat' ? <BaziCompat /> : <BaziAsk />}
       </div>
     </div>
   )

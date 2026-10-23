@@ -1833,3 +1833,9 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
   - 隐私边界：只用理由标签，不用自由文本 note —— note 可能写到别人的家人、工作、病情，而这段说明会出现在给另一个人的 prompt 里。
 - 验证：后端 42 例全过；反馈接口 end-to-end 通过；npm run build 通过；桌面 / 手机截图各一组。
 - 新增文件：Backend/Controller/feedback_db.py、reading_feedback_controller.py、Backend/Service/ai/feedback.py、frontend/src/components/ReadingChat.jsx、ReadingFeedback.jsx。
+
+## 2026-10-23 补充：八字提问独立成第三个 tab
+- 八字页三个 tab：算盘 / 合盘 / 提问。追问不再埋在解读正文里，单独一个「提问」tab。
+- 提问 tab：列出解读过的命盘 → 点一张 → 打开聊天抽屉接着问。新组件 frontend/src/pages/BaziAsk.jsx，复用 ReadingChat + 现有 /ask、/followups 接口。
+- 验证清单上方加一行注释：「每次点一下，下一次解读就更贴合你。」
+- 积分激励不做了（Horizon 拍板：先不加）。
