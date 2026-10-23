@@ -1839,3 +1839,8 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 - 提问 tab：列出解读过的命盘 → 点一张 → 打开聊天抽屉接着问。新组件 frontend/src/pages/BaziAsk.jsx，复用 ReadingChat + 现有 /ask、/followups 接口。
 - 验证清单上方加一行注释：「每次点一下，下一次解读就更贴合你。」
 - 积分激励不做了（Horizon 拍板：先不加）。
+
+## 2026-10-23 提问 tab 重做：横向标签 + Hallmark 审美
+- 方案二落地：命盘从竖排列表改成顶部横向标签（chips），点一个切一个，默认选中最近一盘。
+- 聊天从抽屉改成页内 inline：选完标签，下面就是完整聊天（历史问答 + 底部输入框）。
+- 用 hallmark skill 的审美约束（装到了 ~/.agents/skills/hallmark）：所有颜色走 CSS token、去掉中圆点连接、无 emoji 图标、每个控件带 :focus-visible、动效遵循 prefers-reduced-motion。
