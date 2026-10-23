@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 
+from ..feedback import lessons
 from ..scope import prompt_block
 
 PROMPT_VERSION = 'bazi-v1'
@@ -89,7 +90,8 @@ def describe(chart: dict) -> str:
 def build(chart: dict) -> list[dict]:
     user = (describe(chart) + "\n\n请完成：② 判断日主强弱、格局、用神、忌神；③ 排出大运与已走过的重要流年；"
             "④ 回溯并推演过去真实发生过的重要事件（学业、家庭、情绪转折、关系、事业节点），用于验证命盘。按规定的 JSON 格式输出。")
-    return [{'role': 'system', 'content': _SYSTEM}, {'role': 'user', 'content': user}]
+    return [{'role': 'system', 'content': _SYSTEM + lessons('bazi')},
+            {'role': 'user', 'content': user}]
 
 
 def _s(v) -> str:

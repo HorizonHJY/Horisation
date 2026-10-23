@@ -150,3 +150,109 @@ def list_readings(username: str, *, limit: int = 20, before: str | None = None) 
             q = q.filter(TarotReading.read_at < datetime.fromisoformat(before))
         rows = q.order_by(TarotReading.read_at.desc()).limit(limit).all()
         return [r.to_dict() for r in rows]
+
+
+# ── Follow-up questions ──────────────────────────────────────────────────────
+# A reading is one thing; the questions after it are another. Same shape as
+# bazi's: pending → answered or error, polled by id.
+
+def _state(row) -> str:
+    if row.status == 'pending':
+        return 'pending'
+    if row.status == 'error':
+        return 'error'
+    return 'done'
+
+
+class TarotFollowup(Base):
+    __tablename__ = 'tarot_followups'
+    id             = Column(String(36), primary_key=True)
+    reading_id     = Column(String(36), nullable=False)
+    username       = Column(String(64), nullable=False)
+    question       = Column(Text, nullable=False)
+    status         = Column(String(16), nullable=True)
+    started_at     = Column(DateTime, nullable=True)
+    error_json     = Column(Text, nullable=True)
+    answer         = Column(Text, nullable=True)
+    model          = Column(String(80), nullable=True)
+    prompt_version = Column(String(40), nullable=True)
+    created_at     = Column(DateTime, default=_utcnow)
+    answered_at    = Column(DateTime, nullable=True)
+
+    __table_args__ = (Index('idx_tarot_fu_reading', 'reading_id', 'created_at'),)
+
+    def to_dict(self) -> dict:
+        return {
+            'id': self.id,
+            'question': self.question,
+            'answer': self.answer,
+            'state': _state(self),
+            'error': json.loads(self.error_json) if self.status == 'error' and self.error_json else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+def followups(rid: str) -> list[TarotFollowup]:
+    with Session() as s:
+        rows = (s.query(TarotFollowup).filter(TarotFollowup.reading_id == rid)
+                 .order_by(TarotFollowup.created_at).all())
+        for r in rows:
+            s.expunge(r)
+        return rows
+
+
+def ask(rid: str, username: str, question: str) -> TarotFollowup:
+    fid = uuid.uuid4().hex
+    with Session() as s:
+        f = TarotFollowup(id=fid, reading_id=rid, username=username, question=question,
+                          status='pending', started_at=_utcnow())
+        s.add(f)
+        s.commit()
+        s.refresh(f)
+        s.expunge(f)
+        return f
+
+
+def ask_screened(rid: str, username: str, question: str, reply: str, *, kind: str) -> TarotFollowup:
+    now = _utcnow()
+    with Session() as s:
+        f = TarotFollowup(id=uuid.uuid4().hex, reading_id=rid, username=username, question=question,
+                          answer=reply, model=f'screen:{kind}', started_at=now, answered_at=now)
+        s.add(f)
+        s.commit()
+        s.refresh(f)
+        s.expunge(f)
+        return f
+
+
+def get_followup(fid: str, username: str) -> TarotFollowup | None:
+    with Session() as s:
+        f = s.get(TarotFollowup, fid)
+        if f is None or f.username != username:
+            return None
+        s.expunge(f)
+        return f
+
+
+def answer(fid: str, *, text_: str, model: str, prompt_version: str) -> None:
+    with Session() as s:
+        f = s.get(TarotFollowup, fid)
+        if f is None:
+            return
+        f.status = None
+        f.answer = text_
+        f.model = model
+        f.prompt_version = prompt_version
+        f.answered_at = _utcnow()
+        s.commit()
+
+
+def fail_followup(fid: str, error: dict) -> None:
+    with Session() as s:
+        f = s.get(TarotFollowup, fid)
+        if f is None:
+            return
+        f.status = 'error'
+        f.error_json = json.dumps(error, ensure_ascii=False)
+        s.commit()
+

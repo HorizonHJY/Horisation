@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import HandLoader from '../components/HandLoader'
 import BaziCompat from './BaziCompat'
+import ReadingChat from '../components/ReadingChat'
+import ReadingFeedback from '../components/ReadingFeedback'
 
 /**
  * 四柱八字 — cast a chart, then have it read.
@@ -290,6 +292,8 @@ function Reading({ item, chart }) {
       </div>
       <p className="bz-fine">由 AI 根据程序排出的命盘推演生成。流年回溯是推演，不是事实，所以请逐条验证。</p>
 
+      <ReadingFeedback feature="bazi" readingId={item.id} />
+
       <AskBox item={item} />
     </section>
   )
@@ -300,10 +304,8 @@ const MAX_Q = 300
 
 function AskBox({ item }) {
   const [list, setList] = useState(item.followups || [])
-  const [q, setQ] = useState('')
-  const [err, setErr] = useState('')
+  const [open, setOpen] = useState(false)
   const timers = useRef({})
-  const sending = useRef(false)
 
   useEffect(() => { setList(item.followups || []) }, [item.id]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => Object.values(timers.current).forEach(clearTimeout), [])
@@ -325,59 +327,33 @@ function AskBox({ item }) {
 
   const busy = list.some(f => f.state === 'pending')
 
-  const send = async (e) => {
-    e.preventDefault()
-    const question = q.trim()
-    // ref blocks the double-click gap before `busy` state catches up.
-    if (!question || sending.current || busy) return
-    sending.current = true
-    setErr('')
-    try {
-      const d = await api.post(`/api/bazi/readings/${item.id}/ask`, { question })
-      if (!d.ok) { setErr(d.error); return }
-      setQ('')
-      setList(prev => [...prev, d.followup])
-      watch(d.followup.id)
-    } finally {
-      sending.current = false
-    }
+  const ask = async (question) => {
+    const d = await api.post(`/api/bazi/readings/${item.id}/ask`, { question })
+    if (!d.ok) throw new Error(d.error || '没有发出去，再试一次。')
+    setList(prev => [...prev, d.followup])
+    watch(d.followup.id)
   }
 
   return (
-    <div className="bz-askbox">
-      <div className="bz-kicker bz-kicker--rule">追问 <small>就这张命盘接着问</small></div>
-      {list.length > 0 && (
-        <ol className="bz-qa" aria-live="polite">
-          {list.map(f => (
-            <li key={f.id} className="bz-qa__turn">
-              <p className="bz-qa__q">{f.question}</p>
-              {f.state === 'done' && <p className="bz-qa__a">{f.answer}</p>}
-              {f.state === 'pending' && (
-                <p className="bz-qa__a bz-qa__a--wait"><span className="bz-wait__brush" aria-hidden="true" />正在看盘…</p>
-              )}
-              {f.state === 'error' && <p className="bz-qa__a bz-qa__a--err">{f.error?.error || '没有答上来，请换个说法再问一次。'}</p>}
-            </li>
-          ))}
-        </ol>
-      )}
-      <form className="bz-askbox__form" onSubmit={send}>
-        <textarea
-          className="bz-askbox__input"
-          rows={2}
-          maxLength={MAX_Q}
-          value={q}
-          onChange={e => setQ(e.target.value)}
-          placeholder={list.length ? '接着问…' : '比如：今年适合换工作吗？我适合自己创业还是跟人合伙？'}
-          aria-label="向命理师追问"
-          onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) send(e) }}
-        />
-        <div className="bz-askbox__row">
-          <span className="bz-fine">{q.length}/{MAX_Q} · 回答会参考你点的「准 / 不准」</span>
-          <button type="submit" className="bz-btn" disabled={busy || !q.trim()}>{busy ? '作答中…' : '提问'}</button>
-        </div>
-        {err && <p className="bz-qa__a--err" role="alert">{err}</p>}
-      </form>
-    </div>
+    <>
+      <div className="ask-launch">
+        <button type="button" className="ask-launch__btn" onClick={() => setOpen(true)}>
+          <i className="fas fa-comments" aria-hidden="true" />
+          追问<small>就这张命盘接着问</small>
+        </button>
+        {list.length > 0 && <span className="ask-launch__count">已问 {list.length} 个</span>}
+      </div>
+      <ReadingChat
+        open={open}
+        onClose={() => setOpen(false)}
+        title="追问"
+        subtitle="就这张命盘接着问"
+        turns={list}
+        onSend={ask}
+        busy={busy}
+        placeholder="比如：今年适合换工作吗？"
+      />
+    </>
   )
 }
 

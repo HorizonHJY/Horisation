@@ -79,6 +79,17 @@ FEATURES: dict[str, Feature] = {
         temperature=0.6,
         read_timeout=120,
     ),
+    # A question after the reading: plain text, short, conversational.
+    'tarot_ask': Feature(
+        name='tarot_ask',
+        prompt_version=tarot_prompt.FOLLOWUP_VERSION,
+        build=tarot_prompt.build_followup,
+        parse=tarot_prompt.parse_followup,
+        json_mode=False,
+        max_tokens=700,
+        temperature=0.75,
+        read_timeout=45,
+    ),
     'bazi_compat_ask': Feature(
         name='bazi_compat_ask',
         prompt_version=compat_prompt.FOLLOWUP_VERSION,

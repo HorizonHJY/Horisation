@@ -455,3 +455,14 @@ POST /api/tarot/readings/<id>/rating   body: { rating: 1-5, note?: ≤ 100 字 }
 **验证方式：** 后端 14 个单测（假厂商 + 内存表：配额按角色、跨日新桶、失败不扣额且重试一次、429 不重试、全局上限、
 总开关、离格回复保留并扣额、解析容错、prompt 内容、Chicago 与 UTC 的日期差）；前端用 stub 过的 fetch 走了
 ok / quota / timeout / parse 四种分支——就是这一步抓到了 `api.js` 丢字段的 bug。真模型的端到端要等 key。
+
+
+## 反馈回路（2026-10-23）
+
+解读页底部的「准 / 不准」写进 ai_reading_feedback（Backend/Controller/feedback_db.py）。
+Backend/Service/ai/feedback.py 的 lessons(feature) 把「不准」的理由统计成一小段校正说明，
+由 prompts/tarot.py 和 prompts/bazi.py 拼进 system prompt。
+
+- 门槛：同 feature 至少 5 条「不准」；单个理由至少 3 次才写入。不够时返回空串，不占 token。
+- 只用理由标签，不用自由文本 note：note 可能含他人隐私，而这段说明会进入给另一个人的 prompt。
+- 新增 feature tarot_ask（塔罗追问，纯文本，45s，700 tokens）。

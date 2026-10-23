@@ -29,15 +29,19 @@ Assets:
 import json
 import os
 import re
+import logging
 import secrets
 
 from flask import Blueprint, jsonify, request
 
 from Backend.Controller.auth_controller import login_required, login_optional
 from Backend.Controller import tarot_db
+from Backend.Controller.socketio_instance import socketio
 from Backend.Service.ai import ai, today_key
-from Backend.Service.ai.prompts.tarot import MAX_QUESTION_CHARS
+from Backend.Service.ai.prompts.tarot import MAX_FOLLOWUP_CHARS, MAX_QUESTION_CHARS
 from Backend.Service.ai import scope
+
+log = logging.getLogger(__name__)
 
 tarot_bp = Blueprint('tarot', __name__, url_prefix='/api/tarot')
 
@@ -246,3 +250,82 @@ def history():
     except ValueError:
         limit = 20
     return jsonify({'ok': True, 'readings': tarot_db.list_readings(username, limit=limit, before=before)})
+
+
+# ── Follow-up questions ──────────────────────────────────────────────────────
+
+def _run_followup(fid: str, username: str, role: str | None, payload: dict) -> None:
+    try:
+        result = ai.run(
+            feature='tarot_ask', user=username, role=role,
+            quota_key=f'user:{username}:tarot_ask:{today_key()}',
+            payload=payload,
+        )
+    except Exception:
+        log.exception('tarot follow-up %s crashed', fid)
+        tarot_db.fail_followup(fid, {'kind': 'crash', 'error': '没有答上来，请换个说法再问一次。'})
+        return
+    if result.ok:
+        tarot_db.answer(fid, text_=result.data['answer'], model=result.usage.model,
+                        prompt_version=result.prompt_version)
+    else:
+        tarot_db.fail_followup(fid, {'kind': result.error_kind,
+                                     'error': result.error or '没有答上来，请换个说法再问一次。'})
+
+
+@tarot_bp.route('/readings/<rid>/ask', methods=['POST'])
+@login_required
+def ask(rid):
+    """Body: { question }. A question about a spread already read.
+    Answered in the background; poll GET /followups/<id>."""
+    q = _CONTROL.sub('', str((request.get_json(silent=True) or {}).get('question') or '')).strip()
+    if not q:
+        return jsonify({'ok': False, 'error': '请写下你的问题。'}), 400
+    if len(q) > MAX_FOLLOWUP_CHARS:
+        return jsonify({'ok': False, 'error': f'问题太长了（最多 {MAX_FOLLOWUP_CHARS} 字）。'}), 400
+
+    username, role = _me()
+    row = tarot_db.get_reading(rid, username)
+    if row is None:
+        return jsonify({'ok': False, 'error': '没有这次占卜。'}), 404
+    if row.read_at is None:
+        return jsonify({'ok': False, 'error': '先完成整体解读，再追问。'}), 409
+
+    screened = scope.screen(q)
+    if screened:
+        f = tarot_db.ask_screened(rid, username, q, screened[1], kind=screened[0])
+        return jsonify({'ok': True, 'followup': f.to_dict()})
+
+    history = [(f.question, f.answer) for f in tarot_db.followups(rid) if f.answer]
+    payload = {
+        'spread': json.loads(row.spread_json),
+        'reading': json.loads(row.reading_json) if row.reading_json else None,
+        'reading_text': row.reading_raw,
+        'history': history,
+        'question': q,
+    }
+    f = tarot_db.ask(rid, username, q)
+    socketio.start_background_task(_run_followup, f.id, username, role, payload)
+    return jsonify({'ok': True, 'followup': f.to_dict()})
+
+
+@tarot_bp.route('/followups/<fid>', methods=['GET'])
+@login_required
+def poll_followup(fid):
+    username, _ = _me()
+    f = tarot_db.get_followup(fid, username)
+    if f is None:
+        return jsonify({'ok': False, 'error': '没有这条提问。'}), 404
+    return jsonify({'ok': True, 'followup': f.to_dict()})
+
+
+
+@tarot_bp.route('/readings/<rid>/followups', methods=['GET'])
+@login_required
+def list_followups(rid):
+    """The questions already asked about this spread, oldest first."""
+    username, _ = _me()
+    if tarot_db.get_reading(rid, username) is None:
+        return jsonify({'ok': False, 'error': '没有这次占卜。'}), 404
+    return jsonify({'ok': True, 'followups': [f.to_dict() for f in tarot_db.followups(rid)]})
+

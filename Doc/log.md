@@ -1821,3 +1821,15 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 - 覆盖：河北/山西/内蒙古/辽宁/吉林/黑龙江/江苏/浙江/安徽/福建/江西/山东/河南/湖北/湖南/广西/海南/四川/贵州/云南/西藏/陕西/甘肃/青海/宁夏/新疆全省地级市 + 台湾各县市 + 港澳。
 - 重新按大区分组排版，每行限宽；已用 AST 校验无重复 key。
 - 无地图 API 的结论不变；依旧离线确定性数据。
+
+
+## 2026-10-23 解读页：提问独立成窗 + 准/不准反馈回路
+- 提问独立成窗：塔罗与八字的追问不再挤在解读正文里。结果页只留一个「追问」按钮；点开是右侧抽屉（桌面 440px）/ 全屏面板（手机），聊天框形式，问题和回答分开显示。
+  - 新组件 frontend/src/components/ReadingChat.jsx；八字 AskBox 改为启动器 + 抽屉；塔罗新增追问链路。
+  - 塔罗此前没有追问能力：新增 tarot_followups 表、POST /api/tarot/readings/<rid>/ask、GET /api/tarot/followups/<fid>、GET /api/tarot/readings/<rid>/followups，AI feature tarot_ask。
+- 准/不准反馈入数据库 + 钩子：新表 ai_reading_feedback（feature、reading_id、username、verdict、reasons、note、prompt_version、model），每人每篇一条，第二次是修改不是新增。
+  - POST /api/reading-feedback 与 GET /api/reading-feedback；八字和塔罗共用。旧的塔罗 1-5 星保留在历史里。
+  - 钩子：Backend/Service/ai/feedback.py 的 lessons(feature) 把「不准」的理由统计成一小段校正说明，拼进下一次解读的 system prompt。门槛：同 feature 至少 5 条「不准」，单个理由至少 3 次。
+  - 隐私边界：只用理由标签，不用自由文本 note —— note 可能写到别人的家人、工作、病情，而这段说明会出现在给另一个人的 prompt 里。
+- 验证：后端 42 例全过；反馈接口 end-to-end 通过；npm run build 通过；桌面 / 手机截图各一组。
+- 新增文件：Backend/Controller/feedback_db.py、reading_feedback_controller.py、Backend/Service/ai/feedback.py、frontend/src/components/ReadingChat.jsx、ReadingFeedback.jsx。

@@ -1,5 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../api'
+import ReadingChat from './ReadingChat'
+import ReadingFeedback from './ReadingFeedback'
 
 /**
  * The reading of the three cards as one thing — asked for, not automatic.
@@ -16,7 +18,6 @@ import { api } from '../api'
  */
 
 const MAX_QUESTION = 200
-const MAX_NOTE = 100
 
 export default function TarotReading({ readingId, positions }) {
   const [question, setQuestion] = useState('')
@@ -24,16 +25,20 @@ export default function TarotReading({ readingId, positions }) {
   const [reading, setReading] = useState(null)         // { reading: {...} | null, reading_text, question, rating }
   const [quota, setQuota] = useState(null)
   const [err, setErr] = useState(null)                 // { message, retryable }
-  const [rating, setRating] = useState(0)
-  const [note, setNote] = useState('')
-  const [rated, setRated] = useState(false)
-  const [savingRating, setSavingRating] = useState(false)
   const topRef = useRef(null)
+
+  // The questions live in their own drawer, not in this column.
+  const [chatOpen, setChatOpen] = useState(false)
+  const [turns, setTurns] = useState([])
+  const [turnsLoaded, setTurnsLoaded] = useState(false)
+  const timers = useRef({})
+  const chatBusy = turns.some(t => t.state === 'pending')
+
 
   // A fresh spread is a fresh reading.
   useEffect(() => {
     setQuestion(''); setState('idle'); setReading(null); setQuota(null)
-    setErr(null); setRating(0); setNote(''); setRated(false)
+    setErr(null)
   }, [readingId])
 
   async function ask() {
@@ -50,21 +55,41 @@ export default function TarotReading({ readingId, positions }) {
     }
     setReading(d.reading)
     if (d.quota) setQuota(d.quota)
-    if (d.reading?.rating) { setRating(d.reading.rating); setRated(true) }
     setState('done')
     // The reading lands below the fold on a phone; bring it into view.
     requestAnimationFrame(() => topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
   }
 
-  async function submitRating(value) {
-    if (!reading?.id || savingRating) return
-    setRating(value)
-    setSavingRating(true)
-    const d = await api.post(`/api/tarot/readings/${reading.id}/rating`, {
-      rating: value, note: note.trim() || undefined,
+  useEffect(() => () => Object.values(timers.current).forEach(clearTimeout), [])
+
+  const watchTurn = useCallback((fid, started = Date.now()) => {
+    clearTimeout(timers.current[fid])
+    timers.current[fid] = setTimeout(async () => {
+      const d = await api.get(`/api/tarot/followups/${fid}`)
+      if (!d.ok) return
+      setTurns(prev => prev.map(t => (t.id === fid ? d.followup : t)))
+      if (d.followup.state === 'pending' && Date.now() - started < 4 * 60 * 1000) watchTurn(fid, started)
+    }, 2500)
+  }, [])
+
+  // Opening the drawer the first time pulls what was already asked.
+  useEffect(() => {
+    if (!chatOpen || turnsLoaded || !readingId) return undefined
+    let alive = true
+    api.get(`/api/tarot/readings/${readingId}/followups`).then(d => {
+      if (!alive || !d.ok) return
+      setTurns(d.followups || [])
+      setTurnsLoaded(true)
+      ;(d.followups || []).filter(f => f.state === 'pending').forEach(f => watchTurn(f.id))
     })
-    setSavingRating(false)
-    if (d.ok) setRated(true)
+    return () => { alive = false }
+  }, [chatOpen, turnsLoaded, readingId, watchTurn])
+
+  const sendQuestion = async (question) => {
+    const d = await api.post(`/api/tarot/readings/${readingId}/ask`, { question })
+    if (!d.ok) throw new Error(d.error || '没有发出去，再试一次。')
+    setTurns(prev => [...prev, d.followup])
+    watchTurn(d.followup.id)
   }
 
   const r = reading?.reading      // parsed structure, or null when the model wandered off the schema
@@ -171,51 +196,27 @@ export default function TarotReading({ readingId, positions }) {
             <span className="label-zh">由 AI 根据三张牌和你的问题生成。当镜子看，别当判词。</span>
           </p>
 
-          <div className="tarot-read__rate">
-            <div className="tarot-read__rate-q">
-              {rated ? 'Thanks — noted.' : 'Did it fit?'}
-              <span className="label-zh">{rated ? '记下了。' : '贴合吗？'}</span>
-            </div>
-            <div className="tarot-read__stars" role="radiogroup" aria-label="How well the reading fit, 1 to 5">
-              {[1, 2, 3, 4, 5].map(n => (
-                <button
-                  key={n}
-                  type="button"
-                  role="radio"
-                  aria-checked={rating === n}
-                  aria-label={`${n} of 5`}
-                  className={`tarot-read__star${rating >= n ? ' is-on' : ''}`}
-                  onClick={() => submitRating(n)}
-                  disabled={savingRating}
-                >
-                  <i className="fas fa-star" aria-hidden="true" />
-                </button>
-              ))}
-            </div>
-            {rating > 0 && (
-              <div className="tarot-read__note">
-                <input
-                  type="text"
-                  className="tarot-read__input tarot-read__input--line"
-                  maxLength={MAX_NOTE}
-                  value={note}
-                  onChange={e => setNote(e.target.value)}
-                  placeholder="一句话，可选"
-                  aria-label="A note about the rating, optional"
-                />
-                <button
-                  type="button"
-                  className="tarot__btn tarot__btn--quiet"
-                  onClick={() => submitRating(rating)}
-                  disabled={savingRating}
-                >
-                  Submit 提交
-                </button>
-              </div>
-            )}
+          <ReadingFeedback feature="tarot" readingId={reading.id} />
+
+          <div className="ask-launch">
+            <button type="button" className="ask-launch__btn" onClick={() => setChatOpen(true)}>
+              <i className="fas fa-comments" aria-hidden="true" />
+              追问<small>就这次的三张牌接着问</small>
+            </button>
+            {turns.length > 0 && <span className="ask-launch__count">已问 {turns.length} 个</span>}
           </div>
         </div>
       )}
+
+      <ReadingChat
+        open={chatOpen}
+        onClose={() => setChatOpen(false)}
+        title="追问"
+        subtitle="就这次的三张牌接着问"
+        turns={turns}
+        onSend={sendQuestion}
+        busy={chatBusy}
+      />
     </section>
   )
 }

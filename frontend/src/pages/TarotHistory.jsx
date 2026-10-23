@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
+import ReadingFeedback from '../components/ReadingFeedback'
 import HandLoader from '../components/HandLoader'
 
 /**
@@ -97,6 +98,8 @@ function Row({ item }) {
           <p className="tarot-read__summary" style={{ whiteSpace: 'pre-wrap' }}>{item.reading_text}</p>
         )}
         {item.rating_note && <p className="tarot-hist__note">“{item.rating_note}”</p>}
+
+        <ReadingFeedback feature="tarot" readingId={item.id} />
       </div>
     </details>
   )

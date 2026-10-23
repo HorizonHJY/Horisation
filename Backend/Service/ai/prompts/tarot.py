@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 
+from ..feedback import lessons
 from ..scope import prompt_block
 
 PROMPT_VERSION = 'tarot-v2'   # v2: scope rules from scope.md (2026-10-12)
@@ -74,7 +75,7 @@ def build(spread: list[dict], question: str | None) -> list[dict]:
         ask = "对方没有写下问题。请读此刻的处境。"
     user = f"{ask}\n\n抽到的三张牌：\n\n{cards}\n\n请按规定的 JSON 格式解读。"
     return [
-        {'role': 'system', 'content': _SYSTEM + prompt_block(json_reply=True)},
+        {'role': 'system', 'content': _SYSTEM + prompt_block(json_reply=True) + lessons('tarot')},
         {'role': 'user', 'content': user},
     ]
 
@@ -103,3 +104,56 @@ def parse(text: str) -> dict | None:
             return None
         out[k] = v.strip()
     return out
+
+
+# ── Follow-up questions ──────────────────────────────────────────────────────
+# The reading is done; now the person asks something about it. Same rules as
+# the reading, but conversational: plain text, no JSON, no re-reading the cards
+# from scratch.
+
+FOLLOWUP_VERSION = 'tarot-ask-v1'
+MAX_FOLLOWUP_CHARS = 200
+HISTORY_TURNS = 8
+
+_FOLLOWUP_SYSTEM = """你是同一位塔罗解读者。刚才已经为对方把这三张牌读成了一件连贯的事（见下）。现在对方就这次占卜继续提问。
+
+回答规则：
+- 两到四句，直接回答问题。先给结论，再说这张牌为什么指向它。
+- 可以引用刚才的解读，但不要整段复述。
+- 仍然不预言。不说"你会""一定""必然"。用"这张牌在提示""此刻更像是"。
+- 如果对方问的与这次占卜无关（技术问题、闲聊、别人的事），一句话说明你只谈这次的三张牌。
+- 不预测生死、重病、官司输赢、具体投资结果。
+- 如果对方追问的是"那我该怎么做"，给一件具体、明天能做的小事。
+- 只输出回答本身，纯文本，不要 JSON，不要标题。"""
+
+
+def _reading_brief(reading: dict | None, raw: str | None) -> str:
+    if not reading:
+        return (raw or '')[:2000]
+    return '\n'.join([
+        f"过去：{reading.get('past', '')}",
+        f"现在：{reading.get('present', '')}",
+        f"未来：{reading.get('future', '')}",
+        f"总述：{reading.get('summary', '')}",
+        f"当时给的一件小事：{reading.get('next_step', '')}",
+    ])
+
+
+def build_followup(payload: dict) -> list[dict]:
+    """payload: spread, reading (parsed or None), reading_text, question, history."""
+    cards = '\n\n'.join(_card_block(e) for e in payload['spread'])
+    context = (f"这次抽到的三张牌：\n\n{cards}\n\n"
+               f"你刚才的解读：\n{_reading_brief(payload.get('reading'), payload.get('reading_text'))}")
+    messages = [{'role': 'system', 'content': _FOLLOWUP_SYSTEM + prompt_block() + lessons('tarot')},
+                {'role': 'user', 'content': context + '\n\n（以上是背景。接下来是对方的提问。）'},
+                {'role': 'assistant', 'content': '好，你问。'}]
+    for q, a in (payload.get('history') or [])[-HISTORY_TURNS:]:
+        messages += [{'role': 'user', 'content': q}, {'role': 'assistant', 'content': a}]
+    messages.append({'role': 'user', 'content': payload['question']})
+    return messages
+
+
+def parse_followup(text: str) -> dict | None:
+    t = (text or '').strip()
+    return {'answer': t} if t else None
+
