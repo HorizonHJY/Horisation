@@ -4211,3 +4211,40 @@ button.fr-chip:hover { filter: brightness(.96); }
 @media (prefers-reduced-motion: reduce) {
   .bza-chip, .bza-chat__send { transition: none; }
 }
+
+/* Language slider — 中文 / English. One sliding thumb over two halves. */
+.lang-toggle {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+  background: #eef0fb;
+  border-radius: 999px;
+  padding: 3px;
+}
+.lang-toggle__thumb {
+  position: absolute;
+  top: 3px; bottom: 3px; left: 3px;
+  width: 78px;
+  background: #6366f1;
+  border-radius: 999px;
+  transition: transform 180ms ease;
+}
+.lang-toggle[data-lang='en'] .lang-toggle__thumb { transform: translateX(78px); }
+.lang-toggle button {
+  position: relative; z-index: 1;
+  width: 78px;
+  border: 0; background: transparent;
+  padding: 6px 0;
+  text-align: center;
+  font-size: 0.8rem; font-weight: 600;
+  cursor: pointer;
+  color: #6366f1;
+  transition: color 180ms ease;
+}
+.lang-toggle button.is-on { color: #fff; }
+.lang-toggle button:focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; border-radius: 999px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .lang-toggle__thumb, .lang-toggle button { transition: none; }
+}
+

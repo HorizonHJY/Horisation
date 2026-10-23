@@ -287,9 +287,11 @@ export default function Mbti() {
       <div className='mbti-page__inner'>
         <div className='d-flex justify-content-between align-items-center mb-2'>
           <h1 className='mbti-h mbti-h--title'>MBTI<span className='mbti-h__sub'>16 Personalities</span></h1>
-          <button className='btn btn-outline-secondary btn-sm' onClick={() => setLang(l => (l === 'zh' ? 'en' : 'zh'))}>
-            {lang === 'zh' ? 'English' : '中文'}
-          </button>
+          <div className='lang-toggle' data-lang={lang} role='tablist' aria-label={t(lang, '语言', 'Language')}>
+            <span className='lang-toggle__thumb' aria-hidden='true' />
+            <button type='button' role='tab' aria-selected={lang === 'zh'} className={lang === 'zh' ? 'is-on' : ''} onClick={() => setLang('zh')}>中文</button>
+            <button type='button' role='tab' aria-selected={lang === 'en'} className={lang === 'en' ? 'is-on' : ''} onClick={() => setLang('en')}>English</button>
+          </div>
         </div>
         {stage === 'intro'  && <Intro existing={existing} onStart={start} lang={lang} />}
         {stage === 'quiz'   && <Quiz questions={questions} mode={mode} onDone={finish} onCancel={() => setStage('intro')} lang={lang} />}
