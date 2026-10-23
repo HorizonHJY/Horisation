@@ -1844,3 +1844,8 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 - 方案二落地：命盘从竖排列表改成顶部横向标签（chips），点一个切一个，默认选中最近一盘。
 - 聊天从抽屉改成页内 inline：选完标签，下面就是完整聊天（历史问答 + 底部输入框）。
 - 用 hallmark skill 的审美约束（装到了 ~/.agents/skills/hallmark）：所有颜色走 CSS token、去掉中圆点连接、无 emoji 图标、每个控件带 :focus-visible、动效遵循 prefers-reduced-motion。
+
+## 2026-10-23 MBTI 英文版
+- 题目(20 短 + 60 全)与 16 类型描述全部双语化：questions.py 每个题目带 statement_en / label_en，types.py 每个类型带 nick_en / tag_en / desc_en / strengths_en / blind_en。
+- 前端 Mbti.jsx 加语言切换（中文 / English），默认按浏览器语言（zh 开头用中文，否则英文），英语母语的朋友打开就是英文。
+- 英文本地化自写，按母语语感翻译，不是逐字直译。match 字段是类型字母，不需翻译。
