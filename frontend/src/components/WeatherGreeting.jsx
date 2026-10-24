@@ -41,7 +41,7 @@ export default function WeatherGreeting({ name }) {
   }, [fetchWeather])
 
   function todayLabel() {
-    // Mon · Oct 18 — short enough to live on the same line as the weather.
+    // Mon Oct 18 — short enough to live on the same line as the weather.
     return new Date().toLocaleDateString('en-US',
       { weekday: 'short', month: 'short', day: 'numeric' })
   }
@@ -87,7 +87,7 @@ export default function WeatherGreeting({ name }) {
         <span className="wg-date">{g.today}</span>
         {g.weather && (
           <>
-            {' · '}
+            {' '}
             <span className="wg-city">{g.weather.city}</span>
             {' '}<span className="wg-emoji" aria-hidden="true">{g.weather.emoji}</span>
             {' '}<span className="wg-label">{g.weather.label}</span>
@@ -97,7 +97,7 @@ export default function WeatherGreeting({ name }) {
       {g.weather && (
         <p className="hero-sub hero-sub--today-temp">
           <span className="wg-temp">{g.weather.temp}</span>
-          {' · '}
+          {' '}
           <span className="wg-feels">Feels like {g.weather.feels}</span>
         </p>
       )}
@@ -115,7 +115,7 @@ export default function WeatherGreeting({ name }) {
             <span className="wg-temp">{g.tomorrow.hi}</span>
             {g.tomorrow.lo && (
               <>
-                {' · '}
+                {' '}
                 <span className="wg-lo">Low</span>{' '}
                 <span className="wg-temp">{g.tomorrow.lo}</span>
               </>

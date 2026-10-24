@@ -194,7 +194,7 @@ function ContactChip({ status, onView, onRequest }) {
   )
   if (status === 'pending') return (
     <span className="fr-chip fr-chip--contact fr-chip--warn" title="Contact requested — waiting">
-      <i className="fas fa-clock" aria-hidden="true" /><span className="fr-chip--word">Requested · waiting</span>
+      <i className="fas fa-clock" aria-hidden="true" /><span className="fr-chip--word">Requested waiting</span>
     </span>
   )
   if (status === 'hidden') return (
@@ -533,7 +533,7 @@ export default function Friends() {
       // they come through as a label: the state still has to be readable.
       const st = contactStatusMap[p.username]
       if (st === 'approved') items.push({ label: 'View contact', icon: 'fa-id-card', onClick: () => showContact(p) })
-      else if (st === 'pending') items.push({ section: 'Contact requested · waiting' })
+      else if (st === 'pending') items.push({ section: 'Contact requested waiting' })
       else if (st === 'hidden') items.push({ section: 'Contact hidden' })
       else items.push({ label: 'Request contact', icon: 'fa-address-card', onClick: () => requestContact(p.username) })
       if (sharedReq) {
@@ -690,7 +690,7 @@ export default function Friends() {
                       <Avatar display={f.display_name} avatar={f.avatar_url} size={44} online={onlineSet.has(f.username)} />
                       <span className="fr-row__body">
                         <span className="fr-row__name">{f.display_name}</span>
-                        <span className="fr-sub">{f.username}{onlineSet.has(f.username) ? ' · online' : ''}</span>
+                        <span className="fr-sub">{f.username}{onlineSet.has(f.username) ? ' online' : ''}</span>
                       </span>
                     </button>
                     <span className="fr-row__acts">
@@ -855,8 +855,8 @@ export default function Friends() {
                     <PeerMbtiChip username={activeChat.username} />
                   </span>
                   <span className="fr-sub">
-                    {activeChat.username} · {onlineSet.has(activeChat.username) ? 'online' : 'offline'}
-                    {!isFriend(activeChat.username) && ' · not a friend'}
+                    {activeChat.username} {onlineSet.has(activeChat.username) ? 'online' : 'offline'}
+                    {!isFriend(activeChat.username) && ' not a friend'}
                   </span>
                 </div>
                 {isFriend(activeChat.username) && (

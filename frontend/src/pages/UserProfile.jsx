@@ -95,7 +95,7 @@ export default function UserProfile() {
             <div className="text-muted small">@{profile.username}</div>
             {mbti?.type_card?.tag && (
               <div className="text-muted" style={{ fontSize: '.76rem', marginTop: 2 }}>
-                {mbti.type_card.nick} · {mbti.type_card.tag}
+                {mbti.type_card.nick} {mbti.type_card.tag}
               </div>
             )}
             {profile.created_at && (

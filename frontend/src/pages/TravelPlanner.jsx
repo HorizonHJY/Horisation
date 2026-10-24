@@ -803,7 +803,7 @@ function ExpenseTab({ plan, showToast }) {
 
       <div className="d-flex justify-content-between align-items-center mb-2">
         <span className="text-muted small">
-          共 {bill.expenses.length} 笔 · 总计 <strong style={{ color: '#1a1a1a' }}>${total.toFixed(2)}</strong>
+          共 {bill.expenses.length} 笔 总计 <strong style={{ color: '#1a1a1a' }}>${total.toFixed(2)}</strong>
         </span>
         {bill.participants.length >= 2 && !adding && (
           <button className="btn btn-sm btn-primary" onClick={() => setAdding(true)}>

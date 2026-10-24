@@ -68,7 +68,7 @@ function CastForm({ cities, initial, onCast, busy }) {
         <fieldset className="bz-field bz-field--gender">
           <legend>性别<small>大运顺逆看它</small></legend>
           <div className="bz-seg" role="radiogroup">
-            {[['male', '男 · 乾造'], ['female', '女 · 坤造']].map(([v, label]) => (
+            {[['male', '男 乾造'], ['female', '女 坤造']].map(([v, label]) => (
               <label key={v} className={`bz-seg__opt${f.gender === v ? ' is-on' : ''}`}>
                 <input type="radio" name="gender" value={v} checked={f.gender === v} onChange={set('gender')} required />
                 {label}
@@ -110,8 +110,8 @@ function Chart({ chart }) {
         <div>
           <div className="bz-chart__lunar">农历 {chart.lunar}</div>
           <div className="bz-chart__meta">
-            阳历 {st.clock}（{chart.input.place}）· 真太阳时 <b>{st.true.slice(11)}</b>
-            {st.dst_applied && ' · 已扣夏令时'}
+            阳历 {st.clock}（{chart.input.place}） 真太阳时 <b>{st.true.slice(11)}</b>
+            {st.dst_applied && ' 已扣夏令时'}
           </div>
         </div>
       </header>
@@ -225,7 +225,7 @@ function Reading({ item, chart }) {
       </ul>
 
       {/* 用喜忌闲: four slips, the element large. */}
-      <div className="bz-kicker bz-kicker--rule">用神 · 喜忌</div>
+      <div className="bz-kicker bz-kicker--rule">用神 喜忌</div>
       <div className="bz-slips">
         {slips.map(([k, label]) => {
           const g = r.gods[k]
@@ -307,7 +307,7 @@ function History({ items, currentId, onOpen, onHide }) {
         <li key={h.id} className={`bz-hist__row${h.id === currentId ? ' is-current' : ''}`}>
           <button type="button" className="bz-hist__open" onClick={() => onOpen(h.id)}>
             <span className="bz-hist__bazi">{h.bazi}</span>
-            <span className="bz-hist__meta">{h.gender_label} · {h.birth} · {h.place}</span>
+            <span className="bz-hist__meta">{h.gender_label} {h.birth} {h.place}</span>
             {h.verdict && <span className="bz-hist__verdict">{h.verdict}</span>}
           </button>
           <button type="button" className="bz-hist__del" onClick={() => onHide(h.id)} aria-label={`删除 ${h.bazi}`}>删除</button>
@@ -325,7 +325,7 @@ export default function Bazi() {
       <div className="bazi__inner">
         <header className="bazi__head">
           <h1 className="bazi__title">八字<span>BaZi</span></h1>
-          <p className="bazi__sub">四柱排盘 · 真太阳时 · 子平法解读</p>
+          <p className="bazi__sub">四柱排盘 真太阳时 子平法解读</p>
         </header>
         <div className="bz-tabs" role="tablist">
           <button type="button" role="tab" aria-selected={tab === 'cast'}

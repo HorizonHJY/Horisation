@@ -209,7 +209,7 @@ function ExpensesPanel({ bill, onRefresh }) {
       )}
       <div className="d-flex justify-content-between align-items-center mb-3">
         <span className="text-muted small">
-          共 {bill.expenses.length} 笔 · 总计 <strong style={{ color: '#1a1a1a' }}>${total.toFixed(2)}</strong>
+          共 {bill.expenses.length} 笔 总计 <strong style={{ color: '#1a1a1a' }}>${total.toFixed(2)}</strong>
         </span>
         {bill.participants.length >= 2 && !adding && (
           <button className="btn btn-sm btn-primary" onClick={() => setAdding(true)}>
@@ -515,7 +515,7 @@ export default function BillSplit() {
                     <div style={{ flex: 1 }}>
                       <div className="fw-semibold">{b.name}</div>
                       <div className="text-muted small">
-                        {b.participants.length} 人 · {b.expenses.length} 笔 · 总计 ${total.toFixed(2)}
+                        {b.participants.length} 人 {b.expenses.length} 笔 总计 ${total.toFixed(2)}
                         {txns.length > 0 && (
                           <span className="ms-2 badge bg-warning text-dark" style={{ fontSize: '.65rem' }}>待结算 {txns.length} 笔</span>
                         )}
@@ -568,7 +568,7 @@ export default function BillSplit() {
               {bill.name} <i className="fas fa-pen text-muted" style={{ fontSize: '.7rem', opacity: 0.4 }} />
             </h2>
           )}
-          <span className="text-muted small">{bill.participants.length} 人 · {bill.expenses.length} 笔账单</span>
+          <span className="text-muted small">{bill.participants.length} 人 {bill.expenses.length} 笔账单</span>
         </div>
       </div>
 

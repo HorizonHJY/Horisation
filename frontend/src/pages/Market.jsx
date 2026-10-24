@@ -121,7 +121,7 @@ function PriceDisplay({ listing, large = false }) {
           <span className="tnum" style={{ fontSize: large ? '1.1rem' : '.9rem', fontWeight: 600, color: 'var(--badge-info-fg)' }}>
             {money(Number(price) + Number(delivery_fee))}
           </span>
-          <span className="badge-pill badge-pill--info">Delivered · {money(delivery_fee)} fee</span>
+          <span className="badge-pill badge-pill--info">Delivered {money(delivery_fee)} fee</span>
         </div>
       </div>
     )
@@ -268,7 +268,7 @@ function EditModal({ listing, onClose, onSave, categories }) {
                 onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
                 {categories.map(c => (
                   <option key={c.slug} value={c.slug}>
-                    {c.label}{c.label_zh ? ` · ${c.label_zh}` : ''}
+                    {c.label}{c.label_zh ? ` ${c.label_zh}` : ''}
                   </option>
                 ))}
               </select>
@@ -807,8 +807,8 @@ function ListingDetailModal({
                 {listing.delivery_type !== 'pickup' && (
                   <span className="tnum">
                     {listing.delivery_fee != null && listing.delivery_fee > 0
-                      ? ` · ${money(listing.delivery_fee)}`
-                      : ' · free'}
+                      ? ` ${money(listing.delivery_fee)}`
+                      : ' free'}
                   </span>
                 )}
               </span>
@@ -1015,7 +1015,7 @@ function SellerModal({ seller, listings, loading, categoryLabel, onClose, onReac
               <div>
                 <div className="fw-bold" id={titleId}>{seller.display_name || seller.username}</div>
                 <div className="small" style={{ color: 'var(--text-muted)' }}>
-                  @{seller.username} ·{' '}
+                  @{seller.username}{' '}
                   <button
                     type="button"
                     onClick={() => onViewProfile(seller.username)}
@@ -2179,7 +2179,7 @@ export default function Market() {
                     >
                       {categories.map(c => (
                         <option key={c.slug} value={c.slug}>
-                          {c.label}{c.label_zh ? ` · ${c.label_zh}` : ''}
+                          {c.label}{c.label_zh ? ` ${c.label_zh}` : ''}
                         </option>
                       ))}
                     </select>
@@ -2219,7 +2219,7 @@ export default function Market() {
                   <div className="mb-4">
                     <label className="form-label fw-medium" htmlFor="new-photos">Photos</label>
                     <p className="small mb-2" style={{ color: 'var(--text-muted)' }}>
-                      Up to 3 photos · JPEG or PNG · 5 MB each
+                      Up to 3 photos JPEG or PNG 5 MB each
                       {images.length > 0 && images.length < 3 && ` — ${images.length} added, ${3 - images.length} to go`}
                       {images.length >= 3 && ' — limit reached'}
                     </p>

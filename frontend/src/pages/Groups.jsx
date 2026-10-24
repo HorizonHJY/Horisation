@@ -179,7 +179,7 @@ export default function Groups() {
                 <Avatar display={active.name} size={36} />
                 <div>
                   <div className="groups-chat-title">{active.name}</div>
-                  <div className="groups-chat-meta">群主 {active.owner} · {active.member_count} 人</div>
+                  <div className="groups-chat-meta">群主 {active.owner} {active.member_count} 人</div>
                 </div>
               </div>
               <div className="groups-chat-actions d-flex gap-2">

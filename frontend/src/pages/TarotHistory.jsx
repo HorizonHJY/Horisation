@@ -26,7 +26,7 @@ function when(iso) {
 }
 
 function Stars({ value }) {
-  if (!value) return <span className="tarot-hist__unrated">Not rated · 未评分</span>
+  if (!value) return <span className="tarot-hist__unrated">Not rated 未评分</span>
   return (
     <span className="tarot-hist__stars" aria-label={`Rated ${value} of 5`}>
       {[1, 2, 3, 4, 5].map(n => (
@@ -56,7 +56,7 @@ function Row({ item }) {
             <Stars value={item.rating} />
           </div>
           <div className="tarot-hist__names">
-            {spread.map(e => e.card.name_zh || e.card.name).join(' · ')}
+            {spread.map(e => e.card.name_zh || e.card.name).join(' ')}
           </div>
           {teaser && (
             <p className="tarot-hist__teaser">
@@ -80,7 +80,7 @@ function Row({ item }) {
                   <div className="tarot-read__pos" key={key}>
                     <div className="tarot-read__pos-label">
                       {p.label}<span className="label-zh">{p.label_zh}</span>
-                      {card && <span className="tarot-hist__pos-card"> · {card.name_zh || card.name}</span>}
+                      {card && <span className="tarot-hist__pos-card"> {card.name_zh || card.name}</span>}
                     </div>
                     <p className="mb-0">{r[key]}</p>
                   </div>

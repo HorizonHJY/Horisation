@@ -60,11 +60,8 @@ function WantedCard({ w, categories, me, onReachOut, onFulfill, onReopen, onDele
 
       <div className="wanted-card__meta">
         <span className="wanted-card__price">{priceRangeText(w)}</span>
-        <span className="wanted-card__sep">·</span>
         <span>{CONDITIONS.find(c => c.value === w.condition)?.label || 'Any condition'}</span>
-        <span className="wanted-card__sep">·</span>
         <Link to={`/u/${w.buyer}`} className="wanted-card__buyer">@{w.buyer}</Link>
-        <span className="wanted-card__sep">·</span>
         <span className="text-muted small">{fmtDateMed(w.created_at)}</span>
       </div>
 
@@ -140,7 +137,7 @@ function WantedPostForm({ categories, initial, onSubmit, onCancel, busy }) {
           <select className="form-select" value={f.category} onChange={set('category')}>
             {categories.map(c => (
               <option key={c.slug} value={c.slug}>
-                {c.label}{c.label_zh ? ` · ${c.label_zh}` : ''}
+                {c.label}{c.label_zh ? ` ${c.label_zh}` : ''}
               </option>
             ))}
           </select>

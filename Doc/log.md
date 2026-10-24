@@ -1849,3 +1849,10 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 - 题目(20 短 + 60 全)与 16 类型描述全部双语化：questions.py 每个题目带 statement_en / label_en，types.py 每个类型带 nick_en / tag_en / desc_en / strengths_en / blind_en。
 - 前端 Mbti.jsx 加语言切换（中文 / English），默认按浏览器语言（zh 开头用中文，否则英文），英语母语的朋友打开就是英文。
 - 英文本地化自写，按母语语感翻译，不是逐字直译。match 字段是类型字母，不需翻译。
+
+## 2026-10-24 前端 review 修复（Hallmark audit 落地）
+- 中圆点连接(·)全清：51 处 meta 串「A · B · C」改为空格分隔，MarketWanted 的装饰性分隔点 span 删掉（meta 容器本就有 flex gap）。
+- 大写+字距标签全清：侧边栏分组标题(Main/Community/For Fun)、首页 stat-label、dropdown-header、表格 thead、Friends 分区(.fr-sec/.fr-menu__sec)、天气 HIGH/LOW/TOMORROW 标签，去掉 text-transform:uppercase 与 letter-spacing，改成句首大写。
+- transition:all（2 处，MBTI 模式卡）改成列具体属性 transform/border-color/background-color/box-shadow。
+- 100vw 改成 100%（1 处）。
+- 保留(刻意设计)：塔罗牌位 PAST/PRESENT/FUTURE 的描金大写、Market 的 SOLD OUT 徽章。

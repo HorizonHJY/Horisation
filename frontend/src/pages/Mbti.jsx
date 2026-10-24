@@ -69,14 +69,14 @@ function Intro({ existing, onStart, lang }) {
             <button className='mbti-mode__card' onClick={() => onStart('short')}>
               <div className='mbti-mode__num'>20</div>
               <div className='mbti-mode__name'>{t(lang, '快速版', 'Quick')}</div>
-              <div className='mbti-mode__hint'>{t(lang, '大概 3 分钟 · 结果 70% 相似', 'About 3 min · ~70% match')}</div>
+              <div className='mbti-mode__hint'>{t(lang, '大概 3 分钟 结果 70% 相似', 'About 3 min ~70% match')}</div>
             </button>
           </div>
           <div className='col-md-6'>
             <button className='mbti-mode__card' onClick={() => onStart('full')}>
               <div className='mbti-mode__num'>60</div>
               <div className='mbti-mode__name'>{t(lang, '标准版', 'Standard')}</div>
-              <div className='mbti-mode__hint'>{t(lang, '大概 10 分钟 · 接近 16personalities', 'About 10 min · close to 16personalities')}</div>
+              <div className='mbti-mode__hint'>{t(lang, '大概 10 分钟 接近 16personalities', 'About 10 min close to 16personalities')}</div>
             </button>
           </div>
         </div>

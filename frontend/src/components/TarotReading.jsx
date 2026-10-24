@@ -122,7 +122,7 @@ export default function TarotReading({ readingId, positions }) {
             <span className="tarot-read__hint">
               {question.length}/{MAX_QUESTION}
               {quota?.limit != null && (
-                <> · {quota.remaining} of {quota.limit} left today <span className="label-zh">今天还剩 {quota.remaining} 次</span></>
+                <> {quota.remaining} of {quota.limit} left today <span className="label-zh">今天还剩 {quota.remaining} 次</span></>
               )}
             </span>
             <button

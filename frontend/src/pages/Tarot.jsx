@@ -264,7 +264,7 @@ function Inspector({ entry, index, count, fromRect, onClose, onStep, reducedMoti
             </h2>
             <p className="tarot-inspect__meta">
               {card.arcana === 'major' ? 'Major Arcana 大阿卡纳' : 'Minor Arcana 小阿卡纳'}
-              {' · '}Upright 正位
+              {' '}Upright 正位
             </p>
 
             <div className="tarot-inspect__text">
@@ -639,12 +639,12 @@ export default function Tarot() {
     choosing: {
       lead: chosen === 0 ? 'Now take three.' : `${POSITION_COUNT - chosen} to go.`,
       sub: nextPosition
-        ? `下一张是「${nextPosition.label_zh}」 · ${nextPosition.label}`
+        ? `下一张是「${nextPosition.label_zh}」 ${nextPosition.label}`
         : '',
     },
     // The cards are worth looking at properly, and nothing else on the page
     // says so — the slot is small enough to read as finished.
-    done: { lead: 'Your three cards.', sub: 'Tap one to look closer · 点开任意一张细看' },
+    done: { lead: 'Your three cards.', sub: 'Tap one to look closer 点开任意一张细看' },
   }[phase]
 
   return (
@@ -653,7 +653,7 @@ export default function Tarot() {
         <div className="tarot__head">
           <div>
             <h1 className="tarot__title">Tarot</h1>
-            <p className="tarot__subtitle">三张牌 — 过去 · 现在 · 未来</p>
+            <p className="tarot__subtitle">三张牌 — 过去 现在 未来</p>
           </div>
           <Link to="/tarot/history" className="tarot__head-link">
             <i className="fas fa-clock-rotate-left" aria-hidden="true" /> History 历史
@@ -835,7 +835,7 @@ export default function Tarot() {
         )}
 
         <p className="tarot__footnote">
-          Rider–Waite–Smith deck, public domain in the US · card text from
+          Rider–Waite–Smith deck, public domain in the US card text from
           A. E. Waite, <em>The Pictorial Key to the Tarot</em> (1911)
         </p>
       </div>

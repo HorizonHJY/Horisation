@@ -29,7 +29,7 @@ const DAY_LEVEL_LABEL = {
 }
 
 function fmtBirth(c) {
-  return `${c.gender_label} · ${c.solar_time.clock}`
+  return `${c.gender_label} ${c.solar_time.clock}`
 }
 
 function bazi(c) {
@@ -51,7 +51,7 @@ function PickerCard({ side, label, mine, picked, onPick }) {
                 className={`bzc-pick__item${picked === h.id ? ' is-on' : ''}`}
                 onClick={() => onPick(h.id)}>
                 <span className="bzc-pick__bazi">{h.bazi}</span>
-                <span className="bzc-pick__meta">{h.gender_label} · {h.birth}</span>
+                <span className="bzc-pick__meta">{h.gender_label} {h.birth}</span>
                 <span className="bzc-pick__place">{h.place}</span>
               </button>
             </li>
@@ -76,7 +76,7 @@ function MiniChart({ chart, label }) {
           </div>
         ))}
       </div>
-      <div className="bzc-mini__sub">{fmtBirth(chart)} · {chart.input.place}</div>
+      <div className="bzc-mini__sub">{fmtBirth(chart)} {chart.input.place}</div>
     </div>
   )
 }
@@ -187,7 +187,7 @@ function CompatReading({ item }) {
       </ul>
 
       {/* 日柱配对 */}
-      <div className="bz-kicker bz-kicker--rule">日柱配对<small>夫妻宫 · 感情位</small></div>
+      <div className="bz-kicker bz-kicker--rule">日柱配对<small>夫妻宫 感情位</small></div>
       <DayPairCard day={compat.day_pair} />
       <p className="bzc-text">{r.day_pillar}</p>
 
@@ -356,7 +356,7 @@ function History({ items, currentId, onOpen, onHide }) {
           <button type="button" className="bz-hist__open" onClick={() => onOpen(h.id)}>
             <span className="bzc-hist__score">{h.score ?? '—'}</span>
             <span className="bz-hist__bazi">{h.self_bazi} ⇔ {h.other_bazi}</span>
-            <span className="bz-hist__meta">{h.self_birth} · {h.other_birth}</span>
+            <span className="bz-hist__meta">{h.self_birth} {h.other_birth}</span>
             {h.verdict && <span className="bz-hist__verdict">{h.verdict}</span>}
           </button>
           <button type="button" className="bz-hist__del" onClick={() => onHide(h.id)} aria-label="删除合盘">删除</button>
