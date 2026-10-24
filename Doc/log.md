@@ -1856,3 +1856,9 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 - transition:all（2 处，MBTI 模式卡）改成列具体属性 transform/border-color/background-color/box-shadow。
 - 100vw 改成 100%（1 处）。
 - 保留(刻意设计)：塔罗牌位 PAST/PRESENT/FUTURE 的描金大写、Market 的 SOLD OUT 徽章。
+
+## 2026-10-24 Profile 页精简
+- 去掉常驻头像上传按钮(点头像即可换)、Username/Role 显示、hide contact info 开关。
+- 改密码折叠成 Change Password，点击才展开。
+- 整页聚焦：头像(点头像换) + MBTI 徽章 + Display Name/Email + Contact Info + 折叠改密码。
+- 分区标题去掉 text-uppercase + letter-spacing(句首大写)。
