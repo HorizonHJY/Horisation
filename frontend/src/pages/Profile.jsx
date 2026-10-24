@@ -1,4 +1,5 @@
-import React, { useState, useRef } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../App'
 import { api } from '../api'
 import { validatePassword } from '../utils'
@@ -22,6 +23,13 @@ export default function Profile() {
   const [avatarPreview, setAvatarPreview] = useState(null)
   const [msg, setMsg] = useState(null)
   const fileRef = useRef()
+  const [mbti, setMbti] = useState(null)
+
+  useEffect(() => {
+    api.get('/api/mbti/me').then(d => {
+      if (d.ok && d.result) setMbti({ ...d.result, type_card: d.type_card })
+    })
+  }, [])
 
   if (!user) return null
 
@@ -127,6 +135,11 @@ export default function Profile() {
             <span className={`role-badge ${ROLE_COLORS[user.role] ?? 'role-user'}`}>
               {user.role_info?.name ?? user.role}
             </span>
+            {mbti && (
+              <div className="mt-2">
+                <Link to="/mbti" className="mbti-badge mbti-badge--sm text-decoration-none" title={mbti.type_card?.nick || mbti.type}>{mbti.type}</Link>
+              </div>
+            )}
             {/* Avatar upload */}
             <div className="mt-3 d-flex flex-column gap-2">
               <input
