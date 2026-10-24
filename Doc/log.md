@@ -1866,3 +1866,7 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 ## 2026-10-24 Profile 排版再调
 - 头像+名字+MBTI 合并成顶部一行，不再占独立左栏；表单改单列全宽，消灭左下空白。
 - 头像加 hover 提示(半透明遮罩显示 Change)。
+
+## 2026-10-24 Profile 合并 Account Info
+- Display Name + Contact Info 合成一个 Account Info 分区，一个表单 6 个字段一次保存。
+- saveName 改名 saveAccount，一次提交全部字段；去掉未用的 savingContact state。

@@ -17,7 +17,6 @@ export default function Profile() {
   const [contactForm, setContactForm]     = useState({ phone: user?.phone ?? '', wechat: user?.wechat ?? '', address: user?.address ?? '', postal_code: user?.postal_code ?? '' })
   const [savingName, setSavingName] = useState(false)
   const [savingPass, setSavingPass] = useState(false)
-  const [savingContact, setSavingContact] = useState(false)
   const [showPass, setShowPass] = useState(false)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [avatarPreview, setAvatarPreview] = useState(null)
@@ -39,17 +38,21 @@ export default function Profile() {
   }
 
   // ── Display name + email ───────────────────────────────────────────
-  const saveName = async (e) => {
+  const saveAccount = async (e) => {
     e.preventDefault()
     if (!nameForm.display_name.trim()) return flash('Display name cannot be empty.', 'danger')
     setSavingName(true)
     const d = await api.put('/api/auth/profile', {
       display_name: nameForm.display_name.trim(),
       email:        nameForm.email.trim(),
+      phone:        contactForm.phone,
+      wechat:       contactForm.wechat,
+      address:      contactForm.address,
+      postal_code:  contactForm.postal_code,
     })
     setSavingName(false)
     if (d.ok) {
-      flash('Profile updated.')
+      flash('Account info saved.')
       login({ ...user, display_name: nameForm.display_name.trim(), email: nameForm.email.trim() })
     } else {
       flash(d.error, 'danger')
@@ -148,62 +151,39 @@ export default function Profile() {
       {/* Forms — single column */}
       <div className='d-flex flex-column gap-4'>
 
-        {/* Display name + email */}
+        {/* Account info */}
         <div className='card p-4'>
-          <h6 className='fw-semibold mb-3 text-muted'>Display Name</h6>
-          <form onSubmit={saveName} className='d-flex flex-column gap-3'>
-            <div>
-              <label className='form-label fw-medium'>Display Name</label>
-              <input type='text' className='form-control' value={nameForm.display_name} onChange={e => setNameForm(f => ({ ...f, display_name: e.target.value }))} required />
-            </div>
-            <div>
-              <label className='form-label fw-medium'>Email</label>
-              <input type='email' className='form-control' value={nameForm.email} onChange={e => setNameForm(f => ({ ...f, email: e.target.value }))} placeholder='email@example.com' />
+          <h6 className='fw-semibold mb-3 text-muted'>Account Info</h6>
+          <form onSubmit={saveAccount} className='d-flex flex-column gap-3'>
+            <div className='row g-3'>
+              <div className='col-sm-6'>
+                <label className='form-label fw-medium'>Display Name</label>
+                <input type='text' className='form-control' value={nameForm.display_name} onChange={e => setNameForm(f => ({ ...f, display_name: e.target.value }))} required />
+              </div>
+              <div className='col-sm-6'>
+                <label className='form-label fw-medium'>Email</label>
+                <input type='email' className='form-control' value={nameForm.email} onChange={e => setNameForm(f => ({ ...f, email: e.target.value }))} placeholder='email@example.com' />
+              </div>
+              <div className='col-sm-6'>
+                <label className='form-label fw-medium'>Phone</label>
+                <input type='text' className='form-control' placeholder='+86 138 0000 0000' value={contactForm.phone} onChange={e => setContactForm(f => ({ ...f, phone: e.target.value }))} maxLength={50} />
+              </div>
+              <div className='col-sm-6'>
+                <label className='form-label fw-medium'>WeChat ID</label>
+                <input type='text' className='form-control' placeholder='WeChat ID' value={contactForm.wechat} onChange={e => setContactForm(f => ({ ...f, wechat: e.target.value }))} maxLength={100} />
+              </div>
+              <div className='col-sm-8'>
+                <label className='form-label fw-medium'>Address</label>
+                <input type='text' className='form-control' placeholder='Street, City' value={contactForm.address} onChange={e => setContactForm(f => ({ ...f, address: e.target.value }))} maxLength={200} />
+              </div>
+              <div className='col-sm-4'>
+                <label className='form-label fw-medium'>Postal Code</label>
+                <input type='text' className='form-control' placeholder='000000' value={contactForm.postal_code} onChange={e => setContactForm(f => ({ ...f, postal_code: e.target.value }))} maxLength={20} />
+              </div>
             </div>
             <button className='btn btn-primary align-self-start' disabled={savingName}>
               {savingName ? <span className='spinner-border spinner-border-sm me-2' /> : null}
               Save Changes
-            </button>
-          </form>
-        </div>
-
-        {/* Contact info */}
-        <div className='card p-4'>
-          <h6 className='fw-semibold mb-3 text-muted'>Contact Info</h6>
-          <form onSubmit={async (e) => {
-            e.preventDefault()
-            setSavingContact(true)
-            const d = await api.put('/api/auth/profile', {
-              phone: contactForm.phone,
-              wechat: contactForm.wechat,
-              address: contactForm.address,
-              postal_code: contactForm.postal_code,
-            })
-            setSavingContact(false)
-            if (d.ok) flash('Contact info saved.')
-            else flash(d.error, 'danger')
-          }} className='mb-0'>
-            <div className='row g-2 mb-2'>
-              <div className='col-sm-6'>
-                <label className='form-label fw-medium small mb-1'>Phone</label>
-                <input type='text' className='form-control' placeholder='+86 138 0000 0000' value={contactForm.phone} onChange={e => setContactForm(f => ({ ...f, phone: e.target.value }))} maxLength={50} />
-              </div>
-              <div className='col-sm-6'>
-                <label className='form-label fw-medium small mb-1'>WeChat ID</label>
-                <input type='text' className='form-control' placeholder='WeChat ID' value={contactForm.wechat} onChange={e => setContactForm(f => ({ ...f, wechat: e.target.value }))} maxLength={100} />
-              </div>
-              <div className='col-sm-8'>
-                <label className='form-label fw-medium small mb-1'>Address</label>
-                <input type='text' className='form-control' placeholder='Street, City' value={contactForm.address} onChange={e => setContactForm(f => ({ ...f, address: e.target.value }))} maxLength={200} />
-              </div>
-              <div className='col-sm-4'>
-                <label className='form-label fw-medium small mb-1'>Postal Code</label>
-                <input type='text' className='form-control' placeholder='000000' value={contactForm.postal_code} onChange={e => setContactForm(f => ({ ...f, postal_code: e.target.value }))} maxLength={20} />
-              </div>
-            </div>
-            <button className='btn btn-primary btn-sm' disabled={savingContact}>
-              {savingContact ? <span className='spinner-border spinner-border-sm me-1' /> : null}
-              Save
             </button>
           </form>
         </div>
