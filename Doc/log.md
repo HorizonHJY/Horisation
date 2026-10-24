@@ -1873,3 +1873,7 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 
 ## 2026-10-24 MBTI 徽章可选显示
 - Profile 页 MBTI 徽章旁加可见范围选择(Only me / Friends / Public)，复用 /api/mbti/me/visibility。
+
+## 2026-10-24 MBTI 徽章改成佩戴标签
+- 撤掉可见范围下拉；改成 Badges 卡，列出获得的标签(现 MBTI)，点 Wear/Wearing 佩戴，佩戴即公开。
+- 复用 /api/mbti/me/visibility：佩戴=public，不戴=private。

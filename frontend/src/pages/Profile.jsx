@@ -130,26 +130,6 @@ export default function Profile() {
 
           <div className='flex-grow-1'>
             <h5 className='fw-bold mb-1'>{user.display_name}</h5>
-            {mbti && (
-              <div className='d-flex align-items-center gap-2 flex-wrap'>
-                <Link to='/mbti' className='mbti-badge mbti-badge--sm text-decoration-none' title={mbti.type_card?.nick || mbti.type}>{mbti.type}</Link>
-                <select
-                  className='form-select form-select-sm'
-                  style={{ width: 'auto' }}
-                  value={mbti.visibility || 'private'}
-                  onChange={async e => {
-                    const v = e.target.value
-                    setMbti(prev => ({ ...prev, visibility: v }))
-                    await api.patch('/api/mbti/me/visibility', { visibility: v })
-                  }}
-                  aria-label='MBTI visibility'
-                >
-                  <option value='private'>Only me</option>
-                  <option value='friends'>Friends</option>
-                  <option value='public'>Public</option>
-                </select>
-              </div>
-            )}
           </div>
 
           {avatarPreview && (
@@ -164,6 +144,32 @@ export default function Profile() {
           )}
         </div>
       </div>
+
+      {/* Badges — wear one to show it to everyone */}
+      {mbti && (
+        <div className='card p-4 mb-4'>
+          <h6 className='fw-semibold mb-3 text-muted'>Badges</h6>
+          <div className='d-flex align-items-center justify-content-between flex-wrap gap-2'>
+            <div className='d-flex align-items-center gap-2 flex-wrap'>
+              <span className='mbti-badge mbti-badge--sm'>{mbti.type}</span>
+              <span className='fw-medium'>{mbti.type_card?.nick}</span>
+              {mbti.type_card?.tag && <span className='text-muted small'>{mbti.type_card.tag}</span>}
+            </div>
+            <button
+              type='button'
+              className={mbti.visibility === 'public' ? 'btn btn-outline-secondary btn-sm' : 'btn btn-primary btn-sm'}
+              onClick={async () => {
+                const v = mbti.visibility === 'public' ? 'private' : 'public'
+                setMbti(prev => ({ ...prev, visibility: v }))
+                await api.patch('/api/mbti/me/visibility', { visibility: v })
+              }}
+            >
+              {mbti.visibility === 'public' ? 'Wearing ✓' : 'Wear'}
+            </button>
+          </div>
+          <p className='text-muted small mt-2 mb-0'>A worn badge is visible to everyone.</p>
+        </div>
+      )}
 
       {/* Forms — single column */}
       <div className='d-flex flex-column gap-4'>
