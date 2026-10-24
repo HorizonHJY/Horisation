@@ -4236,3 +4236,33 @@ button.fr-chip:hover { filter: brightness(.96); }
   .lang-toggle__thumb, .lang-toggle button { transition: none; }
 }
 
+
+/* Profile avatar — click-to-change, with a hover hint */
+.profile-avatar {
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  cursor: pointer;
+}
+.profile-avatar img { display: block; }
+.profile-avatar__overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 20, 30, 0.52);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 600;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.profile-avatar:hover .profile-avatar__overlay,
+.profile-avatar:focus-within .profile-avatar__overlay { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-avatar__overlay { transition: none; }
+}

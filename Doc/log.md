@@ -1862,3 +1862,7 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 - 改密码折叠成 Change Password，点击才展开。
 - 整页聚焦：头像(点头像换) + MBTI 徽章 + Display Name/Email + Contact Info + 折叠改密码。
 - 分区标题去掉 text-uppercase + letter-spacing(句首大写)。
+
+## 2026-10-24 Profile 排版再调
+- 头像+名字+MBTI 合并成顶部一行，不再占独立左栏；表单改单列全宽，消灭左下空白。
+- 头像加 hover 提示(半透明遮罩显示 Change)。
