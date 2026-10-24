@@ -1870,3 +1870,6 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 ## 2026-10-24 Profile 合并 Account Info
 - Display Name + Contact Info 合成一个 Account Info 分区，一个表单 6 个字段一次保存。
 - saveName 改名 saveAccount，一次提交全部字段；去掉未用的 savingContact state。
+
+## 2026-10-24 MBTI 徽章可选显示
+- Profile 页 MBTI 徽章旁加可见范围选择(Only me / Friends / Public)，复用 /api/mbti/me/visibility。

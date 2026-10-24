@@ -131,7 +131,24 @@ export default function Profile() {
           <div className='flex-grow-1'>
             <h5 className='fw-bold mb-1'>{user.display_name}</h5>
             {mbti && (
-              <Link to='/mbti' className='mbti-badge mbti-badge--sm text-decoration-none' title={mbti.type_card?.nick || mbti.type}>{mbti.type}</Link>
+              <div className='d-flex align-items-center gap-2 flex-wrap'>
+                <Link to='/mbti' className='mbti-badge mbti-badge--sm text-decoration-none' title={mbti.type_card?.nick || mbti.type}>{mbti.type}</Link>
+                <select
+                  className='form-select form-select-sm'
+                  style={{ width: 'auto' }}
+                  value={mbti.visibility || 'private'}
+                  onChange={async e => {
+                    const v = e.target.value
+                    setMbti(prev => ({ ...prev, visibility: v }))
+                    await api.patch('/api/mbti/me/visibility', { visibility: v })
+                  }}
+                  aria-label='MBTI visibility'
+                >
+                  <option value='private'>Only me</option>
+                  <option value='friends'>Friends</option>
+                  <option value='public'>Public</option>
+                </select>
+              </div>
             )}
           </div>
 
