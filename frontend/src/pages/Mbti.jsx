@@ -81,6 +81,16 @@ function Intro({ existing, onStart, lang }) {
           </div>
         </div>
       </div>
+
+      <div className='mbti-chart mt-4'>
+        <h3 className='mbti-sub'>{t(lang, '16 种类型一览', 'The 16 types at a glance')}</h3>
+        <img
+          src='/mbti-types.jpg'
+          alt={t(lang, '16 种 MBTI 类型总览', 'Overview of the 16 MBTI types')}
+          className='mbti-chart__img'
+          loading='lazy'
+        />
+      </div>
     </section>
   )
 }

@@ -4294,3 +4294,12 @@ button.fr-chip:hover { filter: brightness(.96); }
   text-align: left;
 }
 .badge-picker__item:hover { background: rgba(0, 0, 0, .04); }
+
+/* MBTI 16-type reference chart */
+.mbti-chart__img {
+  width: 100%;
+  max-width: 560px;
+  display: block;
+  border-radius: 12px;
+  border: 1px solid var(--border, #e5e7eb);
+}

@@ -1881,3 +1881,6 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 ## 2026-10-24 标签显示在名字下方 + 标签弹窗
 - 佩戴的标签(MBTI)显示在 profile 名字下方；点 + 标签 弹出「已获得标签」列表，勾选佩戴/取消。
 - 去掉独立的 Badges 卡。佩戴=public，不戴=private，复用 /api/mbti/me/visibility。
+
+## 2026-10-24 MBTI 加 16 型总览配图
+- 首页(选完 20/60 题下方)加「16 种类型一览」参考图，图片放 frontend/public/mbti-types.jpg。
