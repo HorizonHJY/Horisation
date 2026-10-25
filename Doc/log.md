@@ -1884,3 +1884,8 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 
 ## 2026-10-24 MBTI 加 16 型总览配图
 - 首页(选完 20/60 题下方)加「16 种类型一览」参考图，图片放 frontend/public/mbti-types.jpg。
+
+## 2026-10-25 修 MBTI 标签不保存 + 精简结果页
+- 根因：api.js 没有 patch 方法，api.patch() 抛异常，本地 state 改了但后端从没收到，刷新就还原。加上 patch。
+- MBTI 结果页删掉 Visibility 区块和「Test ... For fun」尾注。
+- 佩戴标签 = public（所有人可见），不戴 = private。

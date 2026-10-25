@@ -15,11 +15,6 @@ import HandLoader from '../components/HandLoader'
  *   - 'result'  : four letters + nickname + description + match + redo
  */
 
-const VIS_LABEL = {
-  zh: { private: '仅自己', friends: '仅好友', public: '公开' },
-  en: { private: 'Only me', friends: 'Friends', public: 'Public' },
-}
-
 const t = (lang, zh, en) => (lang === 'en' ? en : zh)
 
 function dimRow(label, left, leftN, right, rightN) {
@@ -156,14 +151,8 @@ function Quiz({ questions, mode, onDone, onCancel, lang }) {
 
 // ── Result ────────────────────────────────────────────────────────
 function Result({ data, onRetake, lang }) {
-  const [vis, setVis] = useState(data.result.visibility)
   const r = data.result, card = data.type_card
   const c = r.counts
-
-  const changeVis = async (v) => {
-    setVis(v)
-    await api.patch('/api/mbti/me/visibility', { visibility: v })
-  }
 
   const en = lang === 'en'
 
@@ -206,33 +195,10 @@ function Result({ data, onRetake, lang }) {
         </div>
       </div>
 
-      <div className='mbti-vis'>
-        <h4 className='mbti-sub'>{t(lang, '可见范围', 'Visibility')}</h4>
-        <div className='radio-inputs'>
-          {['private', 'friends', 'public'].map(v => (
-            <label className='radio' key={v}>
-              <input type='radio' name='mbti-vis' checked={vis === v} onChange={() => changeVis(v)} />
-              <span className='name'>{VIS_LABEL[lang][v]}</span>
-            </label>
-          ))}
-        </div>
-        <p className='small text-muted mt-1'>
-          {vis === 'public'  && t(lang, '任何人都能在你 profile 和聊天里看到你的 MBTI。', 'Anyone can see your MBTI on your profile and in chats.')}
-          {vis === 'friends' && t(lang, '只有好友能在聊天和你的 profile 看到。', 'Only friends can see it in chats and on your profile.')}
-          {vis === 'private' && t(lang, '只有你自己能看到。', 'Only you can see it.')}
-        </p>
-      </div>
-
       <div className='d-flex gap-2 mt-3'>
         <button className='btn btn-primary' onClick={onRetake}>{t(lang, '重新测试', 'Retake')}</button>
         <Link to='/profile' className='btn btn-outline-secondary'>{t(lang, '去 profile 看看', 'View profile')}</Link>
       </div>
-
-      <p className='small text-muted mt-4'>
-        {en
-          ? ('Test ' + new Date(r.taken_at).toLocaleDateString('en-US') + ' (' + (r.mode === 'short' ? '20 questions' : '60 questions') + '). For fun, not a diagnosis.')
-          : ('第 ' + new Date(r.taken_at).toLocaleDateString('zh-CN') + ' 次测试(' + (r.mode === 'short' ? '20 题' : '60 题') + ')。娱乐性质,不构成心理学诊断。')}
-      </p>
     </section>
   )
 }
