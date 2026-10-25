@@ -1877,3 +1877,7 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 ## 2026-10-24 MBTI 徽章改成佩戴标签
 - 撤掉可见范围下拉；改成 Badges 卡，列出获得的标签(现 MBTI)，点 Wear/Wearing 佩戴，佩戴即公开。
 - 复用 /api/mbti/me/visibility：佩戴=public，不戴=private。
+
+## 2026-10-24 标签显示在名字下方 + 标签弹窗
+- 佩戴的标签(MBTI)显示在 profile 名字下方；点 + 标签 弹出「已获得标签」列表，勾选佩戴/取消。
+- 去掉独立的 Badges 卡。佩戴=public，不戴=private，复用 /api/mbti/me/visibility。
