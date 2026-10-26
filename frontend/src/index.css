@@ -4303,3 +4303,13 @@ button.fr-chip:hover { filter: brightness(.96); }
   border-radius: 12px;
   border: 1px solid var(--border, #e5e7eb);
 }
+
+/* MBTI result character portrait */
+.mbti-char {
+  width: 92px;
+  height: 108px;
+  object-fit: contain;
+  border-radius: 10px;
+  background: var(--bg, #f1f5f9);
+  flex-shrink: 0;
+}

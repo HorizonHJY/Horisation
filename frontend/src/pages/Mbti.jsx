@@ -159,6 +159,7 @@ function Result({ data, onRetake, lang }) {
   return (
     <section className='mbti-result'>
       <div className='mbti-result__head'>
+        <img src={'/mbti/' + r.type.toLowerCase() + '.jpg'} alt={r.type} className='mbti-char' />
         <div className='mbti-badge mbti-badge--xl'>{r.type}</div>
         <div className='mbti-result__name'>
           <h2 className='mbti-h mb-0'>{en ? card?.nick_en : card?.nick}</h2>

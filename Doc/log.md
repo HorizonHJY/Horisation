@@ -1889,3 +1889,7 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 - 根因：api.js 没有 patch 方法，api.patch() 抛异常，本地 state 改了但后端从没收到，刷新就还原。加上 patch。
 - MBTI 结果页删掉 Visibility 区块和「Test ... For fun」尾注。
 - 佩戴标签 = public（所有人可见），不戴 = private。
+
+## 2026-10-26 MBTI 结果页配角色插画
+- 从 16 型总览图裁出 16 个角色(临时用版权图，等有 key 换原创)，存 frontend/public/mbti/<type>.jpg。
+- 结果页在类型徽章旁显示对应角色。
