@@ -121,7 +121,7 @@ function PriceDisplay({ listing, large = false }) {
           <span className="tnum" style={{ fontSize: large ? '1.1rem' : '.9rem', fontWeight: 600, color: 'var(--badge-info-fg)' }}>
             {money(Number(price) + Number(delivery_fee))}
           </span>
-          <span className="badge-pill badge-pill--info">Delivered {money(delivery_fee)} fee</span>
+          <span className="badge-pill badge-pill--info badge-pill--wrap">Delivered {money(delivery_fee)} fee</span>
         </div>
       </div>
     )
@@ -136,7 +136,7 @@ function PriceDisplay({ listing, large = false }) {
           </span>
           <Struck />
         </div>
-        <span className="badge-pill badge-pill--info">Includes {money(delivery_fee)} delivery</span>
+        <span className="badge-pill badge-pill--info badge-pill--wrap">Includes {money(delivery_fee)} delivery</span>
       </div>
     )
   }
@@ -189,7 +189,7 @@ function DeliveryBadge({ type }) {
   const opt = DELIVERY_BY_VALUE[type] || DELIVERY_BY_VALUE.pickup
   const tone = type === 'pickup' ? '' : ' badge-pill--info'
   return (
-    <span className={`badge-pill${tone}`}>
+    <span className={`badge-pill badge-pill--wrap${tone}`}>
       <i className={`fas ${opt.icon}`} aria-hidden="true" />
       <Label en={opt.label} zh={opt.label_zh} />
     </span>
@@ -801,7 +801,7 @@ function ListingDetailModal({
             </div>
 
             <div style={{ marginBottom: 12 }}>
-              <span className={`badge-pill${listing.delivery_type === 'pickup' ? '' : ' badge-pill--info'}`}>
+              <span className={`badge-pill badge-pill--wrap${listing.delivery_type === 'pickup' ? '' : ' badge-pill--info'}`}>
                 <i className={`fas ${opt.icon}`} aria-hidden="true" />
                 <Label en={opt.label} zh={opt.label_zh} />
                 {listing.delivery_type !== 'pickup' && (

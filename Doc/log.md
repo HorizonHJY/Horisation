@@ -1933,3 +1933,8 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 - 问题:手机/平板上「Pickup or delivery 可自提或配送 + 费用」这类蓝色 pill 被 white-space: nowrap 撑着,超出卡片或贴边不可读。
 - 改法:.badge-pill 改为 white-space: normal + overflow-wrap: anywhere + max-width: 100% + flex-wrap: wrap,只在放不下时才换行。
 - 实测 390 / 834 两档:列表页和详情页均无溢出元素,标签自动换行后可读。
+
+## 2026-10-27 复审修正:换行只作用于长标签
+- Opus 复审指出:上一版把 .badge-pill 改成可换行是全局改动,会波及筛选 chip(× 图标被挤到第二行、类目名被按字符断开)。
+- 改法:恢复 .badge-pill 的 nowrap,新增修饰符 .badge-pill--wrap,只给配送文案那几处(Pickup or delivery / Delivered fee / Includes delivery / 详情页配送标签)。
+- 实测 390 / 834:溢出元素 0,启用换行的标签 2 个,其余仍是单行。
