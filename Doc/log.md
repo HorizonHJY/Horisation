@@ -1928,3 +1928,8 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 - 交互:点 + 里的标签 → 佩戴;点页面上已显示的徽章 → 取下。一次点击即可卸下。
 - 佩戴中的徽章本身是按钮(带 × 图标、aria-pressed),取下成功后提示 Badge removed。
 - 保留上一版的健壮性:失败回滚、保存中禁用、外部点击/ESC 关闭、三态加载、aria、移动端 44px、弹层夹在视口内。
+
+## 2026-10-27 Market 配送标签换行
+- 问题:手机/平板上「Pickup or delivery 可自提或配送 + 费用」这类蓝色 pill 被 white-space: nowrap 撑着,超出卡片或贴边不可读。
+- 改法:.badge-pill 改为 white-space: normal + overflow-wrap: anywhere + max-width: 100% + flex-wrap: wrap,只在放不下时才换行。
+- 实测 390 / 834 两档:列表页和详情页均无溢出元素,标签自动换行后可读。
