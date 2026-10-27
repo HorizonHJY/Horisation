@@ -3806,6 +3806,13 @@ button.fr-chip:hover { filter: brightness(.96); }
   font-size: .78rem; line-height: 1;
 }
 .mbti-badge--sm { font-size: .72rem; padding: 2px 8px; }
+/* a worn badge is a button: clicking it takes the badge off */
+.mbti-badge--button { border: 0; cursor: pointer; font-family: inherit; }
+.mbti-badge--button:hover { filter: brightness(1.08); }
+.mbti-badge--button:disabled { opacity: .65; cursor: default; }
+.mbti-badge--button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.mbti-badge__x { margin-left: 6px; font-size: .78em; opacity: .75; }
+.mbti-badge--button:hover .mbti-badge__x { opacity: 1; }
 .mbti-badge--lg { font-size: 1.4rem; padding: 10px 18px; border-radius: 10px; }
 .mbti-badge--xl { font-size: 2.2rem; padding: 18px 26px; border-radius: 14px;
                   box-shadow: 0 6px 20px rgba(99, 102, 241, .25); }
@@ -4305,6 +4312,9 @@ button.fr-chip:hover { filter: brightness(.96); }
 .badge-picker__label {
   padding: 8px 12px 2px; font-size: .75rem; letter-spacing: .02em;
   text-transform: uppercase; color: var(--text-muted, #6b7280);
+}
+.badge-picker__state {
+  margin-left: auto; font-size: .8rem; color: var(--text-muted, #6b7280);
 }
 .badge-picker__hint { padding: 10px 12px; font-size: .9rem; color: var(--text-muted, #6b7280); }
 .badge-picker__link {

@@ -82,30 +82,26 @@ export default function Profile() {
     else if (overLeft > 0) el.style.transform = `translateX(${overLeft}px)`
   }, [badgeOpen, mbtiState])
 
-  const VISIBILITY_LABEL = { public: 'Public', friends: 'Friends', private: 'Only me' }
+  // Design decision: wearing a badge IS public. There is no third state in
+  // the UI — one click wears it, one click on the shown badge takes it off.
+  const worn = !!mbti && mbti.visibility !== 'private'
 
-  // The backend has three levels (private | friends | public). Picking one is
-  // explicit — never derived from a two-state toggle, which used to overwrite
-  // "friends" the first time somebody touched the badge.
-  const setVisibility = async (v) => {
+  const toggleWear = async () => {
     if (!mbti || savingWear) return
-    setWearError(null)
-    if (v === mbti.visibility) {
-      setBadgeOpen(false)
-      return
-    }
+    const next = worn ? 'private' : 'public'
     const previous = mbti.visibility
+    setWearError(null)
     setSavingWear(true)
-    setMbti(prev => ({ ...prev, visibility: v }))          // optimistic
-    const d = await api.patch('/api/mbti/me/visibility', { visibility: v })
+    setMbti(prev => ({ ...prev, visibility: next }))        // optimistic
+    const d = await api.patch('/api/mbti/me/visibility', { visibility: next })
     setSavingWear(false)
     if (!d.ok) {
-      setMbti(prev => ({ ...prev, visibility: previous })) // roll back
+      setMbti(prev => ({ ...prev, visibility: previous }))  // roll back
       setWearError(d.error || 'Could not save. Try again.')
       return
     }
     setBadgeOpen(false)
-    flash('Badge visibility saved.', 'success')
+    flash(worn ? 'Badge removed.' : 'Badge is now public.', 'success')
   }
 
   if (!user) return null
@@ -209,8 +205,19 @@ export default function Profile() {
           <div className='flex-grow-1'>
             <h5 className='fw-bold mb-1'>{user.display_name}</h5>
             <div className='d-flex align-items-center gap-2 flex-wrap'>
-              {mbti && mbti.visibility !== 'private' && (
-                <span className='mbti-badge mbti-badge--sm' title={mbti.type_card?.nick || mbti.type}>{mbti.type}</span>
+              {mbti && worn && (
+                <button
+                  type='button'
+                  className='mbti-badge mbti-badge--sm mbti-badge--button'
+                  title={mbti.type_card?.nick ? `${mbti.type_card.nick} · click to remove` : 'Click to remove'}
+                  aria-label={`Remove ${mbti.type} badge`}
+                  aria-pressed='true'
+                  disabled={savingWear}
+                  onClick={toggleWear}
+                >
+                  {mbti.type}
+                  <i className='fas fa-xmark mbti-badge__x' aria-hidden='true' />
+                </button>
               )}
               <div className='position-relative'>
                 <button
@@ -244,25 +251,20 @@ export default function Profile() {
 
                     {mbtiState === 'ok' && mbti && (
                       <>
-                        <div className='badge-picker__title'>
+                        <div className='badge-picker__label'>Tap a tag to wear or remove it</div>
+                        <button
+                          type='button'
+                          role='menuitemcheckbox'
+                          aria-checked={worn}
+                          className='badge-picker__item'
+                          disabled={savingWear}
+                          onClick={toggleWear}
+                        >
+                          <i className={'fas ' + (worn ? 'fa-check-square text-primary' : 'fa-square text-muted')} />
                           <span className='mbti-badge mbti-badge--sm'>{mbti.type}</span>
-                          <span>{mbti.type_card?.nick || mbti.type}</span>
-                        </div>
-                        <div className='badge-picker__label'>Who can see my MBTI</div>
-                        {['public', 'friends', 'private'].map(v => (
-                          <button
-                            key={v}
-                            type='button'
-                            role='menuitemradio'
-                            aria-checked={mbti.visibility === v}
-                            className='badge-picker__item'
-                            disabled={savingWear}
-                            onClick={() => setVisibility(v)}
-                          >
-                            <i className={'fas ' + (mbti.visibility === v ? 'fa-check-square text-primary' : 'fa-square text-muted')} />
-                            <span className='fw-medium'>{VISIBILITY_LABEL[v]}</span>
-                          </button>
-                        ))}
+                          <span className='fw-medium'>{mbti.type_card?.nick || mbti.type}</span>
+                          <span className='badge-picker__state'>{savingWear ? 'Saving…' : worn ? 'Wearing' : 'Wear'}</span>
+                        </button>
                         {wearError && <div className='badge-picker__error' role='alert'>{wearError}</div>}
                       </>
                     )}

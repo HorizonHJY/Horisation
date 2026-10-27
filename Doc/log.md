@@ -1922,3 +1922,9 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 - 修 6:aria 补 aria-haspopup / aria-controls / role=menu / role=menuitemradio / aria-checked。
 - 修 7:文案统一英文(该页其它标签都是英文)。
 - 修 8:移动端点击区 44px 起;hover 用主题变量;弹层超出视口时自动回移(测量后 translateX 夹到屏内)。
+
+## 2026-10-27 徽章改回二进制(按原设计)
+- 设计决定:佩戴 = public 所有人可见;不佩戴 = private。不引入第三档,上一版的三选一是我改错了。
+- 交互:点 + 里的标签 → 佩戴;点页面上已显示的徽章 → 取下。一次点击即可卸下。
+- 佩戴中的徽章本身是按钮(带 × 图标、aria-pressed),取下成功后提示 Badge removed。
+- 保留上一版的健壮性:失败回滚、保存中禁用、外部点击/ESC 关闭、三态加载、aria、移动端 44px、弹层夹在视口内。
