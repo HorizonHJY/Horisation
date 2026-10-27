@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react'
+import React, { useEffect, useLayoutEffect, useState, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../App'
 import { api } from '../api'
@@ -24,17 +24,88 @@ export default function Profile() {
   const [msg, setMsg] = useState(null)
   const fileRef = useRef()
   const [mbti, setMbti] = useState(null)
+  const [mbtiState, setMbtiState] = useState('loading')  // loading | ok | empty | error
+  const [savingWear, setSavingWear] = useState(false)
+  const [wearError, setWearError] = useState(null)
+  const badgeBtnRef = useRef(null)
+  const badgePanelRef = useRef(null)
 
+  const loadMbti = () => {
+    setMbtiState('loading')
+    api.get('/api/mbti/me')
+      .then(d => {
+        if (d.ok && d.result) {
+          setMbti({ ...d.result, type_card: d.type_card })
+          setMbtiState('ok')
+        } else {
+          setMbtiState('empty')
+        }
+      })
+      .catch(() => setMbtiState('error'))
+  }
+
+  useEffect(() => { loadMbti() }, [])
+
+  // Close the picker on outside click / Escape, and hand focus back to the button.
   useEffect(() => {
-    api.get('/api/mbti/me').then(d => {
-      if (d.ok && d.result) setMbti({ ...d.result, type_card: d.type_card })
-    })
-  }, [])
+    if (!badgeOpen) return
+    const onDown = (e) => {
+      if (badgePanelRef.current?.contains(e.target)) return
+      if (badgeBtnRef.current?.contains(e.target)) return
+      setBadgeOpen(false)
+    }
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        setBadgeOpen(false)
+        badgeBtnRef.current?.focus()
+      }
+    }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [badgeOpen])
 
-  const toggleWear = async () => {
-    const v = mbti.visibility === 'public' ? 'private' : 'public'
-    setMbti(prev => ({ ...prev, visibility: v }))
-    await api.patch('/api/mbti/me/visibility', { visibility: v })
+  // Keep the panel inside the viewport. On a narrow screen the button sits far
+  // enough right that a left-anchored 220px panel would run off the edge.
+  useLayoutEffect(() => {
+    const el = badgePanelRef.current
+    if (!badgeOpen || !el) return
+    el.style.transform = ''
+    const r = el.getBoundingClientRect()
+    const margin = 12
+    const overRight = r.right - (window.innerWidth - margin)
+    const overLeft = margin - r.left
+    if (overRight > 0) el.style.transform = `translateX(${-overRight}px)`
+    else if (overLeft > 0) el.style.transform = `translateX(${overLeft}px)`
+  }, [badgeOpen, mbtiState])
+
+  const VISIBILITY_LABEL = { public: 'Public', friends: 'Friends', private: 'Only me' }
+
+  // The backend has three levels (private | friends | public). Picking one is
+  // explicit — never derived from a two-state toggle, which used to overwrite
+  // "friends" the first time somebody touched the badge.
+  const setVisibility = async (v) => {
+    if (!mbti || savingWear) return
+    setWearError(null)
+    if (v === mbti.visibility) {
+      setBadgeOpen(false)
+      return
+    }
+    const previous = mbti.visibility
+    setSavingWear(true)
+    setMbti(prev => ({ ...prev, visibility: v }))          // optimistic
+    const d = await api.patch('/api/mbti/me/visibility', { visibility: v })
+    setSavingWear(false)
+    if (!d.ok) {
+      setMbti(prev => ({ ...prev, visibility: previous })) // roll back
+      setWearError(d.error || 'Could not save. Try again.')
+      return
+    }
+    setBadgeOpen(false)
+    flash('Badge visibility saved.', 'success')
   }
 
   if (!user) return null
@@ -138,23 +209,62 @@ export default function Profile() {
           <div className='flex-grow-1'>
             <h5 className='fw-bold mb-1'>{user.display_name}</h5>
             <div className='d-flex align-items-center gap-2 flex-wrap'>
-              {mbti && mbti.visibility === 'public' && (
+              {mbti && mbti.visibility !== 'private' && (
                 <span className='mbti-badge mbti-badge--sm' title={mbti.type_card?.nick || mbti.type}>{mbti.type}</span>
               )}
               <div className='position-relative'>
-                <button type='button' className='btn btn-sm btn-outline-secondary' onClick={() => setBadgeOpen(v => !v)} aria-expanded={badgeOpen}>
-                  <i className='fas fa-plus me-1' />标签
+                <button
+                  ref={badgeBtnRef}
+                  type='button'
+                  className='btn btn-sm btn-outline-secondary'
+                  onClick={() => setBadgeOpen(v => !v)}
+                  aria-expanded={badgeOpen}
+                  aria-haspopup='menu'
+                  aria-controls={badgeOpen ? 'badge-picker-menu' : undefined}
+                >
+                  <i className='fas fa-plus me-1' />Badges
                 </button>
                 {badgeOpen && (
-                  <div className='badge-picker'>
-                    {mbti ? (
-                      <button type='button' className='badge-picker__item' onClick={toggleWear}>
-                        <i className={'fas ' + (mbti.visibility === 'public' ? 'fa-check-square text-primary' : 'fa-square text-muted') + ' me-2'} />
-                        <span className='mbti-badge mbti-badge--sm'>{mbti.type}</span>
-                        <span className='fw-medium'>{mbti.type_card?.nick}</span>
-                      </button>
-                    ) : (
-                      <div className='text-muted small p-2'>还没有标签，去测 MBTI 获得第一个。</div>
+                  <div className='badge-picker' id='badge-picker-menu' role='menu' aria-label='Badges' ref={badgePanelRef}>
+                    {mbtiState === 'loading' && <div className='badge-picker__hint'>Loading…</div>}
+
+                    {mbtiState === 'error' && (
+                      <div className='badge-picker__hint'>
+                        Could not load badges.{' '}
+                        <button type='button' className='badge-picker__link' onClick={loadMbti}>Retry</button>
+                      </div>
+                    )}
+
+                    {mbtiState === 'empty' && (
+                      <div className='badge-picker__hint'>
+                        No badges yet.{' '}
+                        <Link to='/mbti' className='badge-picker__link' onClick={() => setBadgeOpen(false)}>Take the MBTI test</Link>
+                      </div>
+                    )}
+
+                    {mbtiState === 'ok' && mbti && (
+                      <>
+                        <div className='badge-picker__title'>
+                          <span className='mbti-badge mbti-badge--sm'>{mbti.type}</span>
+                          <span>{mbti.type_card?.nick || mbti.type}</span>
+                        </div>
+                        <div className='badge-picker__label'>Who can see my MBTI</div>
+                        {['public', 'friends', 'private'].map(v => (
+                          <button
+                            key={v}
+                            type='button'
+                            role='menuitemradio'
+                            aria-checked={mbti.visibility === v}
+                            className='badge-picker__item'
+                            disabled={savingWear}
+                            onClick={() => setVisibility(v)}
+                          >
+                            <i className={'fas ' + (mbti.visibility === v ? 'fa-check-square text-primary' : 'fa-square text-muted')} />
+                            <span className='fw-medium'>{VISIBILITY_LABEL[v]}</span>
+                          </button>
+                        ))}
+                        {wearError && <div className='badge-picker__error' role='alert'>{wearError}</div>}
+                      </>
                     )}
                   </div>
                 )}

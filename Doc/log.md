@@ -1911,3 +1911,14 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 - 输出 400x560 统一画布,白底边缘做颜色反解,深色背景无白边。
 - 第 3、4 行标签顺序按新图纠正:蓝 Sentinels 在前,黄 Explorers 在后。
 - 16 张全部替换 frontend/public/mbti/*.png。
+
+## 2026-10-27 MBTI 徽章交互修复(Opus 盲审后)
+- 访达不到问题就做了盲审:不告知症状,让 Opus 读 Profile.jsx / Mbti.jsx / index.css / 后端 visibility 接口自己找。
+- 修 1(真 bug):后端支持 private|friends|public 三档,前端只在 public↔private 之间 toggle,一碰徽章就把默认的 friends 覆盖掉。改成三选 radio,显式传值。
+- 修 2(真 bug):乐观更新失败不回滚。改成保存旧值,PATCH 返回 !ok 时回滚并显示错误。
+- 修 3(真 bug):弹层关不掉。加外部点击关闭、ESC 关闭(焦点回按钮)、选中成功后自动关闭。
+- 修 4:加 savingWear 锁,防连点并发 PATCH。
+- 修 5:区分 加载中 / 从未测试 / 请求失败 三态,空态给「去测试」链接。
+- 修 6:aria 补 aria-haspopup / aria-controls / role=menu / role=menuitemradio / aria-checked。
+- 修 7:文案统一英文(该页其它标签都是英文)。
+- 修 8:移动端点击区 44px 起;hover 用主题变量;弹层超出视口时自动回移(测量后 translateX 夹到屏内)。
