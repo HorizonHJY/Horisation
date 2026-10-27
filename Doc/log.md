@@ -1938,3 +1938,8 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 - Opus 复审指出:上一版把 .badge-pill 改成可换行是全局改动,会波及筛选 chip(× 图标被挤到第二行、类目名被按字符断开)。
 - 改法:恢复 .badge-pill 的 nowrap,新增修饰符 .badge-pill--wrap,只给配送文案那几处(Pickup or delivery / Delivered fee / Includes delivery / 详情页配送标签)。
 - 实测 390 / 834:溢出元素 0,启用换行的标签 2 个,其余仍是单行。
+
+## 2026-10-27 复审第二项:只有 public 才算佩戴
+- Opus 指出:后端 visibility 默认是 friends(mbti_db.py:40),而 UI 用 visibility !== 'private' 判断佩戴,会把从没戴过的存量用户全显示成佩戴中,且点一下会把 friends 直接抹成 private。
+- 改法:改判 public 才算佩戴。friends 是历史默认值,没有任何 UI 能设置它,因此当作「未佩戴」处理,不迁库、不碰存量数据。
+- 实测:private → 无徽章;点标签 → public + 徽章出现;点徽章 → private + 徽章消失;刷新后状态一致。

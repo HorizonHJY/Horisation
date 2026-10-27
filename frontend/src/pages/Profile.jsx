@@ -82,9 +82,11 @@ export default function Profile() {
     else if (overLeft > 0) el.style.transform = `translateX(${overLeft}px)`
   }, [badgeOpen, mbtiState])
 
-  // Design decision: wearing a badge IS public. There is no third state in
-  // the UI — one click wears it, one click on the shown badge takes it off.
-  const worn = !!mbti && mbti.visibility !== 'private'
+  // Design decision: wearing a badge IS public. The column defaults to
+  // 'friends' for rows created before this rule existed, and no UI ever let
+  // anyone pick that value, so only 'public' counts as worn. That also keeps
+  // what the owner sees in step with what visitors actually get.
+  const worn = !!mbti && mbti.visibility === 'public'
 
   const toggleWear = async () => {
     if (!mbti || savingWear) return
