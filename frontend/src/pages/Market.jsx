@@ -1241,6 +1241,9 @@ export default function Market() {
   const [listings, setListings]     = useState([])
   const [myListings, setMy]         = useState([])
   const [loading, setLoading]       = useState(false)
+  const [browseHasMore, setBrowseHasMore] = useState(false)
+  const [browseLoadingMore, setBrowseLoadingMore] = useState(false)
+  const [browseTotal, setBrowseTotal] = useState(null)
   const [form, setForm]             = useState(EMPTY_FORM)
   const [fieldErrors, setFieldErrors] = useState({})
   const [images, setImages]         = useState([])
@@ -1346,13 +1349,15 @@ export default function Market() {
     return list.map(l => ({ ...l, category_icon: iconMap[l.category] || 'fa-tag' }))
   }
 
+  const BROWSE_PAGE_SIZE = 100
+
   async function loadBrowse() {
     setLoading(true)
     /* A guest has no friends list on the server and must not trigger the 401
        prompt just by opening Market. The friends-map is a nicety (badges on
        the seller row), so an empty map is fine for signed-out browsing. */
     const [listRes, friendsRes] = await Promise.all([
-      api.get('/api/market/listings'),
+      api.get(`/api/market/listings?limit=${BROWSE_PAGE_SIZE}&offset=0`),
       user ? api.get('/api/friends/list') : Promise.resolve({ ok: true, friends: [] }),
     ])
 
@@ -1360,12 +1365,35 @@ export default function Market() {
     if (friendsRes.ok) friendsRes.friends.forEach(f => { fMap[f.username] = f })
     setFriendsMap(fMap)
 
-    if (listRes.ok) setListings(enrichWithIcon(listRes.listings, categories))
+    if (listRes.ok) {
+      setListings(enrichWithIcon(listRes.listings, categories))
+      setBrowseHasMore(!!listRes.has_more)
+      setBrowseTotal(typeof listRes.total === 'number' ? listRes.total : null)
+    }
     // A failed fetch used to fall through to "No listings yet. Be the first to
     // post!", making an outage look like an empty market.
     else showToast(listRes.error || 'Could not load listings.', 'danger')
 
     setLoading(false)
+  }
+
+  async function loadMoreBrowse() {
+    if (browseLoadingMore || !browseHasMore) return
+    setBrowseLoadingMore(true)
+    const offset = listings.length
+    const d = await api.get(`/api/market/listings?limit=${BROWSE_PAGE_SIZE}&offset=${offset}`)
+    if (d.ok) {
+      setListings(prev => {
+        const seen = new Set(prev.map(l => l.id))
+        const fresh = enrichWithIcon(d.listings, categories).filter(l => !seen.has(l.id))
+        return [...prev, ...fresh]
+      })
+      setBrowseHasMore(!!d.has_more)
+      setBrowseTotal(typeof d.total === 'number' ? d.total : browseTotal)
+    } else {
+      showToast(d.error || 'Could not load more listings.', 'danger')
+    }
+    setBrowseLoadingMore(false)
   }
 
   async function loadMine() {
@@ -1961,6 +1989,9 @@ export default function Market() {
                 <div className="d-flex align-items-center gap-2 mt-2 flex-wrap">
                   <span className="small" style={{ color: 'var(--text-muted)' }}>
                     {filteredBrowse.length} result{filteredBrowse.length !== 1 ? 's' : ''}
+                    {browseHasMore && listings.length > 0
+                      ? ` of ${listings.length} loaded${browseTotal != null ? ` · ${browseTotal} total` : ''}`
+                      : ''}
                   </span>
                   {[...categoryFilter].map(slug => (
                     <button key={slug} className="badge-pill" style={{ border: 'none', cursor: 'pointer' }}
@@ -2060,6 +2091,30 @@ export default function Market() {
                   </div>
                 )
               })}
+            </div>
+          )}
+
+          {/* Browse used to pull the whole active table on every open, which is
+              fine today and painful once the catalogue grows. The server now
+              hands pages of 100 newest-first; this control pulls the next
+              batch and stays silent when no more exist. Client-side filters
+              still work against whatever has been loaded. */}
+          {tab === 'browse' && !loading && displayList.length > 0 && (
+            <div className="text-center py-3">
+              {browseHasMore ? (
+                <button type="button" className="btn btn-outline-secondary"
+                        onClick={loadMoreBrowse} disabled={browseLoadingMore}>
+                  {browseLoadingMore
+                    ? (<><i className="fas fa-spinner fa-spin me-2" aria-hidden="true" />Loading…</>)
+                    : (<>Load more{browseTotal != null ? ` · ${listings.length}/${browseTotal}` : ''}</>)}
+                </button>
+              ) : (
+                listings.length > BROWSE_PAGE_SIZE && (
+                  <span className="small" style={{ color: 'var(--text-muted)' }}>
+                    End of listings{browseTotal != null ? ` · ${browseTotal} total` : ''}
+                  </span>
+                )
+              )}
             </div>
           )}
         </>

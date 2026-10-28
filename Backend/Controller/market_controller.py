@@ -93,21 +93,43 @@ def delete_category_route(slug):
 @market_bp.route('/listings', methods=['GET'])
 @login_optional
 def list_listings():
-    """Browse listings.
+    """Browse listings, paged newest-first.
 
-    Returns all active listings, plus any RESERVED listing that is currently
-    being bought by the requesting user (so they can still see it and confirm
-    receipt / complete the trade after the seller accepted).
+    Query:
+      limit  — rows per page, 1..200 (default 100)
+      offset — rows to skip (default 0)
+
+    Reserved listings owned by the signed-in buyer are appended only on the
+    first page so they stay visible for receipt-confirm without multiplying
+    across pages.
     """
     me = request.current_user['username'] if request.current_user else None
-    listings = market_db.get_all_listings(status='active') or []
-    # A reserved listing must stay visible to the buyer who owns the accepted intent.
-    if me:
+    try:
+        limit = int(request.args.get('limit', 100))
+    except (TypeError, ValueError):
+        limit = 100
+    try:
+        offset = int(request.args.get('offset', 0))
+    except (TypeError, ValueError):
+        offset = 0
+    limit  = max(1, min(limit, 200))
+    offset = max(0, offset)
+
+    listings = market_db.get_all_listings(status='active',
+                                          limit=limit + 1, offset=offset) or []
+    has_more = len(listings) > limit
+    listings = listings[:limit]
+
+    if me and offset == 0:
         extra = market_db.get_reserved_listings_for_buyer(me)
         if extra:
             seen = {l['id'] for l in listings}
             listings = listings + [l for l in extra if l['id'] not in seen]
-    return jsonify({'ok': True, 'listings': listings})
+
+    total = market_db.count_listings(status='active')
+    return jsonify({'ok': True, 'listings': listings,
+                    'has_more': has_more, 'offset': offset,
+                    'limit': limit, 'total': total})
 
 
 # ── Create listing ────────────────────────────────────────────────────────────

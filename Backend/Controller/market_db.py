@@ -648,11 +648,27 @@ def category_slug_valid(slug: str) -> bool:
 
 # ── Listing helpers ───────────────────────────────────────────────────────────
 
-def get_all_listings(status: str = 'active') -> list[dict]:
+def get_all_listings(status: str = 'active',
+                     limit: Optional[int] = None,
+                     offset: int = 0) -> list[dict]:
+    """Return listings newest-first, optionally paged.
+
+    `limit=None` keeps the old behaviour (whole table) so legacy callers do
+    not change. Browse now passes a small limit so the first paint is cheap
+    and the rest of the catalogue arrives in batches as the user scrolls.
+    """
     with Session() as s:
-        rows = s.query(Listing).filter_by(status=status)\
-                               .order_by(Listing.created_at.desc()).all()
+        q = s.query(Listing).filter_by(status=status)\
+                            .order_by(Listing.created_at.desc())
+        if limit is not None:
+            q = q.offset(max(0, int(offset))).limit(int(limit))
+        rows = q.all()
         return _enrich_listings(rows, s)
+
+
+def count_listings(status: str = 'active') -> int:
+    with Session() as s:
+        return s.query(func.count(Listing.id)).filter_by(status=status).scalar() or 0
 
 
 def get_reserved_listings_for_buyer(username: str) -> list[dict]:
