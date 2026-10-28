@@ -39,17 +39,22 @@ def _get_client():
     return _client
 
 
-def upload_image(file_obj, original_filename: str) -> tuple[str, str]:
+_CT = {'.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
+       '.gif': 'image/gif', '.webp': 'image/webp'}
+
+
+def upload_image(file_obj, original_filename: str, prefix: str = 'listings') -> tuple[str, str]:
     """
     Upload a file-like object to R2.
     Returns (r2_key, public_url).
-    r2_key is stored in DB for later deletion.
+    r2_key is stored in DB for later deletion. Default prefix 'listings'
+    keeps the existing Market layout; chat uploads pass prefix='chat'.
     """
     cfg    = _load_config()
     ext    = os.path.splitext(original_filename)[1].lower()
-    r2_key = f"listings/{uuid.uuid4().hex}/{uuid.uuid4().hex}{ext}"
+    r2_key = f"{prefix}/{uuid.uuid4().hex}/{uuid.uuid4().hex}{ext}"
 
-    content_type = 'image/jpeg' if ext in ('.jpg', '.jpeg') else 'image/png'
+    content_type = _CT.get(ext, 'application/octet-stream')
 
     _get_client().upload_fileobj(
         file_obj,

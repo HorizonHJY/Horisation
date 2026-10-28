@@ -3,10 +3,11 @@ friends_controller.py
 Friend system REST API: requests, friendship, chat history, contact info.
 """
 
+import os
 from flask import Blueprint, request, jsonify
 from .auth_controller import login_required
 from .user_manager import user_manager
-from . import market_db
+from . import market_db, r2_manager
 
 friends_bp = Blueprint('friends', __name__, url_prefix='/api/friends')
 
@@ -306,3 +307,38 @@ def get_history(username):
     before = request.args.get('before') or None
     page = market_db.get_chat_history(me, username, limit=limit, before_id=before)
     return jsonify({'ok': True, **page})
+
+
+# ── Chat image upload ─────────────────────────────────────────────────────────
+
+_CHAT_IMG_EXTS     = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
+_CHAT_IMG_MAX_SIZE = 8 * 1024 * 1024   # 8 MB
+
+
+@friends_bp.route('/chat/upload', methods=['POST'])
+@login_required
+def upload_chat_image():
+    """Upload a single image for a private chat message.
+
+    Returns {ok, url}. The frontend emits the image as a chat_send message
+    whose content is `[img]<url>` so no schema change is needed; the chat
+    pane renders that marker as an inline image. Size and extension caps
+    match the rest of the site, with gif/webp added because stickers and
+    reaction pictures are common in DMs.
+    """
+    f = request.files.get('image')
+    if not f or not f.filename:
+        return jsonify({'ok': False, 'error': 'No image provided.'}), 400
+    ext = os.path.splitext(f.filename)[1].lower()
+    if ext not in _CHAT_IMG_EXTS:
+        return jsonify({'ok': False, 'error': 'Only JPEG, PNG, GIF, or WebP.'}), 400
+    f.stream.seek(0, 2)
+    size = f.stream.tell()
+    f.stream.seek(0)
+    if size > _CHAT_IMG_MAX_SIZE:
+        return jsonify({'ok': False, 'error': 'Image exceeds 8 MB limit.'}), 400
+    try:
+        _, public_url = r2_manager.upload_image(f.stream, f.filename, prefix='chat')
+    except Exception as e:
+        return jsonify({'ok': False, 'error': f'Upload failed: {e}'}), 500
+    return jsonify({'ok': True, 'url': public_url})

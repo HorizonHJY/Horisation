@@ -103,7 +103,27 @@ function renderContent(text, isMe) {
   )
 }
 
+// Image messages travel as `[img]<url>` in the plain content column so no
+// schema change was needed. One image per message is the whole protocol:
+// anything after the url is ignored, keeping link-sniffing from eating a
+// stray `.` or caption attached to the url.
+function parseImageMessage(text) {
+  const m = /^\[img\](https?:\/\/\S+)/.exec(text || '')
+  return m ? m[1] : null
+}
+
 function renderMessageContent(content, isMe) {
+  const imgUrl = parseImageMessage(content)
+  if (imgUrl) {
+    return (
+      <a href={imgUrl} target="_blank" rel="noopener noreferrer"
+         style={{ display: 'block', lineHeight: 0 }}>
+        <img src={imgUrl} alt="shared image" loading="lazy"
+             style={{ maxWidth: 240, maxHeight: 240, borderRadius: 8,
+                      display: 'block', objectFit: 'cover' }} />
+      </a>
+    )
+  }
   const join = parseJoinUrl(content)
   if (join) {
     const isTravel = join.type === 'travel'
@@ -136,10 +156,14 @@ function renderMessageContent(content, isMe) {
   return renderContent(content, isMe)
 }
 
-// One line for the Chats list. A share card reads as what it is, not as a URL.
+// One line for the Chats list. A share card reads as what it is, not as a URL;
+// an image reads as a photo rather than its raw url.
 function previewText(content, isMine) {
-  const join = parseJoinUrl(content)
-  const body = join ? (join.type === 'travel' ? '旅行计划邀请' : '分账邀请') : content
+  const img  = parseImageMessage(content)
+  const join = img ? null : parseJoinUrl(content)
+  const body = img  ? '📷 Photo'
+              : join ? (join.type === 'travel' ? '旅行计划邀请' : '分账邀请')
+              : content
   return (isMine ? 'You: ' : '') + body
 }
 
@@ -533,6 +557,33 @@ export default function Friends() {
     if (!chatInput.trim() || !activeChat) return
     socket?.emit('chat_send', { to_user: activeChat.username, content: chatInput.trim() })
     setChatInput('')
+  }
+
+  const [uploadingImage, setUploadingImage] = useState(false)
+  const chatFileRef = useRef(null)
+
+  const sendImage = async (file) => {
+    if (!file || !activeChat) return
+    if (!/^image\//.test(file.type)) {
+      flash('Only images can be attached.', 'danger'); return
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      flash('Image exceeds 8 MB limit.', 'danger'); return
+    }
+    setUploadingImage(true)
+    try {
+      const form = new FormData()
+      form.append('image', file)
+      const r = await fetch('/api/friends/chat/upload', { method: 'POST', body: form, credentials: 'include' })
+      const d = await r.json()
+      if (!d.ok) { flash(d.error || 'Upload failed.', 'danger'); return }
+      socket?.emit('chat_send', { to_user: activeChat.username, content: `[img]${d.url}` })
+    } catch (e) {
+      flash('Upload failed.', 'danger')
+    } finally {
+      setUploadingImage(false)
+      if (chatFileRef.current) chatFileRef.current.value = ''
+    }
   }
 
   const showContact = async (person) => {
@@ -989,6 +1040,21 @@ export default function Friends() {
               </div>
 
               <div className="fr-compose">
+                <input
+                  ref={chatFileRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  style={{ display: 'none' }}
+                  onChange={e => { const f = e.target.files?.[0]; if (f) sendImage(f) }}
+                />
+                <button type="button" className="btn btn-outline-secondary"
+                        onClick={() => chatFileRef.current?.click()}
+                        disabled={uploadingImage}
+                        aria-label="Attach image" title="Attach image">
+                  {uploadingImage
+                    ? <i className="fas fa-spinner fa-spin" aria-hidden="true" />
+                    : <i className="fas fa-image" aria-hidden="true" />}
+                </button>
                 <input
                   ref={inputRef}
                   className="fr-compose__in"
