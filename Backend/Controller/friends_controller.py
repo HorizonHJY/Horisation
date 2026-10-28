@@ -290,5 +290,19 @@ def respond_contact(req_id):
 @friends_bp.route('/<username>/history', methods=['GET'])
 @login_required
 def get_history(username):
+    """Return a page of chat history, newest batch first opens the chat.
+
+    Query:
+      limit  — rows per page, 1..200 (default 50)
+      before — oldest id already shown; the server returns strictly older rows
+    The response is `{ok, messages, has_more}` so the frontend can stop
+    pulling at the top of the conversation.
+    """
     me = request.current_user['username']
-    return jsonify({'ok': True, 'messages': market_db.get_chat_history(me, username)})
+    try:
+        limit = int(request.args.get('limit', 50))
+    except (TypeError, ValueError):
+        limit = 50
+    before = request.args.get('before') or None
+    page = market_db.get_chat_history(me, username, limit=limit, before_id=before)
+    return jsonify({'ok': True, **page})

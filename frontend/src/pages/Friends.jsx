@@ -236,6 +236,8 @@ export default function Friends() {
   const [sentSet, setSentSet]         = useState(new Set())
   const [activeChat, setActiveChat]   = useState(null)
   const [chatHistory, setChatHistory] = useState([])
+  const [chatHasMore, setChatHasMore] = useState(false)
+  const [chatLoadingOlder, setChatLoadingOlder] = useState(false)
   const [chatInput, setChatInput]     = useState('')
   const [onlineSet, setOnlineSet]     = useState(new Set())
   const [contactModal, setContactModal]   = useState(null)
@@ -395,14 +397,57 @@ export default function Friends() {
   // the reader is already near the bottom — someone scrolled up reading last
   // month should not be yanked down by every incoming line.
   const stickToBottom = useRef(true)
+  const preservedHeight = useRef(null)   // scrollHeight before an older page is prepended
   useEffect(() => {
     const el = msgsRef.current
     if (!el) return
+    // Loading older messages prepends rows: keep the viewport anchored to
+    // the message the reader was already looking at instead of yanking them
+    // further up by the newly inserted height.
+    if (preservedHeight.current != null) {
+      el.scrollTop = el.scrollHeight - preservedHeight.current
+      preservedHeight.current = null
+      return
+    }
     if (stickToBottom.current) el.scrollTop = el.scrollHeight
   }, [chatHistory])
+
+  const chatHasMoreRef    = useRef(false)
+  const chatLoadingRef    = useRef(false)
+  const activeChatForLoad = useRef(null)
+  useEffect(() => { chatHasMoreRef.current = chatHasMore },      [chatHasMore])
+  useEffect(() => { chatLoadingRef.current = chatLoadingOlder }, [chatLoadingOlder])
+
+  const loadOlder = useCallback(async () => {
+    const chat = activeChatForLoad.current
+    const el   = msgsRef.current
+    if (!chat || !el || chatLoadingRef.current || !chatHasMoreRef.current) return
+    const oldest = chatHistory[0]
+    if (!oldest) return
+    setChatLoadingOlder(true)
+    try {
+      const d = await api.get(`/api/friends/${chat.username}/history?before=${encodeURIComponent(oldest.id)}&limit=50`)
+      if (d.ok) {
+        preservedHeight.current = el.scrollHeight
+        setChatHistory(h => {
+          // Guard the double-fire: if any returned id is already on screen,
+          // merge without duplicates. Messages are oldest-first inside each page.
+          const seen = new Set(h.map(m => m.id))
+          const fresh = d.messages.filter(m => !seen.has(m.id))
+          return [...fresh, ...h]
+        })
+        setChatHasMore(!!d.has_more)
+      }
+    } finally {
+      setChatLoadingOlder(false)
+    }
+  }, [chatHistory])
+
   const onMsgsScroll = () => {
     const el = msgsRef.current
-    if (el) stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+    if (!el) return
+    stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+    if (el.scrollTop < 60) loadOlder()
   }
 
   // Auto-open chat if navigated here from Market with state
@@ -446,18 +491,25 @@ export default function Friends() {
 
   const openChat = async (person) => {
     activeChatRef.current = person
+    activeChatForLoad.current = person
     // NotificationsProvider listens for every message app-wide; this tells it
     // not to raise a badge for the conversation already on screen.
     window.__hzActiveChatWith = person.username
     setActiveChat(person)
     setChatHistory([])
+    setChatHasMore(false)
+    setChatLoadingOlder(false)
     stickToBottom.current = true
+    preservedHeight.current = null
     setChatInput('')                 // a draft belongs to one conversation
     clearUnread(person.username)
     setConversations(prev => prev.map(c => c.username === person.username ? { ...c, unread: 0 } : c))
     api.post(`/api/friends/${person.username}/read`)
-    const d = await api.get(`/api/friends/${person.username}/history`)
-    if (d.ok) setChatHistory(d.messages)
+    const d = await api.get(`/api/friends/${person.username}/history?limit=50`)
+    if (d.ok) {
+      setChatHistory(d.messages)
+      setChatHasMore(!!d.has_more)
+    }
     // preventScroll: a plain focus() scrolls every overflow-hidden ancestor
     // to reveal the input, which drags the shell's content out of frame.
     requestAnimationFrame(() => inputRef.current?.focus({ preventScroll: true }))
@@ -466,9 +518,12 @@ export default function Friends() {
 
   const closeChat = () => {
     activeChatRef.current = null
+    activeChatForLoad.current = null
     window.__hzActiveChatWith = null
     setActiveChat(null)
     setChatHistory([])
+    setChatHasMore(false)
+    setChatLoadingOlder(false)
   }
 
   // Leaving the page entirely counts as closing the conversation.
@@ -901,6 +956,14 @@ export default function Friends() {
               <div className="fr-msgs" ref={msgsRef} onScroll={onMsgsScroll}>
                 {chatHistory.length === 0 && (
                   <div className="fr-empty my-auto"><p>No messages yet. Say hello!</p></div>
+                )}
+                {chatHistory.length > 0 && (chatHasMore || chatLoadingOlder) && (
+                  <div className="fr-day" aria-live="polite">
+                    {chatLoadingOlder ? 'Loading earlier messages…' : 'Scroll up for earlier messages'}
+                  </div>
+                )}
+                {chatHistory.length > 0 && !chatHasMore && !chatLoadingOlder && (
+                  <div className="fr-day" style={{opacity:.5}}>Start of conversation</div>
                 )}
                 {(() => {
                   let lastDate = null

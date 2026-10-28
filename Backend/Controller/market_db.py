@@ -13,7 +13,8 @@ from datetime import datetime, timezone
 from typing import Optional, List
 
 from sqlalchemy import (
-    create_engine, Column, String, Text, Float, Integer, DateTime, ForeignKey, Boolean, text, func
+    create_engine, Column, String, Text, Float, Integer, DateTime, ForeignKey, Boolean, text, func,
+    or_, and_,
 )
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 
@@ -1519,20 +1520,46 @@ def _fmt_ct(dt: datetime) -> str:
     return ct.isoformat()
 
 
-def get_chat_history(a: str, b: str, limit: int = 100) -> list:
-    """Return last N messages between two users, oldest-first."""
+def get_chat_history(a: str, b: str, limit: int = 50,
+                     before_id: Optional[str] = None) -> dict:
+    """Return a page of messages between two users, oldest-first.
+
+    The chat opens with the newest `limit` messages. Scrolling to the top
+    passes the oldest id back as `before_id` to pull the previous page. The
+    cursor is (created_at, id) so two messages written in the same tick still
+    page in a stable order. Caller clamps `limit` to 1..200.
+    """
     ua, ub   = _friend_pair(a, b)
     room_key = f'{ua}:{ub}'
+    limit    = max(1, min(int(limit), 200))
     with Session() as s:
-        rows = s.query(PrivateChatMessage).filter_by(room_key=room_key) \
-                                          .order_by(PrivateChatMessage.created_at.desc()) \
-                                          .limit(limit).all()
+        q = s.query(PrivateChatMessage).filter_by(room_key=room_key)
+        if before_id:
+            anchor = s.query(PrivateChatMessage.created_at, PrivateChatMessage.id)\
+                       .filter_by(id=before_id).first()
+            if anchor:
+                a_ts, a_id = anchor
+                # Strictly older than the anchor: earlier timestamp, or same
+                # timestamp with a smaller id. Ties on both are impossible
+                # (id is a uuid primary key) but the <= path stays correct.
+                q = q.filter(or_(
+                    PrivateChatMessage.created_at < a_ts,
+                    and_(PrivateChatMessage.created_at == a_ts,
+                         PrivateChatMessage.id < a_id),
+                ))
+        rows = q.order_by(PrivateChatMessage.created_at.desc(),
+                          PrivateChatMessage.id.desc()).limit(limit + 1).all()
+        has_more = len(rows) > limit
+        rows = rows[:limit]
         rows.reverse()
-        return [
-            {'id': r.id, 'room_key': r.room_key, 'sender': r.sender,
-             'content': r.content, 'created_at': _fmt_ct(r.created_at)}
-            for r in rows
-        ]
+        return {
+            'messages': [
+                {'id': r.id, 'room_key': r.room_key, 'sender': r.sender,
+                 'content': r.content, 'created_at': _fmt_ct(r.created_at)}
+                for r in rows
+            ],
+            'has_more': has_more,
+        }
 
 
 def save_chat_message(room_key: str, sender: str, content: str) -> dict:
