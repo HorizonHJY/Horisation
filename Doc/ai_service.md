@@ -435,6 +435,16 @@ POST /api/tarot/readings/<id>/rating   body: { rating: 1-5, note?: ≤ 100 字 }
 - 两张盘仍然是算好的,模型不碰:`Backend/Service/bazi/compat.py` 算出日柱合冲（天干五合、相克；地支六合、六冲、相害、相刑）、生肖（年支六合三合冲害）、五行互补（差 ≥ 1.0 算补益,双向都算）、十神（以本命日主为我,对方四柱天干对我的十神;日柱对日柱是夫妻宫的那条 `spouse_god`）、粗分 0-100（天合地合 +25、天克地冲 -20、生肖合 +5、冲 -8、每条五行补益 +3,只做显示）。prompt 复用八字的 `describe()` 把两张盘和算好的关系一起喂,JSON 输出 `verdict / level（上/中上/中/中下/下）/ chemistry / day_pillar / complement / ten_god / zodiac / strengths / cautions / advice / verify / summary`。
 - 库 `bazi_compat_readings` + `bazi_compat_followups`,带 `claim()` 原子锁防双击,结构与 `bazi_db` 完全一致;删除走 `deleted_at` 隐藏。Controller `/api/bazi/compat*` 挂在 `app.py` 的 blueprint 注册段。前端 `BaziCompat.jsx` 独立子组件,`Bazi.jsx` 顶部 Tab 切换。
 
+## 13.7 第四处改动：八字准度升级 bazi-v2（2026-10-28）
+
+- 目的：让八字解读的每一句都挂在算出来的事实上，而不是模型自由发挥。前端 JSON 结构（印鉴/五行条/大运轨/流年时间轴）一个键都没动，纯 prompt + 校验层升级。
+- 新增 `Backend/Service/bazi/analysis.py`：从 `chart.py` 的四柱出发，用公开规则直接算出事实表——日主强弱（得令/得地/得势三项打分，月令 ×3 加权，生扶/克泄耗比值 ≥1.4 身强、≤0.7 身弱，无根 + 失令另给出「从格候选」）、五行百分比（月令三倍加权）、十神力量排序（透干 + 藏干 + 月令权重）、刑冲合害清单（含位置标注与「涉日支」标志）、用神/喜忌闲、月令取格（正官/七杀/正财/偏财/食神/伤官/正印/偏印/建禄/月劫，附成格/破格关键字）。所有阈值和权重都写在模块顶部注释里，可复现。
+- 新增 `Backend/Service/bazi/corpus.py`：30 条短断语（10 条十神组合 + 8 条刑冲格局 + 12 条格局成破），全部用现代白话写，**不编造古籍原文、不出现书名**。`hits_for(analysis)` 根据事实表挑最多 10 条短句注入 prompt。
+- `prompts/bazi.py` 升到 `bazi-v2`：把事实表 + 可用短语作为「权威输入」拼进 user 消息，system prompt 明令「不得与事实表矛盾，每句判断必须指出事实表里的某项（具体干支/十神），匹配不到就写『此盘未见』」，并反复要求「不要出现任何书名或出处」。老的 `子平/三命/滴天髓` 字样已经从提示里清掉。`FOLLOWUP_VERSION` 不动，保持 `bazi-ask-v2`。
+- 校验层：`bazi.validate(reading, chart)` 比对模型回复——(a) 强弱标签矛盾（允许 `中和 ↔ 身强/身弱` 的容差）、(b) 捏造的「某某相合/冲/刑/害/克」不在清单里、(c) 十神名字非法（正杀、偏神等）。`bazi.repair()` 把强弱软化成中和并把捏造的关系短语从 `da_yun / liu_nian / summary` 里擦掉，再回一次；只有重跑一次仍矛盾才落回缓存。
+- 新 `scripts/bazi_dryrun.py`：输入生日/经度/性别/地点，直接打印拼好的 prompt（事实表 + corpus hits + user content），**不花钱、不调厂商**，用来人工复查新 prompt 合不合理。
+- 测试：`tests/test_bazi_analysis.py` 18 条新测（含三张盘：建禄身强、乙生申月身弱、合成的从格；关系层的日支冲/三会；corpus 命中；校验器拦下 fabricated 关系与非法十神；repair 真的改字），加上原本八字的 16 条，`python3.11 -m pytest tests/test_bazi.py tests/test_bazi_analysis.py` **34 passed**。前端未动。
+
 ## 14. 实现记录（P0，2026-09-20）
 
 按 §2–§12 落地，出入只有这几处，都是实现时才看见的：
