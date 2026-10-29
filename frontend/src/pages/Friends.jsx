@@ -387,12 +387,33 @@ export default function Friends() {
       if (!chat) return
       const [ua, ub] = [user.username, chat.username].sort()
       if (msg.room_key !== `${ua}:${ub}`) return
-      setChatHistory(h => (h.some(m => m.id && m.id === msg.id) ? h : [...h, msg]))
+      setChatHistory(h => {
+        // Author's echo swaps the pending bubble in place so the clock on
+        // the message stays the server one, not the local optimistic time.
+        if (msg.client_id) {
+          const idx = h.findIndex(m => m._client_id === msg.client_id)
+          if (idx >= 0) {
+            const t = pendingTimers.current.get(msg.client_id)
+            if (t) { clearTimeout(t); pendingTimers.current.delete(msg.client_id) }
+            const next = h.slice()
+            next[idx] = { ...msg, _state: 'sent' }
+            return next
+          }
+        }
+        return h.some(m => m.id && m.id === msg.id) ? h : [...h, msg]
+      })
       if (msg.sender !== user.username) {
         api.post(`/api/friends/${chat.username}/read`)
       }
     }
-    const onChatError = ({ message }) => flash(message, 'danger')
+    const onChatError = ({ message, client_id }) => {
+      if (client_id) {
+        const t = pendingTimers.current.get(client_id)
+        if (t) { clearTimeout(t); pendingTimers.current.delete(client_id) }
+        setChatHistory(h => h.map(m => m._client_id === client_id ? { ...m, _state: 'failed', _error: message } : m))
+      }
+      flash(message, 'danger')
+    }
 
     if (socket.connected) askOnline()
     socket.on('connect', askOnline)
@@ -439,6 +460,11 @@ export default function Friends() {
   const chatHasMoreRef    = useRef(false)
   const chatLoadingRef    = useRef(false)
   const activeChatForLoad = useRef(null)
+  // Pending-send watchdog: a message that never gets its server echo back
+  // within SEND_TIMEOUT_MS flips to the failed state so the sender can retry.
+  // Keyed by client_id, cleared on echo or error.
+  const pendingTimers = useRef(new Map())
+  const SEND_TIMEOUT_MS = 5000
   useEffect(() => { chatHasMoreRef.current = chatHasMore },      [chatHasMore])
   useEffect(() => { chatLoadingRef.current = chatLoadingOlder }, [chatLoadingOlder])
 
@@ -519,6 +545,10 @@ export default function Friends() {
     // NotificationsProvider listens for every message app-wide; this tells it
     // not to raise a badge for the conversation already on screen.
     window.__hzActiveChatWith = person.username
+    // Drop pending bubbles from a previous conversation — they belong to
+    // another room_key and would reappear on the wrong screen on reload.
+    pendingTimers.current.forEach(t => clearTimeout(t))
+    pendingTimers.current.clear()
     setActiveChat(person)
     setChatHistory([])
     setChatHasMore(false)
@@ -551,12 +581,85 @@ export default function Friends() {
   }
 
   // Leaving the page entirely counts as closing the conversation.
-  useEffect(() => () => { window.__hzActiveChatWith = null }, [])
+  useEffect(() => () => {
+    window.__hzActiveChatWith = null
+    pendingTimers.current.forEach(t => clearTimeout(t))
+    pendingTimers.current.clear()
+  }, [])
+
+  // iOS Safari does not shrink layout viewport when the keyboard rises, so
+  // the compose would hide under the keyboard. visualViewport reports the
+  // visible area; the diff is the keyboard height we lift the chat pane by.
+  // Published as a CSS variable (--kbh) consumed by .fr-shell.is-chat.
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!vv) return
+    const apply = () => {
+      const kbh = Math.max(0, window.innerHeight - vv.height - vv.offsetTop)
+      document.documentElement.style.setProperty('--kbh', `${kbh}px`)
+      if (kbh > 0 && stickToBottom.current && msgsRef.current) {
+        msgsRef.current.scrollTop = msgsRef.current.scrollHeight
+      }
+    }
+    apply()
+    vv.addEventListener('resize', apply)
+    vv.addEventListener('scroll', apply)
+    return () => {
+      vv.removeEventListener('resize', apply)
+      vv.removeEventListener('scroll', apply)
+      document.documentElement.style.removeProperty('--kbh')
+    }
+  }, [])
+
+  const emitChat = (chat, content, clientId) => {
+    // A failed emit (socket not connected) leaves the pending bubble
+    // without an echo — the watchdog flips it to failed after the timeout.
+    try {
+      socket?.emit('chat_send', { to_user: chat.username, content, client_id: clientId })
+    } catch (_) { /* handled by watchdog */ }
+    const t = setTimeout(() => {
+      pendingTimers.current.delete(clientId)
+      setChatHistory(h => h.map(m => m._client_id === clientId && m._state === 'sending'
+        ? { ...m, _state: 'failed', _error: 'Could not reach server. Tap to retry.' }
+        : m))
+    }, SEND_TIMEOUT_MS)
+    pendingTimers.current.set(clientId, t)
+  }
+
+  const insertPending = (chat, content) => {
+    const clientId  = `c-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    const createdAt = new Date().toISOString()
+    const row = {
+      id: clientId,                    // temp id so React keys stay unique
+      _client_id: clientId,
+      _state: 'sending',
+      sender: user.username,
+      room_key: [user.username, chat.username].sort().join(':'),
+      content,
+      created_at: createdAt,
+    }
+    setChatHistory(h => [...h, row])
+    stickToBottom.current = true
+    return clientId
+  }
 
   const sendMessage = () => {
     if (!chatInput.trim() || !activeChat) return
-    socket?.emit('chat_send', { to_user: activeChat.username, content: chatInput.trim() })
+    const content  = chatInput.trim()
+    const clientId = insertPending(activeChat, content)
+    emitChat(activeChat, content, clientId)
     setChatInput('')
+  }
+
+  const retryMessage = (row) => {
+    if (!activeChat) return
+    const clientId = row._client_id
+    const existing = pendingTimers.current.get(clientId)
+    if (existing) { clearTimeout(existing); pendingTimers.current.delete(clientId) }
+    setChatHistory(h => h.map(m => m._client_id === clientId
+      ? { ...m, _state: 'sending', _error: undefined }
+      : m))
+    emitChat(activeChat, row.content, clientId)
   }
 
   const [uploadingImage, setUploadingImage] = useState(false)
@@ -577,7 +680,10 @@ export default function Friends() {
       const r = await fetch('/api/friends/chat/upload', { method: 'POST', body: form, credentials: 'include' })
       const d = await r.json()
       if (!d.ok) { flash(d.error || 'Upload failed.', 'danger'); return }
-      socket?.emit('chat_send', { to_user: activeChat.username, content: `[img]${d.url}` })
+      // Treat an image like a text message: optimistic bubble + watchdog.
+      const content  = `[img]${d.url}`
+      const clientId = insertPending(activeChat, content)
+      emitChat(activeChat, content, clientId)
     } catch (e) {
       flash('Upload failed.', 'danger')
     } finally {
@@ -1027,11 +1133,28 @@ export default function Friends() {
                       items.push(<div key={`sep-${m.id}`} className="fr-day">{dateLabel}</div>)
                     }
                     const isCard = !!parseJoinUrl(m.content)
+                    const state  = m._state
+                    const stateCls = state === 'sending' ? ' is-pending'
+                                   : state === 'failed'  ? ' is-failed'
+                                   : ''
                     items.push(
-                      <div key={m.id} className={`fr-msg${isMe ? ' is-me' : ''}`}
+                      <div key={m.id} className={`fr-msg${isMe ? ' is-me' : ''}${stateCls}`}
                            style={isCard ? { padding: '6px 8px' } : undefined}>
                         {renderMessageContent(m.content, isMe)}
-                        <small>{new Date(m.created_at).toLocaleTimeString('zh-CN', { ...CT, hour: '2-digit', minute: '2-digit' })}</small>
+                        <small>
+                          {new Date(m.created_at).toLocaleTimeString('zh-CN', { ...CT, hour: '2-digit', minute: '2-digit' })}
+                          {state === 'sending' && <> · <i className="fas fa-clock" aria-hidden="true" /> sending…</>}
+                          {state === 'failed'  && (
+                            <>
+                              {' · '}
+                              <button type="button" className="fr-msg__retry"
+                                      onClick={() => retryMessage(m)}
+                                      aria-label="Retry send">
+                                <i className="fas fa-rotate-right" aria-hidden="true" /> Failed · tap to retry
+                              </button>
+                            </>
+                          )}
+                        </small>
                       </div>
                     )
                     return items

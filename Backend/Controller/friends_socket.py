@@ -55,19 +55,30 @@ def on_chat_send(data):
     if not sender:
         return
     from flask_socketio import emit
-    to_user = (data or {}).get('to_user', '').strip()
-    content = (data or {}).get('content', '').strip()
+    to_user   = (data or {}).get('to_user', '').strip()
+    content   = (data or {}).get('content', '').strip()
+    # The sender tags its own compose so the echo can replace the pending
+    # bubble instead of appending a duplicate one.
+    client_id = (data or {}).get('client_id') or None
     if not content or not to_user:
+        if client_id:
+            emit('chat_error', {'message': 'Message is empty.', 'client_id': client_id})
         return
     if len(content) > 1000:
-        emit('chat_error', {'message': 'Message too long (max 1000 chars)'})
+        emit('chat_error', {'message': 'Message too long (max 1000 chars)', 'client_id': client_id})
         return
 
     ua, ub   = market_db._friend_pair(sender, to_user)
     room_key = f'{ua}:{ub}'
     msg      = market_db.save_chat_message(room_key, sender, content)
 
-    socketio.emit('chat_message', msg, room=f'user_{sender}')
+    # Only the sender needs the client_id — the recipient has no pending bubble
+    # to swap. Keeping it out of the recipient payload avoids leaking a tag
+    # that is meaningful only to the author.
+    sender_payload = dict(msg)
+    if client_id:
+        sender_payload['client_id'] = client_id
+    socketio.emit('chat_message', sender_payload, room=f'user_{sender}')
     socketio.emit('chat_message', msg, room=f'user_{to_user}')
 
 
