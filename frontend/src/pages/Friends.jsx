@@ -112,7 +112,47 @@ function parseImageMessage(text) {
   return m ? m[1] : null
 }
 
+// A buyer's expression of interest is posted as a server message with the
+// `[sys:interest]<json>` prefix. One system-bubble kind right now; new ones
+// land under the same prefix so renderers can switch on `kind`.
+function parseSystemMessage(text) {
+  if (typeof text !== 'string' || !text.startsWith('[sys:interest]')) return null
+  try {
+    const data = JSON.parse(text.slice('[sys:interest]'.length))
+    if (!data || typeof data !== 'object' || !data.listing_id) return null
+    return { kind: 'interest', data }
+  } catch (_) { return null }
+}
+
 function renderMessageContent(content, isMe) {
+  const sys = parseSystemMessage(content)
+  if (sys && sys.kind === 'interest') {
+    const d = sys.data
+    const price = typeof d.price === 'number' ? `$${d.price.toFixed(2).replace(/\.00$/, '')}` : null
+    const colors = isMe
+      ? { bg: 'rgba(255,255,255,0.18)', border: 'rgba(255,255,255,0.35)', text: '#fff', sub: '#e8d9ff' }
+      : { bg: 'var(--badge-interest-bg, #f3e8ff)', border: 'var(--badge-interest-fg, #a855f7)', text: 'var(--text-primary)', sub: 'var(--text-muted)' }
+    return (
+      <a href={`/market/${encodeURIComponent(d.listing_id)}`}
+         style={{ textDecoration: 'none', display: 'block', minWidth: 220 }}>
+        <div style={{
+          background: colors.bg, border: `1px solid ${colors.border}`,
+          borderRadius: 10, padding: '8px 12px',
+        }}>
+          <div style={{ fontSize: '.68rem', textTransform: 'uppercase', letterSpacing: '.08em',
+                        color: colors.sub, marginBottom: 2 }}>
+            Interested in
+          </div>
+          <div style={{ fontWeight: 700, fontSize: '.9rem', color: colors.text, lineHeight: 1.3 }}>
+            {d.title}
+          </div>
+          {price && (
+            <div style={{ fontSize: '.78rem', color: colors.sub, marginTop: 2 }}>{price}</div>
+          )}
+        </div>
+      </a>
+    )
+  }
   const imgUrl = parseImageMessage(content)
   if (imgUrl) {
     return (
@@ -159,9 +199,11 @@ function renderMessageContent(content, isMe) {
 // One line for the Chats list. A share card reads as what it is, not as a URL;
 // an image reads as a photo rather than its raw url.
 function previewText(content, isMine) {
-  const img  = parseImageMessage(content)
-  const join = img ? null : parseJoinUrl(content)
-  const body = img  ? '📷 Photo'
+  const sys  = parseSystemMessage(content)
+  const img  = sys ? null : parseImageMessage(content)
+  const join = sys || img ? null : parseJoinUrl(content)
+  const body = sys  ? `🛒 Interested in: ${sys.data.title}`
+              : img  ? '📷 Photo'
               : join ? (join.type === 'travel' ? '旅行计划邀请' : '分账邀请')
               : content
   return (isMine ? 'You: ' : '') + body

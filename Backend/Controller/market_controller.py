@@ -353,101 +353,74 @@ def user_listings(username):
     return jsonify({'ok': True, 'listings': listings})
 
 
-# ── Trade-intent flow (意向成单流) ────────────────────────────────────────────
+# ── Interest + Reserved (merged Message / I-want-this flow) ─────────────────
+# Reach-out and I-want-this were two buttons for the same intent. They are
+# now one: /interest posts a chat system bubble (seller sees the title and
+# price inline) and the Market card drops the buyer back into the chat.
+# Reserved is a seller-controlled flag independent of any buyer action.
 
-@market_bp.route('/listings/<listing_id>/intent', methods=['POST'])
+@market_bp.route('/listings/<listing_id>/interest', methods=['POST'])
 @login_required
-def create_intent_route(listing_id):
-    """Buyer expresses 'I want this'. Seller must own an active listing."""
+def send_interest_route(listing_id):
+    """Buyer expresses interest in a listing by posting a system bubble in
+    the chat with the seller. The listing's state does not change.
+    """
     me      = request.current_user['username']
-    body    = request.get_json() or {}
-    message = (body.get('message') or '').strip() or None
-
-    # Seller must own an active listing (look it up to get the real seller).
     listing = market_db.get_listing(listing_id)
-    if not listing or listing['status'] != 'active':
-        return jsonify({'ok': False, 'error': 'Listing not available for purchase.'}), 400
+    if not listing or listing['status'] == 'sold':
+        return jsonify({'ok': False, 'error': 'Listing is not available.'}), 400
     if listing['seller_username'] == me:
-        return jsonify({'ok': False, 'error': "You can't buy your own listing."}), 400
-    if market_db.has_active_intent(listing_id, me):
-        return jsonify({'ok': False, 'error': 'You already expressed interest. Wait for the seller.'}), 400
+        return jsonify({'ok': False, 'error': 'That is your own listing.'}), 400
 
-    intent = market_db.create_intent(listing_id, me, listing['seller_username'], message)
-    if not intent:
-        return jsonify({'ok': False, 'error': 'Unable to express interest right now.'}), 400
+    import json as _json
+    payload = {
+        'listing_id': listing['id'],
+        'title': listing['title'],
+        'price': listing.get('price'),
+        'status': 'pending',
+    }
+    content = f"[sys:interest]{_json.dumps(payload, ensure_ascii=False)}"
+    ua, ub   = market_db._friend_pair(me, listing['seller_username'])
+    room_key = f'{ua}:{ub}'
+    msg      = market_db.save_chat_message(room_key, me, content)
 
-    from .friends_socket import notify_intent
-    notify_intent('trade_intent', intent)
-    return jsonify({'ok': True, 'intent': intent}), 201
+    from .socketio_instance import socketio
+    socketio.emit('chat_message', msg, room=f"user_{me}")
+    socketio.emit('chat_message', msg, room=f"user_{listing['seller_username']}")
+    return jsonify({'ok': True, 'message': msg,
+                    'seller_username': listing['seller_username']}), 201
 
 
-@market_bp.route('/intents/outgoing', methods=['GET'])
+@market_bp.route('/listings/<listing_id>/reserve', methods=['PUT'])
 @login_required
-def my_intents():
-    """Intents I placed as a buyer."""
-    me = request.current_user['username']
-    return jsonify({'ok': True, 'intents': market_db.get_my_buy_intents(me)})
+def reserve_listing_route(listing_id):
+    """Seller marks a listing reserved so other buyers see it is held."""
+    me      = request.current_user['username']
+    listing = market_db.get_listing(listing_id)
+    if not listing:
+        return jsonify({'ok': False, 'error': 'Listing not found.'}), 404
+    if listing['seller_username'] != me:
+        return jsonify({'ok': False, 'error': 'Only the seller can reserve.'}), 403
+    if listing['status'] not in ('active', 'reserved'):
+        return jsonify({'ok': False, 'error': 'Only active listings can be reserved.'}), 400
+    updated = market_db.set_listing_status(listing_id, 'reserved')
+    return jsonify({'ok': True, 'listing': updated})
 
 
-@market_bp.route('/intents/incoming', methods=['GET'])
+@market_bp.route('/listings/<listing_id>/unreserve', methods=['PUT'])
 @login_required
-def incoming_intents():
-    """Intents buyers placed on my listings."""
-    me = request.current_user['username']
-    return jsonify({'ok': True, 'intents': market_db.get_seller_intents(me)})
-
-
-@market_bp.route('/intents/<intent_id>/accept', methods=['PUT'])
-@login_required
-def accept_intent_route(intent_id):
-    """Seller accepts a pending intent -> listing reserved, other intents declined."""
-    me    = request.current_user['username']
-    res   = market_db.accept_intent(intent_id, me)
-    if not res:
-        return jsonify({'ok': False, 'error': 'Intent not found, or listing/ownership changed.'}), 400
-    from .friends_socket import notify_intent
-    notify_intent('trade_intent_accepted', res)
-    return jsonify({'ok': True, 'intent': res})
-
-
-@market_bp.route('/intents/<intent_id>/decline', methods=['PUT'])
-@login_required
-def decline_intent_route(intent_id):
-    """Seller declines a pending intent."""
-    me  = request.current_user['username']
-    ok  = market_db.decline_intent(intent_id, me)
-    if not ok:
-        return jsonify({'ok': False, 'error': 'Intent not found or not pending.'}), 400
-    intent = market_db.get_intent(intent_id)
-    from .friends_socket import notify_intent
-    notify_intent('trade_intent_declined', intent)
-    return jsonify({'ok': True, 'intent': intent})
-
-
-@market_bp.route('/intents/<intent_id>/cancel', methods=['PUT'])
-@login_required
-def cancel_intent_route(intent_id):
-    """Either party cancels before completion. Frees a reserved listing back to active."""
-    me = request.current_user['username']
-    if not market_db.cancel_intent(intent_id, me):
-        return jsonify({'ok': False, 'error': 'Cannot cancel this intent.'}), 400
-    intent = market_db.get_intent(intent_id)
-    from .friends_socket import notify_intent
-    notify_intent('trade_intent_cancelled', intent)
-    return jsonify({'ok': True, 'intent': intent})
-
-
-@market_bp.route('/intents/<intent_id>/complete', methods=['PUT'])
-@login_required
-def complete_intent_route(intent_id):
-    """Buyer confirms receipt -> listing sold. Only the buyer of an accepted intent may call."""
-    me   = request.current_user['username']
-    res  = market_db.complete_intent(intent_id, me)
-    if not res:
-        return jsonify({'ok': False, 'error': 'Not found, not yours, or listing not reserved.'}), 400
-    from .friends_socket import notify_intent
-    notify_intent('trade_intent_completed', res)
-    return jsonify({'ok': True, 'intent': res})
+def unreserve_listing_route(listing_id):
+    """Seller releases a reserved listing back to active."""
+    me      = request.current_user['username']
+    listing = market_db.get_listing(listing_id)
+    if not listing:
+        return jsonify({'ok': False, 'error': 'Listing not found.'}), 404
+    if listing['seller_username'] != me:
+        return jsonify({'ok': False, 'error': 'Only the seller can unreserve.'}), 403
+    if listing['status'] != 'reserved':
+        return jsonify({'ok': False, 'error': 'Listing is not reserved.'}), 400
+    updated = market_db.set_listing_status(listing_id, 'active')
+    return jsonify({'ok': True, 'listing': updated})
 
 
 # ── Wanted (求购) ────────────────────────────────────────────────────────────

@@ -672,19 +672,13 @@ def count_listings(status: str = 'active') -> int:
 
 
 def get_reserved_listings_for_buyer(username: str) -> list[dict]:
-    """RESERVED listings that `username` is currently buying (holds an accepted intent).
+    """Returns an empty list after the trade-intent flow was retired.
 
-    Used so the agreed buyer can still see the listing in Browse and confirm
-    receipt (which flips it to sold). Only non-completed accepted intents qualify.
+    Reserved is now a seller-controlled flag with no attached buyer identity,
+    so there is no listing to inject into a particular buyer's Browse view.
+    Callers kept for API shape; retire the call sites when touched next.
     """
-    with Session() as s:
-        rows = (s.query(Listing)
-                 .join(TradeIntent, TradeIntent.listing_id == Listing.id)
-                 .filter(TradeIntent.buyer == username,
-                         TradeIntent.status == 'accepted',
-                         Listing.status == 'reserved')
-                 .all())
-        return _enrich_listings(rows, s)
+    return []
 
 
 def get_listing(listing_id: str) -> Optional[dict]:
@@ -796,6 +790,21 @@ def restore_listing(listing_id: str, seller: str) -> bool:
         row.updated_at = datetime.now(timezone.utc)
         s.commit()
         return True
+
+
+def set_listing_status(listing_id: str, status: str) -> dict | None:
+    """Set a listing's status directly (reserve / unreserve). Returns the
+    refreshed listing dict, or None when the row no longer exists.
+    """
+    with Session() as s:
+        row = s.query(Listing).filter_by(id=listing_id).first()
+        if not row:
+            return None
+        row.status     = status
+        row.updated_at = datetime.now(timezone.utc)
+        s.commit()
+        s.refresh(row)
+        return _listing_to_dict(row)
 
 
 # ── Game room helpers ─────────────────────────────────────────────────────────
@@ -1083,27 +1092,6 @@ class ChatRead(Base):
     read_at    = Column(DateTime,    nullable=False, default=lambda: datetime.utcnow())
 
 
-class TradeIntent(Base):
-    """A buyer's 'I want this' on a listing.
-
-    Flow: pending (buyer wants) -> accepted (seller agreed -> listing reserved)
-                               -> completed (buyer confirms receipt -> listing sold)
-    Cancelled by either side at any point before completion.
-    """
-    __tablename__ = 'trade_intents'
-
-    id           = Column(String(36),  primary_key=True, default=lambda: str(uuid.uuid4()))
-    listing_id   = Column(String(36),  nullable=False, index=True)
-    buyer        = Column(String(100), nullable=False, index=True)
-    seller       = Column(String(100), nullable=False, index=True)
-    status       = Column(String(20),  nullable=False, default='pending')  # pending/accepted/completed/cancelled/declined
-    message      = Column(Text,        nullable=True)                       # optional note from buyer
-    created_at   = Column(DateTime,    nullable=False, default=lambda: datetime.now(timezone.utc))
-    updated_at   = Column(DateTime,    nullable=False,
-                          default=lambda: datetime.now(timezone.utc),
-                          onupdate=lambda: datetime.now(timezone.utc))
-
-
 class InviteCode(Base):
     __tablename__ = 'invite_codes'
 
@@ -1337,190 +1325,11 @@ def remove_friend(a: str, b: str) -> bool:
 
 # ── Trade intent helpers (意向成单流) ───────────────────────────────────────
 
-def _intent_to_dict(r: TradeIntent) -> dict:
-    return {
-        'id':          r.id,
-        'listing_id':  r.listing_id,
-        'buyer':       r.buyer,
-        'seller':      r.seller,
-        'status':      r.status,
-        'message':     r.message,
-        'created_at':  r.created_at.isoformat(),
-        'updated_at':  r.updated_at.isoformat(),
-    }
-
-
-def _intent_to_listing_dict(intent, listing_row, s) -> dict:
-    """Attach the (enriched) listing + buyer display/user info to an intent dict."""
-    d = _intent_to_dict(intent)
-    if listing_row:
-        d['listing'] = _listing_to_dict(
-            listing_row,
-            s.query(User).filter_by(username=listing_row.seller_username).first(),
-        )
-    buyer_user = s.query(User).filter_by(username=intent.buyer).first()
-    d['buyer_display'] = buyer_user.display_name or intent.buyer if buyer_user else intent.buyer
-    d['buyer_avatar']  = buyer_user.avatar_url if buyer_user else None
-    return d
-
-
 def listing_status(listing_id: str) -> Optional[str]:
     """Return current status of a listing, or None if it doesn't exist."""
     with Session() as s:
         row = s.query(Listing).filter_by(id=listing_id).first()
         return row.status if row else None
-
-
-def count_active_intents(listing_id: str) -> int:
-    """Number of currently pending/accepted (non-terminal) intents on a listing."""
-    with Session() as s:
-        return s.query(TradeIntent).filter(
-            TradeIntent.listing_id == listing_id,
-            TradeIntent.status.in_(['pending', 'accepted']),
-        ).count()
-
-
-def has_active_intent(listing_id: str, buyer: str) -> bool:
-    """True if this buyer already has a pending/accepted intent on this listing."""
-    with Session() as s:
-        return s.query(TradeIntent).filter(
-            TradeIntent.listing_id == listing_id,
-            TradeIntent.buyer == buyer,
-            TradeIntent.status.in_(['pending', 'accepted']),
-        ).first() is not None
-
-
-def create_intent(listing_id: str, buyer: str, seller: str, message: str = None) -> Optional[dict]:
-    """Record that buyer wants listing_id.
-
-    Returns None if the listing is not active, buyer == seller, or buyer already
-    has an active intent. On success marks any previous declined/cancelled intents
-    from this buyer on the listing as inactive is unnecessary — we just add a new row.
-    """
-    with Session() as s:
-        listing = s.query(Listing).filter_by(id=listing_id).first()
-        if not listing or listing.status != 'active':
-            return None
-        if listing.seller_username == buyer:
-            return None
-        if has_active_intent(listing_id, buyer):
-            return None
-        intent = TradeIntent(
-            id=str(uuid.uuid4()),
-            listing_id=listing_id,
-            buyer=buyer,
-            seller=listing.seller_username,
-            message=message,
-        )
-        s.add(intent)
-        s.commit()
-        s.refresh(intent)
-        return _intent_to_listing_dict(intent, listing, s)
-
-
-def get_intent(intent_id: str) -> Optional[dict]:
-    with Session() as s:
-        intent = s.query(TradeIntent).filter_by(id=intent_id).first()
-        if not intent:
-            return None
-        listing = s.query(Listing).filter_by(id=intent.listing_id).first()
-        return _intent_to_listing_dict(intent, listing, s)
-
-
-def get_my_buy_intents(buyer: str) -> list:
-    """Intents I (as buyer) have placed, newest first, non-terminal on top."""
-    with Session() as s:
-        rows = s.query(TradeIntent).filter_by(buyer=buyer)\
-                                   .order_by(TradeIntent.created_at.desc()).all()
-        return [_intent_to_listing_dict(r, s.query(Listing).filter_by(id=r.listing_id).first(), s)
-                for r in rows]
-
-
-def get_seller_intents(seller: str) -> list:
-    """Intents on my listings (I am seller), newest first."""
-    with Session() as s:
-        rows = s.query(TradeIntent).filter_by(seller=seller)\
-                                   .order_by(TradeIntent.created_at.desc()).all()
-        return [_intent_to_listing_dict(r, s.query(Listing).filter_by(id=r.listing_id).first(), s)
-                for r in rows]
-
-
-def accept_intent(intent_id: str, seller: str) -> Optional[dict]:
-    """Seller agrees -> move intent to accepted and mark listing as reserved."""
-    with Session() as s:
-        intent = s.query(TradeIntent).filter_by(id=intent_id, seller=seller, status='pending').first()
-        if not intent:
-            return None
-        listing = s.query(Listing).filter_by(id=intent.listing_id).first()
-        if not listing or listing.seller_username != seller or listing.status != 'active':
-            return None
-        # Decline any other pending intents on this same listing first.
-        others = s.query(TradeIntent).filter(
-            TradeIntent.listing_id == intent.listing_id,
-            TradeIntent.id != intent.id,
-            TradeIntent.status == 'pending',
-        ).all()
-        for o in others:
-            o.status = 'declined'
-        intent.status   = 'accepted'
-        listing.status  = 'reserved'
-        listing.updated_at = datetime.now(timezone.utc)
-        s.commit()
-        return _intent_to_listing_dict(intent, listing, s)
-
-
-def decline_intent(intent_id: str, seller: str) -> bool:
-    """Seller declines a specific pending intent."""
-    with Session() as s:
-        intent = s.query(TradeIntent).filter_by(id=intent_id, seller=seller, status='pending').first()
-        if not intent:
-            return False
-        intent.status = 'declined'
-        s.commit()
-        return True
-
-
-def cancel_intent(intent_id: str, actor: str) -> bool:
-    """Either party cancels before completion (buyer backs out, or seller releases reservation)."""
-    with Session() as s:
-        intent = s.query(TradeIntent).filter_by(id=intent_id).first()
-        if not intent:
-            return False
-        if actor not in (intent.buyer, intent.seller):
-            return False
-        if intent.status not in ('pending', 'accepted'):
-            return False
-        cancelled = intent.status
-        intent.status = 'cancelled'
-        # If it was reserved and the seller is cancelling, free the listing back to active,
-        # and only if no other accepted/pending intent owns it (none should in accepted case).
-        if cancelled == 'accepted':
-            listing = s.query(Listing).filter_by(id=intent.listing_id, status='reserved').first()
-            if listing:
-                listing.status = 'active'
-                listing.updated_at = datetime.now(timezone.utc)
-        s.commit()
-        return True
-
-
-def complete_intent(intent_id: str, buyer: str) -> Optional[dict]:
-    """Buyer confirms receipt -> intent completed + listing marked sold.
-
-    Only the buyer who owns this accepted intent may complete it. Seller must
-    have accepted first (intent.status == 'accepted').
-    """
-    with Session() as s:
-        intent = s.query(TradeIntent).filter_by(id=intent_id, buyer=buyer, status='accepted').first()
-        if not intent:
-            return None
-        listing = s.query(Listing).filter_by(id=intent.listing_id, status='reserved').first()
-        if not listing:
-            return None
-        intent.status   = 'completed'
-        listing.status  = 'sold'
-        listing.updated_at = datetime.now(timezone.utc)
-        s.commit()
-        return _intent_to_listing_dict(intent, listing, s)
 
 
 # America/Chicago timezone helper (uses zoneinfo — Python 3.9+ built-in)
@@ -1823,11 +1632,9 @@ def validate_invite_code(code: str) -> bool:
 
 
 # ── Wanted (求购) ─────────────────────────────────────────────────────────────
-# Mirror of Listing but reversed: the buyer posts, sellers reach out. Price is
-# a target range (either bound may be null = "open"). Reach Out reuses the
-# TradeIntent table — the intent references the wanted post via `listing_id`;
-# `buyer`/`seller` get swapped from Listing's semantics (the WantedListing's
-# poster is the one buying; the person reaching out is the seller offering).
+# Mirror of Listing but reversed: the buyer posts, sellers reach out. Price
+# is a target range (either bound may be null = "open"). Reach Out opens a
+# DM directly — no shared order record — so wanted lives on its own table.
 
 class WantedListing(Base):
     __tablename__ = 'wanted_listings'

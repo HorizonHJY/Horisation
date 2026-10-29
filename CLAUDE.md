@@ -36,7 +36,7 @@ Browser → Cloudflare → Nginx → Gunicorn (port 8000) → Flask (API only)
 | `Backend/Controller/notes_controller.py` | `/api/notes/*` — per-user notes |
 | `Backend/Controller/market_controller.py` | `/api/market/*` — marketplace listings |
 | `Backend/Controller/feedback_controller.py` | `/api/feedback/*` — message board |
-| `Backend/Controller/market_db.py` | SQLAlchemy models + helpers: User, UserSession, Listing, ListingImage, Category, Message, MessageLike, Memo, GameRoom, friends/groups tables, TradeIntent, WantedListing (求购 posts: buyer posts, sellers DM, buyer marks fulfilled). Also owns the additive column migrations (`_migrate_columns`, `_migrate_category_labels`). |
+| `Backend/Controller/market_db.py` | SQLAlchemy models + helpers: User, UserSession, Listing, ListingImage, Category, Message, MessageLike, Memo, GameRoom, friends/groups tables, WantedListing (求购 posts: buyer posts, sellers DM, buyer marks fulfilled). Also owns the additive column migrations (`_migrate_columns`, `_migrate_category_labels`). TradeIntent retired 2026-10-29 — I-want-this merged into Message Seller, Reserved is a seller-controlled flag. |
 | `Backend/Controller/groups_controller.py` | `/api/groups/*` — 群组：建组/拉人/群聊（独立于好友） |
 | `Backend/Controller/friends_controller.py` | `/api/friends/*` — search, requests, private chat, contact-sharing approval, and `/conversations` (every DM room with last line + unread, **non-friends included** — the Chats list) |
 | `Backend/Controller/friends_socket.py` | **The app's only `connect`/`disconnect` handler** plus private chat and the push helpers. python-socketio keys handlers by event name, so a second `@socketio.on('connect')` anywhere would silently replace this one — put per-connection work here instead. |
@@ -199,7 +199,7 @@ All login required. Full CRUD + `/complete`, `/statistics`.
 | POST | `/wanted/<id>/reopen` | login | Undo fulfill |
 | DELETE | `/wanted/<id>` | login | Delete |
 
-Reach Out on a wanted post opens a DM with the buyer (same `navigate('/friends',{state:{openChat,initialMessage}})` as listings' Reach Out). No trade_intent is created — a wanted post has no listing to reserve, and the buyer/seller roles are swapped.
+Reach Out on a wanted post opens a DM with the buyer (same `navigate('/friends',{state:{openChat}})` as listings' Reach Out). No system bubble is posted on wanted (unlike a listing's Message Seller) — the roles are swapped, there is nothing to "interest" in.
 
 ### Feedback `/api/feedback/`
 | Method | Route | Description |
@@ -313,9 +313,16 @@ Deterministic — no AI call. Users may re-take; latest row is "current".
 **Socket events** (all pushed to the `user_<username>` room):
 `friend_request_incoming`, `contact_request_incoming`, `contact_request_resolved`
 (sent to **both** parties), `friend_accepted`, `chat_message`, `chat_error`,
-`online_list`, and the `trade_intent_*` family. Anything pushed that the client
-also fetches must carry the **same shape** — enrich it through
-`_with_sender_identity` — or a pushed item renders differently from a fetched one.
+`online_list`. Anything pushed that the client also fetches must carry the
+**same shape** — enrich it through `_with_sender_identity` — or a pushed item
+renders differently from a fetched one.
+
+**Market interest + reserved** (2026-10-29): the Message Seller button on a
+listing posts a system-prefixed chat message `[sys:interest]<json>` from the
+buyer in the pair's chat room (same socket channel as a normal message, no
+schema change). The seller lands on a card bubble naming the item and price.
+Reserved is a seller-controlled flag: `PUT /api/market/listings/<id>/reserve`
+and `/unreserve` toggle `active ↔ reserved` and no intent record is kept.
 
 ---
 
