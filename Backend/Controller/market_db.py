@@ -68,7 +68,12 @@ class Listing(Base):
     category         = Column(String(50), nullable=False, default='other')
     contact          = Column(String(200), nullable=False)
     original_price   = Column(Float, nullable=True)
-    delivery_type    = Column(String(20), nullable=False, default='pickup')  # pickup / delivery / both
+    # Legacy single-field flavour: 'pickup' / 'delivery' / 'both'. Kept
+    # read-only while new installs write to the two boolean columns below;
+    # removed in a later migration once nothing still reads it.
+    delivery_type    = Column(String(20), nullable=False, default='pickup')
+    pickup_available   = Column(Boolean, nullable=False, default=True)
+    delivery_available = Column(Boolean, nullable=False, default=False)
     delivery_fee     = Column(Float, nullable=True)
     status           = Column(String(20), nullable=False, default='active')  # active / sold / removed
     view_count       = Column(Integer,   nullable=False, default=0)
@@ -179,6 +184,8 @@ def _migrate_columns():
         "ALTER TABLE listings ADD COLUMN original_price REAL",
         "ALTER TABLE listings ADD COLUMN delivery_type TEXT NOT NULL DEFAULT 'pickup'",
         "ALTER TABLE listings ADD COLUMN delivery_fee REAL",
+        "ALTER TABLE listings ADD COLUMN pickup_available INTEGER NOT NULL DEFAULT 1",
+        "ALTER TABLE listings ADD COLUMN delivery_available INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE friend_requests ADD COLUMN message TEXT",
         "ALTER TABLE user ADD COLUMN contact_hidden BOOLEAN DEFAULT 0",
         "ALTER TABLE user ADD COLUMN wechat TEXT",
@@ -199,6 +206,26 @@ def _migrate_columns():
                 s.commit()
             except Exception:
                 pass  # column already exists
+
+    # One-shot backfill: translate the legacy delivery_type enum into the
+    # pickup/delivery boolean pair for every row where the booleans still
+    # hold the default (pickup=1, delivery=0). Idempotent: a row that was
+    # already migrated will not trip the WHERE clause because its booleans
+    # already match the enum. New rows go through the application layer and
+    # do not need this.
+    with Session() as s:
+        try:
+            s.execute(text(
+                "UPDATE listings SET pickup_available = CASE "
+                "WHEN delivery_type IN ('pickup', 'both') THEN 1 ELSE 0 END, "
+                "delivery_available = CASE "
+                "WHEN delivery_type IN ('delivery', 'both') THEN 1 ELSE 0 END "
+                "WHERE pickup_available = 1 AND delivery_available = 0 "
+                "AND delivery_type <> 'pickup'"
+            ))
+            s.commit()
+        except Exception:
+            pass
 
 
 # slug -> (English label, Chinese accent). Also used to repair rows seeded
@@ -431,6 +458,19 @@ def db_delete_user_sessions(username: str) -> None:
 # ── Serialisers ───────────────────────────────────────────────────────────────
 
 def _listing_to_dict(listing: Listing, seller_user: 'User | None' = None) -> dict:
+    # Truth lives in the two boolean columns; derive the legacy enum for
+    # callers that still read it (older clients, Wanted logic). pickup=1 is
+    # the floor if a row somehow has both off, so the UI stays sane.
+    pickup   = bool(listing.pickup_available)
+    delivery = bool(listing.delivery_available)
+    if not pickup and not delivery:
+        pickup = True
+    if pickup and delivery:
+        delivery_type = 'both'
+    elif delivery:
+        delivery_type = 'delivery'
+    else:
+        delivery_type = 'pickup'
     return {
         'id':               listing.id,
         'seller_username':  listing.seller_username,
@@ -440,7 +480,9 @@ def _listing_to_dict(listing: Listing, seller_user: 'User | None' = None) -> dic
         'description':      listing.description,
         'price':            listing.price,
         'original_price':   listing.original_price,
-        'delivery_type':    listing.delivery_type or 'pickup',
+        'delivery_type':      delivery_type,
+        'pickup_available':   pickup,
+        'delivery_available': delivery,
         'delivery_fee':     listing.delivery_fee,
         'category':         listing.category,
         'contact':          listing.contact,
@@ -718,8 +760,24 @@ def create_listing(seller: str, title: str, description: str,
                    price: float, category: str, contact: str,
                    original_price: float = None,
                    delivery_type: str = 'pickup',
-                   delivery_fee: float = None) -> str:
+                   delivery_fee: float = None,
+                   pickup_available: bool = None,
+                   delivery_available: bool = None) -> str:
     """Create a listing row and return its id."""
+    # Clients may send the booleans directly, the legacy enum, or neither.
+    # Normalise so the two booleans are the stored truth and the enum goes
+    # along for compatibility.
+    if pickup_available is None and delivery_available is None:
+        pickup_available   = delivery_type in ('pickup', 'both')
+        delivery_available = delivery_type in ('delivery', 'both')
+    else:
+        pickup_available   = bool(pickup_available)
+        delivery_available = bool(delivery_available)
+        if not pickup_available and not delivery_available:
+            pickup_available = True
+        delivery_type = ('both' if pickup_available and delivery_available
+                         else 'delivery' if delivery_available
+                         else 'pickup')
     listing = Listing(
         id=str(uuid.uuid4()),
         seller_username=seller,
@@ -728,6 +786,8 @@ def create_listing(seller: str, title: str, description: str,
         price=price,
         original_price=original_price,
         delivery_type=delivery_type,
+        pickup_available=pickup_available,
+        delivery_available=delivery_available,
         delivery_fee=delivery_fee,
         category=category,
         contact=contact,
@@ -755,7 +815,9 @@ def add_image(listing_id: str, r2_url: str, r2_key: str, order: int) -> str:
 
 def update_listing(listing_id: str, seller: str, **fields) -> bool:
     """Update allowed text fields. Returns False if not found or wrong seller."""
-    allowed = {'title', 'description', 'price', 'original_price', 'category', 'contact', 'delivery_type', 'delivery_fee'}
+    allowed = {'title', 'description', 'price', 'original_price', 'category',
+               'contact', 'delivery_type', 'delivery_fee',
+               'pickup_available', 'delivery_available'}
     with Session() as s:
         row = s.query(Listing).filter_by(id=listing_id, seller_username=seller).first()
         if not row:
@@ -763,6 +825,21 @@ def update_listing(listing_id: str, seller: str, **fields) -> bool:
         for key, val in fields.items():
             if key in allowed:
                 setattr(row, key, val)
+        # Whichever side was supplied becomes the truth: boolean pair wins
+        # if present, otherwise the enum derives the booleans. Row ends in
+        # a consistent state so Browse never shows a half-written listing.
+        if 'pickup_available' in fields or 'delivery_available' in fields:
+            p = bool(row.pickup_available)
+            d = bool(row.delivery_available)
+            if not p and not d:
+                row.pickup_available = True
+                p = True
+            row.delivery_type = ('both' if p and d
+                                 else 'delivery' if d else 'pickup')
+        elif 'delivery_type' in fields:
+            dt = row.delivery_type or 'pickup'
+            row.pickup_available   = dt in ('pickup', 'both')
+            row.delivery_available = dt in ('delivery', 'both')
         row.updated_at = datetime.now(timezone.utc)
         s.commit()
         return True
@@ -792,7 +869,7 @@ def restore_listing(listing_id: str, seller: str) -> bool:
         return True
 
 
-def set_listing_status(listing_id: str, status: str) -> dict | None:
+def set_listing_status(listing_id: str, status: str) -> Optional[dict]:
     """Set a listing's status directly (reserve / unreserve). Returns the
     refreshed listing dict, or None when the row no longer exists.
     """

@@ -158,9 +158,22 @@ def create_listing():
         except (ValueError, TypeError):
             pass
 
-    delivery_type = request.form.get('delivery_type', 'pickup').strip()
-    if delivery_type not in ('pickup', 'delivery', 'both'):
-        delivery_type = 'pickup'
+    # New shape: two boolean fields chosen independently. Legacy clients
+    # that still send delivery_type keep working because the server derives
+    # whichever side the caller didn't send.
+    _truthy = {'1', 'true', 'True', 'on', 'yes'}
+    raw_p = request.form.get('pickup_available')
+    raw_d = request.form.get('delivery_available')
+    pickup_available   = (raw_p in _truthy) if raw_p is not None else None
+    delivery_available = (raw_d in _truthy) if raw_d is not None else None
+    if pickup_available is None and delivery_available is None:
+        delivery_type = request.form.get('delivery_type', 'pickup').strip()
+        if delivery_type not in ('pickup', 'delivery', 'both'):
+            delivery_type = 'pickup'
+        pickup_available   = delivery_type in ('pickup', 'both')
+        delivery_available = delivery_type in ('delivery', 'both')
+    if not pickup_available and not delivery_available:
+        pickup_available = True
     delivery_fee = None
     raw_df = request.form.get('delivery_fee', '').strip()
     if raw_df:
@@ -195,7 +208,8 @@ def create_listing():
     listing_id = market_db.create_listing(
         seller, title, description, price, category, '',
         original_price=original_price,
-        delivery_type=delivery_type,
+        pickup_available=pickup_available,
+        delivery_available=delivery_available,
         delivery_fee=delivery_fee,
     )
 
@@ -272,6 +286,10 @@ def update_listing(listing_id):
         dt = str(data['delivery_type']).strip()
         if dt in ('pickup', 'delivery', 'both'):
             fields['delivery_type'] = dt
+    if 'pickup_available' in data:
+        fields['pickup_available'] = bool(data['pickup_available'])
+    if 'delivery_available' in data:
+        fields['delivery_available'] = bool(data['delivery_available'])
     if 'delivery_fee' in data:
         raw = data['delivery_fee']
         if raw == '' or raw is None:

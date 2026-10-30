@@ -17,16 +17,20 @@ const FALLBACK_CATEGORIES = [
   { slug: 'beauty',      label: 'Beauty',      label_zh: '美妆',     icon: 'fa-spa' },
 ]
 
+// Two independent delivery attributes, not three mutually-exclusive modes.
+// `both` is derived from "pickup is true AND delivery is true", not stored
+// as its own option — that keeps the UI and filter language honest.
 const DELIVERY_OPTIONS = [
-  { value: 'pickup',   label: 'Pickup only',        label_zh: '仅自提',      icon: 'fa-walking' },
-  { value: 'delivery', label: 'Delivery only',      label_zh: '仅配送',      icon: 'fa-truck' },
-  { value: 'both',     label: 'Pickup or delivery', label_zh: '可自提或配送', icon: 'fa-truck' },
+  { value: 'pickup',   label: 'Pickup',   label_zh: '自提', icon: 'fa-walking' },
+  { value: 'delivery', label: 'Delivery', label_zh: '配送', icon: 'fa-truck'   },
 ]
 const DELIVERY_BY_VALUE = Object.fromEntries(DELIVERY_OPTIONS.map(o => [o.value, o]))
 
 const EMPTY_FORM = {
   title: '', description: '', price: '', original_price: '',
-  category: 'clothing', delivery_type: 'pickup', delivery_fee: '',
+  category: 'clothing',
+  pickup_available: true, delivery_available: false,
+  delivery_fee: '',
 }
 
 /* Prices come back as SQLite REALs, so price + delivery_fee can land on
@@ -65,12 +69,19 @@ function Toast({ toast }) {
 
 // ── Price Display ────────────────────────────────────────────────────────────
 function PriceDisplay({ listing, large = false, inlineDelivery = false }) {
-  const { price, original_price, delivery_type, delivery_fee } = listing
+  const { price, original_price, delivery_type, delivery_fee,
+          pickup_available, delivery_available } = listing
+  // The booleans are the truth; derive them from the legacy enum when the
+  // server is on an older build and only ships `delivery_type`.
+  const pickupOn   = typeof pickup_available   === 'boolean' ? pickup_available
+                     : delivery_type === 'pickup' || delivery_type === 'both'
+  const deliveryOn = typeof delivery_available === 'boolean' ? delivery_available
+                     : delivery_type === 'delivery' || delivery_type === 'both'
   const hasOriginal  = original_price && original_price > price
   const hasFee       = delivery_fee && delivery_fee > 0
-  const showBoth     = delivery_type === 'both' && hasFee
-  const deliveryOnly = delivery_type === 'delivery' && hasFee
-  const freeDelivery = (delivery_type === 'both' || delivery_type === 'delivery') && !hasFee
+  const showBoth     = pickupOn && deliveryOn && hasFee
+  const deliveryOnly = !pickupOn && deliveryOn && hasFee
+  const freeDelivery = deliveryOn && !hasFee
 
   const bigSz = large ? '1.5rem' : undefined
   const smSz  = large ? '.85rem' : '.78rem'
@@ -93,30 +104,29 @@ function PriceDisplay({ listing, large = false, inlineDelivery = false }) {
   if (inlineDelivery) {
     const iconColor = 'var(--text-muted)'
     const glyphStyle = { fontSize: '.78rem', color: iconColor, marginLeft: 2 }
-    let glyph = null
-    let feeText = null
-    if (delivery_type === 'pickup') {
-      glyph = <i className="fas fa-map-pin" aria-label="Pickup only" title="Pickup only" style={glyphStyle} />
-    } else if (delivery_type === 'both') {
-      glyph = (
-        <>
-          <i className="fas fa-map-pin" aria-label="Pickup available" title="Pickup available" style={glyphStyle} />
-          <i className="fas fa-truck"   aria-label={hasFee ? `Delivery ${money(delivery_fee)}` : 'Delivery free'}
-             title={hasFee ? `Delivery ${money(delivery_fee)}` : 'Delivery free'} style={{ ...glyphStyle, marginLeft: 4 }} />
-        </>
+    const glyphs = []
+    if (pickupOn) {
+      glyphs.push(
+        <i key="p" className="fas fa-walking"
+           aria-label="Pickup available" title="Pickup available"
+           style={{ ...glyphStyle, marginLeft: glyphs.length ? 4 : 2 }} />
       )
-      if (hasFee) feeText = `+${money(delivery_fee)}`
-    } else if (delivery_type === 'delivery') {
-      glyph = <i className="fas fa-truck" aria-label={hasFee ? `Delivery ${money(delivery_fee)}` : 'Delivery free'}
-                 title={hasFee ? `Delivery ${money(delivery_fee)}` : 'Delivery free'} style={glyphStyle} />
-      if (hasFee) feeText = `+${money(delivery_fee)}`
-      else        feeText = 'free'
     }
+    if (deliveryOn) {
+      glyphs.push(
+        <i key="d" className="fas fa-truck"
+           aria-label={hasFee ? `Delivery ${money(delivery_fee)}` : 'Delivery free'}
+           title={hasFee ? `Delivery ${money(delivery_fee)}` : 'Delivery free'}
+           style={{ ...glyphStyle, marginLeft: glyphs.length ? 4 : 2 }} />
+      )
+    }
+    let feeText = null
+    if (deliveryOn) feeText = hasFee ? `+${money(delivery_fee)}` : 'free'
     return (
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
         <span className="tnum" style={{ fontSize: bigSz, fontWeight: 600 }}>{money(price)}</span>
         <Struck />
-        {glyph}
+        {glyphs}
         {feeText && (
           <span className="tnum" style={{ fontSize: smSz, color: 'var(--text-muted)' }}>{feeText}</span>
         )}
@@ -219,7 +229,12 @@ function EditModal({ listing, onClose, onSave, categories }) {
     price:          String(listing.price),
     original_price: listing.original_price != null ? String(listing.original_price) : '',
     category:       listing.category,
-    delivery_type:  listing.delivery_type || 'pickup',
+    pickup_available: typeof listing.pickup_available === 'boolean'
+      ? listing.pickup_available
+      : ['pickup', 'both'].includes(listing.delivery_type),
+    delivery_available: typeof listing.delivery_available === 'boolean'
+      ? listing.delivery_available
+      : ['delivery', 'both'].includes(listing.delivery_type),
     delivery_fee:   listing.delivery_fee != null ? String(listing.delivery_fee) : '',
   })
   const [saving, setSaving] = useState(false)
@@ -230,6 +245,9 @@ function EditModal({ listing, onClose, onSave, categories }) {
     if (!form.title.trim())       return setErr('Title is required.')
     if (!form.description.trim()) return setErr('Description is required.')
     if (!form.price || isNaN(form.price)) return setErr('Enter a valid price.')
+    if (!form.pickup_available && !form.delivery_available) {
+      return setErr('Pick at least one delivery option.')
+    }
     setSaving(true)
     await onSave(listing.id, {
       title:          form.title.trim(),
@@ -237,7 +255,8 @@ function EditModal({ listing, onClose, onSave, categories }) {
       price:          Number(form.price),
       original_price: form.original_price !== '' ? Number(form.original_price) : '',
       category:       form.category,
-      delivery_type:  form.delivery_type,
+      pickup_available:   form.pickup_available,
+      delivery_available: form.delivery_available,
       delivery_fee:   form.delivery_fee !== '' ? Number(form.delivery_fee) : null,
     })
     setSaving(false)
@@ -291,19 +310,28 @@ function EditModal({ listing, onClose, onSave, categories }) {
             <fieldset className="mt-3">
               <legend className="form-label fw-medium">Delivery Options</legend>
               <div className="d-flex gap-3 flex-wrap">
-                {DELIVERY_OPTIONS.map(opt => (
-                  <div className="form-check" key={opt.value}>
-                    <input className="form-check-input" type="radio" name="edit-delivery"
-                      id={`edit-dt-${opt.value}`} value={opt.value}
-                      checked={form.delivery_type === opt.value}
-                      onChange={() => setForm(f => ({ ...f, delivery_type: opt.value }))} />
-                    <label className="form-check-label small" htmlFor={`edit-dt-${opt.value}`}>
-                      <Label en={opt.label} zh={opt.label_zh} />
-                    </label>
-                  </div>
-                ))}
+                <div className="form-check" key="pickup">
+                  <input className="form-check-input" type="checkbox"
+                    id="edit-dt-pickup"
+                    checked={form.pickup_available}
+                    onChange={() => setForm(f => ({ ...f, pickup_available: !f.pickup_available }))} />
+                  <label className="form-check-label small" htmlFor="edit-dt-pickup">
+                    <i className="fas fa-walking me-1" aria-hidden="true" />
+                    <Label en="Pickup" zh="自提" />
+                  </label>
+                </div>
+                <div className="form-check" key="delivery">
+                  <input className="form-check-input" type="checkbox"
+                    id="edit-dt-delivery"
+                    checked={form.delivery_available}
+                    onChange={() => setForm(f => ({ ...f, delivery_available: !f.delivery_available }))} />
+                  <label className="form-check-label small" htmlFor="edit-dt-delivery">
+                    <i className="fas fa-truck me-1" aria-hidden="true" />
+                    <Label en="Delivery" zh="配送" />
+                  </label>
+                </div>
               </div>
-              {(form.delivery_type === 'delivery' || form.delivery_type === 'both') && (
+              {form.delivery_available && (
                 <div className="mt-2">
                   <label className="form-label small" htmlFor="edit-fee">Delivery fee ($) — blank means free</label>
                   <input id="edit-fee" type="number" className="form-control form-control-sm" min={0} step="0.01"
@@ -504,7 +532,14 @@ function ListingDetailModal({
   const isSold     = listing.status === 'sold'
   const isReserved = listing.status === 'reserved'
   const cat        = categoryLabel(listing.category)
-  const opt        = DELIVERY_BY_VALUE[listing.delivery_type] || DELIVERY_BY_VALUE.pickup
+  // Prefer the boolean columns; fall back to the legacy enum.
+  const pickupOn   = typeof listing.pickup_available === 'boolean'
+    ? listing.pickup_available
+    : ['pickup', 'both'].includes(listing.delivery_type)
+  const deliveryOn = typeof listing.delivery_available === 'boolean'
+    ? listing.delivery_available
+    : ['delivery', 'both'].includes(listing.delivery_type)
+  const hasFee     = listing.delivery_fee != null && listing.delivery_fee > 0
 
   return (
     <Modal onClose={onClose} title={listing.title} size="modal-lg">
@@ -581,18 +616,22 @@ function ListingDetailModal({
               {!isSold && <PriceDisplay listing={listing} large />}
             </div>
 
-            <div style={{ marginBottom: 12 }}>
-              <span className={`badge-pill badge-pill--wrap${listing.delivery_type === 'pickup' ? '' : ' badge-pill--info'}`}>
-                <i className={`fas ${opt.icon}`} aria-hidden="true" />
-                <Label en={opt.label} zh={opt.label_zh} />
-                {listing.delivery_type !== 'pickup' && (
+            <div style={{ marginBottom: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {pickupOn && (
+                <span className="badge-pill badge-pill--wrap">
+                  <i className="fas fa-walking" aria-hidden="true" />
+                  <Label en="Pickup" zh="自提" />
+                </span>
+              )}
+              {deliveryOn && (
+                <span className="badge-pill badge-pill--wrap badge-pill--info">
+                  <i className="fas fa-truck" aria-hidden="true" />
+                  <Label en="Delivery" zh="配送" />
                   <span className="tnum">
-                    {listing.delivery_fee != null && listing.delivery_fee > 0
-                      ? ` ${money(listing.delivery_fee)}`
-                      : ' free'}
+                    {hasFee ? ` ${money(listing.delivery_fee)}` : ' free'}
                   </span>
-                )}
-              </span>
+                </span>
+              )}
             </div>
 
             <hr className="market-card__divider" />
@@ -932,11 +971,16 @@ function ExportModal({ listings, categoryLabel, onClose, showToast }) {
                             {categoryLabel(l.category).label}
                           </span>
                           <span style={{ background: '#eef1f5', borderRadius: 8, padding: '1px 6px' }}>
-                            {l.delivery_type === 'pickup'
-                              ? 'Pickup'
-                              : (l.delivery_fee != null && l.delivery_fee > 0
-                                  ? `Delivery ${money(l.delivery_fee)}`
-                                  : 'Free delivery')}
+                            {(() => {
+                              const p = l.pickup_available   ?? ['pickup','both'].includes(l.delivery_type)
+                              const d = l.delivery_available ?? ['delivery','both'].includes(l.delivery_type)
+                              const fee = (l.delivery_fee != null && l.delivery_fee > 0)
+                                ? ` ${money(l.delivery_fee)}` : ''
+                              const parts = []
+                              if (p) parts.push('Pickup')
+                              if (d) parts.push(`Delivery${fee || ' free'}`)
+                              return parts.join(' · ') || 'Pickup'
+                            })()}
                           </span>
                         </div>
                         <div style={{ fontSize: 11, color: '#666', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -1252,6 +1296,9 @@ export default function Market() {
       // Otherwise the strikethrough silently vanishes with no explanation.
       errs.original_price = 'The original price should be higher than what you are asking.'
     }
+    if (!form.pickup_available && !form.delivery_available) {
+      errs.delivery = 'Pick at least one delivery option.'
+    }
     return errs
   }
 
@@ -1384,7 +1431,14 @@ export default function Market() {
       l.title.toLowerCase().includes(q) ||
       l.description.toLowerCase().includes(q)
     const matchesCategory = categoryFilter.size === 0 || categoryFilter.has(l.category)
-    const matchesDelivery = deliveryFilter.size === 0 || deliveryFilter.has(l.delivery_type)
+    // Attribute match, not enum match. A listing with pickup+delivery passes
+    // either the Pickup chip or the Delivery chip. If both chips are active,
+    // the buyer is asking for listings that offer either option, so OR holds.
+    const matchesDelivery = deliveryFilter.size === 0
+      || (deliveryFilter.has('pickup')   && (l.pickup_available
+                                            ?? ['pickup','both'].includes(l.delivery_type)))
+      || (deliveryFilter.has('delivery') && (l.delivery_available
+                                            ?? ['delivery','both'].includes(l.delivery_type)))
     return matchesSearch && matchesCategory && matchesDelivery
   })
   const hasActiveFilters = Boolean(searchQuery) || categoryFilter.size > 0 || deliveryFilter.size > 0
@@ -1833,22 +1887,32 @@ export default function Market() {
                   <fieldset className="mb-3">
                     <legend className="form-label fw-medium">Delivery Options</legend>
                     <div className="d-flex gap-3 flex-wrap">
-                      {DELIVERY_OPTIONS.map(opt => (
-                        <div className="form-check" key={opt.value}>
-                          <input className="form-check-input" type="radio" name="delivery_type"
-                            id={`dt-${opt.value}`} value={opt.value}
-                            checked={form.delivery_type === opt.value}
-                            onChange={() => setForm(f => ({
-                              ...f, delivery_type: opt.value,
-                              delivery_fee: opt.value === 'pickup' ? '' : f.delivery_fee,
-                            }))} />
-                          <label className="form-check-label" htmlFor={`dt-${opt.value}`}>
-                            <Label en={opt.label} zh={opt.label_zh} />
-                          </label>
-                        </div>
-                      ))}
+                      <div className="form-check" key="pickup">
+                        <input className="form-check-input" type="checkbox"
+                          id="dt-pickup"
+                          checked={form.pickup_available}
+                          onChange={() => setForm(f => ({ ...f, pickup_available: !f.pickup_available }))} />
+                        <label className="form-check-label" htmlFor="dt-pickup">
+                          <i className="fas fa-walking me-1" aria-hidden="true" />
+                          <Label en="Pickup" zh="自提" />
+                        </label>
+                      </div>
+                      <div className="form-check" key="delivery">
+                        <input className="form-check-input" type="checkbox"
+                          id="dt-delivery"
+                          checked={form.delivery_available}
+                          onChange={() => setForm(f => {
+                            const on = !f.delivery_available
+                            return { ...f, delivery_available: on,
+                                     delivery_fee: on ? f.delivery_fee : '' }
+                          })} />
+                        <label className="form-check-label" htmlFor="dt-delivery">
+                          <i className="fas fa-truck me-1" aria-hidden="true" />
+                          <Label en="Delivery" zh="配送" />
+                        </label>
+                      </div>
                     </div>
-                    {(form.delivery_type === 'delivery' || form.delivery_type === 'both') && (
+                    {form.delivery_available && (
                       <div className="mt-2">
                         <label className="form-label small" htmlFor="new-fee">
                           Delivery fee ($) — leave blank if free
