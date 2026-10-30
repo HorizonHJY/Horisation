@@ -64,7 +64,7 @@ function Toast({ toast }) {
 }
 
 // ── Price Display ────────────────────────────────────────────────────────────
-function PriceDisplay({ listing, large = false }) {
+function PriceDisplay({ listing, large = false, inlineDelivery = false }) {
   const { price, original_price, delivery_type, delivery_fee } = listing
   const hasOriginal  = original_price && original_price > price
   const hasFee       = delivery_fee && delivery_fee > 0
@@ -86,6 +86,43 @@ function PriceDisplay({ listing, large = false }) {
       {money(original_price)}
     </span>
   ) : null
+
+  /* Inline card variant: delivery is a glyph next to the price so the card
+     keeps a single compact meta row instead of a separate badge below. The
+     glyph carries an aria-label so screen readers still get the mode. */
+  if (inlineDelivery) {
+    const iconColor = 'var(--text-muted)'
+    const glyphStyle = { fontSize: '.78rem', color: iconColor, marginLeft: 2 }
+    let glyph = null
+    let feeText = null
+    if (delivery_type === 'pickup') {
+      glyph = <i className="fas fa-map-pin" aria-label="Pickup only" title="Pickup only" style={glyphStyle} />
+    } else if (delivery_type === 'both') {
+      glyph = (
+        <>
+          <i className="fas fa-map-pin" aria-label="Pickup available" title="Pickup available" style={glyphStyle} />
+          <i className="fas fa-truck"   aria-label={hasFee ? `Delivery ${money(delivery_fee)}` : 'Delivery free'}
+             title={hasFee ? `Delivery ${money(delivery_fee)}` : 'Delivery free'} style={{ ...glyphStyle, marginLeft: 4 }} />
+        </>
+      )
+      if (hasFee) feeText = `+${money(delivery_fee)}`
+    } else if (delivery_type === 'delivery') {
+      glyph = <i className="fas fa-truck" aria-label={hasFee ? `Delivery ${money(delivery_fee)}` : 'Delivery free'}
+                 title={hasFee ? `Delivery ${money(delivery_fee)}` : 'Delivery free'} style={glyphStyle} />
+      if (hasFee) feeText = `+${money(delivery_fee)}`
+      else        feeText = 'free'
+    }
+    return (
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
+        <span className="tnum" style={{ fontSize: bigSz, fontWeight: 600 }}>{money(price)}</span>
+        <Struck />
+        {glyph}
+        {feeText && (
+          <span className="tnum" style={{ fontSize: smSz, color: 'var(--text-muted)' }}>{feeText}</span>
+        )}
+      </div>
+    )
+  }
 
   if (showBoth) {
     return (
@@ -334,7 +371,7 @@ function ListingCard({
         {isSold && <span className="market-card__sold-badge">Sold</span>}
         {isReserved && !isSold && (
           <span className="badge-pill badge-pill--warn">
-            <Label en="Reserved" zh="已谈成" />
+            Reserved
           </span>
         )}
         {listing.view_count > 0 && (
@@ -346,17 +383,13 @@ function ListingCard({
         )}
       </div>
 
-      <div style={{ marginTop: 3, marginBottom: 2 }}>
-        <DeliveryBadge type={listing.delivery_type} />
-      </div>
-
       <p className="market-card__desc">{listing.description}</p>
 
       <hr className="market-card__divider" />
 
       {!isSold && (
         <div className="market-card__price mb-1">
-          <PriceDisplay listing={listing} />
+          <PriceDisplay listing={listing} inlineDelivery />
         </div>
       )}
 
@@ -391,14 +424,14 @@ function ListingCard({
                 onUnreserve && (
                   <button className="market-card__btn" onClick={() => onUnreserve(listing)}>
                     <i className="fas fa-rotate-left" aria-hidden="true" />
-                    <Label en="Unreserve" zh="取消预留" />
+                    Unreserve
                   </button>
                 )
               ) : (
                 onReserve && (
                   <button className="market-card__btn" onClick={() => onReserve(listing)}>
                     <i className="fas fa-hourglass-half" aria-hidden="true" />
-                    <Label en="Mark Reserved" zh="标记预留" />
+                    Mark Reserved
                   </button>
                 )
               )}
@@ -442,7 +475,7 @@ function ListingCard({
         <div className="market-card__action">
           {isReserved && (
             <span className="badge-pill badge-pill--warn badge-pill--block">
-              <Label en="Reserved" zh="已预留" />
+              Reserved
             </span>
           )}
           <button
@@ -452,7 +485,7 @@ function ListingCard({
             aria-label={`Message the seller about ${listing.title}`}
           >
             <i className="fas fa-comment-dots" aria-hidden="true" />
-            <Label en="Message Seller" zh="联系卖家" />
+            Message Seller
           </button>
         </div>
       )}
@@ -542,7 +575,7 @@ function ListingDetailModal({
                 <span className="market-card__category">{cat.label}</span>
                 {isSold && <span className="market-card__sold-badge">Sold</span>}
                 {isReserved && !isSold && (
-                  <span className="badge-pill badge-pill--warn"><Label en="Reserved" zh="已谈成" /></span>
+                  <span className="badge-pill badge-pill--warn">Reserved</span>
                 )}
               </div>
               {!isSold && <PriceDisplay listing={listing} large />}
@@ -620,7 +653,7 @@ function ListingDetailModal({
                         <button className="market-card__btn" style={{ flex: 1 }}
                           onClick={() => { onUnreserve(listing); onClose() }}>
                           <i className="fas fa-rotate-left" aria-hidden="true" />
-                          <Label en="Unreserve" zh="取消预留" />
+                          Unreserve
                         </button>
                       )
                     ) : (
@@ -628,7 +661,7 @@ function ListingDetailModal({
                         <button className="market-card__btn" style={{ flex: 1 }}
                           onClick={() => { onReserve(listing); onClose() }}>
                           <i className="fas fa-hourglass-half" aria-hidden="true" />
-                          <Label en="Mark Reserved" zh="标记预留" />
+                          Mark Reserved
                         </button>
                       )
                     )}
@@ -657,13 +690,13 @@ function ListingDetailModal({
               <div style={{ display: 'flex', gap: 8, flex: 1, flexWrap: 'wrap' }}>
                 {isReserved && (
                   <span className="badge-pill badge-pill--warn" style={{ flex: 1, justifyContent: 'center' }}>
-                    <Label en="Reserved" zh="已预留" />
+                    Reserved
                   </span>
                 )}
                 <button className="market-card__btn market-card__btn--reach" style={{ flex: 1 }}
                   onClick={() => onReachOut(listing)}>
                   <i className="fas fa-comment-dots" aria-hidden="true" />
-                  <Label en="Message Seller" zh="联系卖家" />
+                  Message Seller
                 </button>
               </div>
             ) : null}
@@ -706,11 +739,11 @@ function SellerListingCard({ listing, categoryLabel, onOpen }) {
         <span className="market-card__category">{cat.label}</span>
         {listing.status === 'sold' && <span className="market-card__sold-badge">Sold</span>}
         {listing.status === 'reserved' && (
-          <span className="badge-pill badge-pill--warn"><Label en="Reserved" zh="已谈成" /></span>
+          <span className="badge-pill badge-pill--warn">Reserved</span>
         )}
       </div>
       <div className="market-card__price mb-1">
-        <PriceDisplay listing={listing} />
+        <PriceDisplay listing={listing} inlineDelivery />
       </div>
     </div>
   )
