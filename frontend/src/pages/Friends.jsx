@@ -944,7 +944,7 @@ export default function Friends() {
                       <Avatar display={f.display_name} avatar={f.avatar_url} size={44} online={onlineSet.has(f.username)} />
                       <span className="fr-row__body">
                         <span className="fr-row__name">{f.display_name}</span>
-                        <span className="fr-sub">{f.username}{onlineSet.has(f.username) ? ' online' : ''}</span>
+                        <span className="fr-sub">{onlineSet.has(f.username) ? 'online' : 'offline'}</span>
                       </span>
                     </button>
                     <span className="fr-row__acts">
@@ -1109,8 +1109,8 @@ export default function Friends() {
                     <PeerMbtiChip username={activeChat.username} />
                   </span>
                   <span className="fr-sub">
-                    {activeChat.username} {onlineSet.has(activeChat.username) ? 'online' : 'offline'}
-                    {!isFriend(activeChat.username) && ' not a friend'}
+                    {onlineSet.has(activeChat.username) ? 'online' : 'offline'}
+                    {!isFriend(activeChat.username) && ' · not a friend'}
                   </span>
                 </div>
                 {isFriend(activeChat.username) && (
