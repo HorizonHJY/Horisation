@@ -374,8 +374,10 @@ export default function Friends() {
 
   useEffect(() => {
     tabRef.current = tab
-    if (tab === 'chats')    loadConversations()
-    if (tab === 'friends')  loadFriends()
+    // Chats is a merged list of conversations and friends, so both have
+    // to come down before the "no messages yet" friends can show up
+    // underneath the conversation rows.
+    if (tab === 'chats')    { loadConversations(); loadFriends() }
     if (tab === 'requests') loadPending()
     if (tab === 'add')      loadSentRequests()
     else { setSearchQuery(''); setSearchResults([]) }
@@ -386,8 +388,8 @@ export default function Friends() {
     const onVisible = () => {
       if (document.visibilityState !== 'visible') return
       loadConversations()
-      if (tabRef.current === 'friends') loadFriends()
-      else if (tabRef.current === 'requests') loadPending()
+      if (tabRef.current === 'chats')    loadFriends()
+      if (tabRef.current === 'requests') loadPending()
     }
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
@@ -622,6 +624,22 @@ export default function Friends() {
     setChatLoadingOlder(false)
   }
 
+  // Escape closes the open chat without touching the message compose: when
+  // the compose has focus, let it keep its native behaviour (clear IME,
+  // close autocomplete) and only close on empty.
+  useEffect(() => {
+    if (!activeChat) return
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return
+      const target = e.target
+      const inCompose = target && target === inputRef.current && target.value
+      if (inCompose) return
+      closeChat()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [activeChat])
+
   // Leaving the page entirely counts as closing the conversation.
   useEffect(() => () => {
     window.__hzActiveChatWith = null
@@ -811,6 +829,23 @@ export default function Friends() {
   const visibleFriends = friends.filter(f => !friendFilter ||
     `${f.display_name} ${f.username}`.toLowerCase().includes(friendFilter.toLowerCase()))
 
+  // Chats + Friends live in one list under the Chats tab now: everyone
+  // the user can talk to shows up here. The two rails below are the
+  // runtime sort of that list — conversation rows (anyone with a message
+  // history) by last activity, then friends with no messages at the bottom
+  // under a "no messages yet" divider. The old Friends tab is gone; its
+  // management actions (unfriend / view contact) live in the row menu.
+  const convoUsernames = new Set(conversations.map(c => c.username))
+  const friendsNoChat  = friends
+    .filter(f => !convoUsernames.has(f.username))
+    .filter(f => !chatFilter ||
+      `${f.display_name} ${f.username}`.toLowerCase().includes(chatFilter.toLowerCase()))
+  const sortedConvos   = [...visibleConvos].sort(
+    (a, b) => new Date(b.last_at || 0) - new Date(a.last_at || 0))
+  const sortedFriendsNoChat = friendsNoChat.sort(
+    (a, b) => (a.display_name || a.username).localeCompare(b.display_name || b.username))
+  const peopleEmpty = sortedConvos.length === 0 && sortedFriendsNoChat.length === 0
+
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div className="fr-page">
@@ -873,7 +908,6 @@ export default function Friends() {
           <div className="fr-tabs" role="tablist" aria-label="Friends sections">
             {[
               { key: 'chats',    label: 'Chats',    count: totalUnread },
-              { key: 'friends',  label: 'Friends' },
               { key: 'requests', label: 'Requests', count: requestCount },
               { key: 'add',      label: 'Add' },
             ].map(t => (
@@ -890,70 +924,64 @@ export default function Friends() {
           ) : tab === 'chats' ? (
             <>
               {conversations.length > 4 && (
-                <input className="fr-search" placeholder="Search chats" aria-label="Search chats"
+                <input className="fr-search" placeholder="Search people" aria-label="Search people"
                        value={chatFilter} onChange={e => setChatFilter(e.target.value)} />
               )}
               <div className="fr-list" role="list">
-                {conversations.length === 0 ? (
+                {peopleEmpty ? (
                   <div className="fr-empty">
                     <i className="fas fa-comment-dots" aria-hidden="true" />
                     <p>No conversations yet.</p>
                     <p className="fr-sub">Open a friend and say hello, or wait for someone to Reach Out on Market.</p>
                   </div>
-                ) : visibleConvos.map(c => (
-                  <button key={c.username} type="button" role="listitem"
-                          className={`fr-conv${c.unread > 0 ? ' is-unread' : ''}`}
-                          aria-current={activeChat?.username === c.username ? 'true' : undefined}
-                          onClick={() => openChat(c)}>
-                    <Avatar display={c.display_name} avatar={c.avatar_url} size={44} online={onlineSet.has(c.username)} />
-                    <span className="fr-conv__body">
-                      <span className="fr-conv__top">
-                        <span className="fr-conv__name">{c.display_name}</span>
-                        <span className="fr-conv__time">{listTime(c.last_at)}</span>
-                      </span>
-                      <span className="fr-conv__last">{previewText(c.last_content, c.last_sender === user.username)}</span>
-                      {!c.is_friend && (
-                        <span className="fr-chip fr-chip--warn fr-chip--xs">
-                          <i className="fas fa-user-plus" aria-hidden="true" />Not friends
+                ) : (
+                  <>
+                    {sortedConvos.map(c => (
+                      <button key={c.username} type="button" role="listitem"
+                              className={`fr-conv${c.unread > 0 ? ' is-unread' : ''}`}
+                              aria-current={activeChat?.username === c.username ? 'true' : undefined}
+                              onClick={() => openChat(c)}>
+                        <Avatar display={c.display_name} avatar={c.avatar_url} size={44} online={onlineSet.has(c.username)} />
+                        <span className="fr-conv__body">
+                          <span className="fr-conv__top">
+                            <span className="fr-conv__name">{c.display_name}</span>
+                            <span className="fr-conv__time">{listTime(c.last_at)}</span>
+                          </span>
+                          <span className="fr-conv__last">{previewText(c.last_content, c.last_sender === user.username)}</span>
+                          {!c.is_friend && (
+                            <span className="fr-chip fr-chip--warn fr-chip--xs">
+                              <i className="fas fa-user-plus" aria-hidden="true" />Not friends
+                            </span>
+                          )}
                         </span>
-                      )}
-                    </span>
-                    {c.unread > 0 && <span className="fr-conv__count">{c.unread > 99 ? '99+' : c.unread}</span>}
-                  </button>
-                ))}
-              </div>
-            </>
-
-          ) : tab === 'friends' ? (
-            <>
-              {friends.length > 4 && (
-                <input className="fr-search" placeholder="Search friends" aria-label="Search friends"
-                       value={friendFilter} onChange={e => setFriendFilter(e.target.value)} />
-              )}
-              <div className="fr-list">
-                {friends.length === 0 ? (
-                  <div className="fr-empty">
-                    <i className="fas fa-user-friends" aria-hidden="true" />
-                    <p>No friends yet.</p>
-                    <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => setTab('add')}>Find someone</button>
-                  </div>
-                ) : visibleFriends.map(f => (
-                  <div key={f.username} className="fr-row">
-                    <button type="button" className="fr-row__hit" onClick={() => openChat(f)}
-                            aria-label={`Open chat with ${f.display_name}`}>
-                      <Avatar display={f.display_name} avatar={f.avatar_url} size={44} online={onlineSet.has(f.username)} />
-                      <span className="fr-row__body">
-                        <span className="fr-row__name">{f.display_name}</span>
-                        <span className="fr-sub">{onlineSet.has(f.username) ? 'online' : 'offline'}</span>
-                      </span>
-                    </button>
-                    <span className="fr-row__acts">
-                      <ContactChip status={contactStatusMap[f.username]}
-                                   onView={() => showContact(f)} onRequest={() => requestContact(f.username)} />
-                      <RowMenu label={`More for ${f.display_name}`} items={personMenu(f)} />
-                    </span>
-                  </div>
-                ))}
+                        {c.unread > 0 && <span className="fr-conv__count">{c.unread > 99 ? '99+' : c.unread}</span>}
+                      </button>
+                    ))}
+                    {sortedFriendsNoChat.length > 0 && (
+                      <>
+                        {sortedConvos.length > 0 && (
+                          <div className="fr-sec">Friends · no messages yet</div>
+                        )}
+                        {sortedFriendsNoChat.map(f => (
+                          <button key={f.username} type="button" role="listitem"
+                                  className="fr-conv"
+                                  aria-current={activeChat?.username === f.username ? 'true' : undefined}
+                                  onClick={() => openChat(f)}>
+                            <Avatar display={f.display_name} avatar={f.avatar_url} size={44} online={onlineSet.has(f.username)} />
+                            <span className="fr-conv__body">
+                              <span className="fr-conv__top">
+                                <span className="fr-conv__name">{f.display_name}</span>
+                              </span>
+                              <span className="fr-conv__last" style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                                Say hello
+                              </span>
+                            </span>
+                          </button>
+                        ))}
+                      </>
+                    )}
+                  </>
+                )}
               </div>
             </>
 
@@ -1093,8 +1121,8 @@ export default function Friends() {
           {!activeChat ? (
             <div className="fr-empty fr-empty--pane">
               <i className="fas fa-comment-dots" aria-hidden="true" />
-              <p>Pick a chat on the left.</p>
-              <p className="fr-sub">选一个对话</p>
+              <p>Select a conversation to start chatting</p>
+              <p className="fr-sub">选一个对话开始聊天</p>
             </div>
           ) : (
             <>
@@ -1118,6 +1146,14 @@ export default function Friends() {
                                onView={() => showContact(activeChat)} onRequest={() => requestContact(activeChat.username)} />
                 )}
                 <RowMenu label={`More for ${activeChat.display_name}`} items={personMenu(activeChat, { inChat: true })} />
+                {/* Desktop-only close: on phone the pane IS the screen so the
+                    back arrow (.fr-back above) stands in; here, the chat is
+                    one of two panes, Esc closes it as well. */}
+                <button type="button" className="btn btn-sm fr-close"
+                        onClick={closeChat} aria-label="Close chat"
+                        title="Close chat (Esc)">
+                  <i className="fas fa-times" aria-hidden="true" />
+                </button>
               </div>
 
               {!isFriend(activeChat.username) && (

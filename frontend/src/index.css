@@ -2652,12 +2652,18 @@ button.fr-chip:hover { filter: brightness(.96); }
 .fr-empty > i { font-size: 2.4rem; opacity: .25; margin-bottom: 4px; }
 .fr-empty p { margin: 0; }
 .fr-empty--pane { flex: 1; }
+.fr-empty--pane > i { font-size: 4rem; opacity: .18; margin-bottom: 10px; }
+.fr-empty--pane > p { font-size: 1.02rem; color: var(--text-secondary); }
 
 /* chat pane */
 .fr-ph { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border-medium); }
 .fr-ph__who { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .fr-ph__who > b { font-size: .95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fr-back { display: none; border: 0; color: var(--text-secondary); padding: 4px 8px; }
+/* Desktop-visible close button on the chat pane. Hidden on phone because
+   the pane IS the screen there and the back arrow (.fr-back) does the job. */
+.fr-close { border: 0; background: transparent; color: var(--text-muted); padding: 4px 8px; border-radius: var(--radius-sm); }
+.fr-close:hover { color: var(--text-primary); background: var(--bg-subtle); }
 .fr-banner {
   display: flex; align-items: center; gap: 10px; padding: 9px 14px;
   background: var(--badge-warn-bg); color: var(--badge-warn-fg); font-size: .85rem;
@@ -2706,6 +2712,8 @@ button.fr-chip:hover { filter: brightness(.96); }
     background: var(--bg-surface); border: 1px solid var(--border-soft); border-radius: var(--radius-lg); overflow: hidden;
   }
   .fr-back { display: inline-flex; }
+  /* Phone uses the back arrow; the desktop X would duplicate it. */
+  .fr-close { display: none; }
   /* A phone row has no room for the chip at all — the name truncated to
      "Fanfa…" in 390px. The contact chip goes and the same action sits in the
      ··· menu (see personMenu). Only the contact chip: "Add friend" and
