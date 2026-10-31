@@ -20,15 +20,20 @@ export default function UserProfile() {
     setLoading(true)
     setNotFound(false)
     setMbti(null)
+    // One failing side request used to reject Promise.all and leave the
+    // page stuck on the loader forever (looked like a white screen).
+    // allSettled lets the main profile fetch decide the outcome and the
+    // sidelights (listings, MBTI) best-effort.
+    const safe = p => p.catch(() => ({ ok: false }))
     Promise.all([
-      api.get(`/api/auth/users/${username}/public`),
-      api.get(`/api/market/user/${username}`),
-      api.get(`/api/mbti/user/${username}`),
+      safe(api.get(`/api/auth/users/${username}/public`)),
+      safe(api.get(`/api/market/user/${username}`)),
+      safe(api.get(`/api/mbti/user/${username}`)),
     ]).then(([u, l, m]) => {
-      if (!u.ok) { setNotFound(true); setLoading(false); return }
+      if (!u || !u.ok || !u.user) { setNotFound(true); setLoading(false); return }
       setProfile(u.user)
-      if (l.ok) setListings(l.listings)
-      if (m.ok && m.result) setMbti({ ...m.result, type_card: m.type_card })
+      if (l && l.ok) setListings(l.listings)
+      if (m && m.ok && m.result) setMbti({ ...m.result, type_card: m.type_card })
       setLoading(false)
     })
   }, [username])

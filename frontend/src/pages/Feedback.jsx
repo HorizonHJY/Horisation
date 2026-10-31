@@ -134,13 +134,23 @@ export default function Feedback() {
   }, []) // eslint-disable-line
 
   const load = async (p) => {
-    const d = await api.get('/api/feedback/messages?page=' + p)
-    if (d.ok) {
-      setMsgs(d.messages)
-      setTotal(d.total)
-      setPage(p)
-      setExpanded({})
-    }
+    try {
+      const d = await api.get('/api/feedback/messages?page=' + p)
+      if (d && d.ok) {
+        // Defensive: make sure each row has the two array fields the UI
+        // iterates over, so a server shape change can never white-screen
+        // the render.
+        const safe = Array.isArray(d.messages) ? d.messages.map(m => ({
+          ...m,
+          top_replies: Array.isArray(m.top_replies) ? m.top_replies : [],
+          reply_count: typeof m.reply_count === 'number' ? m.reply_count : 0,
+        })) : []
+        setMsgs(safe)
+        setTotal(typeof d.total === 'number' ? d.total : safe.length)
+        setPage(p)
+        setExpanded({})
+      }
+    } catch (_) { /* keep whatever is on screen */ }
   }
 
   const flash = (msg, type = 'success') => {
