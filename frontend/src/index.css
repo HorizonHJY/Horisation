@@ -1114,9 +1114,24 @@ textarea.form-control { height: auto; padding: .55rem .85rem; line-height: 1.55;
    the theme toggle plus user menu on the right, so the middle is the one strip
    that is free on both phone and desktop. */
 
-/* ═══════════════════════════════════════════════════════════
+/* ════════════════════════════════════════════════════════════
+   Hormemo — one memo row
+   ════════════════════════════════════════════════════════════ */
+/* Desktop keeps the actions on the right of the body; on a phone the body
+   wraps to full width and the actions take their own row underneath so the
+   content never gets squeezed to a column of two or three characters. */
+.memo-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.memo-row__body { flex: 1; min-width: 0; }
+.memo-row__acts { display: flex; gap: 6px; flex-shrink: 0; }
+@media (max-width: 600px) {
+  .memo-row { flex-direction: column; align-items: stretch; }
+  .memo-row__acts { justify-content: flex-end; margin-top: 6px; }
+  .memo-row__acts .btn { flex: 1; }
+}
+
+/* ════════════════════════════════════════════════════════════
    Toast — anchored clear of the notch on phones
-   ═══════════════════════════════════════════════════════════ */
+   ════════════════════════════════════════════════════════════ */
 .app-toast {
   position: fixed;
   z-index: 9999;

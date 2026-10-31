@@ -82,10 +82,7 @@ export default function Hormemo() {
     <>
       {/* Toast */}
       {toast && (
-        <div
-          className={`alert alert-${toast.type} position-fixed py-2 px-3`}
-          style={{ top: 80, right: 24, zIndex: 9999, minWidth: 220, boxShadow: '0 4px 12px rgba(0,0,0,.15)' }}
-        >
+        <div className={`alert alert-${toast.type} app-toast`} role="alert" aria-live="assertive">
           {toast.msg}
         </div>
       )}
@@ -120,8 +117,9 @@ export default function Hormemo() {
       )}
 
       <div className="row g-4">
-        {/* Add memo */}
-        <div className="col-12 col-md-4">
+        {/* Add memo — on a phone the list is more useful than the compose,
+            so the compose moves below. On md+ it goes back to the left. */}
+        <div className="col-12 col-md-4 order-last order-md-first">
           <div className="card p-3">
             <h6 className="fw-semibold mb-3">Add Memo</h6>
             <textarea
@@ -150,7 +148,7 @@ export default function Hormemo() {
         </div>
 
         {/* Memo list */}
-        <div className="col-12 col-md-8">
+        <div className="col-12 col-md-8 order-first order-md-last">
           {/* Filter tabs */}
           <div className="d-flex gap-2 mb-3">
             {FILTERS.map(f => (
@@ -200,8 +198,8 @@ export default function Hormemo() {
                       </div>
                     </>
                   ) : (
-                    <div className="d-flex justify-content-between align-items-start gap-2">
-                      <div className="flex-grow-1">
+                    <div className="memo-row">
+                      <div className="memo-row__body">
                         <div className="d-flex align-items-center gap-2 mb-1">
                           <i className={`fas ${TYPE_ICONS[m.type] ?? 'fa-circle'} text-muted`} style={{ fontSize: '.75rem' }} />
                           <span
@@ -216,17 +214,17 @@ export default function Hormemo() {
                           {m.content}
                         </p>
                       </div>
-                      <div className="d-flex gap-1 flex-shrink-0">
+                      <div className="memo-row__acts">
                         {m.status !== 'completed' && (
                           <button className="btn btn-sm btn-outline-success" title="Complete" onClick={() => completeMemo(m.id)}>
-                            <i className="fas fa-check" />
+                            <i className="fas fa-check" /><span className="memo-row__word d-none d-md-inline"> Done</span>
                           </button>
                         )}
                         <button className="btn btn-sm btn-outline-secondary" title="Edit" onClick={() => setEditing({ ...m })}>
-                          <i className="fas fa-edit" />
+                          <i className="fas fa-edit" /><span className="memo-row__word d-none d-md-inline"> Edit</span>
                         </button>
                         <button className="btn btn-sm btn-outline-danger" title="Delete" onClick={() => deleteMemo(m.id)}>
-                          <i className="fas fa-trash" />
+                          <i className="fas fa-trash" /><span className="memo-row__word d-none d-md-inline"> Delete</span>
                         </button>
                       </div>
                     </div>
