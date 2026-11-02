@@ -92,7 +92,7 @@ export default function Hormemo() {
           <h4 className="fw-bold mb-0">{user?.display_name}'s Memo</h4>
         </div>
         <button className="btn btn-sm btn-outline-secondary" onClick={() => { loadMemos(filter); loadStats() }}>
-          <i className="fas fa-sync-alt" />
+          <i className="fas fa-sync-alt me-1" aria-hidden="true" />Refresh
         </button>
       </div>
 
@@ -131,12 +131,16 @@ export default function Hormemo() {
             />
             <div className="row g-2 mb-3">
               <div className="col-6">
-                <select className="form-select form-select-sm" value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
+                <label className="form-label small text-muted mb-1" htmlFor="memo-type">Type</label>
+                <select id="memo-type" className="form-select form-select-sm" value={form.type}
+                        onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
                   {TYPES.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
                 </select>
               </div>
               <div className="col-6">
-                <select className="form-select form-select-sm" value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}>
+                <label className="form-label small text-muted mb-1" htmlFor="memo-pri">Priority</label>
+                <select id="memo-pri" className="form-select form-select-sm" value={form.priority}
+                        onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}>
                   {PRIORITIES.map(p => <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
                 </select>
               </div>
@@ -194,7 +198,7 @@ export default function Hormemo() {
                           {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
                         </select>
                         <button className="btn btn-success btn-sm" onClick={saveEdit}>Save</button>
-                        <button className="btn btn-secondary btn-sm" onClick={() => setEditing(null)}>Cancel</button>
+                        <button className="btn btn-outline-secondary btn-sm" onClick={() => setEditing(null)}>Cancel</button>
                       </div>
                     </>
                   ) : (
