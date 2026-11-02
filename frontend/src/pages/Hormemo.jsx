@@ -220,14 +220,14 @@ export default function Hormemo() {
                       </div>
                       <div className="memo-row__acts">
                         {m.status !== 'completed' && (
-                          <button className="btn btn-sm btn-success" title="Complete" onClick={() => completeMemo(m.id)}>
+                          <button className="btn btn-sm btn-outline-success memo-row__btn" title="Complete" onClick={() => completeMemo(m.id)}>
                             <i className="fas fa-check" /><span className="memo-row__word d-none d-md-inline"> Done</span>
                           </button>
                         )}
-                        <button className="btn btn-sm btn-outline-secondary" title="Edit" onClick={() => setEditing({ ...m })}>
+                        <button className="btn btn-sm btn-outline-secondary memo-row__btn" title="Edit" onClick={() => setEditing({ ...m })}>
                           <i className="fas fa-edit" /><span className="memo-row__word d-none d-md-inline"> Edit</span>
                         </button>
-                        <button className="btn btn-sm btn-outline-danger" title="Delete" onClick={() => deleteMemo(m.id)}>
+                        <button className="btn btn-sm btn-outline-danger memo-row__btn" title="Delete" onClick={() => deleteMemo(m.id)}>
                           <i className="fas fa-trash" /><span className="memo-row__word d-none d-md-inline"> Delete</span>
                         </button>
                       </div>

@@ -1123,6 +1123,10 @@ textarea.form-control { height: auto; padding: .55rem .85rem; line-height: 1.55;
 .memo-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
 .memo-row__body { flex: 1; min-width: 0; }
 .memo-row__acts { display: flex; gap: 6px; flex-shrink: 0; }
+/* Bootstrap outline buttons default to 1px and the border wash against a
+   white card can disappear. Bump to 1.5px and keep the fill transparent
+   so the three actions read as the same shape, just different intent. */
+.memo-row__btn { border-width: 1.5px; font-weight: 600; }
 @media (max-width: 600px) {
   .memo-row { flex-direction: column; align-items: stretch; }
   .memo-row__acts { justify-content: flex-end; margin-top: 6px; }
