@@ -5,7 +5,7 @@ import HandLoader from '../components/HandLoader'
 
 const TYPES     = ['general', 'todo', 'reminder', 'idea']
 const PRIORITIES = ['low', 'normal', 'high']
-const FILTERS   = ['all', 'active', 'completed']
+const FILTERS   = ['active', 'completed', 'all']
 
 const PRIORITY_COLORS = { high: 'danger', normal: 'primary', low: 'secondary' }
 const TYPE_ICONS      = { general: 'fa-circle', todo: 'fa-check-square', reminder: 'fa-bell', idea: 'fa-lightbulb' }
@@ -14,7 +14,7 @@ export default function Hormemo() {
   const { user } = useAuth()
   const [memos, setMemos]     = useState([])
   const [stats, setStats]     = useState(null)
-  const [filter, setFilter]   = useState('all')
+  const [filter, setFilter]   = useState('active')
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(null)   // memo being edited
   const [form, setForm]       = useState({ content: '', type: 'general', priority: 'normal' })
@@ -220,7 +220,7 @@ export default function Hormemo() {
                       </div>
                       <div className="memo-row__acts">
                         {m.status !== 'completed' && (
-                          <button className="btn btn-sm btn-outline-success" title="Complete" onClick={() => completeMemo(m.id)}>
+                          <button className="btn btn-sm btn-success" title="Complete" onClick={() => completeMemo(m.id)}>
                             <i className="fas fa-check" /><span className="memo-row__word d-none d-md-inline"> Done</span>
                           </button>
                         )}
