@@ -105,18 +105,21 @@ FEATURES: dict[str, Feature] = {
         temperature=0.6,
         read_timeout=60,
     ),
-    # Vision read of one listing photo. Tiny JSON, short wait, a seller is
-    # staring at the New Listing form while it runs.
+    # Vision read of one listing photo. deepseek-flash is a thinking model
+    # that eats ~700 reasoning tokens before writing its answer, so this
+    # budget has to be big (600 was all reasoning and empty content, 2500
+    # leaves room for a JSON draft). Verified on real listing photos:
+    # about 6 seconds per call, ~$0.0005.
     'listing_autofill': Feature(
         name='listing_autofill',
         prompt_version=listing_autofill_prompt.PROMPT_VERSION,
         build=lambda payload: listing_autofill_prompt.build(payload['image_data_url']),
         parse=listing_autofill_prompt.parse,
         json_mode=True,
-        max_tokens=600,
+        max_tokens=2500,
         temperature=0.3,
         read_timeout=45,
-        model_override='deepseek-vl2',
+        model_override='deepseek-flash',
     ),
 }
 
