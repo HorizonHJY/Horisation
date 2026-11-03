@@ -1039,6 +1039,7 @@ export default function Market() {
   const [previews, setPreviews]     = useState([])
   const [submitting, setSub]        = useState(false)
   const [autofilling, setAutofilling] = useState(false)
+  const [autofillHint, setAutofillHint] = useState('')
   const [toast, showToast]          = useToast()
   const [friendsMap, setFriendsMap] = useState({})
   const [editListing, setEditListing]       = useState(null)
@@ -1306,12 +1307,17 @@ export default function Market() {
 
   // Fill the title / description / category by having the AI read the first
   // uploaded photo. The seller still owns every field — this is a typist.
-  // No photos → button is disabled upstream so this never runs; still
-  // defensive here in case the uploader state races with the click.
+  // No photos → the button stays clickable so we can say why in place,
+  // instead of a disabled control that never explains itself.
   async function handleAutofill() {
     if (autofilling) return
     const file = images[0]
-    if (!file) { showToast('Add a photo first.', 'danger'); return }
+    if (!file) {
+      setAutofillHint('Upload photos first.')
+      window.setTimeout(() => setAutofillHint(''), 4000)
+      return
+    }
+    setAutofillHint('')
     setAutofilling(true)
     try {
       const fd = new FormData()
@@ -1849,17 +1855,22 @@ export default function Market() {
 
                 <form onSubmit={handleCreate} noValidate>
                   <div className="mb-3">
+                    {autofillHint && (
+                      <div className="text-danger small mb-1" role="alert">
+                        <i className="fas fa-circle-exclamation me-1" aria-hidden="true" />{autofillHint}
+                      </div>
+                    )}
                     <div className="d-flex align-items-center justify-content-between gap-2 mb-1">
                       <label className="form-label fw-medium mb-0" htmlFor="new-title">
                         Title <span className="text-danger" aria-hidden="true">*</span>
                       </label>
-                      {/* Autofill reads the first uploaded photo. Disabled
-                          until there's an image to read: nothing to send. */}
+                      {/* Autofill reads the first uploaded photo. Stays enabled
+                          without one so the click can explain what is missing. */}
                       <button type="button"
                               className="btn btn-sm btn-outline-primary"
                               onClick={handleAutofill}
-                              disabled={autofilling || images.length === 0}
-                              title={images.length === 0 ? 'Add a photo first' : 'Fill title, description and category from the first photo'}>
+                              disabled={autofilling}
+                              title={images.length === 0 ? 'Upload a photo first, then this fills the form' : 'Fill title, description and category from the first photo'}>
                         {autofilling
                           ? <><span className="spinner-border spinner-border-sm me-1" aria-hidden="true" />Reading…</>
                           : <><i className="fas fa-wand-magic-sparkles me-1" aria-hidden="true" />Fill with AI</>}

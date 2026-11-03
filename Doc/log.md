@@ -1979,3 +1979,8 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 - Opus 指出:后端 visibility 默认是 friends(mbti_db.py:40),而 UI 用 visibility !== 'private' 判断佩戴,会把从没戴过的存量用户全显示成佩戴中,且点一下会把 friends 直接抹成 private。
 - 改法:改判 public 才算佩戴。friends 是历史默认值,没有任何 UI 能设置它,因此当作「未佩戴」处理,不迁库、不碰存量数据。
 - 实测:private → 无徽章;点标签 → public + 徽章出现;点徽章 → private + 徽章消失;刷新后状态一致。
+
+## 2026-11-03 Fill with AI 无图时的提示
+- 问题：按钮在没上传图片时是 disabled，用户不知道要先传图，只看到点不动。
+- 改法：按钮保持可点，没图时点一下在 Title 上方显示「Upload photos first.」，4 秒自动消失；title 提示同步改成「先上传图片再用」。
+- 有图时行为不变（读第一张图填 title/description/category）。
