@@ -12,14 +12,21 @@ from __future__ import annotations
 import json
 import re
 
-PROMPT_VERSION = 'listing-autofill-v1'
+PROMPT_VERSION = 'listing-autofill-v2'
 
 # These must match market_db default categories exactly. Order ≈ most common.
+# v2 (2026-11-03): split out accessories / decor / sports / living after the
+# existing 34 listings showed beauty was 100% tattoos and lving was a typo
+# catch-all — the broader slugs below carry the real content categories.
 _CATEGORIES = [
     ('clothing',    '衣服'),
-    ('furniture',   '家具'),
-    ('kitchen',     '厨具'),
     ('electronics', '电子产品'),
+    ('kitchen',     '厨具'),
+    ('furniture',   '家具'),
+    ('decor',       '家居装饰'),
+    ('accessories', '饰品'),
+    ('sports',      '运动用品'),
+    ('living',      '日用'),
     ('beauty',      '美妆'),
     ('books',       '书籍'),
     ('other',       '其他'),
@@ -27,12 +34,20 @@ _CATEGORIES = [
 
 _SYSTEM = f"""你帮用户在二手市集 Arch Bay 快速把一张商品照片转成挂单草稿。只做视觉识别。
 
-规则:
-- 看图说话,不猜品牌和型号。看不清就省略,不编。
-- 标题 ≤ 20 字,先用中文,写能让买家一眼知道是什么的词;必要时括号补英文。
-- 描述 ≤ 140 字,写能看到的信息:主要颜色、材质、尺寸估算、磨损迹象。不写营销话术。
-- category 必须从这几个 slug 里选: {', '.join(s for s, _ in _CATEGORIES)}。看不准选 other。
-- price_hint_low / price_hint_high: 对二手价格的粗估,单位美元,整数。拿不准都给 null。
+输出固定格式:
+
+**brand**: 品牌名(如 Logitech 、小米、Dyson)。看不到或不确定→ 留空字符串。不要猜。
+**object**: 物品名(如 机械键盘、吐司机、耳饰)。2-6 个字最佳。
+**condition**: 新旧程度。从这几个中选:全新未拆/99新/95新/9成新/8成新/7成新以下。是否拆封看包装和磨损;有磨损就是 9 成新以下。
+**usage_time**: 估计使用时长(如 未使用/使用1年/使用6个月)。全新就写 未使用。假如拿不准→留空。
+**function_status**: 功能状态。默认 功能正常;看到损坏(谢裂、扣子掉了、屏幕碎)→写具体现象。
+**color**: 颜色描述(如 石墨蓝、梅攥射影绿)。必填。
+
+生成规则:
+- title = brand + object(有品牌时);否则仅 object。例:「罗技机械键盘」或「机械键盘」。≤ 20 字。
+- description = condition + · + usage_time(有就包含) + · + function_status + · + color。用 · 连接。译成自然中文、不要写营销话。例:「95新 · 使用6个月 · 功能正常 · 石墨蓝配白色编码键」。≤ 140 字。
+- category 必须从这几个 slug 里选: {', '.join(s for s, _ in _CATEGORIES)}。看不准选 other。小摆件→ decor,耳饰首饰纹身贴→ accessories,球拍麻将羽毛球→ sports,收纳盒耳机壳水杯→ living。
+- price_hint_low / price_hint_high: 对二手价格粗估,美元整数。拿不准都给 null。
 - 如果照片明显不是商品(人脸、风景、截图),返回 {{"error": "not_a_product"}}。
 
 只输出 JSON,不要解释,不要代码块。schema:

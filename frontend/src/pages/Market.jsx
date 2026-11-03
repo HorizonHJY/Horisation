@@ -1069,6 +1069,7 @@ export default function Market() {
     () => new Set((searchParams.get('cat') || '').split(',').filter(Boolean)), [searchParams])
   const deliveryFilter = useMemo(
     () => new Set((searchParams.get('del') || '').split(',').filter(Boolean)), [searchParams])
+  const newOnly        = searchParams.get('new') === '1'
 
   const patchParams = useCallback((patch, opts = {}) => {
     setSearchParams(prev => {
@@ -1473,6 +1474,17 @@ export default function Market() {
 
   // ── Filters ─────────────────────────────────────────────────────────────────
   const browseListing = listings.filter(l => l.seller_username !== user?.username)
+  // 新品 window: 7 days back from the single most recent listing in the
+  // current browse set, not a fixed 7-day clock. Sparse periods (nobody
+  // posts for a month) still return a non-empty list because the window
+  // moves with the content. Empty set → no cutoff.
+  const newestAt = browseListing.reduce((max, l) => {
+    const t = l.created_at ? new Date(l.created_at).getTime() : 0
+    return t > max ? t : max
+  }, 0)
+  const newCutoff = newestAt ? newestAt - 7 * 24 * 60 * 60 * 1000 : 0
+  const matchesNew = (l) => !newOnly
+    || (l.created_at && new Date(l.created_at).getTime() >= newCutoff)
   const filteredBrowse = browseListing.filter(l => {
     const q = searchQuery.trim().toLowerCase()
     const matchesSearch = !q ||
@@ -1487,16 +1499,16 @@ export default function Market() {
                                             ?? ['pickup','both'].includes(l.delivery_type)))
       || (deliveryFilter.has('delivery') && (l.delivery_available
                                             ?? ['delivery','both'].includes(l.delivery_type)))
-    return matchesSearch && matchesCategory && matchesDelivery
+    return matchesSearch && matchesCategory && matchesDelivery && matchesNew(l)
   })
-  const hasActiveFilters = Boolean(searchQuery) || categoryFilter.size > 0 || deliveryFilter.size > 0
+  const hasActiveFilters = Boolean(searchQuery) || categoryFilter.size > 0 || deliveryFilter.size > 0 || newOnly
 
   const toggleIn = (set, key, param) => {
     const next = new Set(set)
     next.has(key) ? next.delete(key) : next.add(key)
     patchParams({ [param]: [...next].join(',') })
   }
-  const clearAllFilters = () => patchParams({ q: '', cat: '', del: '' })
+  const clearAllFilters = () => patchParams({ q: '', cat: '', del: '', new: '' })
 
   const displayList = tab === 'mylistings' ? myListings : filteredBrowse
 
@@ -1679,6 +1691,20 @@ export default function Market() {
                       </button>
                     )
                   })}
+                  {/* 新品: items posted within 7 days of the single newest
+                      listing on the page. A moving window instead of a
+                      fixed one, so a sparse site still returns something
+                      when the chip is pressed. */}
+                  <span className="small ms-2 me-1" style={{ whiteSpace: 'nowrap', color: 'var(--text-muted)' }}>·</span>
+                  <button
+                    onClick={() => patchParams({ new: newOnly ? '' : '1' })}
+                    aria-pressed={newOnly}
+                    className={`btn btn-sm ${newOnly ? 'btn-primary' : 'btn-outline-secondary'}`}
+                    style={{ borderRadius: 20, whiteSpace: 'nowrap' }}
+                  >
+                    <i className="fas fa-bolt me-1" aria-hidden="true" />
+                    New
+                  </button>
                 </div>
               </div>
 

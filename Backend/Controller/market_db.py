@@ -176,6 +176,7 @@ def init_db():
     _migrate_columns()
     _seed_categories()
     _migrate_category_labels()
+    _migrate_listing_categories()
 
 
 def _migrate_columns():
@@ -235,6 +236,10 @@ DEFAULT_CATEGORY_LABELS = {
     'furniture':   ('Furniture',   '家具'),
     'kitchen':     ('Kitchen',     '厨具'),
     'electronics': ('Electronics', '电子产品'),
+    'decor':       ('Decor',       '家居装饰'),
+    'accessories': ('Accessories', '饰品'),
+    'sports':      ('Sports',      '运动用品'),
+    'living':      ('Living',      '日用'),
     'beauty':      ('Beauty',      '美妆'),
     'books':       ('Books',       '书籍'),
     'other':       ('Other',       '其他'),
@@ -245,19 +250,39 @@ def _seed_categories():
     """Insert default categories if the table is empty."""
     defaults = [
         ('clothing',    1,  True),
-        ('furniture',   2,  True),
+        ('electronics', 2,  True),
         ('kitchen',     3,  True),
-        ('electronics', 4,  True),
-        ('beauty',      5,  True),
+        ('furniture',   4,  True),
+        ('decor',       5,  True),
+        ('accessories', 6,  True),
+        ('sports',      7,  True),
+        ('living',      8,  True),
+        ('beauty',      9,  True),
         ('books',       98, False),
         ('other',       99, False),
     ]
     icons = {
         'clothing': 'fa-tshirt', 'furniture': 'fa-couch', 'kitchen': 'fa-utensils',
         'electronics': 'fa-laptop', 'beauty': 'fa-spa', 'books': 'fa-book', 'other': 'fa-box',
+        'decor': 'fa-mug-hot', 'accessories': 'fa-gem',
+        'sports': 'fa-table-tennis-paddle-ball', 'living': 'fa-house-chimney',
     }
     with Session() as s:
         if s.query(Category).count() > 0:
+            # Not the first run: still backfill any newly added slugs so a
+            # redeploy doesn't require manually touching the categories table.
+            existing = {c.slug for c in s.query(Category).all()}
+            max_order = max((c.order for c in s.query(Category).all()), default=0)
+            added = False
+            for slug, order, active in defaults:
+                if slug in existing:
+                    continue
+                label, label_zh = DEFAULT_CATEGORY_LABELS[slug]
+                s.add(Category(slug=slug, label=label, label_zh=label_zh,
+                               order=order, active=active, icon=icons.get(slug, 'fa-tag')))
+                added = True
+            if added:
+                s.commit()
             return
         for slug, order, active in defaults:
             label, label_zh = DEFAULT_CATEGORY_LABELS[slug]
@@ -303,6 +328,49 @@ def _migrate_category_labels():
             changed = True
         if changed:
             s.commit()
+
+
+def _migrate_listing_categories():
+    """One-time repair for listings whose category slug is wrong.
+
+    On the live table today (34 listings, 2026-11-03):
+    - "lving" is a typo of "living" (13 rows).
+    - Six "beauty" rows are actually tattoo stickers → accessories.
+    - A few "clothing" and "other" rows are earrings / sports gear / fridge
+      magnets that now have their own slug.
+    - Anything whose slug is not in the registry at all gets other.
+
+    Idempotent: the WHERE clauses only hit rows that still have the old slug,
+    and a redeploy after a correct re-categorisation will leave those alone.
+    """
+    with Session() as s:
+        # 1. Typos: lving → living. Covers the historical 13-row group and
+        #    any future sibling typos someone slips in.
+        s.query(Listing).filter(Listing.category == 'lving').update(
+            {'category': 'living'}, synchronize_session=False)
+
+        # 2. Beauty rows that are tattoo stickers belong under accessories now
+        #    that the slug exists. Match on title because "beauty" today is
+        #    100% tattoos; if the mix grows this guard stops the rewrite.
+        s.query(Listing).filter(
+            Listing.category == 'beauty',
+            Listing.title.like('%纹身%')
+        ).update({'category': 'accessories'}, synchronize_session=False)
+
+        # 3. Earrings sitting under 'other'.
+        s.query(Listing).filter(
+            Listing.category == 'other',
+            (Listing.title.like('%耳%')) | (Listing.title.like('%earring%'))
+        ).update({'category': 'accessories'}, synchronize_session=False)
+
+        # 4. Any slug the registry does not know becomes 'other'. Covers junk
+        #    like "Height adjustable" or a date string finding its way in.
+        valid = set(DEFAULT_CATEGORY_LABELS.keys())
+        rows = s.query(Listing).filter(~Listing.category.in_(valid)).all()
+        for row in rows:
+            row.category = 'other'
+
+        s.commit()
 
 
 def _migrate_from_json():
