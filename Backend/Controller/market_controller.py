@@ -566,3 +566,66 @@ def delete_wanted(wanted_id):
     if not market_db.delete_wanted(wanted_id, me):
         return jsonify({'ok': False, 'error': 'Not yours, or no longer exists.'}), 404
     return jsonify({'ok': True})
+
+
+# ── AI: Fill with AI (vision autofill) ───────────────────────────────────────
+# Reads one listing photo and returns a draft of title / description /
+# category / price hint. The seller still sees every field and can edit
+# before posting — the model is a typist, not an auctioneer.
+
+_AUTOFILL_MAX_IMAGE_BYTES = 5 * 1024 * 1024
+_AUTOFILL_ALLOWED_MIMES = {'image/jpeg', 'image/png', 'image/webp'}
+
+
+@market_bp.route('/autofill', methods=['POST'])
+@login_required
+def autofill_listing_route():
+    """Read one photo, return a listing draft. Imports kept lazy so a missing
+    AI config does not break the Market blueprint at startup."""
+    import base64
+    import os
+    from Backend.Service.ai import ai, today_key
+
+    me   = request.current_user['username']
+    role = request.current_user.get('role')
+
+    file = request.files.get('image')
+    if not file:
+        return jsonify({'ok': False, 'error': 'Attach an image first.'}), 400
+
+    ext = os.path.splitext(file.filename or '')[1].lower()
+    if ext not in {'.jpg', '.jpeg', '.png', '.webp'}:
+        return jsonify({'ok': False, 'error': 'JPEG, PNG or WEBP only.'}), 400
+    file.seek(0, 2)
+    size = file.tell()
+    file.seek(0)
+    if size > _AUTOFILL_MAX_IMAGE_BYTES:
+        return jsonify({'ok': False, 'error': 'Image exceeds 5 MB limit.'}), 400
+
+    raw = file.read()
+    mime = 'image/png' if ext == '.png' else ('image/webp' if ext == '.webp' else 'image/jpeg')
+    data_url = f'data:{mime};base64,{base64.b64encode(raw).decode("ascii")}'
+
+    result = ai.run(
+        feature='listing_autofill',
+        user=me,
+        role=role,
+        quota_key=f'user:{me}:listing_autofill:{today_key()}',
+        payload={'image_data_url': data_url},
+    )
+
+    if not result.ok:
+        status = {'quota': 429, 'global_cap': 503, 'disabled': 503, 'config': 503}.get(result.error_kind, 502)
+        return jsonify({
+            'ok': False,
+            'error': result.error,
+            'error_kind': result.error_kind,
+            'retryable': result.error_kind in ('timeout', 'provider', 'rate_limit'),
+        }), status
+
+    # Parse worked: draft is in result.data. If not (schema drift), surface
+    # raw text so the seller can at least see what the model said.
+    if result.data and result.data.get('error') == 'not_a_product':
+        return jsonify({'ok': False, 'error': 'This photo does not look like a product.'}), 400
+
+    return jsonify({'ok': True, 'draft': result.data or {}, 'raw': result.text})

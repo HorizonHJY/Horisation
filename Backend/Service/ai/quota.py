@@ -36,6 +36,15 @@ LIMITS: dict[str, dict[str, int | None]] = {
     'bazi_ask':         {'*': None},
     'bazi_compat':      {'*': None},
     'bazi_compat_ask':  {'*': None},
+    # 10 autofills per user per day keeps the bill bounded even if a seller
+    # retakes every photo. Admins (and horizon, the operator) are uncapped.
+    'listing_autofill': {
+        '*':       10,
+        'vip':     20,
+        'svip':    20,
+        'admin':   None,
+        'horizon': None,
+    },
 }
 
 # feature → ok calls per site per rolling 24h. The safety net, not a product
@@ -46,6 +55,7 @@ GLOBAL_DAILY_CAP: dict[str, int] = {
     'bazi_ask': 500,
     'bazi_compat': 60,
     'bazi_compat_ask': 300,
+    'listing_autofill': 200,
 }
 
 

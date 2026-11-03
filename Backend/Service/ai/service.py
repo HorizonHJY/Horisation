@@ -112,13 +112,18 @@ class AIService:
             return self._fail('config', feat, quota_state=state)
 
         messages = feat.build(payload)
+        # A feature can route to a different model than the configured
+        # default (vision tasks need the VL variant). The vendor key stays
+        # the same because the override targets a model under the same
+        # provider; cross-vendor overrides stay out of scope.
+        model = feat.model_override or cfg.model
         attempts = 0
         last_err: default_client.ProviderError | None = None
         resp = None
         while attempts < 2 and resp is None:
             attempts += 1
             try:
-                resp = self._chat(messages, model=cfg.model, max_tokens=feat.max_tokens,
+                resp = self._chat(messages, model=model, max_tokens=feat.max_tokens,
                                   temperature=feat.temperature, json_mode=feat.json_mode, config=cfg,
                                   read_timeout=feat.read_timeout)
             except default_client.ProviderError as e:
@@ -129,7 +134,7 @@ class AIService:
         if resp is None:
             kind = last_err.kind if last_err else 'provider'
             log.warning('ai %s failed (%s) after %d attempt(s): %s', feature, kind, attempts, last_err)
-            usage = self._store.record(feature=feature, username=user, quota_key=quota_key, model=cfg.model,
+            usage = self._store.record(feature=feature, username=user, quota_key=quota_key, model=model,
                                        prompt_version=pv, attempts=attempts, ok=False, error_kind=kind)
             return AIResult(ok=False, text=None, data=None, error=USER_MESSAGES.get(kind, USER_MESSAGES['provider']),
                             error_kind=kind, usage=usage, quota=state, prompt_version=pv)

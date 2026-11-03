@@ -15,6 +15,7 @@ from typing import Callable
 
 from ..prompts import bazi as bazi_prompt
 from ..prompts import bazi_compat as compat_prompt
+from ..prompts import listing_autofill as listing_autofill_prompt
 from ..prompts import tarot as tarot_prompt
 
 
@@ -28,6 +29,10 @@ class Feature:
     max_tokens: int = 1200
     temperature: float = 0.7
     read_timeout: int = 30                     # seconds; a long answer needs longer
+    # Override the configured text model when this feature needs a different
+    # one (today: vision reads of listing photos go to DeepSeek-VL2 while
+    # the rest of the site stays on deepseek-chat). None = inherit.
+    model_override: str | None = None
 
 
 def _tarot_build(payload: dict) -> list[dict]:
@@ -99,6 +104,19 @@ FEATURES: dict[str, Feature] = {
         max_tokens=800,
         temperature=0.6,
         read_timeout=60,
+    ),
+    # Vision read of one listing photo. Tiny JSON, short wait, a seller is
+    # staring at the New Listing form while it runs.
+    'listing_autofill': Feature(
+        name='listing_autofill',
+        prompt_version=listing_autofill_prompt.PROMPT_VERSION,
+        build=lambda payload: listing_autofill_prompt.build(payload['image_data_url']),
+        parse=listing_autofill_prompt.parse,
+        json_mode=True,
+        max_tokens=600,
+        temperature=0.3,
+        read_timeout=45,
+        model_override='deepseek-vl2',
     ),
 }
 
