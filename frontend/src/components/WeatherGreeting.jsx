@@ -42,15 +42,21 @@ export default function WeatherGreeting({ name }) {
 
   function todayLabel() {
     // Mon Oct 18 — short enough to live on the same line as the weather.
+    // Pinned to Central so a user opening the page from another timezone
+    // sees St. Louis's date, matching the rest of the page's weather view.
     return new Date().toLocaleDateString('en-US',
-      { weekday: 'short', month: 'short', day: 'numeric' })
+      { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'America/Chicago' })
   }
 
   function build() {
     // Fallback: no weather yet — at least show the date so the subtitle isn't blank.
     if (!weather || weather.temp == null) {
-      const h = new Date().getHours()
-      const greet = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'
+      // Read the hour in Central, same reference clock as the backend
+      // greeting, so a traveler in another timezone still gets the St. Louis
+      // morning/afternoon/evening the whole product is written around.
+      const chicagoHour = Number(new Date().toLocaleString('en-US',
+        { timeZone: 'America/Chicago', hour: 'numeric', hour12: false }))
+      const greet = chicagoHour < 12 ? 'Good morning' : chicagoHour < 18 ? 'Good afternoon' : 'Good evening'
       return { text: `${greet}, ${name}`, today: todayLabel(), weather: null, tomorrow: null }
     }
     const greet = weather.greeting.replace('{name}', name)

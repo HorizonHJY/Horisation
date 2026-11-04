@@ -57,8 +57,16 @@ WMO_CODES = {
 
 
 def _time_of_day():
-    """Return 'morning', 'afternoon', or 'evening' based on current hour."""
-    h = time.localtime().tm_hour
+    """Return 'morning', 'afternoon', or 'evening' in the operator's timezone.
+
+    EC2 defaults to UTC, so `time.localtime()` here said 'Good evening' at 3pm
+    Central. The whole product is targeted at St. Louis, so Central is the
+    only right reference clock — keep it hard-coded here rather than reading
+    the server timezone the reader cannot see.
+    """
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    h = datetime.now(ZoneInfo('America/Chicago')).hour
     if h < 12:
         return 'morning'
     elif h < 18:
