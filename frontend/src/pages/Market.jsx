@@ -416,6 +416,15 @@ function ListingCard({
           <i className={`fas ${listing.category_icon || 'fa-tag'} me-1`} aria-hidden="true" />
           {cat.label}
         </span>
+        {/* Non-new only, so the common case (全新) stays quiet. Buyers who
+            filter by 新品 already know; buyers browsing the mixed grid need
+            the used-6m / 1y / 1y+ distinction, otherwise they can't tell. */}
+        {listing.condition && listing.condition !== 'new' && CONDITION_BY_VALUE[listing.condition] && (
+          <span className="badge-pill" title={CONDITION_BY_VALUE[listing.condition].label_en}>
+            <i className="fas fa-clock" aria-hidden="true" />
+            {CONDITION_BY_VALUE[listing.condition].label}
+          </span>
+        )}
         {isSold && <span className="market-card__sold-badge">Sold</span>}
         {isReserved && !isSold && (
           <span className="badge-pill badge-pill--warn">
@@ -626,8 +635,23 @@ function ListingDetailModal({
             )}
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 10, flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                 <span className="market-card__category">{cat.label}</span>
+                {/* Detail view shows condition for new and used both: the modal
+                    is where someone decides to buy, so 全新 vs 使用半年 is as
+                    load-bearing as price. */}
+                {CONDITION_BY_VALUE[listing.condition] && (
+                  <span
+                    className={`badge-pill ${listing.condition === 'new' ? 'badge-pill--good' : ''}`}
+                    title={CONDITION_BY_VALUE[listing.condition].label_en}
+                  >
+                    <i
+                      className={`fas ${listing.condition === 'new' ? 'fa-certificate' : 'fa-clock'}`}
+                      aria-hidden="true"
+                    />
+                    {CONDITION_BY_VALUE[listing.condition].label}
+                  </span>
+                )}
                 {isSold && <span className="market-card__sold-badge">Sold</span>}
                 {isReserved && !isSold && (
                   <span className="badge-pill badge-pill--warn">Reserved</span>
