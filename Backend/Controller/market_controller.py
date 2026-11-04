@@ -205,12 +205,17 @@ def create_listing():
                 return jsonify({'ok': False, 'error': err}), 400
 
     # Create listing row
+    condition = request.form.get('condition', 'new').strip()
+    if condition not in ('new', 'used_6m', 'used_1y', 'used_1y_plus'):
+        condition = 'new'
+
     listing_id = market_db.create_listing(
         seller, title, description, price, category, '',
         original_price=original_price,
         pickup_available=pickup_available,
         delivery_available=delivery_available,
         delivery_fee=delivery_fee,
+        condition=condition,
     )
 
     # Upload images to R2
@@ -282,6 +287,11 @@ def update_listing(listing_id):
             except (ValueError, TypeError):
                 return jsonify({'ok': False, 'error': 'Original price must be a number.'}), 400
 
+    if 'condition' in data:
+        cond = str(data['condition']).strip()
+        if cond not in ('new', 'used_6m', 'used_1y', 'used_1y_plus'):
+            return jsonify({'ok': False, 'error': 'Invalid condition.'}), 400
+        fields['condition'] = cond
     if 'delivery_type' in data:
         dt = str(data['delivery_type']).strip()
         if dt in ('pickup', 'delivery', 'both'):

@@ -26,9 +26,18 @@ const DELIVERY_OPTIONS = [
 ]
 const DELIVERY_BY_VALUE = Object.fromEntries(DELIVERY_OPTIONS.map(o => [o.value, o]))
 
+const CONDITION_OPTIONS = [
+  { value: 'new',         label: '全新',           label_en: 'Brand new' },
+  { value: 'used_6m',     label: '使用半年',       label_en: 'Used ~6 months' },
+  { value: 'used_1y',     label: '使用一年',       label_en: 'Used ~1 year' },
+  { value: 'used_1y_plus',label: '使用一年以上',   label_en: 'Used 1 year+' },
+]
+const CONDITION_BY_VALUE = Object.fromEntries(CONDITION_OPTIONS.map(o => [o.value, o]))
+
 const EMPTY_FORM = {
   title: '', description: '', price: '', original_price: '',
   category: 'clothing',
+  condition: 'new',
   pickup_available: true, delivery_available: false,
   delivery_fee: '',
 }
@@ -229,6 +238,7 @@ function EditModal({ listing, onClose, onSave, categories }) {
     price:          String(listing.price),
     original_price: listing.original_price != null ? String(listing.original_price) : '',
     category:       listing.category,
+    condition:      listing.condition || 'new',
     pickup_available: typeof listing.pickup_available === 'boolean'
       ? listing.pickup_available
       : ['pickup', 'both'].includes(listing.delivery_type),
@@ -255,6 +265,7 @@ function EditModal({ listing, onClose, onSave, categories }) {
       price:          Number(form.price),
       original_price: form.original_price !== '' ? Number(form.original_price) : '',
       category:       form.category,
+      condition:      form.condition,
       pickup_available:   form.pickup_available,
       delivery_available: form.delivery_available,
       delivery_fee:   form.delivery_fee !== '' ? Number(form.delivery_fee) : null,
@@ -304,6 +315,15 @@ function EditModal({ listing, onClose, onSave, categories }) {
                   <option key={c.slug} value={c.slug}>
                     {c.label}{c.label_zh ? ` ${c.label_zh}` : ''}
                   </option>
+                ))}
+              </select>
+            </div>
+            <div className="mb-1 mt-3">
+              <label className="form-label fw-medium" htmlFor="edit-cond">Condition</label>
+              <select id="edit-cond" className="form-select" value={form.condition}
+                onChange={e => setForm(f => ({ ...f, condition: e.target.value }))}>
+                {CONDITION_OPTIONS.map(o => (
+                  <option key={o.value} value={o.value}>{o.label} · {o.label_en}</option>
                 ))}
               </select>
             </div>
@@ -1071,6 +1091,7 @@ export default function Market() {
   const deliveryFilter = useMemo(
     () => new Set((searchParams.get('del') || '').split(',').filter(Boolean)), [searchParams])
   const newOnly        = searchParams.get('new') === '1'
+  const newConditionOnly = searchParams.get('cond') === 'new'
 
   const patchParams = useCallback((patch, opts = {}) => {
     setSearchParams(prev => {
@@ -1505,9 +1526,10 @@ export default function Market() {
                                             ?? ['pickup','both'].includes(l.delivery_type)))
       || (deliveryFilter.has('delivery') && (l.delivery_available
                                             ?? ['delivery','both'].includes(l.delivery_type)))
-    return matchesSearch && matchesCategory && matchesDelivery && matchesNew(l)
+    const matchesCondition = !newConditionOnly || (l.condition || 'new') === 'new'
+    return matchesSearch && matchesCategory && matchesDelivery && matchesCondition && matchesNew(l)
   })
-  const hasActiveFilters = Boolean(searchQuery) || categoryFilter.size > 0 || deliveryFilter.size > 0 || newOnly
+  const hasActiveFilters = Boolean(searchQuery) || categoryFilter.size > 0 || deliveryFilter.size > 0 || newOnly || newConditionOnly
 
   const toggleIn = (set, key, param) => {
     const next = new Set(set)
@@ -1697,6 +1719,15 @@ export default function Market() {
                       </button>
                     )
                   })}
+                  <button
+                    onClick={() => patchParams({ cond: newConditionOnly ? '' : 'new' })}
+                    aria-pressed={newConditionOnly}
+                    className={`btn btn-sm ${newConditionOnly ? 'btn-primary' : 'btn-outline-secondary'}`}
+                    style={{ borderRadius: 20, whiteSpace: 'nowrap' }}
+                  >
+                    <i className="fas fa-sparkles me-1" aria-hidden="true" />
+                    全新
+                  </button>
                   {/* 新品: items posted within 7 days of the single newest
                       listing on the page. A moving window instead of a
                       fixed one, so a sparse site still returns something
@@ -1978,6 +2009,16 @@ export default function Market() {
                         <option key={c.slug} value={c.slug}>
                           {c.label}{c.label_zh ? ` ${c.label_zh}` : ''}
                         </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="form-label fw-medium" htmlFor="new-cond">Condition</label>
+                    <select id="new-cond" className="form-select" value={form.condition}
+                      onChange={e => setForm(f => ({ ...f, condition: e.target.value }))}>
+                      {CONDITION_OPTIONS.map(o => (
+                        <option key={o.value} value={o.value}>{o.label} · {o.label_en}</option>
                       ))}
                     </select>
                   </div>

@@ -1984,3 +1984,9 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 - 问题：按钮在没上传图片时是 disabled，用户不知道要先传图，只看到点不动。
 - 改法：按钮保持可点，没图时点一下在 Title 上方显示「Upload photos first.」，4 秒自动消失；title 提示同步改成「先上传图片再用」。
 - 有图时行为不变（读第一张图填 title/description/category）。
+
+## 2026-11-04 商品新旧度
+- 新增字段 `listings.condition`：new / used_6m / used_1y / used_1y_plus（全新 / 使用半年 / 使用一年 / 使用一年以上）。
+- 启动迁移自动加列，存量商品全部默认为 `new`（全新）。
+- 发帖与编辑表单都加了 Condition 下拉；Market 筛选条加「全新」chip，按条件属性过滤。
+- 后端 create 读取表单 `condition`，update 校验白名单，非法值返回 400。

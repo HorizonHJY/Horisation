@@ -66,6 +66,8 @@ class Listing(Base):
     description      = Column(Text, nullable=False)
     price            = Column(Float, nullable=False)
     category         = Column(String(50), nullable=False, default='other')
+    # 新旧度: new / used_6m / used_1y / used_1y_plus. Legacy rows backfill to 'new'.
+    condition        = Column(String(20), nullable=False, default='new')
     contact          = Column(String(200), nullable=False)
     original_price   = Column(Float, nullable=True)
     # Legacy single-field flavour: 'pickup' / 'delivery' / 'both'. Kept
@@ -187,6 +189,7 @@ def _migrate_columns():
         "ALTER TABLE listings ADD COLUMN delivery_fee REAL",
         "ALTER TABLE listings ADD COLUMN pickup_available INTEGER NOT NULL DEFAULT 1",
         "ALTER TABLE listings ADD COLUMN delivery_available INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE listings ADD COLUMN condition TEXT NOT NULL DEFAULT 'new'",
         "ALTER TABLE friend_requests ADD COLUMN message TEXT",
         "ALTER TABLE user ADD COLUMN contact_hidden BOOLEAN DEFAULT 0",
         "ALTER TABLE user ADD COLUMN wechat TEXT",
@@ -545,6 +548,7 @@ def _listing_to_dict(listing: Listing, seller_user: 'User | None' = None) -> dic
         'seller_display':   (seller_user.display_name or listing.seller_username) if seller_user else listing.seller_username,
         'seller_avatar':    seller_user.avatar_url if seller_user else None,
         'title':            listing.title,
+        'condition':        getattr(listing, 'condition', None) or 'new',
         'description':      listing.description,
         'price':            listing.price,
         'original_price':   listing.original_price,
@@ -830,7 +834,8 @@ def create_listing(seller: str, title: str, description: str,
                    delivery_type: str = 'pickup',
                    delivery_fee: float = None,
                    pickup_available: bool = None,
-                   delivery_available: bool = None) -> str:
+                   delivery_available: bool = None,
+                   condition: str = 'new') -> str:
     """Create a listing row and return its id."""
     # Clients may send the booleans directly, the legacy enum, or neither.
     # Normalise so the two booleans are the stored truth and the enum goes
@@ -846,6 +851,8 @@ def create_listing(seller: str, title: str, description: str,
         delivery_type = ('both' if pickup_available and delivery_available
                          else 'delivery' if delivery_available
                          else 'pickup')
+    if condition not in ('new', 'used_6m', 'used_1y', 'used_1y_plus'):
+        condition = 'new'
     listing = Listing(
         id=str(uuid.uuid4()),
         seller_username=seller,
@@ -858,6 +865,7 @@ def create_listing(seller: str, title: str, description: str,
         delivery_available=delivery_available,
         delivery_fee=delivery_fee,
         category=category,
+        condition=condition,
         contact=contact,
     )
     with Session() as s:
@@ -883,7 +891,7 @@ def add_image(listing_id: str, r2_url: str, r2_key: str, order: int) -> str:
 
 def update_listing(listing_id: str, seller: str, **fields) -> bool:
     """Update allowed text fields. Returns False if not found or wrong seller."""
-    allowed = {'title', 'description', 'price', 'original_price', 'category',
+    allowed = {'title', 'description', 'price', 'original_price', 'category', 'condition',
                'contact', 'delivery_type', 'delivery_fee',
                'pickup_available', 'delivery_available'}
     with Session() as s:
