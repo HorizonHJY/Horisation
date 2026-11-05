@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from typing import Optional, List
 
 from sqlalchemy import (
-    create_engine, Column, String, Text, Float, Integer, DateTime, ForeignKey, Boolean, text, func,
+    create_engine, Column, String, Text, Float, Integer, DateTime, Date, ForeignKey, Boolean, text, func,
     or_, and_,
 )
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
@@ -1918,3 +1918,190 @@ def delete_wanted(wanted_id: str, buyer: str) -> bool:
         if not w:
             return False
         s.delete(w); s.commit(); return True
+
+
+# ── Sublets (转租) ────────────────────────────────────────────────────────────
+# Short-term apartment rentals. Unlike Market listings these do not have a
+# price range, a condition grade, or any delivery semantics — they describe
+# a specific unit, a date window, and a few attributes. Expired windows drop
+# out of the public feed but stay visible to the owner under "My Sublets".
+
+SUBLET_LAYOUTS  = ('studio', '1b1b', '2b1b', '2b2b', '3b2b', '3b3b', '4b2b', 'other')
+SUBLET_FURNISHED = ('yes', 'no', 'partial')
+SUBLET_STATUSES  = ('open', 'taken', 'removed')
+
+
+class Sublet(Base):
+    __tablename__ = 'sublets'
+
+    id              = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    owner_username  = Column(String(100), nullable=False, index=True)
+    apartment       = Column(String(100), nullable=False)
+    rent            = Column(Float,        nullable=False)
+    start_date      = Column(Date,         nullable=False)
+    end_date        = Column(Date,         nullable=False)
+    layout          = Column(String(20),   nullable=False, default='other')
+    area            = Column(String(100),  nullable=False, default='')
+    furnished       = Column(String(20),   nullable=False, default='no')  # yes / no / partial
+    description     = Column(Text,         nullable=False, default='')
+    contact         = Column(String(200),  nullable=False, default='')
+    status          = Column(String(20),   nullable=False, default='open') # open / taken / removed
+    created_at      = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    updated_at      = Column(DateTime, nullable=False,
+                             default=lambda: datetime.now(timezone.utc),
+                             onupdate=lambda: datetime.now(timezone.utc))
+
+    images = relationship('SubletImage', back_populates='sublet',
+                          cascade='all, delete-orphan',
+                          order_by='SubletImage.display_order')
+
+
+class SubletImage(Base):
+    __tablename__ = 'sublet_images'
+
+    id            = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    sublet_id     = Column(String(36), ForeignKey('sublets.id'), nullable=False, index=True)
+    r2_url        = Column(String(500), nullable=False)
+    r2_key        = Column(String(500), nullable=False)
+    display_order = Column(Integer, nullable=False, default=0)
+
+    sublet = relationship('Sublet', back_populates='images')
+
+
+def _sublet_to_dict(row: Sublet, owner_user: 'User | None' = None) -> dict:
+    return {
+        'id':              row.id,
+        'owner_username':  row.owner_username,
+        'owner_display':   (owner_user.display_name or row.owner_username) if owner_user else row.owner_username,
+        'owner_avatar':    owner_user.avatar_url if owner_user else None,
+        'apartment':       row.apartment,
+        'rent':            row.rent,
+        'start_date':      row.start_date.isoformat() if row.start_date else None,
+        'end_date':        row.end_date.isoformat()   if row.end_date   else None,
+        'layout':          row.layout,
+        'area':            row.area or '',
+        'furnished':       row.furnished,
+        'description':     row.description or '',
+        'contact':         row.contact or '',
+        'status':          row.status,
+        'created_at':      row.created_at.isoformat() if row.created_at else None,
+        'updated_at':      row.updated_at.isoformat() if row.updated_at else None,
+        'images':          [{'id': img.id, 'url': img.r2_url, 'order': img.display_order}
+                            for img in row.images],
+    }
+
+
+def _enrich_sublets(rows: list, s) -> list[dict]:
+    usernames = list({r.owner_username for r in rows})
+    owners = {u.username: u for u in s.query(User).filter(User.username.in_(usernames)).all()}
+    return [_sublet_to_dict(r, owners.get(r.owner_username)) for r in rows]
+
+
+def create_sublet(owner: str, apartment: str, rent: float,
+                  start_date, end_date,
+                  layout: str = 'other', area: str = '',
+                  furnished: str = 'no', description: str = '',
+                  contact: str = '') -> str:
+    if layout not in SUBLET_LAYOUTS:
+        layout = 'other'
+    if furnished not in SUBLET_FURNISHED:
+        furnished = 'no'
+    row = Sublet(
+        id=str(uuid.uuid4()),
+        owner_username=owner,
+        apartment=apartment,
+        rent=rent,
+        start_date=start_date,
+        end_date=end_date,
+        layout=layout,
+        area=area or '',
+        furnished=furnished,
+        description=description or '',
+        contact=contact or '',
+    )
+    with Session() as s:
+        s.add(row); s.commit(); return row.id
+
+
+def add_sublet_image(sublet_id: str, r2_url: str, r2_key: str, order: int) -> str:
+    img = SubletImage(id=str(uuid.uuid4()), sublet_id=sublet_id,
+                      r2_url=r2_url, r2_key=r2_key, display_order=order)
+    with Session() as s:
+        s.add(img); s.commit(); return img.id
+
+
+def get_sublet(sublet_id: str) -> Optional[dict]:
+    with Session() as s:
+        row = s.query(Sublet).filter_by(id=sublet_id).first()
+        if not row:
+            return None
+        owner = s.query(User).filter_by(username=row.owner_username).first()
+        return _sublet_to_dict(row, owner)
+
+
+def list_sublets() -> list[dict]:
+    """Public feed: open posts whose end_date has not already passed."""
+    from datetime import date as _date
+    today = _date.today()
+    with Session() as s:
+        rows = (s.query(Sublet)
+                 .filter(Sublet.status == 'open')
+                 .filter(Sublet.end_date >= today)
+                 .order_by(Sublet.created_at.desc()).all())
+        return _enrich_sublets(rows, s)
+
+
+def list_my_sublets(owner: str) -> list[dict]:
+    """Everything this owner has posted (open / taken / removed, even expired)."""
+    with Session() as s:
+        rows = (s.query(Sublet)
+                 .filter(Sublet.owner_username == owner)
+                 .filter(Sublet.status != 'removed')
+                 .order_by(Sublet.created_at.desc()).all())
+        return _enrich_sublets(rows, s)
+
+
+def update_sublet(sublet_id: str, owner: str, **fields) -> bool:
+    allowed = {'apartment', 'rent', 'start_date', 'end_date',
+               'layout', 'area', 'furnished', 'description', 'contact'}
+    with Session() as s:
+        row = s.query(Sublet).filter_by(id=sublet_id, owner_username=owner).first()
+        if not row or row.status == 'removed':
+            return False
+        for k, v in fields.items():
+            if k in allowed:
+                setattr(row, k, v)
+        row.updated_at = datetime.now(timezone.utc)
+        s.commit(); return True
+
+
+def mark_sublet_taken(sublet_id: str, owner: str) -> bool:
+    with Session() as s:
+        row = s.query(Sublet).filter_by(id=sublet_id, owner_username=owner, status='open').first()
+        if not row:
+            return False
+        row.status = 'taken'
+        row.updated_at = datetime.now(timezone.utc)
+        s.commit(); return True
+
+
+def reopen_sublet(sublet_id: str, owner: str) -> bool:
+    with Session() as s:
+        row = s.query(Sublet).filter_by(id=sublet_id, owner_username=owner, status='taken').first()
+        if not row:
+            return False
+        row.status = 'open'
+        row.updated_at = datetime.now(timezone.utc)
+        s.commit(); return True
+
+
+def remove_sublet(sublet_id: str, owner: str) -> Optional[list]:
+    """Hard-delete a sublet and its image rows. Returns the r2_keys to clean
+    up in R2, or None if the row does not exist or the caller is not owner."""
+    with Session() as s:
+        row = s.query(Sublet).filter_by(id=sublet_id, owner_username=owner).first()
+        if not row:
+            return None
+        r2_keys = [img.r2_key for img in row.images]
+        s.delete(row); s.commit()
+        return r2_keys

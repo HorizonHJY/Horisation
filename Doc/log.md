@@ -2009,3 +2009,10 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 - 晴 → 弯月 + 5 颗错开闪烁的星；多云间晴 → 月牙在云后 + 2 颗星。
 - 雨 / 雪 / 雷 / 雾 夜间保留原动画，只把插画底调成夜色渐变，云与雾条转深色。
 - 星星闪烁同样受 prefers-reduced-motion 约束。
+
+## 2026-11-05 转租 Sublets P1
+- 新表 `sublets` / `sublet_images`（照 Wanted 的做法，不动 listings）。
+- 字段：公寓名称、月租、起止日期、房型、区域、家具、描述、最多 3 张图、状态 open/taken/removed。
+- 接口 8 个，挂在 /api/market 下：列表 / 我的 / 详情 / 新建 / 编辑 / 删除 / 标记已转出 / 重新开放。游客可浏览，登录可发。
+- 过期规则：结束日期已过的帖子从公开列表隐藏，「我的转租」仍可见。
+- 前端新增 /sublets 页面（Browse / My Sublets / Post 三个 tab）与导航入口（Market 下面）。

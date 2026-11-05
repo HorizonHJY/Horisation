@@ -639,3 +639,207 @@ def autofill_listing_route():
         return jsonify({'ok': False, 'error': 'This photo does not look like a product.'}), 400
 
     return jsonify({'ok': True, 'draft': result.data or {}, 'raw': result.text})
+
+
+# ── Sublets (转租) ────────────────────────────────────────────────────────────
+# Short-term apartment rentals. Separate table/model from listings; same image
+# upload pipeline (R2, up to MAX_IMAGES), owner-only mutations, open feed
+# auto-hides past end_date.
+
+_SUBLET_LAYOUTS   = {'studio', '1b1b', '2b1b', '2b2b', '3b2b', '3b3b', '4b2b', 'other'}
+_SUBLET_FURNISHED = {'yes', 'no', 'partial'}
+
+
+def _parse_sublet_date(raw):
+    """Accept 'YYYY-MM-DD' (with optional time); reject everything else."""
+    from datetime import date, datetime as _dt
+    if not raw:
+        return None
+    raw = str(raw).strip()
+    if not raw:
+        return None
+    # 'YYYY-MM-DD' is what <input type=date> sends; some clients may send ISO datetime.
+    try:
+        return _dt.fromisoformat(raw).date()
+    except ValueError:
+        try:
+            return _dt.strptime(raw, '%Y-%m-%d').date()
+        except ValueError:
+            return None
+
+
+def _parse_sublet_form(form, files):
+    """Return (clean_fields, error_msg). error_msg is None on success."""
+    apartment   = (form.get('apartment') or '').strip()
+    area        = (form.get('area') or '').strip()
+    description = (form.get('description') or '').strip()
+    contact     = (form.get('contact') or '').strip()
+    layout      = (form.get('layout') or 'other').strip()
+    furnished   = (form.get('furnished') or 'no').strip()
+
+    if not apartment:
+        return {}, '公寓名称不能为空。'
+    if len(apartment) > 80:
+        return {}, '公寓名称不能超过 80 个字。'
+
+    try:
+        rent = float(form.get('rent') or '')
+    except (TypeError, ValueError):
+        return {}, '月租金额必须是数字。'
+    if rent <= 0:
+        return {}, '月租金额必须大于 0。'
+
+    start_date = _parse_sublet_date(form.get('start_date'))
+    end_date   = _parse_sublet_date(form.get('end_date'))
+    if not start_date:
+        return {}, '请填写合法的开始日期。'
+    if not end_date:
+        return {}, '请填写合法的结束日期。'
+    if start_date > end_date:
+        return {}, '结束日期不能早于开始日期。'
+
+    if layout not in _SUBLET_LAYOUTS:
+        return {}, '房型值不合法。'
+    if furnished not in _SUBLET_FURNISHED:
+        return {}, '是否带家具的值不合法。'
+
+    if files is not None and len(files) > MAX_IMAGES:
+        return {}, f'最多只能上传 {MAX_IMAGES} 张图片。'
+
+    return {
+        'apartment':   apartment[:80],
+        'rent':        rent,
+        'start_date':  start_date,
+        'end_date':    end_date,
+        'layout':      layout,
+        'area':        area[:100],
+        'furnished':   furnished,
+        'description': description,
+        'contact':     contact[:200],
+    }, None
+
+
+@market_bp.route('/sublets', methods=['GET'])
+@login_optional
+def list_sublets_route():
+    """Public feed: open sublets whose end_date has not already passed."""
+    return jsonify({'ok': True, 'items': market_db.list_sublets()})
+
+
+@market_bp.route('/sublets/mine', methods=['GET'])
+@login_required
+def my_sublets_route():
+    me = request.current_user['username']
+    return jsonify({'ok': True, 'items': market_db.list_my_sublets(me)})
+
+
+@market_bp.route('/sublets/<sublet_id>', methods=['GET'])
+@login_optional
+def get_sublet_route(sublet_id):
+    item = market_db.get_sublet(sublet_id)
+    if not item:
+        return jsonify({'ok': False, 'error': '转租信息不存在。'}), 404
+    return jsonify({'ok': True, 'item': item})
+
+
+@market_bp.route('/sublets', methods=['POST'])
+@login_required
+def create_sublet_route():
+    me = request.current_user['username']
+    files = request.files.getlist('images')
+    fields, err = _parse_sublet_form(request.form, files)
+    if err:
+        return jsonify({'ok': False, 'error': err}), 400
+
+    for f in files:
+        if f and f.filename:
+            v_err = _validate_image(f)
+            if v_err:
+                return jsonify({'ok': False, 'error': v_err}), 400
+
+    sublet_id = market_db.create_sublet(owner=me, **fields)
+
+    uploaded_keys = []
+    try:
+        for order, f in enumerate(files):
+            if f and f.filename:
+                r2_key, r2_url = r2_manager.upload_image(f.stream, f.filename, prefix='sublets')
+                market_db.add_sublet_image(sublet_id, r2_url, r2_key, order)
+                uploaded_keys.append(r2_key)
+    except Exception as e:
+        for key in uploaded_keys:
+            r2_manager.delete_image(key)
+        market_db.remove_sublet(sublet_id, me)
+        return jsonify({'ok': False, 'error': f'图片上传失败: {str(e)}'}), 500
+
+    return jsonify({'ok': True, 'item': market_db.get_sublet(sublet_id)}), 201
+
+
+@market_bp.route('/sublets/<sublet_id>', methods=['PUT'])
+@login_required
+def update_sublet_route(sublet_id):
+    me = request.current_user['username']
+    existing = market_db.get_sublet(sublet_id)
+    if not existing:
+        return jsonify({'ok': False, 'error': '转租信息不存在。'}), 404
+    if existing['owner_username'] != me:
+        return jsonify({'ok': False, 'error': '只有发布者可以编辑。'}), 403
+
+    files = request.files.getlist('images')
+    # On edit, images are additive when supplied; empty = keep existing set.
+    existing_image_count = len(existing.get('images') or [])
+    new_files = [f for f in files if f and f.filename]
+    if existing_image_count + len(new_files) > MAX_IMAGES:
+        return jsonify({'ok': False, 'error': f'最多只能上传 {MAX_IMAGES} 张图片。'}), 400
+
+    fields, err = _parse_sublet_form(request.form, new_files)
+    if err:
+        return jsonify({'ok': False, 'error': err}), 400
+
+    for f in new_files:
+        v_err = _validate_image(f)
+        if v_err:
+            return jsonify({'ok': False, 'error': v_err}), 400
+
+    if not market_db.update_sublet(sublet_id, me, **fields):
+        return jsonify({'ok': False, 'error': '编辑失败。'}), 400
+
+    if new_files:
+        try:
+            for i, f in enumerate(new_files):
+                r2_key, r2_url = r2_manager.upload_image(f.stream, f.filename, prefix='sublets')
+                market_db.add_sublet_image(sublet_id, r2_url, r2_key, existing_image_count + i)
+        except Exception as e:
+            return jsonify({'ok': False, 'error': f'图片上传失败: {str(e)}'}), 500
+
+    return jsonify({'ok': True, 'item': market_db.get_sublet(sublet_id)})
+
+
+@market_bp.route('/sublets/<sublet_id>', methods=['DELETE'])
+@login_required
+def delete_sublet_route(sublet_id):
+    me = request.current_user['username']
+    r2_keys = market_db.remove_sublet(sublet_id, me)
+    if r2_keys is None:
+        return jsonify({'ok': False, 'error': '转租信息不存在或没有权限。'}), 404
+    for key in r2_keys:
+        r2_manager.delete_image(key)
+    return jsonify({'ok': True})
+
+
+@market_bp.route('/sublets/<sublet_id>/taken', methods=['POST'])
+@login_required
+def mark_sublet_taken_route(sublet_id):
+    me = request.current_user['username']
+    if not market_db.mark_sublet_taken(sublet_id, me):
+        return jsonify({'ok': False, 'error': '转租信息不存在、已标记,或没有权限。'}), 400
+    return jsonify({'ok': True, 'item': market_db.get_sublet(sublet_id)})
+
+
+@market_bp.route('/sublets/<sublet_id>/reopen', methods=['POST'])
+@login_required
+def reopen_sublet_route(sublet_id):
+    me = request.current_user['username']
+    if not market_db.reopen_sublet(sublet_id, me):
+        return jsonify({'ok': False, 'error': '转租信息不存在,或当前不是已转出状态。'}), 400
+    return jsonify({'ok': True, 'item': market_db.get_sublet(sublet_id)})

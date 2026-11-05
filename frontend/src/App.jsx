@@ -16,6 +16,7 @@ import AdminUsers from './pages/AdminUsers'
 import SystemManagement from './pages/SystemManagement'
 import OnlineGomoku from './pages/fun/OnlineGomoku'
 import Market from './pages/Market'
+import Sublets from './pages/Sublets'
 import Feedback from './pages/Feedback'
 import Friends from './pages/Friends'
 import Groups from './pages/Groups'
@@ -385,6 +386,7 @@ export default function App() {
             <Route path="/market"                    element={<Market />} />
             <Route path="/market/l/:listingId"       element={<Market />} />
             <Route path="/market/u/:sellerUsername"  element={<Market />} />
+            <Route path="/sublets"                   element={<Sublets />} />
             <Route path="/feedback"          element={<Feedback />} />
             <Route path="/tasks"             element={<Tasks />} />
             <Route path="/tarot"             element={<Tarot />} />

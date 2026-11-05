@@ -11,6 +11,7 @@
 import {
   Home,
   Store,
+  KeyRound,
   Megaphone,
   MessageSquare,
   UserRound,
@@ -40,6 +41,7 @@ export const NAV_SECTIONS = [
     key: 'community', title: 'Community',
     items: [
       { to: '/market',   icon: Store,         label: 'Market',        guest: true },
+      { to: '/sublets',  icon: KeyRound,      label: 'Sublets 转租',  guest: true },
       { to: '/tasks',    icon: Megaphone,     label: 'Tasks',         guest: true },
       { to: '/feedback', icon: MessageSquare, label: 'Message Board', guest: true },
       { to: '/friends',  icon: UserRound,     label: 'Friends' },
