@@ -1992,3 +1992,7 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 - 启动迁移自动加列，存量商品全部默认为 `new`（全新）。
 - 发帖与编辑表单都加了 Condition 下拉；Market 筛选条加「全新」chip，按条件属性过滤。
 - 后端 create 读取表单 `condition`，update 校验白名单，非法值返回 400。
+
+## 2026-11-04 留言板只显示昵称
+- Feedback 页不再显示 `@username`，只显示 display_name；没有昵称时回退到 username，但不再加 @ 前缀。
+- 头像和名字点击跳个人主页的行为保留。

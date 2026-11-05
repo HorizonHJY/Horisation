@@ -75,9 +75,8 @@ function MsgCard({ m, topLevelId, currentUser, isAdmin, isReply, onLike, onReply
         </button>
         <div className="flex-grow-1 overflow-hidden">
           <span className="fw-semibold" style={{ fontSize: isReply ? '.88rem' : '1rem' }}>
-            {m.display_name}
+            {m.display_name || m.username}
           </span>
-          <span className="text-muted ms-1" style={{ fontSize: '.78rem' }}>@{m.username}</span>
         </div>
         <span className="text-muted" style={{ fontSize: '.75rem', flexShrink: 0 }}>
           {timeAgo(m.created_at)}
