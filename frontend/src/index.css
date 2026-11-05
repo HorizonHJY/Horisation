@@ -3954,7 +3954,14 @@ button.fr-chip:hover { filter: brightness(.96); }
                          92%         { opacity: 0.2; } }
 @keyframes wc-fog-drift { 0%   { transform: translateX(-30px); }
                           100% { transform: translateX(30px);  } }
+@keyframes wc-twinkle   { 0%,100% { opacity: .35; } 50% { opacity: 1; } }
 
+/* Night scenes get a cool, dim backdrop painted via the SVG background. */
+.wc-svg.wc-night {
+  background: linear-gradient(180deg, #121a2e 0%, #1e2a44 60%, #2a3758 100%);
+  border-radius: 12px;
+}
+.wc-star       { animation: wc-twinkle 3.2s ease-in-out infinite; }
 .wc-sun-rays  { animation: wc-spin   60s linear infinite; }
 .wc-halo      { animation: wc-halo    4s ease-in-out infinite;
                 transform-origin: center; transform-box: fill-box; }
@@ -3974,7 +3981,7 @@ button.fr-chip:hover { filter: brightness(.96); }
   .wc-sun-rays, .wc-halo,
   .wc-drift-slow, .wc-drift-mid, .wc-drift-fast,
   .wc-raindrop, .wc-snowflake, .wc-bolt,
-  .wc-fog-band {
+  .wc-fog-band, .wc-star {
     animation: none !important;
   }
 }
