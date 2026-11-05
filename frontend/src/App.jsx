@@ -28,6 +28,7 @@ import Tarot from './pages/Tarot'
 import TarotHistory from './pages/TarotHistory'
 import Bazi from './pages/Bazi'
 import Mbti from './pages/Mbti'
+import About from './pages/About'
 
 // ── Theme Context ────────────────────────────────────────────────
 export const ThemeContext = createContext(null)
@@ -405,6 +406,7 @@ export default function App() {
             <Route path="/travel"            element={<PrivateRoute><TravelPlanner /></PrivateRoute>} />
             <Route path="/bill-split"        element={<PrivateRoute><FeatureRoute feature="billSplit"><BillSplit /></FeatureRoute></PrivateRoute>} />
             <Route path="/tarot/history"     element={<PrivateRoute><TarotHistory /></PrivateRoute>} />
+            <Route path="/about"             element={<PrivateRoute><About /></PrivateRoute>} />
           </Route>
 
           <Route path="*" element={<Navigate to="/home" replace />} />

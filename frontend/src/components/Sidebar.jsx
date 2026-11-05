@@ -48,6 +48,9 @@ const Sidebar = forwardRef(function Sidebar(
   const allowed = (item) => {
     if (!user && !item.guest) return false
     if (item.feature && !canAccess(user?.role, item.feature)) return false
+    // ownerOnly pins an item to one username — used for private pages that
+    // are not yet public to the rest of the membership.
+    if (item.ownerOnly && user?.username !== item.ownerOnly) return false
     return true
   }
 

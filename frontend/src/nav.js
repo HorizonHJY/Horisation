@@ -23,6 +23,7 @@ import {
   Route,
   Receipt,
   Brain,
+  BookUser,
 } from 'lucide-react'
 
 /* `guest` says whether a signed-out visitor can open this page. The sidebar
@@ -34,7 +35,10 @@ export const NAV_SECTIONS = [
   {
     key: 'main', title: 'Main',
     items: [
-      { to: '/home', icon: Home, label: 'Home', guest: true },
+      { to: '/home',  icon: Home,     label: 'Home',  guest: true },
+      /* Personal profile page. Private until it opens up to every member;
+         Sidebar only renders it when the signed-in username matches. */
+      { to: '/about', icon: BookUser, label: 'About', ownerOnly: 'horizon' },
     ],
   },
   {

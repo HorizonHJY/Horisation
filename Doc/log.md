@@ -2016,3 +2016,13 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 - 接口 8 个，挂在 /api/market 下：列表 / 我的 / 详情 / 新建 / 编辑 / 删除 / 标记已转出 / 重新开放。游客可浏览，登录可发。
 - 过期规则：结束日期已过的帖子从公开列表隐藏，「我的转租」仍可见。
 - 前端新增 /sublets 页面（Browse / My Sublets / Post 三个 tab）与导航入口（Market 下面）。
+
+## 2026-11-05 商品分享预览卡（OG）
+- 新增 `/market/l/<id>`：爬虫 UA（WhatsApp / 微信 / Telegram / Slack / Twitter 等）拿到带 og:title / og:description / og:image / product:price 的静态 HTML；真人 UA 照旧落到 SPA。
+- 无图商品不输出 og:image；不存在的 id 返回 404 文字页。
+- `frontend/index.html` 补了一组默认 og/twitter 标签，其它页面被转发时不再是白板。
+
+## 2026-11-05 个人介绍页
+- 新增 `/about`，目前仅主人可见：导航项只在 `username === horizon` 时渲染，直接访问对其他人显示「该页面尚未公开」。
+- 结构：Hero（头像首字母 + 名字 + 一句话 + 所在城市）、现在在做什么、时间线、我在做的事、联系方式。
+- 内容先写在组件的 `PROFILE` 常量里，后续可抽成数据源开放给每位成员。

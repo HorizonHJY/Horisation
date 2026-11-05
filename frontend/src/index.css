@@ -4729,3 +4729,234 @@ button.fr-chip:hover { filter: brightness(.96); }
   .sl-card__price { font-size: 1rem; }
   .sl-detail__price { font-size: 1.2rem; }
 }
+
+/* ═══ About — personal profile page ════════════════════════════════
+   Private until it opens to every member. Shares tokens with the rest
+   of the app so it reads as one site; no new palette, no new type. */
+.about-page {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 4px 0 48px;
+}
+
+/* Empty state for visitors before the page is public. */
+.about-empty {
+  max-width: 520px;
+  margin: 10vh auto 0;
+  text-align: center;
+  padding: 0 16px;
+}
+.about-empty__title {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  margin: 0 0 10px;
+}
+.about-empty__body {
+  color: var(--text-muted);
+  font-family: var(--font-serif-cn);
+  font-size: .95rem;
+  line-height: 1.7;
+}
+
+/* Hero: avatar + name + one line. */
+.about-hero {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 22px 22px 24px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 22px;
+}
+.about-hero__avatar {
+  flex-shrink: 0;
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-solid);
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 2.1rem;
+  overflow: hidden;
+}
+.about-hero__avatar img { width: 100%; height: 100%; object-fit: cover; }
+.about-hero__meta { min-width: 0; }
+.about-hero__name {
+  font-family: var(--font-display);
+  font-size: 1.9rem;
+  margin: 0 0 6px;
+  letter-spacing: -0.015em;
+}
+.about-hero__tagline {
+  font-family: var(--font-serif-cn);
+  font-size: 1rem;
+  color: var(--text-secondary);
+  margin: 0 0 8px;
+  line-height: 1.55;
+}
+.about-hero__location {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: .85rem;
+}
+.about-hero__location i { color: var(--accent); font-size: .78rem; }
+
+/* Section head — small eyebrow in English, title in Playfair. */
+.about-section { margin: 26px 0; }
+.about-section__head { margin-bottom: 14px; }
+.about-section__eyebrow {
+  display: block;
+  font-size: .72rem;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--accent-text);
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.about-section__title {
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+/* Now: plain stacked short lines, no bullets. */
+.about-now {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.about-now__item {
+  padding: 14px 18px;
+  font-family: var(--font-serif-cn);
+  font-size: .96rem;
+  line-height: 1.7;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-soft);
+}
+.about-now__item:last-child { border-bottom: 0; }
+
+/* Timeline: year column + line. Keeps alignment stable on narrow screens. */
+.about-timeline {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.about-timeline__row {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 14px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border-soft);
+  align-items: baseline;
+}
+.about-timeline__row:last-child { border-bottom: 0; }
+.about-timeline__year {
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--accent-text);
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+.about-timeline__text {
+  font-family: var(--font-serif-cn);
+  font-size: .95rem;
+  line-height: 1.7;
+  color: var(--text-primary);
+}
+
+/* Projects: two side-by-side cards on desktop, stacked on phones. */
+.about-projects {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+@media (min-width: 720px) {
+  .about-projects { grid-template-columns: 1fr 1fr; }
+}
+.about-projects__card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  box-shadow: var(--shadow-sm);
+}
+.about-projects__title {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  margin: 0 0 8px;
+}
+.about-projects__body {
+  font-family: var(--font-serif-cn);
+  font-size: .94rem;
+  line-height: 1.75;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* Contact: a filled primary button + a quiet mail link. */
+.about-contact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  align-items: center;
+}
+.about-contact__msg {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  min-height: var(--tap-min);
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--accent-solid);
+  color: #fff;
+  font-weight: 600;
+  font-size: .95rem;
+  cursor: pointer;
+  transition: background .15s;
+}
+.about-contact__msg:hover { background: var(--accent-solid-hover); }
+.about-contact__mail {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  min-height: var(--tap-min);
+  color: var(--text-secondary);
+  text-decoration: none;
+  border-radius: var(--radius-md);
+  font-size: .9rem;
+}
+.about-contact__mail:hover { color: var(--accent-text); background: var(--bg-subtle); }
+
+@media (max-width: 480px) {
+  .about-hero {
+    gap: 16px;
+    padding: 18px 16px 20px;
+  }
+  .about-hero__avatar { width: 68px; height: 68px; font-size: 1.7rem; }
+  .about-hero__name   { font-size: 1.55rem; }
+  .about-hero__tagline{ font-size: .95rem; }
+  .about-section__title { font-size: 1.2rem; }
+  .about-now__item,
+  .about-timeline__row,
+  .about-projects__card { padding-left: 14px; padding-right: 14px; }
+  .about-timeline__row  { grid-template-columns: 56px 1fr; gap: 10px; }
+}
