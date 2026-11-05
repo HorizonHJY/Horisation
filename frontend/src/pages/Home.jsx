@@ -1,7 +1,7 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../App'
-import WeatherGreeting from '../components/WeatherGreeting'
+import WeatherCard from '../components/WeatherCard'
 
 const FEATURES_MEMBER = [
   { icon: 'fa-clipboard-list', color: '#6b9cdb', title: 'Memo',          desc: 'Personal memo and task tracker.',       to: '/hormemo'  },
@@ -28,7 +28,7 @@ export default function Home() {
 
   return (
     <div>
-      <WeatherGreeting name={user?.display_name || 'friend'} />
+      <WeatherCard name={user?.display_name || 'friend'} />
 
       <h5 style={{
         fontFamily: "'Playfair Display', serif",

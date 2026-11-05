@@ -3836,6 +3836,167 @@ button.fr-chip:hover { filter: brightness(.96); }
   border-radius: 8px;
 }
 
+/* ── Animated weather card (home) ─────────────────────────────── */
+.wc-card { overflow: hidden; }
+.wc-grid {
+  display: grid;
+  grid-template-columns: minmax(180px, 40%) 1fr;
+  gap: 20px;
+  align-items: center;
+}
+.wc-illus {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  background: linear-gradient(160deg,
+              var(--bg-subtle, #efeae0) 0%,
+              var(--bg-surface, #fff) 100%);
+  border-radius: 14px;
+  border: 1px solid var(--border-soft, rgba(0,0,0,.06));
+  overflow: hidden;
+}
+.wc-svg { width: 100%; height: 100%; display: block; }
+.wc-info { min-width: 0; }
+.wc-greeting {
+  /* Already styled via .hero-title, but lock a tighter bottom margin in the card. */
+  margin-bottom: 4px !important;
+}
+.wc-meta {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  font-size: .9rem;
+  color: var(--text-muted, #666);
+  margin-bottom: 10px;
+}
+.wc-dot { opacity: .5; }
+.wc-city { color: var(--text-secondary, #475569); }
+.wc-temp-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 2px;
+}
+.wc-temp-big {
+  font-family: var(--font-display, Georgia, serif);
+  font-size: 3rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--text-primary, #111);
+}
+.wc-unit { font-size: .55em; margin-left: 2px; color: var(--text-muted, #666); font-weight: 500; }
+.wc-label {
+  font-size: 1rem;
+  color: var(--text-secondary, #475569);
+  font-style: italic;
+  font-family: var(--font-serif-cn, Georgia, serif);
+}
+.wc-feels {
+  font-size: .85rem;
+  color: var(--text-muted, #666);
+  margin-top: 4px;
+}
+.wc-tomorrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  font-size: .85rem;
+  color: var(--text-muted, #666);
+}
+.wc-tomorrow-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: .7rem;
+  letter-spacing: .02em;
+  color: var(--text-secondary, #475569);
+  background: var(--bg-subtle, rgba(0,0,0,.05));
+}
+.wc-tomorrow-label { font-style: italic; color: var(--text-secondary, #475569); }
+.wc-tomorrow-temp { color: var(--text-primary, #111); font-weight: 500; }
+.wc-tomorrow-temp .wc-hi,
+.wc-tomorrow-temp .wc-lo {
+  font-size: .72rem;
+  color: var(--text-muted, #666);
+  font-weight: 400;
+  margin-right: 2px;
+}
+.wc-placeholder {
+  font-size: .9rem;
+  color: var(--text-muted, #666);
+  font-style: italic;
+  padding: 8px 0 4px;
+}
+.wc-trend-toggle { margin-top: 16px; }
+
+/* SVG animations ------------------------------------------------- */
+@keyframes wc-spin   { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes wc-halo   { 0%,100% { opacity: .55; transform: scale(1); }
+                       50%     { opacity: .9;  transform: scale(1.08); } }
+@keyframes wc-drift  { 0%   { transform: translateX(-10px); }
+                       50%  { transform: translateX( 10px); }
+                       100% { transform: translateX(-10px); } }
+@keyframes wc-rainfall { 0%   { transform: translateY(-8px);  opacity: 0; }
+                         15%  { opacity: 1; }
+                         85%  { opacity: 1; }
+                         100% { transform: translateY(60px);  opacity: 0; } }
+@keyframes wc-snowfall { 0%   { transform: translate(0, -10px) rotate(0deg);  opacity: 0; }
+                         15%  { opacity: 1; }
+                         85%  { opacity: 1; }
+                         100% { transform: translate(6px, 70px) rotate(240deg); opacity: 0; } }
+@keyframes wc-flash    { 0%,88%,100% { opacity: 0; }
+                         90%,96%     { opacity: 1; }
+                         92%         { opacity: 0.2; } }
+@keyframes wc-fog-drift { 0%   { transform: translateX(-30px); }
+                          100% { transform: translateX(30px);  } }
+
+.wc-sun-rays  { animation: wc-spin   60s linear infinite; }
+.wc-halo      { animation: wc-halo    4s ease-in-out infinite;
+                transform-origin: center; transform-box: fill-box; }
+.wc-drift-slow { animation: wc-drift 18s ease-in-out infinite; }
+.wc-drift-mid  { animation: wc-drift 12s ease-in-out infinite; }
+.wc-drift-fast { animation: wc-drift  9s ease-in-out infinite; }
+.wc-raindrop   { animation: wc-rainfall 1.1s linear infinite; }
+.wc-snowflake  { animation: wc-snowfall 4s linear infinite; }
+.wc-bolt       { animation: wc-flash 3.5s ease-in-out infinite;
+                 transform-origin: 128px 100px; }
+.wc-fog-band   { animation: wc-fog-drift 10s ease-in-out infinite alternate; }
+.wc-fog-band--1 { animation-duration: 13s; animation-direction: alternate-reverse; }
+.wc-fog-band--2 { animation-duration: 16s; }
+.wc-fog-band--3 { animation-duration: 19s; animation-direction: alternate-reverse; }
+
+@media (prefers-reduced-motion: reduce) {
+  .wc-sun-rays, .wc-halo,
+  .wc-drift-slow, .wc-drift-mid, .wc-drift-fast,
+  .wc-raindrop, .wc-snowflake, .wc-bolt,
+  .wc-fog-band {
+    animation: none !important;
+  }
+}
+
+/* Responsive: stack on phones; the 390 px width target lives here. */
+@media (max-width: 640px) {
+  .wc-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  /* Phones: the illustration is the mood, not the message — keep it short so
+     temperature and tomorrow stay above the fold. */
+  .wc-illus { aspect-ratio: 16 / 9; max-height: 132px; }
+  .wc-temp-big { font-size: 2.5rem; }
+  .wc-label    { font-size: .95rem; }
+}
+/* Tablet — give the illustration a touch more room. */
+@media (min-width: 641px) and (max-width: 900px) {
+  .wc-grid { grid-template-columns: minmax(160px, 42%) 1fr; gap: 16px; }
+  .wc-temp-big { font-size: 2.6rem; }
+}
+
 /* ── MBTI ────────────────────────────────────────────────────────── */
 .mbti-page { padding: 24px 16px; }
 .mbti-page__inner { max-width: 760px; margin: 0 auto; }

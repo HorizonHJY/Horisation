@@ -1996,3 +1996,10 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 ## 2026-11-04 留言板只显示昵称
 - Feedback 页不再显示 `@username`，只显示 display_name；没有昵称时回退到 username，但不再加 @ 前缀。
 - 头像和名字点击跳个人主页的行为保留。
+
+## 2026-11-04 首页天气卡片
+- 新组件 `WeatherCard.jsx` 取代原来的天气文字行（`WeatherGreeting.jsx` 已无引用，删除）。
+- 7 个手写 SVG 场景随天气切换：晴 / 多云 / 阴 / 雨 / 大雨 / 雪 / 雷 / 雾，纯 CSS @keyframes，无新依赖。
+- 信息：问候语、日期（America/Chicago）、城市、当前温度、体感、明日高低温、30 天趋势入口。
+- 尊重 prefers-reduced-motion；手机端插画限高 132px，保证温度与明日在首屏。
+- 接口失败时渲染占位场景，不空白。
