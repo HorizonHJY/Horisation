@@ -5,7 +5,9 @@ API-only backend. All UI is served by the React SPA (frontend/dist/).
 """
 
 import os
-from flask import Flask, g, session, send_from_directory, jsonify
+import html
+import json
+from flask import Flask, g, session, send_from_directory, jsonify, request, Response
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 # Initialise database FIRST — blueprints import user_manager which needs tables
@@ -127,6 +129,98 @@ def load_logged_in_user():
             g.current_user = None
     else:
         g.current_user = None
+
+# ── Open Graph share card for market listings ────────────────────
+# Crawlers (WhatsApp, WeChat, Twitter, Facebook, Telegram, Slack, Discord,
+# LinkedIn…) fetch share URLs server-side and don't execute JS, so we need
+# the og:* tags in the initial HTML. Humans hitting the same URL get the
+# SPA, which already handles the /market/l/:listingId route client-side.
+_OG_BOT_SIGNATURES = (
+    'whatsapp', 'twitterbot', 'facebookexternalhit', 'facebot',
+    'linkedinbot', 'slackbot', 'telegrambot', 'discordbot', 'pinterest',
+    'skypeuripreview', 'embedly', 'quora link preview', 'redditbot',
+    'applebot', 'bingbot', 'googlebot', 'yandexbot', 'duckduckbot',
+    'mmsocial', 'wechat', 'micromessenger', 'mastodon', 'bluesky',
+    'okhttp', 'ia_archiver', 'bitlybot', 'vkshare',
+)
+
+def _is_share_crawler() -> bool:
+    ua = (request.headers.get('User-Agent') or '').lower()
+    return any(sig in ua for sig in _OG_BOT_SIGNATURES)
+
+
+@app.route('/market/l/<listing_id>')
+def market_share_card(listing_id: str):
+    from Backend.Controller.market_db import get_listing
+    listing = get_listing(listing_id)
+    if not listing:
+        body = (
+            '<!doctype html><html lang="en"><head>'
+            '<meta charset="utf-8">'
+            '<title>Listing not found · Arch Bay</title>'
+            '</head><body style="font-family:sans-serif;padding:40px;text-align:center">'
+            '<h1>Listing not found</h1>'
+            '<p>This item may have been removed.</p>'
+            '<p><a href="/market">Back to Arch Bay</a></p>'
+            '</body></html>'
+        )
+        return Response(body, status=404, mimetype='text/html; charset=utf-8')
+
+    # Humans: hand straight to the SPA, which routes /market/l/:listingId.
+    if not _is_share_crawler():
+        return send_from_directory(STATIC_DIR, 'index.html')
+
+    price = listing.get('price')
+    try:
+        price_str = f"${int(price)}" if price is not None and float(price).is_integer() else f"${price}"
+    except (TypeError, ValueError):
+        price_str = ''
+    title_raw = (listing.get('title') or 'Listing').strip()
+    title = f"{title_raw} · {price_str}" if price_str else title_raw
+    desc = (listing.get('description') or '').replace('\r', ' ').replace('\n', ' ').strip()
+    if len(desc) > 120:
+        desc = desc[:120].rstrip() + '…'
+    if not desc:
+        desc = f'For sale on Arch Bay{" — " + price_str if price_str else ""}.'
+
+    images = listing.get('images') or []
+    image_url = images[0].get('url') if images else None
+
+    page_url = f"{request.scheme}://{request.host}/market/l/{listing_id}"
+    spa_target = f"/market/l/{listing_id}"
+
+    e = html.escape
+    tags = [
+        f'<meta property="og:title" content="{e(title)}">',
+        f'<meta property="og:description" content="{e(desc)}">',
+        f'<meta property="og:url" content="{e(page_url)}">',
+        '<meta property="og:type" content="product">',
+        '<meta property="og:site_name" content="Arch Bay">',
+        '<meta name="twitter:card" content="summary_large_image">',
+        f'<meta name="twitter:title" content="{e(title)}">',
+        f'<meta name="twitter:description" content="{e(desc)}">',
+    ]
+    if image_url:
+        tags.append(f'<meta property="og:image" content="{e(image_url)}">')
+        tags.append(f'<meta name="twitter:image" content="{e(image_url)}">')
+    if price_str:
+        tags.append(f'<meta property="product:price:amount" content="{e(str(price))}">')
+
+    body = (
+        '<!doctype html><html lang="en"><head>'
+        '<meta charset="utf-8">'
+        f'<title>{e(title)}</title>'
+        + ''.join(tags) +
+        f'<meta http-equiv="refresh" content="0;url={e(spa_target)}">'
+        '</head><body>'
+        f'<p>Redirecting to <a href="{e(spa_target)}">{e(title)}</a>…</p>'
+        f'<script>window.location.replace({json.dumps(spa_target)});</script>'
+        '</body></html>'
+    )
+    resp = Response(body, mimetype='text/html; charset=utf-8')
+    resp.headers['Cache-Control'] = 'public, max-age=300'
+    return resp
+
 
 # ── Serve React SPA ──────────────────────────────────────────────
 @app.route('/', defaults={'path': ''})
