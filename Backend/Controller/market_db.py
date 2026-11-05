@@ -785,6 +785,22 @@ def count_listings(status: str = 'active') -> int:
         return s.query(func.count(Listing.id)).filter_by(status=status).scalar() or 0
 
 
+def count_new_listings_since(since: datetime, exclude_seller: Optional[str] = None) -> int:
+    """Active listings created strictly after `since`, optionally excluding a
+    seller (the viewer themselves). Timezone-naive and timezone-aware values
+    compare fine against the stored created_at column so callers can pass
+    either without an extra conversion step.
+    """
+    with Session() as s:
+        q = s.query(func.count(Listing.id)).filter(
+            Listing.status == 'active',
+            Listing.created_at > since,
+        )
+        if exclude_seller:
+            q = q.filter(Listing.seller_username != exclude_seller)
+        return q.scalar() or 0
+
+
 def get_reserved_listings_for_buyer(username: str) -> list[dict]:
     """Returns an empty list after the trade-intent flow was retired.
 

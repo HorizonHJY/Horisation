@@ -26,7 +26,8 @@ const Sidebar = forwardRef(function Sidebar(
 ) {
   const { user, logout } = useAuth()
   // Messages you have not read plus people waiting on an answer from you.
-  const { badgeTotal } = useNotifications()
+  // `marketNew` is independent of that total: it only tints the Market item.
+  const { badgeTotal, marketNew } = useNotifications()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -114,6 +115,11 @@ const Sidebar = forwardRef(function Sidebar(
                 {to === '/friends' && badgeTotal > 0 && (
                   <span className="badge bg-danger ms-auto" style={{ fontSize: '.65rem', minWidth: 18 }}>
                     {badgeTotal > 99 ? '99+' : badgeTotal}
+                  </span>
+                )}
+                {to === '/market' && marketNew > 0 && (
+                  <span className="badge bg-danger ms-auto" style={{ fontSize: '.65rem', minWidth: 18 }}>
+                    {marketNew > 99 ? '99+' : marketNew}
                   </span>
                 )}
               </NavLink>

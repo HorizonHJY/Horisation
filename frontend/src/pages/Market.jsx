@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, useId } from 'react'
 import { useNavigate, useParams, useSearchParams, useLocation, Link } from 'react-router-dom'
 import { api } from '../api'
-import { useAuth } from '../App'
+import { useAuth, useNotifications } from '../App'
 import HandLoader from '../components/HandLoader'
 import Modal, { ConfirmDialog } from '../components/Modal'
 import { fmtDateMed, fmtDateLong } from '../utils'
@@ -1066,6 +1066,15 @@ export default function Market() {
   const isAdmin    = user ? ['horizon', 'admin'].includes(user.role) : false
   const navigate   = useNavigate()
   const location   = useLocation()
+  const { clearMarketNew } = useNotifications() || {}
+
+  // Entering /market in any state (browse, wanted, deep-link detail, etc.)
+  // means the viewer has now seen what is new, so clear the sidebar dot and
+  // advance the stored "seen" timestamp.
+  useEffect(() => {
+    if (!user) return
+    if (typeof clearMarketNew === 'function') clearMarketNew()
+  }, [user, clearMarketNew])
   const { listingId, sellerUsername } = useParams()
   const [searchParams, setSearchParams] = useSearchParams()
   const formErrId = useId()

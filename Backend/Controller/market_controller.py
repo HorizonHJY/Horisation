@@ -234,7 +234,60 @@ def create_listing():
         return jsonify({'ok': False, 'error': f'Image upload failed: {str(e)}'}), 500
 
     listing = market_db.get_listing(listing_id)
+
+    # Fan out a new-listing event to every signed-in client except the
+    # seller themselves, so a sidebar red dot can appear without reloading.
+    # The payload is deliberately small; clients that care can fetch detail.
+    try:
+        from .socketio_instance import socketio, connected_users
+        payload = {
+            'id':     listing['id'],
+            'title':  listing.get('title'),
+            'price':  listing.get('price'),
+            'seller': listing.get('seller_username') or seller,
+        }
+        seen = set()
+        for u in list(connected_users.values()):
+            name = (u or {}).get('username')
+            if not name or name == seller or name in seen:
+                continue
+            seen.add(name)
+            socketio.emit('market_listing_new', payload, room=f'user_{name}')
+    except Exception:
+        # Fan-out is best-effort; a notification failure must not fail the
+        # listing creation that just succeeded on disk and in R2.
+        pass
+
     return jsonify({'ok': True, 'listing': listing}), 201
+
+
+# ── New-listing count since a timestamp ───────────────────────────────────────
+
+@market_bp.route('/new-count', methods=['GET'])
+@login_required
+def new_listing_count():
+    """How many active listings appeared after `since` that are not the
+    caller's own. Used by the sidebar red dot to recover the correct number
+    after a reload or a background tab waking up and missing socket events.
+    Missing or unparseable `since` returns 0 so a fresh client does not
+    count the entire catalogue as new.
+    """
+    from datetime import datetime, timezone
+    raw = (request.args.get('since') or '').strip()
+    if not raw:
+        return jsonify({'ok': True, 'count': 0})
+    try:
+        # Accept Z-suffixed ISO strings too.
+        since = datetime.fromisoformat(raw.replace('Z', '+00:00'))
+    except (ValueError, TypeError):
+        return jsonify({'ok': True, 'count': 0})
+    # SQLite stores created_at as naive UTC; normalise aware inputs the
+    # same way so the comparison is apples-to-apples.
+    if since.tzinfo is not None:
+        since = since.astimezone(timezone.utc).replace(tzinfo=None)
+    me = request.current_user['username']
+    count = market_db.count_new_listings_since(since, exclude_seller=me)
+    return jsonify({'ok': True, 'count': count})
 
 
 # ── Get single listing ────────────────────────────────────────────────────────

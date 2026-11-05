@@ -1,5 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
+
+// Where in localStorage the last time the sidebar's Market dot was cleared
+// lives. Per-browser rather than per-user, so the key is stable.
+const MARKET_SEEN_KEY = 'archbay.market.seen'
 import { api, setLoginRequiredHandler } from './api'
 
 import Layout from './components/Layout'
@@ -75,9 +79,36 @@ const SNAPSHOT_INTERVAL_MS = 5 * 60 * 1000
 function NotificationsProvider({ children }) {
   const { user } = useAuth()
   const { socket } = useSocket()
+  const location = useLocation()
   const [unreadMap, setUnreadMap]           = useState({})
   const [friendRequests, setFriendRequests] = useState([])
   const [contactRequests, setContactRequests] = useState([])
+  // New-listing counter for the sidebar Market item. Reset on login/logout
+  // and whenever the viewer actually visits /market (see clearMarketNew).
+  const [marketNew, setMarketNew]           = useState(0)
+
+  // The viewer's current path, read inside the socket handler so it never
+  // sees a stale value: a listing that lands while the user is on /market
+  // must not bump the count.
+  const onMarketRef = React.useRef(false)
+  useEffect(() => {
+    onMarketRef.current = (location?.pathname || '').startsWith('/market')
+  }, [location?.pathname])
+
+  const refreshMarketNew = useCallback(async () => {
+    if (!user) return
+    let seen
+    try { seen = localStorage.getItem(MARKET_SEEN_KEY) } catch { seen = null }
+    if (!seen) {
+      // First time this browser sees a logged-in user: anchor "new" at now
+      // so the existing catalogue is not counted as unread.
+      try { seen = new Date().toISOString(); localStorage.setItem(MARKET_SEEN_KEY, seen) }
+      catch { seen = new Date().toISOString() }
+    }
+    const d = await api.get(`/api/market/new-count?since=${encodeURIComponent(seen)}`)
+    if (!d.ok) return
+    setMarketNew(Number(d.count) || 0)
+  }, [user])
 
   const refresh = useCallback(async () => {
     if (!user) return
@@ -91,17 +122,21 @@ function NotificationsProvider({ children }) {
   useEffect(() => {
     if (!user) {
       setUnreadMap({}); setFriendRequests([]); setContactRequests([])
+      setMarketNew(0)
       return
     }
     refresh()
-    const id = setInterval(refresh, SNAPSHOT_INTERVAL_MS)
+    refreshMarketNew()
+    const id = setInterval(() => { refresh(); refreshMarketNew() }, SNAPSHOT_INTERVAL_MS)
 
     /* Browsers throttle and eventually suspend sockets in a background tab —
        phones especially — so events can be missed while you are away and the
        badge goes quietly stale. Re-syncing the moment the tab comes back is
        what stops that needing a manual refresh; the slow timer alone would
        leave it wrong for minutes. */
-    const onVisible = () => { if (document.visibilityState === 'visible') refresh() }
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') { refresh(); refreshMarketNew() }
+    }
     document.addEventListener('visibilitychange', onVisible)
     window.addEventListener('focus', onVisible)
 
@@ -110,7 +145,7 @@ function NotificationsProvider({ children }) {
       document.removeEventListener('visibilitychange', onVisible)
       window.removeEventListener('focus', onVisible)
     }
-  }, [user, refresh])
+  }, [user, refresh, refreshMarketNew])
 
   // Live updates. Registered here rather than on a page so they arrive
   // wherever the user happens to be.
@@ -134,6 +169,14 @@ function NotificationsProvider({ children }) {
       setUnreadMap(prev => ({ ...prev, [msg.sender]: (prev[msg.sender] || 0) + 1 }))
     }
     const onFriendAccepted = () => refresh()
+    const onMarketNew = (payload) => {
+      // Server already filters out the seller, but keep a client-side guard
+      // for the case where multiple tabs of the same user are open and the
+      // seller's own tab somehow receives the fan-out.
+      if (!payload || payload.seller === user.username) return
+      if (onMarketRef.current) return   // already looking at it
+      setMarketNew(n => n + 1)
+    }
 
     socket.on('connect', onConnect)
     socket.on('friend_request_incoming', onFriendRequest)
@@ -141,6 +184,7 @@ function NotificationsProvider({ children }) {
     socket.on('contact_request_resolved', onContactResolved)
     socket.on('chat_message', onChatMessage)
     socket.on('friend_accepted', onFriendAccepted)
+    socket.on('market_listing_new', onMarketNew)
 
     return () => {
       socket.off('connect', onConnect)
@@ -149,11 +193,20 @@ function NotificationsProvider({ children }) {
       socket.off('contact_request_resolved', onContactResolved)
       socket.off('chat_message', onChatMessage)
       socket.off('friend_accepted', onFriendAccepted)
+      socket.off('market_listing_new', onMarketNew)
     }
   }, [socket, user, refresh])
 
   const clearUnread = useCallback((username) => {
     setUnreadMap(prev => { const n = { ...prev }; delete n[username]; return n })
+  }, [])
+
+  /** The Market page calls this on entry; the sidebar dot disappears and
+      the stored "seen" timestamp advances so a reload does not resurrect it. */
+  const clearMarketNew = useCallback(() => {
+    setMarketNew(0)
+    try { localStorage.setItem(MARKET_SEEN_KEY, new Date().toISOString()) }
+    catch { /* private mode: dot still clears for this session */ }
   }, [])
 
   const bumpUnread = useCallback((username) => {
@@ -183,6 +236,7 @@ function NotificationsProvider({ children }) {
     <NotificationsContext.Provider value={{
       unreadMap, total, badgeTotal,
       friendRequests, contactRequests,
+      marketNew, clearMarketNew,
       refresh, clearUnread, bumpUnread,
       dismissContactRequest, dismissFriendRequest, contactRequestFrom,
     }}>

@@ -2033,3 +2033,7 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 - 清掉写死的紫色渐变、靛蓝牌背斜纹、金色描边；牌背保留斜纹结构但改成低对比的米色+粉蓝。
 - 对比度修整：浅底上的浅色文字改深色，按钮 hover 改成实色底+白字，深阴影降透明度。
 - 动画与 prefers-reduced-motion 未改。
+
+## 2026-11-05 市集新上架红点
+- 后端：新建商品成功后向其他在线用户广播 `market_listing_new`（不发给自己）；新增 `GET /api/market/new-count?since=<ISO>`，只算 since 之后、active、非本人发布的条数。
+- 前端：NotificationsProvider 维护 `marketNew`，登录时/定时/切回标签页时用 `archbay.market.seen` 校准；侧边栏 Market 项显示红点数字；进入 /market 清空并写新的 seen 时间。
