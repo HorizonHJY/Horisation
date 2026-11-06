@@ -2047,6 +2047,35 @@ textarea.form-control { height: auto; padding: .55rem .85rem; line-height: 1.55;
 .tarot-hist__body > .tarot-read__summary { margin-top: 16px; }
 .tarot-hist__pos-card { font-family: var(--font-serif-cn); letter-spacing: 0; text-transform: none; color: var(--t-ink-dim); }
 .tarot-hist__note { margin: 14px 0 0; font-family: var(--font-serif-cn); font-style: italic; color: var(--t-ink-dim); }
+.tarot-hist__rate {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+  margin-top: 16px;
+  font-family: var(--font-body);
+  font-size: .82rem;
+  color: var(--t-ink-dim);
+}
+.tarot-hist__rate-label { display: inline-flex; align-items: baseline; gap: 6px; }
+.tarot-hist__rate-label .label-zh { font-family: var(--font-serif-cn); font-size: .88em; }
+.tarot-hist__rate-stars { display: inline-flex; gap: 2px; }
+.tarot-hist__rate-star {
+  appearance: none; background: none; border: 0; padding: 4px;
+  font-size: 1rem; line-height: 1;
+  color: rgba(26, 26, 26, .22);
+  cursor: pointer;
+  transition: color .15s, transform .1s;
+}
+.tarot-hist__rate-star:hover, .tarot-hist__rate-star:focus-visible { color: #6ea8d6; outline: none; }
+.tarot-hist__rate-star.is-on { color: var(--t-gilt); }
+.tarot-hist__rate-star:disabled { cursor: default; opacity: .6; }
+.tarot-hist__rate-star:active { transform: scale(.92); }
+.tarot-hist__rate-err {
+  color: #b23a3a; font-size: .78rem;
+  animation: tarot-rate-fade 3.6s forwards;
+}
+@keyframes tarot-rate-fade {
+  0%, 80% { opacity: 1; }
+  100% { opacity: 0; }
+}
 .tarot-hist__empty { text-align: center; padding: 40px 0; color: var(--t-ink-dim); font-family: var(--font-body); }
 .tarot-hist__empty .tarot__btn { display: inline-block; margin-top: 14px; text-decoration: none; }
 @media (max-width: 767.98px) {

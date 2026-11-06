@@ -36,7 +36,50 @@ function Stars({ value }) {
   )
 }
 
-function Row({ item }) {
+function RateRow({ id, value, onChange }) {
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const [hover, setHover] = useState(0)
+
+  const rate = async (n) => {
+    if (busy || n === value) return
+    setBusy(true); setErr('')
+    const d = await api.post(`/api/tarot/readings/${id}/rating`, { rating: n })
+    setBusy(false)
+    if (!d.ok) { setErr(d.error || 'Could not save rating.'); return }
+    onChange(n)
+  }
+
+  return (
+    <div className="tarot-hist__rate">
+      <span className="tarot-hist__rate-label">Rate this reading<span className="label-zh">重新评分</span></span>
+      <span className="tarot-hist__rate-stars" onMouseLeave={() => setHover(0)}>
+        {[1, 2, 3, 4, 5].map(n => {
+          const on = hover ? n <= hover : n <= (value || 0)
+          return (
+            <button
+              key={n}
+              type="button"
+              className={`tarot-hist__rate-star${on ? ' is-on' : ''}`}
+              onClick={() => rate(n)}
+              onMouseEnter={() => setHover(n)}
+              onFocus={() => setHover(n)}
+              onBlur={() => setHover(0)}
+              disabled={busy}
+              aria-label={`给 ${n} 分`}
+            >
+              <i className="fas fa-star" aria-hidden="true" />
+            </button>
+          )
+        })}
+      </span>
+      {err && <span className="tarot-hist__rate-err" role="alert" onAnimationEnd={() => setErr('')}>{err}</span>}
+    </div>
+  )
+}
+
+function Row({ item: initial }) {
+  const [item, setItem] = useState(initial)
   const r = item.reading
   const spread = item.spread || []
   const label = (key) => spread.find(e => e.position.key === key)?.position || { label: key, label_zh: '' }
@@ -98,6 +141,8 @@ function Row({ item }) {
           <p className="tarot-read__summary" style={{ whiteSpace: 'pre-wrap' }}>{item.reading_text}</p>
         )}
         {item.rating_note && <p className="tarot-hist__note">“{item.rating_note}”</p>}
+
+        <RateRow id={item.id} value={item.rating} onChange={(n) => setItem(prev => ({ ...prev, rating: n }))} />
 
         <ReadingFeedback feature="tarot" readingId={item.id} />
       </div>
