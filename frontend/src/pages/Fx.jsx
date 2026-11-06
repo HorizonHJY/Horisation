@@ -152,7 +152,10 @@ function RateCard({ rate, history, loading, onRefresh }) {
   )
 }
 
-/* Tiny inline SVG spark-line for the last ~7 days — no deps. */
+/* Tiny inline SVG spark-line for the last ~7 days — no deps.
+   Y axis uses a "nice" padded range so the min/mid/max ticks stay stable
+   when rates jitter by a few basis points. The SVG uses preserveAspectRatio
+   via width:100% so it fits any container down to ~300px wide. */
 function TrendSpark({ points, loading }) {
   if (!points || points.length < 2) {
     return (
@@ -161,24 +164,66 @@ function TrendSpark({ points, loading }) {
       </div>
     )
   }
-  const W = 360, H = 70, PAD = 6
+
+  // Viewbox and padding. Left padding leaves room for Y tick labels (e.g. "7.12").
+  const W = 360, H = 90
+  const PAD_T = 14, PAD_B = 18, PAD_L = 36, PAD_R = 10
+  const plotW = W - PAD_L - PAD_R
+  const plotH = H - PAD_T - PAD_B
+
+  // Build a padded, two-decimal axis. If min==max we invent a small band so the
+  // line sits on the mid-tick instead of the bottom edge.
   const values = points.map(p => p.rate)
-  const min = Math.min(...values), max = Math.max(...values)
-  const range = max - min || 1
-  const xStep = (W - PAD * 2) / (points.length - 1)
-  const coords = points.map((p, i) => {
-    const x = PAD + i * xStep
-    const y = H - PAD - ((p.rate - min) / range) * (H - PAD * 2)
-    return [x, y]
-  })
+  const rawMin = Math.min(...values), rawMax = Math.max(...values)
+  let lo, hi
+  if (rawMin === rawMax) {
+    lo = +(rawMin - 0.02).toFixed(2)
+    hi = +(rawMax + 0.02).toFixed(2)
+  } else {
+    const span = rawMax - rawMin
+    const pad  = Math.max(span * 0.15, 0.01)
+    // Round down/up to 2 decimals so tick labels align with the grid.
+    lo = Math.floor((rawMin - pad) * 100) / 100
+    hi = Math.ceil((rawMax + pad) * 100) / 100
+    if (hi === lo) hi = lo + 0.01
+  }
+  const mid = +((lo + hi) / 2).toFixed(2)
+  const ticks = [hi, mid, lo]  // top -> bottom
+
+  const yFor = (v) => PAD_T + (1 - (v - lo) / (hi - lo)) * plotH
+  const xStep = plotW / (points.length - 1)
+  const coords = points.map((p, i) => [PAD_L + i * xStep, yFor(p.rate)])
   const d = coords.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ')
-  const area = `${d} L${(W - PAD).toFixed(1)},${(H - PAD).toFixed(1)} L${PAD.toFixed(1)},${(H - PAD).toFixed(1)} Z`
+  const area = `${d} L${(PAD_L + plotW).toFixed(1)},${(PAD_T + plotH).toFixed(1)} L${PAD_L.toFixed(1)},${(PAD_T + plotH).toFixed(1)} Z`
+
   const first = points[0], last = points[points.length - 1]
   const trendUp = last.rate >= first.rate
   const strokeC = trendUp ? 'var(--fx-up, #d26e5a)' : 'var(--fx-down, #4f8f5b)'
+
   return (
     <div className="fx-spark" aria-label="近 7 天 USD→CNY 走势">
-      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-hidden="true">
+      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-hidden="true"
+           style={{ width: '100%', height: 'auto', display: 'block' }}>
+        {/* Unit label, top-right */}
+        <text x={W - PAD_R} y="10" textAnchor="end"
+              fontSize="9" fill="currentColor" opacity="0.55">CNY / USD</text>
+
+        {/* Grid + Y ticks */}
+        {ticks.map((t) => {
+          const y = yFor(t)
+          return (
+            <g key={t}>
+              <line x1={PAD_L} x2={W - PAD_R} y1={y} y2={y}
+                    stroke="currentColor" strokeWidth="0.5" opacity="0.12" />
+              <text x={PAD_L - 4} y={y + 3} textAnchor="end"
+                    fontSize="9" fill="currentColor" opacity="0.7">
+                {t.toFixed(2)}
+              </text>
+            </g>
+          )
+        })}
+
+        {/* Line + fill */}
         <path d={area} fill={strokeC} opacity="0.08" />
         <path d={d} fill="none" stroke={strokeC} strokeWidth="1.8"
               strokeLinecap="round" strokeLinejoin="round" />

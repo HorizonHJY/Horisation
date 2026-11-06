@@ -46,8 +46,8 @@ export const NAV_SECTIONS = [
     key: 'community', title: 'Community',
     items: [
       { to: '/market',   icon: Store,         label: 'Market',        guest: true },
-      { to: '/sublets',  icon: KeyRound,      label: 'Sublets 转租',  guest: true },
-      { to: '/fx',       icon: Banknote,      label: 'FX 换汇',       guest: true },
+      { to: '/sublets',  icon: KeyRound,      label: 'Sublets',       guest: true },
+      { to: '/fx',       icon: Banknote,      label: 'FX',            guest: true },
       { to: '/tasks',    icon: Megaphone,     label: 'Tasks',         guest: true },
       { to: '/feedback', icon: MessageSquare, label: 'Message Board', guest: true },
       { to: '/friends',  icon: UserRound,     label: 'Friends' },
@@ -59,7 +59,7 @@ export const NAV_SECTIONS = [
     items: [
       { to: '/fun/gomoku-online', icon: Globe,    label: 'Online Gomoku', feature: 'onlineGomoku' },
       { to: '/tarot',             icon: Moon,     label: 'Tarot',         guest: true },
-      { to: '/bazi',              icon: Sparkles, label: 'BaZi 八字',     guest: true },
+      { to: '/bazi',              icon: Sparkles, label: 'BaZi',          guest: true },
       { to: '/mbti',              icon: Brain,    label: 'MBTI',          guest: true },
     ],
   },

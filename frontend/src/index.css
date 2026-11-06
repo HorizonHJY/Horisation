@@ -4476,7 +4476,75 @@ button.fr-chip:hover { filter: brightness(.96); }
   overflow: hidden;
   cursor: pointer;
 }
+.profile-avatar--button {
+  background: transparent;
+  border: none;
+  padding: 0;
+  line-height: 0;
+}
+.profile-avatar--button:focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; }
 .profile-avatar img { display: block; }
+
+/* Avatar picker — presets grid + upload fallback */
+.avatar-picker {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 30;
+  width: min(320px, calc(100vw - 32px));
+  background: var(--bg-elevated, #fff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 12px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .14);
+  padding: 10px;
+}
+.avatar-picker__label {
+  font-size: .78rem;
+  color: var(--text-muted, #6b7280);
+  margin: 2px 4px 8px;
+}
+.avatar-picker__grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+.avatar-picker__item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  background: transparent;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  cursor: pointer;
+  min-height: 44px;
+}
+.avatar-picker__item img {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  display: block;
+}
+.avatar-picker__item:hover { background: rgba(0,0,0,.04); }
+.avatar-picker__item.is-current { border-color: #6366f1; }
+.avatar-picker__item:focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; }
+.avatar-picker__item[disabled] { opacity: .6; cursor: default; }
+.avatar-picker__saving {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,.65);
+  border-radius: 10px;
+  font-weight: 700;
+}
+.avatar-picker__sep {
+  height: 1px; background: var(--border, #e5e7eb);
+  margin: 10px 2px;
+}
+@media (max-width: 420px) {
+  .avatar-picker { width: min(280px, calc(100vw - 24px)); }
+  .avatar-picker__grid { grid-template-columns: repeat(5, 1fr); gap: 4px; }
+  .avatar-picker__item img { width: 40px; height: 40px; }
+}
 .profile-avatar__overlay {
   position: absolute;
   inset: 0;
@@ -5043,7 +5111,7 @@ button.fr-chip:hover { filter: brightness(.96); }
 .fx-spark--empty {
   text-align: center; color: var(--text-muted); font-size: .85rem; padding: 18px;
 }
-.fx-spark svg { width: 100%; height: 70px; display: block; }
+.fx-spark svg { width: 100%; height: auto; display: block; }
 .fx-spark__legend {
   display: flex; justify-content: space-between;
   font-size: .72rem; color: var(--text-muted);

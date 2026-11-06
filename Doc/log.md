@@ -2043,3 +2043,8 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 - 免责声明放在三处：页面顶部黄条（完整版）、发帖表单底部（简版）、帖子详情内（一行）。
 - 新表 `fx_posts`：方向 / 金额 / 汇率（可空=按实时）/ 方式（当面/转账/都行）/ 区域 / 备注 / 状态。路由与 sublets 同构：浏览公开、发帖需登录、仅本人可改删与标记已完成。
 - 侧边栏 Market 下新增「FX 换汇」。
+
+## 2026-11-05 侧边栏英文、头像预设、FX 纵轴
+- 侧边栏 label 去掉中文：Sublets 转租 / FX 换汇 / BaZi 八字 → Sublets / FX / BaZi，其余本来就是英文。
+- 头像：新增 10 个手写 SVG 预设（fox/cat/bear/bunny/owl/fish/leaf/moon/bloom/star），点头像弹出选择面板（ESC / 点外部关闭），保留上传照片；新增 `PUT /api/auth/avatar/preset`，白名单校验后把 `/avatars/<preset>.svg` 写进 avatar_url。
+- FX 走势：加 Y 轴 3 个刻度（两位小数）+ 水平网格线 + `CNY / USD` 单位，宽度自适应。

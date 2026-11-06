@@ -4,6 +4,21 @@ import { useAuth } from '../App'
 import { api } from '../api'
 import { validatePassword } from '../utils'
 
+// Keep this list in sync with Backend/Controller/auth_controller.py :: AVATAR_PRESETS
+// and the SVG files in public/avatars/.
+const AVATAR_PRESETS = [
+  { id: 'fox',   label: 'Fox' },
+  { id: 'cat',   label: 'Cat' },
+  { id: 'bear',  label: 'Bear' },
+  { id: 'bunny', label: 'Bunny' },
+  { id: 'owl',   label: 'Owl' },
+  { id: 'fish',  label: 'Fish' },
+  { id: 'leaf',  label: 'Leaf' },
+  { id: 'moon',  label: 'Moon' },
+  { id: 'bloom', label: 'Bloom' },
+  { id: 'star',  label: 'Star' },
+]
+
 const ROLE_COLORS = {
   horizon: 'role-horizon', horizonadmin: 'role-horizonadmin',
   vip1: 'role-vip1', vip2: 'role-vip2', vip3: 'role-vip3', user: 'role-user',
@@ -21,8 +36,12 @@ export default function Profile() {
   const [badgeOpen, setBadgeOpen] = useState(false)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [avatarPreview, setAvatarPreview] = useState(null)
+  const [avatarOpen, setAvatarOpen] = useState(false)
+  const [savingPreset, setSavingPreset] = useState(null)   // preset id while saving
   const [msg, setMsg] = useState(null)
   const fileRef = useRef()
+  const avatarBtnRef = useRef(null)
+  const avatarPanelRef = useRef(null)
   const [mbti, setMbti] = useState(null)
   const [mbtiState, setMbtiState] = useState('loading')  // loading | ok | empty | error
   const [savingWear, setSavingWear] = useState(false)
@@ -45,6 +64,28 @@ export default function Profile() {
   }
 
   useEffect(() => { loadMbti() }, [])
+
+  // Close the avatar picker on outside click / Escape; hand focus back.
+  useEffect(() => {
+    if (!avatarOpen) return
+    const onDown = (e) => {
+      if (avatarPanelRef.current?.contains(e.target)) return
+      if (avatarBtnRef.current?.contains(e.target)) return
+      setAvatarOpen(false)
+    }
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        setAvatarOpen(false)
+        avatarBtnRef.current?.focus()
+      }
+    }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [avatarOpen])
 
   // Close the picker on outside click / Escape, and hand focus back to the button.
   useEffect(() => {
@@ -161,6 +202,7 @@ export default function Profile() {
     const file = e.target.files[0]
     if (!file) return
     setAvatarPreview(URL.createObjectURL(file))
+    setAvatarOpen(false)
   }
 
   const uploadAvatar = async () => {
@@ -181,6 +223,21 @@ export default function Profile() {
     }
   }
 
+  const pickPreset = async (preset) => {
+    if (savingPreset) return
+    setSavingPreset(preset)
+    const d = await api.put('/api/auth/avatar/preset', { preset })
+    setSavingPreset(null)
+    if (d.ok) {
+      flash('Avatar updated.')
+      login({ ...user, avatar_url: d.avatar_url })
+      setAvatarOpen(false)
+      avatarBtnRef.current?.focus()
+    } else {
+      flash(d.error || 'Could not save avatar.', 'danger')
+    }
+  }
+
   const currentAvatar = avatarPreview ?? user.avatar_url
 
   return (
@@ -192,17 +249,69 @@ export default function Profile() {
       {/* Header — avatar + name + MBTI, one row */}
       <div className='card p-4 mb-4'>
         <div className='d-flex align-items-center gap-3 flex-wrap'>
-          <label className='profile-avatar' title='Change photo'>
-            <input ref={fileRef} type='file' accept='.jpg,.jpeg,.png' style={{ display: 'none' }} onChange={onAvatarPick} />
-            {currentAvatar ? (
-              <img src={currentAvatar} alt='avatar' style={{ width: 80, height: 80, objectFit: 'cover' }} />
-            ) : (
-              <div className='d-flex align-items-center justify-content-center' style={{ width: 80, height: 80, background: '#6b9cdb', color: '#fff', fontSize: '2rem', fontWeight: 700 }}>
-                {user.display_name?.[0]?.toUpperCase()}
+          <input ref={fileRef} type='file' accept='.jpg,.jpeg,.png' style={{ display: 'none' }} onChange={onAvatarPick} />
+          <div className='position-relative'>
+            <button
+              ref={avatarBtnRef}
+              type='button'
+              className='profile-avatar profile-avatar--button'
+              title='Change avatar'
+              onClick={() => setAvatarOpen(v => !v)}
+              aria-expanded={avatarOpen}
+              aria-haspopup='dialog'
+              aria-controls={avatarOpen ? 'avatar-picker-panel' : undefined}
+            >
+              {currentAvatar ? (
+                <img src={currentAvatar} alt='avatar' style={{ width: 80, height: 80, objectFit: 'cover' }} />
+              ) : (
+                <div className='d-flex align-items-center justify-content-center' style={{ width: 80, height: 80, background: '#6b9cdb', color: '#fff', fontSize: '2rem', fontWeight: 700 }}>
+                  {user.display_name?.[0]?.toUpperCase()}
+                </div>
+              )}
+              <span className='profile-avatar__overlay'>Change</span>
+            </button>
+            {avatarOpen && (
+              <div
+                ref={avatarPanelRef}
+                id='avatar-picker-panel'
+                className='avatar-picker'
+                role='dialog'
+                aria-label='Pick an avatar'
+              >
+                <div className='avatar-picker__label'>Pick one</div>
+                <div className='avatar-picker__grid'>
+                  {AVATAR_PRESETS.map(p => {
+                    const url = `/avatars/${p.id}.svg`
+                    const isCurrent = user.avatar_url === url
+                    const isSaving = savingPreset === p.id
+                    return (
+                      <button
+                        key={p.id}
+                        type='button'
+                        className={'avatar-picker__item' + (isCurrent ? ' is-current' : '')}
+                        onClick={() => pickPreset(p.id)}
+                        disabled={!!savingPreset}
+                        aria-pressed={isCurrent}
+                        aria-label={p.label + (isCurrent ? ' (current)' : '')}
+                        title={p.label}
+                      >
+                        <img src={url} alt='' width='48' height='48' />
+                        {isSaving && <span className='avatar-picker__saving'>…</span>}
+                      </button>
+                    )
+                  })}
+                </div>
+                <div className='avatar-picker__sep' />
+                <button
+                  type='button'
+                  className='btn btn-sm btn-outline-secondary w-100'
+                  onClick={() => { setAvatarOpen(false); fileRef.current?.click() }}
+                >
+                  <i className='fas fa-upload me-2' aria-hidden='true' />Upload photo
+                </button>
               </div>
             )}
-            <span className='profile-avatar__overlay'>Change</span>
-          </label>
+          </div>
 
           <div className='flex-grow-1'>
             <h5 className='fw-bold mb-1'>{user.display_name}</h5>

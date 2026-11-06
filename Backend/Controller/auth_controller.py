@@ -404,6 +404,28 @@ def upload_avatar():
     return jsonify({'ok': True, 'avatar_url': avatar_url})
 
 
+# Built-in SVG presets shipped in frontend/public/avatars/.
+# Keep this whitelist in sync with that directory.
+AVATAR_PRESETS = {
+    'fox', 'cat', 'bear', 'bunny', 'owl',
+    'fish', 'leaf', 'moon', 'bloom', 'star',
+}
+
+
+@auth_bp.route('/avatar/preset', methods=['PUT'])
+@login_required
+def set_avatar_preset():
+    """User picks one of the built-in SVG avatars."""
+    data = request.get_json() or {}
+    preset = (data.get('preset') or '').strip().lower()
+    if preset not in AVATAR_PRESETS:
+        return jsonify({'ok': False, 'error': 'Unknown preset'}), 400
+    avatar_url = f'/avatars/{preset}.svg'
+    username = request.current_user['username']
+    user_manager.update_user_profile(username, avatar_url=avatar_url)
+    return jsonify({'ok': True, 'avatar_url': avatar_url})
+
+
 @auth_bp.route('/password', methods=['PUT'])
 @login_required
 def change_own_password():
