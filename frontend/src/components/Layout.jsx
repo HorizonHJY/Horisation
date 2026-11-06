@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import Topbar from './Topbar'
+import useDragScroll from '../hooks/useDragScroll'
 
 /**
  * The shell.
@@ -23,6 +24,7 @@ function readOpen() {
 }
 
 export default function Layout() {
+  useDragScroll()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [open, setOpen] = useState(readOpen)
   const [isDesktop, setIsDesktop] = useState(
