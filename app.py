@@ -63,6 +63,7 @@ from Backend.Controller.bazi_controller import bazi_bp
 from Backend.Controller.bazi_compat_controller import bazi_compat_bp
 from Backend.Controller.mbti_controller import mbti_bp
 from Backend.Controller.reading_feedback_controller import reading_feedback_bp
+from Backend.Controller.fx_controller import fx_rate_bp, fx_posts_bp
 
 # Paths
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
@@ -112,6 +113,8 @@ app.register_blueprint(bazi_bp)
 app.register_blueprint(bazi_compat_bp)
 app.register_blueprint(mbti_bp)
 app.register_blueprint(reading_feedback_bp)
+app.register_blueprint(fx_rate_bp)
+app.register_blueprint(fx_posts_bp)
 
 # Import user manager for session validation
 from Backend.Controller.user_manager import user_manager

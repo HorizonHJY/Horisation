@@ -2037,3 +2037,9 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 ## 2026-11-05 市集新上架红点
 - 后端：新建商品成功后向其他在线用户广播 `market_listing_new`（不发给自己）；新增 `GET /api/market/new-count?since=<ISO>`，只算 since 之后、active、非本人发布的条数。
 - 前端：NotificationsProvider 维护 `marketNew`，登录时/定时/切回标签页时用 `archbay.market.seen` 校准；侧边栏 Market 项显示红点数字；进入 /market 清空并写新的 seen 时间。
+
+## 2026-11-05 换汇 FX section
+- 新页 `/fx`：顶部汇率卡片（USD→CNY 大数字 + 双向换算器 + 7 日走势 sparkline），数据源 Frankfurter/ECB，服务端缓存 30 分钟，失败回退 stale 缓存。
+- 免责声明放在三处：页面顶部黄条（完整版）、发帖表单底部（简版）、帖子详情内（一行）。
+- 新表 `fx_posts`：方向 / 金额 / 汇率（可空=按实时）/ 方式（当面/转账/都行）/ 区域 / 备注 / 状态。路由与 sublets 同构：浏览公开、发帖需登录、仅本人可改删与标记已完成。
+- 侧边栏 Market 下新增「FX 换汇」。

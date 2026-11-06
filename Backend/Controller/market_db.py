@@ -2121,3 +2121,139 @@ def remove_sublet(sublet_id: str, owner: str) -> Optional[list]:
         r2_keys = [img.r2_key for img in row.images]
         s.delete(row); s.commit()
         return r2_keys
+
+
+# ── FX posts (换汇信息板) ─────────────────────────────────────────────────────
+# Info-board only. The platform does not broker trades; disclaimers live
+# in the UI. Columns kept flat (no images, no multi-leg deals).
+
+FX_DIRECTIONS = ('usd_to_cny', 'cny_to_usd')
+FX_METHODS    = ('cash', 'transfer', 'either')
+FX_STATUSES   = ('open', 'done', 'removed')
+
+
+class FxPost(Base):
+    __tablename__ = 'fx_posts'
+
+    id              = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    owner_username  = Column(String(100), nullable=False, index=True)
+    direction       = Column(String(20),  nullable=False)   # usd_to_cny / cny_to_usd
+    amount          = Column(Float,       nullable=False)
+    rate            = Column(Float,       nullable=True)    # NULL = at live rate
+    method          = Column(String(20),  nullable=False, default='either')  # cash / transfer / either
+    area            = Column(String(100), nullable=False, default='')
+    note            = Column(Text,        nullable=False, default='')
+    status          = Column(String(20),  nullable=False, default='open')
+    created_at      = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    updated_at      = Column(DateTime, nullable=False,
+                             default=lambda: datetime.now(timezone.utc),
+                             onupdate=lambda: datetime.now(timezone.utc))
+
+
+def _fx_to_dict(row: 'FxPost', owner_user: 'User | None' = None) -> dict:
+    return {
+        'id':              row.id,
+        'owner_username':  row.owner_username,
+        'owner_display':   (owner_user.display_name or row.owner_username) if owner_user else row.owner_username,
+        'owner_avatar':    owner_user.avatar_url if owner_user else None,
+        'direction':       row.direction,
+        'amount':          row.amount,
+        'rate':            row.rate,
+        'method':          row.method,
+        'area':            row.area or '',
+        'note':            row.note or '',
+        'status':          row.status,
+        'created_at':      row.created_at.isoformat() if row.created_at else None,
+        'updated_at':      row.updated_at.isoformat() if row.updated_at else None,
+    }
+
+
+def _enrich_fx(rows: list, s) -> list[dict]:
+    usernames = list({r.owner_username for r in rows})
+    owners = {u.username: u for u in s.query(User).filter(User.username.in_(usernames)).all()}
+    return [_fx_to_dict(r, owners.get(r.owner_username)) for r in rows]
+
+
+def create_fx_post(owner: str, direction: str, amount: float,
+                   rate: Optional[float], method: str,
+                   area: str = '', note: str = '') -> str:
+    if direction not in FX_DIRECTIONS:
+        direction = 'usd_to_cny'
+    if method not in FX_METHODS:
+        method = 'either'
+    row = FxPost(
+        id=str(uuid.uuid4()), owner_username=owner,
+        direction=direction, amount=amount, rate=rate, method=method,
+        area=area or '', note=note or '',
+    )
+    with Session() as s:
+        s.add(row); s.commit(); return row.id
+
+
+def get_fx_post(post_id: str) -> Optional[dict]:
+    with Session() as s:
+        row = s.query(FxPost).filter_by(id=post_id).first()
+        if not row:
+            return None
+        owner = s.query(User).filter_by(username=row.owner_username).first()
+        return _fx_to_dict(row, owner)
+
+
+def list_fx_posts() -> list[dict]:
+    """Public feed: open posts only, newest first."""
+    with Session() as s:
+        rows = (s.query(FxPost)
+                 .filter(FxPost.status == 'open')
+                 .order_by(FxPost.created_at.desc()).all())
+        return _enrich_fx(rows, s)
+
+
+def list_my_fx_posts(owner: str) -> list[dict]:
+    """All of this owner's posts (open + done), newest first; removed hidden."""
+    with Session() as s:
+        rows = (s.query(FxPost)
+                 .filter(FxPost.owner_username == owner)
+                 .filter(FxPost.status != 'removed')
+                 .order_by(FxPost.created_at.desc()).all())
+        return _enrich_fx(rows, s)
+
+
+def update_fx_post(post_id: str, owner: str, **fields) -> bool:
+    allowed = {'direction', 'amount', 'rate', 'method', 'area', 'note'}
+    with Session() as s:
+        row = s.query(FxPost).filter_by(id=post_id, owner_username=owner).first()
+        if not row or row.status == 'removed':
+            return False
+        for k, v in fields.items():
+            if k in allowed:
+                setattr(row, k, v)
+        row.updated_at = datetime.now(timezone.utc)
+        s.commit(); return True
+
+
+def mark_fx_done(post_id: str, owner: str) -> bool:
+    with Session() as s:
+        row = s.query(FxPost).filter_by(id=post_id, owner_username=owner, status='open').first()
+        if not row:
+            return False
+        row.status = 'done'
+        row.updated_at = datetime.now(timezone.utc)
+        s.commit(); return True
+
+
+def reopen_fx_post(post_id: str, owner: str) -> bool:
+    with Session() as s:
+        row = s.query(FxPost).filter_by(id=post_id, owner_username=owner, status='done').first()
+        if not row:
+            return False
+        row.status = 'open'
+        row.updated_at = datetime.now(timezone.utc)
+        s.commit(); return True
+
+
+def delete_fx_post(post_id: str, owner: str) -> bool:
+    with Session() as s:
+        row = s.query(FxPost).filter_by(id=post_id, owner_username=owner).first()
+        if not row:
+            return False
+        s.delete(row); s.commit(); return True
