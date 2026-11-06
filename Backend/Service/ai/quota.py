@@ -45,6 +45,13 @@ LIMITS: dict[str, dict[str, int | None]] = {
         'admin':   None,
         'horizon': None,
     },
+    # One daily card is enough; a few spares let a real AI failure be retried
+    # from the home page without burning the day's slot.
+    'tarot_daily': {
+        '*':       3,
+        'admin':   None,
+        'horizon': None,
+    },
 }
 
 # feature → ok calls per site per rolling 24h. The safety net, not a product
@@ -56,6 +63,7 @@ GLOBAL_DAILY_CAP: dict[str, int] = {
     'bazi_compat': 60,
     'bazi_compat_ask': 300,
     'listing_autofill': 200,
+    'tarot_daily': 500,
 }
 
 

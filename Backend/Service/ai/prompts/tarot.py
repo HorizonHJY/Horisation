@@ -18,7 +18,7 @@ import json
 from ..feedback import lessons
 from ..scope import prompt_block
 
-PROMPT_VERSION = 'tarot-v2'   # v2: scope rules from scope.md (2026-10-12)
+PROMPT_VERSION = 'tarot-v3'   # v3: 新增今日一签 (2026-11-06)
 
 MAX_QUESTION_CHARS = 200
 
@@ -157,3 +157,58 @@ def parse_followup(text: str) -> dict | None:
     t = (text or '').strip()
     return {'answer': t} if t else None
 
+
+# ── Daily card ───────────────────────────────────────────────────────────────
+# 今日一签: one card, two short sentences. The card is picked by the server
+# (deterministic per user per day); the model only writes the short reading.
+
+DAILY_VERSION = 'tarot-daily-v1'
+
+_DAILY_SYSTEM = """你是一位塔罗解读者。有人今天抽到了一张塔罗牌，需要你写两句短解。
+
+硬规则：
+- 恰好两句话，总长控制在 40–70 字之间。不要寒暄、不要题头、不要牌名重复报幕。
+- 只围绕这一张牌本身。不要提其它牌、不要讲牌阵、不要替对方虚构一个处境。
+- 不预言。不说"你会""一定""必然"。用"这张牌在提示""此刻更像是"这样的说法。
+- 不给医疗、法律、投资的具体结论。不做宿命论的断言。
+- 温和、具体、平视。像朋友讲一句话，不像老师讲稿。
+- 语言中文。
+
+输出：只输出一个 JSON 对象，不要任何其他文字，键固定：
+{"text": "两句短解，40–70 字"}"""
+
+
+def build_daily(card: dict, upright: bool) -> list[dict]:
+    """One card, orientation, two-sentence reading. `card` is a row from the
+    static deck file; `upright` is True for 正位, False for 逆位."""
+    orient = '正位' if upright else '逆位'
+    lines = [
+        f"今日牌：{card.get('name', '')}（{card.get('name_zh', '')}） · {orient}",
+        f"关键词：{card.get('keywords_zh') or card.get('keywords', '')}",
+    ]
+    desc = (card.get('description') or '').strip()
+    if desc:
+        head = '. '.join(desc.split('. ')[:2]).strip()
+        lines.append(f"Waite（原料，勿照抄）：{head}")
+    user = '\n'.join(lines) + '\n\n请按规定的 JSON 格式，给出两句短解。'
+    return [
+        {'role': 'system', 'content': _DAILY_SYSTEM + prompt_block(json_reply=True)},
+        {'role': 'user', 'content': user},
+    ]
+
+
+def parse_daily(text: str) -> dict | None:
+    raw = (text or '').strip()
+    start, end = raw.find('{'), raw.rfind('}')
+    if start == -1 or end == -1 or end <= start:
+        return None
+    try:
+        data = json.loads(raw[start:end + 1])
+    except ValueError:
+        return None
+    if not isinstance(data, dict):
+        return None
+    t = data.get('text')
+    if not isinstance(t, str) or not t.strip():
+        return None
+    return {'text': t.strip()}

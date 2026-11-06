@@ -26,6 +26,7 @@ Assets:
   text    A. E. Waite, "The Pictorial Key to the Tarot" (1911), public domain
 """
 
+import hashlib
 import json
 import os
 import re
@@ -216,6 +217,94 @@ def reading():
         'quota': result.quota.as_dict(),
         'cached': False,
     })
+
+
+# ── Daily card (今日一签) ─────────────────────────────────────────────────
+
+def _daily_payload(row, by_id: dict) -> dict:
+    """Shape the DB row for the home page, joining in img/name_zh from the deck."""
+    card = by_id.get(row.card_id) or {}
+    return {
+        'day': row.day,
+        'card': {
+            'id': row.card_id,
+            'name': row.card_name,
+            'name_zh': card.get('name_zh'),
+            'img': card.get('img'),
+            'arcana': card.get('arcana'),
+        },
+        'upright': bool(row.upright),
+        'text': row.text,
+        'source': row.source,
+    }
+
+
+def _daily_fallback_text(card: dict, upright: bool) -> str:
+    """If the model fails, still ship a card. Short, generic, never alarmist."""
+    name_zh = card.get('name_zh') or card['name']
+    orient = '正位' if upright else '逆位'
+    kw = (card.get('keywords_zh') or card.get('keywords') or '').strip()
+    # First keyword only; the Chinese list uses 、 or ，, the English one commas.
+    for sep in ('、', '，', ',', '.', '。'):
+        if sep in kw:
+            kw = kw.split(sep)[0].strip()
+            break
+    kw = kw.rstrip('。.') or ('当下的状态' if upright else '很容易忽略的一面')
+    return (f"今日抽到{name_zh}（{orient}）。"
+            f"这张牌在提示你关注：{kw}。")
+
+
+@tarot_bp.route('/daily', methods=['GET'])
+@login_required
+def daily():
+    """One card a day, same for the whole day, same person-by-person.
+
+    The card is picked by the server from a hash of (username, day); the two
+    sentences come from the model. A cached day returns at once and does not
+    call the model. On a model failure we still return a card with a short
+    fallback line so the home page never shows blank.
+    """
+    username, role = _me()
+    day = today_key()
+
+    deck = _deck()
+    by_id = {c['id']: c for c in deck}
+
+    cached = tarot_db.get_daily(username, day)
+    if cached is not None:
+        return jsonify({'ok': True, 'cached': True, 'daily': _daily_payload(cached, by_id)})
+
+    # Deterministic pick: same person, same day → same card. The first 8 bytes
+    # pick the card; the 9th decides orientation. Hash with a per-feature tag
+    # so a future daily feature does not land everyone on the same card.
+    h = hashlib.sha256(f'tarot_daily:{username}:{day}'.encode('utf-8')).digest()
+    idx = int.from_bytes(h[:8], 'big') % len(deck)
+    upright = (h[8] % 2) == 0
+    card = deck[idx]
+
+    source = 'ai'
+    text_ = None
+    try:
+        result = ai.run(
+            feature='tarot_daily', user=username, role=role,
+            quota_key=f'user:{username}:tarot_daily:{day}',
+            payload={'card': card, 'upright': upright},
+        )
+        if result.ok and result.data and result.data.get('text'):
+            text_ = str(result.data['text']).strip()[:400]
+    except Exception:
+        log.exception('tarot daily %s/%s crashed', username, day)
+
+    if not text_:
+        source = 'fallback'
+        text_ = _daily_fallback_text(card, upright)
+
+    row = tarot_db.set_daily(
+        username, day,
+        card_id=card['id'], card_name=card['name'],
+        upright=upright, text_=text_, source=source,
+    )
+    return jsonify({'ok': True, 'cached': False, 'daily': _daily_payload(row, by_id)})
 
 
 @tarot_bp.route('/readings/<rid>/rating', methods=['POST'])

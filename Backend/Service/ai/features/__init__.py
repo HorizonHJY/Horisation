@@ -95,6 +95,18 @@ FEATURES: dict[str, Feature] = {
         temperature=0.75,
         read_timeout=45,
     ),
+    # The home-page daily card: one card already chosen by the server, two
+    # short sentences in JSON. Tiny by design — short timeout, short budget.
+    'tarot_daily': Feature(
+        name='tarot_daily',
+        prompt_version=tarot_prompt.DAILY_VERSION,
+        build=lambda payload: tarot_prompt.build_daily(payload['card'], payload['upright']),
+        parse=tarot_prompt.parse_daily,
+        json_mode=True,
+        max_tokens=300,
+        temperature=0.7,
+        read_timeout=20,
+    ),
     'bazi_compat_ask': Feature(
         name='bazi_compat_ask',
         prompt_version=compat_prompt.FOLLOWUP_VERSION,

@@ -2,6 +2,7 @@ import React from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../App'
 import WeatherCard from '../components/WeatherCard'
+import DailyCard from '../components/DailyCard'
 
 const FEATURES_MEMBER = [
   { icon: 'fa-clipboard-list', color: '#6b9cdb', title: 'Memo',          desc: 'Personal memo and task tracker.',       to: '/hormemo'  },
@@ -29,6 +30,8 @@ export default function Home() {
   return (
     <div>
       <WeatherCard name={user?.display_name || 'friend'} />
+
+      {user && <DailyCard />}
 
       <h5 style={{
         fontFamily: "'Playfair Display', serif",

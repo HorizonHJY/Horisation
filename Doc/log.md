@@ -2048,3 +2048,10 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 - 侧边栏 label 去掉中文：Sublets 转租 / FX 换汇 / BaZi 八字 → Sublets / FX / BaZi，其余本来就是英文。
 - 头像：新增 10 个手写 SVG 预设（fox/cat/bear/bunny/owl/fish/leaf/moon/bloom/star），点头像弹出选择面板（ESC / 点外部关闭），保留上传照片；新增 `PUT /api/auth/avatar/preset`，白名单校验后把 `/avatars/<preset>.svg` 写进 avatar_url。
 - FX 走势：加 Y 轴 3 个刻度（两位小数）+ 水平网格线 + `CNY / USD` 单位，宽度自适应。
+
+## 2026-11-06 今日一签（每日塔罗）
+- 首页天气卡下面加一张「今日一签」：同一个人同一天固定一张牌 + 两句短解，点进去进完整牌阵。
+- 定牌算法：sha256('tarot_daily:{username}:{day}')，前 8 字节取模 78 选牌，另一个字节决定正逆位；day 用 America/Chicago 日期。
+- 新表 `tarot_daily`（username + day 唯一）做缓存，一天一人最多一次模型调用；并发写撞唯一约束时回读已落库那行。
+- AI 失败（无 key / 超时 / 解析失败）走本地兜底文案，仍然出牌，source 标记 fallback。
+- 新 feature `tarot_daily`：每人每天 3 次、全站 500 次/24h。

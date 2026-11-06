@@ -17,7 +17,8 @@ import json
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, Integer, String, Text, create_engine, event, Index, text
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text, UniqueConstraint, create_engine, event, Index, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker, declarative_base
 
 
@@ -256,3 +257,68 @@ def fail_followup(fid: str, error: dict) -> None:
         f.error_json = json.dumps(error, ensure_ascii=False)
         s.commit()
 
+
+# ── Daily card (今日一签) ───────────────────────────────────────────────────
+# One row per user per business day; the card itself is chosen deterministically
+# in the controller, the short text comes from the AI (or a fallback).
+
+class TarotDaily(Base):
+    __tablename__ = 'tarot_daily'
+    id         = Column(Integer, primary_key=True, autoincrement=True)
+    username   = Column(String(64), nullable=False)
+    day        = Column(String(10), nullable=False)      # YYYY-MM-DD, America/Chicago
+    card_id    = Column(String(8),  nullable=False)
+    card_name  = Column(String(64), nullable=False)
+    upright    = Column(Boolean,    nullable=False, default=True)
+    text       = Column(Text,       nullable=False)
+    source     = Column(String(16), nullable=False, default='ai')  # ai | fallback
+    created_at = Column(DateTime,   default=_utcnow)
+
+    __table_args__ = (
+        UniqueConstraint('username', 'day', name='uq_tarot_daily_user_day'),
+        Index('idx_tarot_daily_user_day', 'username', 'day'),
+    )
+
+    def to_dict(self) -> dict:
+        return {
+            'day': self.day,
+            'card_id': self.card_id,
+            'card_name': self.card_name,
+            'upright': bool(self.upright),
+            'text': self.text,
+            'source': self.source,
+        }
+
+
+def get_daily(username: str, day: str) -> TarotDaily | None:
+    with Session() as s:
+        r = (s.query(TarotDaily)
+              .filter(TarotDaily.username == username, TarotDaily.day == day)
+              .first())
+        if r is None:
+            return None
+        s.expunge(r)
+        return r
+
+
+def set_daily(username: str, day: str, *, card_id: str, card_name: str,
+              upright: bool, text_: str, source: str) -> TarotDaily:
+    """Insert the row for today. If another request raced us (unique index
+    hits), return the row that landed first — same person, same day, same card."""
+    with Session() as s:
+        r = TarotDaily(username=username, day=day, card_id=card_id,
+                       card_name=card_name, upright=bool(upright),
+                       text=text_, source=source)
+        s.add(r)
+        try:
+            s.commit()
+        except IntegrityError:
+            s.rollback()
+            r = (s.query(TarotDaily)
+                  .filter(TarotDaily.username == username, TarotDaily.day == day)
+                  .first())
+            s.expunge(r)
+            return r
+        s.refresh(r)
+        s.expunge(r)
+        return r
