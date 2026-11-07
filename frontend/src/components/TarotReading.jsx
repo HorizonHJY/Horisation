@@ -19,7 +19,7 @@ import ReadingFeedback from './ReadingFeedback'
 
 const MAX_QUESTION = 200
 
-export default function TarotReading({ readingId, positions }) {
+export default function TarotReading({ readingId, positions, slots = [] }) {
   const [question, setQuestion] = useState('')
   const [state, setState] = useState('idle')          // idle | asking | done | error
   const [reading, setReading] = useState(null)         // { reading: {...} | null, reading_text, question, rating }
@@ -27,8 +27,7 @@ export default function TarotReading({ readingId, positions }) {
   const [err, setErr] = useState(null)                 // { message, retryable }
   const topRef = useRef(null)
 
-  // The questions live in their own drawer, not in this column.
-  const [chatOpen, setChatOpen] = useState(false)
+  // The questions now live right under the reading, in document flow.
   const [turns, setTurns] = useState([])
   const [turnsLoaded, setTurnsLoaded] = useState(false)
   const timers = useRef({})
@@ -39,6 +38,7 @@ export default function TarotReading({ readingId, positions }) {
   useEffect(() => {
     setQuestion(''); setState('idle'); setReading(null); setQuota(null)
     setErr(null)
+    setTurns([]); setTurnsLoaded(false)
   }, [readingId])
 
   async function ask() {
@@ -72,9 +72,10 @@ export default function TarotReading({ readingId, positions }) {
     }, 2500)
   }, [])
 
-  // Opening the drawer the first time pulls what was already asked.
+  // Once the reading is done, pull whatever was already asked for this spread
+  // so the inline chat shows history straight away.
   useEffect(() => {
-    if (!chatOpen || turnsLoaded || !readingId) return undefined
+    if (state !== 'done' || turnsLoaded || !readingId) return undefined
     let alive = true
     api.get(`/api/tarot/readings/${readingId}/followups`).then(d => {
       if (!alive || !d.ok) return
@@ -83,7 +84,20 @@ export default function TarotReading({ readingId, positions }) {
       ;(d.followups || []).filter(f => f.state === 'pending').forEach(f => watchTurn(f.id))
     })
     return () => { alive = false }
-  }, [chatOpen, turnsLoaded, readingId, watchTurn])
+  }, [state, turnsLoaded, readingId, watchTurn])
+
+  // Three starter questions, built locally from the three cards. No model
+  // call, no cost: fixed sentence shapes with the first card's name dropped
+  // in. The user can edit or discard before sending.
+  const firstCardName = (() => {
+    const c = slots[0]?.card
+    return c?.name_zh || c?.name || '第一张牌'
+  })()
+  const starters = [
+    `${firstCardName}在提醒我什么？`,
+    '这三张牌连起来，我该主动还是等？',
+    '最近两周我要注意什么？',
+  ]
 
   const sendQuestion = async (question) => {
     const d = await api.post(`/api/tarot/readings/${readingId}/ask`, { question })
@@ -198,25 +212,18 @@ export default function TarotReading({ readingId, positions }) {
 
           <ReadingFeedback feature="tarot" readingId={reading.id} />
 
-          <div className="ask-launch">
-            <button type="button" className="ask-launch__btn" onClick={() => setChatOpen(true)}>
-              <i className="fas fa-comments" aria-hidden="true" />
-              追问<small>就这次的三张牌接着问</small>
-            </button>
-            {turns.length > 0 && <span className="ask-launch__count">已问 {turns.length} 个</span>}
-          </div>
+          <ReadingChat
+            inline
+            title="追问"
+            subtitle="就这次的三张牌接着问"
+            turns={turns}
+            onSend={sendQuestion}
+            busy={chatBusy}
+            starterQuestions={starters}
+            placeholder="接着问，回车发送（Shift+回车换行）"
+          />
         </div>
       )}
-
-      <ReadingChat
-        open={chatOpen}
-        onClose={() => setChatOpen(false)}
-        title="追问"
-        subtitle="就这次的三张牌接着问"
-        turns={turns}
-        onSend={sendQuestion}
-        busy={chatBusy}
-      />
     </section>
   )
 }

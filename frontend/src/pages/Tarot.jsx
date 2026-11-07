@@ -831,7 +831,7 @@ export default function Tarot() {
 
         {/* Once all three are face up: read them as one thing, on request. */}
         {phase === 'done' && readingId && (
-          <TarotReading readingId={readingId} positions={positions} />
+          <TarotReading readingId={readingId} positions={positions} slots={slots} />
         )}
 
         <p className="tarot__footnote">

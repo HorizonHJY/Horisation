@@ -4240,6 +4240,36 @@ button.fr-chip:hover { filter: brightness(.96); }
 .rc__send:disabled { opacity: 0.4; cursor: default; }
 .rc__foot { margin: 0.5rem 0 0; font-size: 0.72rem; opacity: 0.45; line-height: 1.6; }
 
+/* ── Starter chips (inline mode, but harmless if a drawer ever wants them) ── */
+.rc__starters { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.55rem; }
+.rc__starter {
+  border: 1px solid rgba(0, 0, 0, 0.14); background: #fff;
+  color: inherit; font: inherit; font-size: 0.78rem; line-height: 1.3;
+  padding: 0.32rem 0.75rem; border-radius: 999px; cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  max-width: 100%;
+}
+.rc__starter:hover:not(:disabled) { background: #f4ece0; border-color: rgba(0, 0, 0, 0.26); }
+.rc__starter:disabled { opacity: 0.45; cursor: default; }
+
+/* ── Inline mode: a card in the page, not a drawer over it. ─────── */
+.rc--inline {
+  position: static; inset: auto; z-index: auto; display: block;
+  margin-top: 1.4rem;
+  background: #fdfaf4; color: #241f1a;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(20, 16, 12, 0.04);
+  overflow: hidden;
+}
+.rc--inline .rc__head { padding: 0.9rem 1.1rem 0.75rem; }
+.rc--inline .rc__title { font-size: 0.98rem; }
+.rc--inline .rc__list {
+  max-height: 320px; padding: 0.9rem 1.1rem;
+}
+.rc--inline .rc__form { padding: 0.75rem 1.1rem 0.95rem; }
+.rc--inline .rc__input { background: #fff; }
+
 /* ── Was it right ───────────────────────────────────────── */
 .rf {
   margin-top: 1.6rem; padding-top: 1.1rem;
@@ -4298,6 +4328,10 @@ button.fr-chip:hover { filter: brightness(.96); }
   .rc__form { padding: 0.75rem 1rem calc(0.9rem + env(safe-area-inset-bottom, 0px)); }
   .rc__a { max-width: 100%; }
   .rc__q { max-width: 92%; }
+  .rc--inline .rc__head { padding: 0.8rem 0.9rem 0.65rem; }
+  .rc--inline .rc__list { padding: 0.8rem 0.9rem; max-height: 260px; }
+  .rc--inline .rc__form { padding: 0.65rem 0.9rem 0.85rem; }
+  .rc__starter { font-size: 0.75rem; padding: 0.3rem 0.65rem; }
   .rf__ask { gap: 0.6rem; }
   .rf__verdict { width: 100%; }
   .rf__btn { flex: 1; justify-content: center; }
