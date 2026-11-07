@@ -2066,3 +2066,9 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 - 5px 阈值内仍算点击；拖拽时临时禁选文字、光标变 grabbing；拖拽后那一次 click 被拦掉，不会误触链接。
 - 避开：input / textarea / select / contenteditable / draggable / [data-nodrag]、自身可滚动的容器、横向滚动区域；触摸设备完全不接管。
 - 实测：拖动 → scrollY 0→157，松手 450ms 后 253（惯性）；输入框内拖不滚动；拖后可正常点击导航。
+
+## 2026-11-06 拖拽滚动不再抢文字选择
+- 问题：按下即接管，导致正文/标题上按住拖无法选字。
+- 改法：pointerdown 时先用 caretRangeFromPoint / caretPositionFromPoint 判断落点是否在文字节点上（回退用标签 + innerText 判断），是文字就完全放手：不设 user-select、不改光标、不拦 click。
+- 空白、卡片背景、图片等非文字区域行为不变：5px 阈值、惯性、拖后拦一次 click。
+- 实测：空白处拖 0→193；文字上拖 scroll 不变且选中 6 字。

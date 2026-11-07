@@ -3,6 +3,9 @@ import { useEffect } from 'react'
 const NODRAG_SELECTOR =
   'input, textarea, select, [contenteditable], [draggable="true"], [data-nodrag]'
 
+const TEXT_SELECTOR =
+  'p, h1, h2, h3, h4, h5, h6, li, td, th, blockquote, dd, dt, label, code, pre, a, span'
+
 const THRESHOLD_PX = 5
 const FRICTION = 0.94
 const MIN_V = 0.05
@@ -20,6 +23,35 @@ function hasBlockingScrollableAncestor(el) {
     const ox = cs.overflowX
     if ((ox === 'auto' || ox === 'scroll') && cur.scrollWidth > cur.clientWidth) return true
     cur = cur.parentNode
+  }
+  return false
+}
+
+function isOnTextContent(x, y, target) {
+  try {
+    if (typeof document.caretRangeFromPoint === 'function') {
+      const range = document.caretRangeFromPoint(x, y)
+      if (range && range.startContainer && range.startContainer.nodeType === 3) {
+        const text = range.startContainer.textContent || ''
+        if (text.replace(/\s+/g, '').length > 0) return true
+      }
+    } else if (typeof document.caretPositionFromPoint === 'function') {
+      const pos = document.caretPositionFromPoint(x, y)
+      if (pos && pos.offsetNode && pos.offsetNode.nodeType === 3) {
+        const text = pos.offsetNode.textContent || ''
+        if (text.replace(/\s+/g, '').length > 0) return true
+      }
+    } else {
+      if (target && target.closest) {
+        const textEl = target.closest(TEXT_SELECTOR)
+        if (textEl) {
+          const inner = (textEl.innerText || textEl.textContent || '').replace(/\s+/g, '')
+          if (inner.length > 0) return true
+        }
+      }
+    }
+  } catch (_) {
+    // ignore
   }
   return false
 }
@@ -87,6 +119,7 @@ export default function useDragScroll() {
       const target = e.target
       if (isInNoDragElement(target)) return
       if (hasBlockingScrollableAncestor(target)) return
+      if (isOnTextContent(e.clientX, e.clientY, target)) return
       stopInertia()
       state = 'pending'
       activePointerId = e.pointerId
