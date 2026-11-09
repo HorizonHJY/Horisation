@@ -277,7 +277,7 @@ export default function Profile() {
              role='status' id='missing-contact-banner'>
           <span>
             <i className='fas fa-address-card me-2' aria-hidden='true' />
-            Add a WeChat or phone number so friends can reach you after you approve a contact request.
+            Add a WeChat ID or phone number so friends can reach you after you approve a contact request.
           </span>
           <button type='button' className='btn btn-sm btn-primary flex-shrink-0' onClick={scrollToContact}>
             Add now

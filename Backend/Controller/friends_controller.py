@@ -296,7 +296,7 @@ def respond_contact(req_id):
             return bool((u.get('phone') or '').strip() or (u.get('wechat') or '').strip())
         if not _has_contact(me) and not _has_contact(requester):
             resp['no_contact'] = True
-            resp['message']    = 'Shared, but neither of you has a phone or WeChat on file yet.'
+            resp['message']    = 'Shared, but neither of you has a WeChat ID or phone number on file yet.'
     return jsonify(resp)
 
 

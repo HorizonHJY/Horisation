@@ -925,7 +925,7 @@ export default function Friends() {
               </div>
               <div className="modal-body">
                 <p className="mb-0" style={{ color: 'var(--text-secondary)', fontSize: '.9rem' }}>
-                  先花 10 秒填个微信，不然对方通过了也找不到你。
+                  Add a WeChat ID or phone number first — otherwise they still cannot reach you after you approve.
                 </p>
               </div>
               <div className="modal-footer">
