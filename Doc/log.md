@@ -2083,3 +2083,9 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 - 前端 Friends：点 Share 前若自己没有联系方式，先弹提示（Add contact / Share anyway），不阻断。
 - 后端 respond：批准时若双方都没有联系方式，返回 `no_contact: true`，前端显示黄色提示而不是假装成功。
 - Profile：没有微信和手机号时顶部显示提示条，点 Add now 滚到联系方式表单；保存后立即消失。
+
+## 2026-11-09 换汇改为「看板公开、发布需资质」
+- 汇率卡片、换算器、走势、帖子浏览对所有登录用户开放；发布需要资质。
+- 新增 `user.fx_qualified`（默认 0）；horizon 与管理员天然有资格。
+- `POST /api/market/fx` 对无资质用户返回 403 和明确提示；新增 `PUT /api/auth/users/<name>/fx` 供管理员开通。
+- 前端：无资质时 Post 页显示申请说明（联系管理员），隐藏 My Posts；后台用户页可开关 FX 资质。

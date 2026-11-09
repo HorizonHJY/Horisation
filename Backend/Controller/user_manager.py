@@ -171,6 +171,7 @@ class UserManager:
             'email':        u['email'],
             'created_at':   u['created_at'],
             'is_active':    u['is_active'],
+            'fx_qualified': bool(u.get('fx_qualified', False)),
             'role_info':    self.USER_ROLES.get(u['role'], {}),
         }
 
@@ -182,6 +183,7 @@ class UserManager:
             'email':        u['email'],
             'created_at':   u['created_at'],
             'is_active':    u['is_active'],
+            'fx_qualified': bool(u.get('fx_qualified', False)),
             'role_info':    self.USER_ROLES.get(u['role'], {}),
         } for u in market_db.db_list_users()]
 
@@ -194,6 +196,11 @@ class UserManager:
         if not market_db.db_update_user(username, role=new_role):
             return False, "User not found"
         return True, f"User {username} role updated to {new_role}"
+
+    def update_user_fx(self, username: str, qualified: bool) -> Tuple[bool, str]:
+        if not market_db.db_update_user(username, fx_qualified=bool(qualified)):
+            return False, "User not found"
+        return True, f"User {username} fx_qualified set to {bool(qualified)}"
 
     def deactivate_user(self, username: str) -> Tuple[bool, str]:
         if not market_db.db_update_user(username, is_active=False):
@@ -257,6 +264,7 @@ class UserManager:
             'display_name': u.get('display_name', u['username']),
             'email':        u.get('email', ''),
             'avatar_url':   u.get('avatar_url'),
+            'fx_qualified': bool(u.get('fx_qualified', False)),
             'role_info':    self.USER_ROLES.get(u['role'], {}),
         }
 

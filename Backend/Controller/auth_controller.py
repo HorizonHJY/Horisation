@@ -351,6 +351,28 @@ def update_user_status(username):
     except Exception as e:
         return jsonify({'ok': False, 'error': f'Failed to update status: {str(e)}'}), 500
 
+@auth_bp.route('/users/<username>/fx', methods=['PUT'])
+@admin_required
+def update_user_fx(username):
+    """Toggle FX posting qualification for a user (admin only)."""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'ok': False, 'error': 'Invalid JSON data'}), 400
+
+        qualified = data.get('qualified')
+        if qualified is None:
+            return jsonify({'ok': False, 'error': 'qualified required'}), 400
+
+        success, message = user_manager.update_user_fx(username, bool(qualified))
+        if not success:
+            return jsonify({'ok': False, 'error': message}), 400
+
+        return jsonify({'ok': True, 'fx_qualified': bool(qualified), 'message': message})
+
+    except Exception as e:
+        return jsonify({'ok': False, 'error': f'Failed to update FX qualification: {str(e)}'}), 500
+
 @auth_bp.route('/profile', methods=['PUT'])
 @login_required
 def update_own_profile():

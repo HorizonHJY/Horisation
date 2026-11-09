@@ -45,6 +45,7 @@ class User(Base):
     phone           = Column(String(50),  nullable=True)
     address         = Column(Text, nullable=True)
     postal_code     = Column(String(20),  nullable=True)
+    fx_qualified    = Column(Boolean, nullable=False, default=False)
     created_at      = Column(DateTime, default=lambda: datetime.utcnow())
 
 
@@ -202,6 +203,7 @@ def _migrate_columns():
         "ALTER TABLE messages ADD COLUMN reply_to_id TEXT",
         "ALTER TABLE messages ADD COLUMN thread_id TEXT",
         "ALTER TABLE messages ADD COLUMN like_count INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE user ADD COLUMN fx_qualified INTEGER NOT NULL DEFAULT 0",
     ]
     with Session() as s:
         for stmt in stmts:
@@ -421,6 +423,7 @@ def _user_to_dict(u: User) -> dict:
         'phone':           u.phone or '',
         'address':         u.address or '',
         'postal_code':     u.postal_code or '',
+        'fx_qualified':    bool(u.fx_qualified),
         'created_at':      u.created_at.isoformat() if u.created_at else '',
     }
 
@@ -461,7 +464,7 @@ def db_search_users(q: str) -> List[dict]:
 def db_update_user(username: str, **fields) -> bool:
     allowed = {'password', 'role', 'email', 'display_name',
                'is_active', 'avatar_url', 'contact_info', 'contact_hidden', 'wechat', 'phone',
-               'address', 'postal_code'}
+               'address', 'postal_code', 'fx_qualified'}
     with Session() as s:
         u = s.query(User).filter_by(username=username).first()
         if not u:

@@ -497,16 +497,48 @@ function FxForm({ initial, onSubmit, onCancel, busy }) {
   )
 }
 
+/* ── Apply card (shown to signed-in users without FX qualification) ── */
+function FxApplyCard() {
+  const navigate = useNavigate()
+  const apply = () => {
+    try {
+      navigate('/friends', { state: { openChat: 'horizon' } })
+    } catch {
+      navigate('/feedback')
+    }
+  }
+  return (
+    <div className="fx-apply card p-4 text-center" role="note">
+      <div className="mb-3" aria-hidden="true">
+        <i className="fas fa-user-shield fa-2x text-muted" />
+      </div>
+      <h5 className="fw-semibold mb-2">发布换汇需要资质</h5>
+      <p className="text-muted mb-3" style={{ maxWidth: 480, margin: '0 auto' }}>
+        平台需要确认你是可信用户,避免诈骗。获得资质后,你就可以在这里发布换汇帖。
+      </p>
+      <div>
+        <button type="button" className="btn btn-primary" onClick={apply}>
+          <i className="fas fa-paper-plane me-1" aria-hidden="true" />
+          联系管理员申请
+        </button>
+      </div>
+    </div>
+  )
+}
+
 /* ── Page ──────────────────────────────────────────────────────── */
 export default function Fx() {
   const { user, requireAuth } = useAuth()
   const me = user?.username
+  const canPost = Boolean(user && (
+    user.role === 'horizon' || user.role === 'admin' || user.fx_qualified
+  ))
 
   const SUB_TABS = useMemo(() => [
     { key: 'browse', label: 'Browse 浏览' },
-    user && { key: 'mine',   label: 'My Posts 我的' },
+    user && canPost && { key: 'mine',   label: 'My Posts 我的' },
     user && { key: 'create', label: 'Post 发布' },
-  ].filter(Boolean), [user])
+  ].filter(Boolean), [user, canPost])
 
   const [subTab, setSubTab]       = useState('browse')
   const [rate, setRate]           = useState(null)
@@ -617,7 +649,11 @@ export default function Fx() {
       {error && <div className="alert alert-danger py-2" role="alert">{error}</div>}
 
       {subTab === 'create' ? (
-        <FxForm onSubmit={submitNew} busy={posting} onCancel={() => setSubTab('browse')} />
+        canPost ? (
+          <FxForm onSubmit={submitNew} busy={posting} onCancel={() => setSubTab('browse')} />
+        ) : (
+          <FxApplyCard />
+        )
       ) : loading ? (
         <div className="text-center py-5"><HandLoader /></div>
       ) : list.length === 0 ? (

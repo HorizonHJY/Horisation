@@ -202,11 +202,17 @@ def list_fx_posts():
 @fx_posts_bp.route('', methods=['POST'], strict_slashes=False)
 @login_required
 def create_fx_post():
+    me_info = request.current_user
+    me = me_info['username']
+    if me_info.get('role') not in ('horizon', 'admin') and not me_info.get('fx_qualified'):
+        return jsonify({
+            'ok': False,
+            'error': 'FX posting requires verification. Contact the admin to apply.',
+        }), 403
     body = request.get_json(silent=True) or {}
     fields, err = _parse_post(body)
     if err:
         return jsonify({'ok': False, 'error': err}), 400
-    me = request.current_user['username']
     pid = market_db.create_fx_post(owner=me, **fields)
     return jsonify({'ok': True, 'item': market_db.get_fx_post(pid)}), 201
 

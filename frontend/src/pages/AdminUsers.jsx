@@ -128,6 +128,12 @@ export default function AdminUsers() {
   }
 
   // ── Delete ────────────────────────────────────────────────────────
+  const toggleFx = async (username, qualified) => {
+    const d = await api.put(`/api/auth/users/${username}/fx`, { qualified })
+    if (d.ok) { flash(`${username} FX ${qualified ? 'qualified' : 'revoked'}.`); load() }
+    else flash(d.error, 'danger')
+  }
+
   const deleteUser = async (username) => {
     if (!window.confirm(`Delete user "${username}"? This cannot be undone.`)) return
     const d = await api.delete(`/api/auth/users/${username}`)
@@ -347,6 +353,24 @@ export default function AdminUsers() {
                     >
                       <i className={`fas ${u.is_active ? 'fa-user-slash' : 'fa-user-check'}`} aria-hidden="true" />
                     </button>
+                    {(() => {
+                      const builtIn = u.role === 'horizon' || u.role === 'admin'
+                      const qualified = builtIn || !!u.fx_qualified
+                      return (
+                        <button
+                          type="button"
+                          className={`ulist__btn ${qualified ? 'ulist__btn--ok' : ''}`}
+                          onClick={() => !builtIn && toggleFx(u.username, !u.fx_qualified)}
+                          disabled={builtIn}
+                          aria-label={`${qualified ? 'Revoke' : 'Grant'} FX posting for ${u.username}`}
+                          title={builtIn
+                            ? 'FX posting always on (admin/horizon)'
+                            : (u.fx_qualified ? 'Revoke FX posting' : 'Grant FX posting')}
+                        >
+                          <i className="fas fa-money-bill-transfer" aria-hidden="true" />
+                        </button>
+                      )
+                    })()}
                     {/* Delete (hide for root admin) — the slot stays so columns line up */}
                     {u.username !== 'horizon' ? (
                       <button
@@ -390,6 +414,14 @@ export default function AdminUsers() {
                           {u.is_active ? 'Deactivate' : 'Activate'}
                         </button>
                       </li>
+                      {u.role !== 'horizon' && u.role !== 'admin' && (
+                        <li>
+                          <button type="button" className="dropdown-item" onClick={() => toggleFx(u.username, !u.fx_qualified)}>
+                            <i className="fas fa-money-bill-transfer me-2" aria-hidden="true" />
+                            {u.fx_qualified ? 'Revoke FX posting' : 'Grant FX posting'}
+                          </button>
+                        </li>
+                      )}
                       {u.username !== 'horizon' && (
                         <li>
                           <button type="button" className="dropdown-item text-danger" onClick={() => deleteUser(u.username)}>
