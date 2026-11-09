@@ -311,6 +311,10 @@ export default function Friends() {
   // contactStatusMap: { [username]: 'pending' | 'approved' | 'declined' | 'hidden' }
   const [contactStatusMap, setContactStatusMap] = useState({})
   const [confirmUnfriend, setConfirmUnfriend] = useState(null)   // { username, display_name }
+  // Someone clicked Share but has no phone/WeChat on their own profile:
+  // nudge them to fill one first, since the other side will see a blank card.
+  // Shape: { reqId, fromUser } | null
+  const [approvePrompt, setApprovePrompt] = useState(null)
   const [toast, setToast]             = useState(null)
   const [loading, setLoading]         = useState(false)
   const toastTimer = useRef(null)
@@ -781,7 +785,17 @@ export default function Friends() {
     }
   }
 
-  const respondContact = async (reqId, action, fromUser) => {
+  const myContactEmpty = () =>
+    !(user?.phone || '').trim() && !(user?.wechat || '').trim()
+
+  const respondContact = async (reqId, action, fromUser, { skipPrompt = false } = {}) => {
+    // Approving while your own phone+WeChat are empty is the main gap: the
+    // other side gets a blank contact card and no way to reach you. Nudge
+    // once before sending; the user can still proceed.
+    if (action === 'approve' && !skipPrompt && myContactEmpty()) {
+      setApprovePrompt({ reqId, fromUser })
+      return
+    }
     const d = await api.put(`/api/friends/contact/requests/${reqId}`, { action })
     if (d.ok) {
       if (action === 'approve') {
@@ -789,7 +803,11 @@ export default function Friends() {
         if (req) setSharedContacts(prev => [...prev, req])
       }
       dismissContactRequest(reqId)
-      flash(action === 'approve' ? 'Contact shared!' : 'Request declined.')
+      if (action === 'approve' && d.no_contact) {
+        flash(d.message || 'Shared, but neither of you has a phone or WeChat on file yet.', 'warning')
+      } else {
+        flash(action === 'approve' ? 'Contact shared!' : 'Request declined.')
+      }
     } else flash(d.error, 'danger')
   }
 
@@ -895,6 +913,47 @@ export default function Friends() {
           onConfirm={unfriend}
           onClose={() => setConfirmUnfriend(null)}
         />
+      )}
+
+      {approvePrompt && (
+        <Modal onClose={() => setApprovePrompt(null)} title="Add your contact first?" scrollable={false}>
+          {({ titleId }) => (
+            <>
+              <div className="modal-header">
+                <h5 className="modal-title fw-semibold" id={titleId} style={{ fontSize: '1rem' }}>Add your contact first?</h5>
+                <button type="button" className="btn-close" aria-label="Close" onClick={() => setApprovePrompt(null)} />
+              </div>
+              <div className="modal-body">
+                <p className="mb-0" style={{ color: 'var(--text-secondary)', fontSize: '.9rem' }}>
+                  先花 10 秒填个微信，不然对方通过了也找不到你。
+                </p>
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary"
+                  onClick={() => {
+                    const p = approvePrompt
+                    setApprovePrompt(null)
+                    respondContact(p.reqId, 'approve', p.fromUser, { skipPrompt: true })
+                  }}
+                >
+                  Share anyway
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => {
+                    setApprovePrompt(null)
+                    navigate('/profile#contact')
+                  }}
+                >
+                  Add contact
+                </button>
+              </div>
+            </>
+          )}
+        </Modal>
       )}
 
       <div className="fr-head">

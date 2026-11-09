@@ -285,7 +285,19 @@ def respond_contact(req_id):
 
     from .friends_socket import notify_contact_resolved
     notify_contact_resolved(req_id, me, requester, action)
-    return jsonify({'ok': True})
+
+    resp = {'ok': True}
+    # Share gets through but both sides have nothing to reveal: tell the caller
+    # so the UI can nudge instead of silently claiming success. Decline never
+    # leaks contact state, so skip the check there.
+    if action == 'approve':
+        def _has_contact(username: str) -> bool:
+            u = market_db.db_get_user(username) or {}
+            return bool((u.get('phone') or '').strip() or (u.get('wechat') or '').strip())
+        if not _has_contact(me) and not _has_contact(requester):
+            resp['no_contact'] = True
+            resp['message']    = 'Shared, but neither of you has a phone or WeChat on file yet.'
+    return jsonify(resp)
 
 
 @friends_bp.route('/<username>/history', methods=['GET'])

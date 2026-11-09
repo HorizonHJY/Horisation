@@ -42,6 +42,7 @@ export default function Profile() {
   const fileRef = useRef()
   const avatarBtnRef = useRef(null)
   const avatarPanelRef = useRef(null)
+  const contactSectionRef = useRef(null)
   const [mbti, setMbti] = useState(null)
   const [mbtiState, setMbtiState] = useState('loading')  // loading | ok | empty | error
   const [savingWear, setSavingWear] = useState(false)
@@ -64,6 +65,23 @@ export default function Profile() {
   }
 
   useEffect(() => { loadMbti() }, [])
+
+  // Jumping here from the Friends page (#contact) should land the eye on
+  // the phone / WeChat fields, not on the avatar at the top.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (window.location.hash !== '#contact') return
+    const t = setTimeout(() => {
+      contactSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 50)
+    return () => clearTimeout(t)
+  }, [])
+
+  const contactEmpty = !(contactForm.phone || '').trim() && !(contactForm.wechat || '').trim()
+  const scrollToContact = () => {
+    contactSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    try { history.replaceState(null, '', '#contact') } catch { /* ignore */ }
+  }
 
   // Close the avatar picker on outside click / Escape; hand focus back.
   useEffect(() => {
@@ -170,7 +188,15 @@ export default function Profile() {
     setSavingName(false)
     if (d.ok) {
       flash('Account info saved.')
-      login({ ...user, display_name: nameForm.display_name.trim(), email: nameForm.email.trim() })
+      login({
+        ...user,
+        display_name: nameForm.display_name.trim(),
+        email:        nameForm.email.trim(),
+        phone:        contactForm.phone,
+        wechat:       contactForm.wechat,
+        address:      contactForm.address,
+        postal_code:  contactForm.postal_code,
+      })
     } else {
       flash(d.error, 'danger')
     }
@@ -245,6 +271,19 @@ export default function Profile() {
       <h4 className='fw-bold mb-4'>My Profile</h4>
 
       {msg && <div className={'alert alert-' + msg.type + ' py-2'}>{msg.text}</div>}
+
+      {contactEmpty && (
+        <div className='alert alert-warning d-flex align-items-center justify-content-between gap-3 py-2 mb-3'
+             role='status' id='missing-contact-banner'>
+          <span>
+            <i className='fas fa-address-card me-2' aria-hidden='true' />
+            Add a WeChat or phone number so friends can reach you after you approve a contact request.
+          </span>
+          <button type='button' className='btn btn-sm btn-primary flex-shrink-0' onClick={scrollToContact}>
+            Add now
+          </button>
+        </div>
+      )}
 
       {/* Header — avatar + name + MBTI, one row */}
       <div className='card p-4 mb-4'>
@@ -402,7 +441,7 @@ export default function Profile() {
       <div className='d-flex flex-column gap-4'>
 
         {/* Account info */}
-        <div className='card p-4'>
+        <div className='card p-4' ref={contactSectionRef} id='contact'>
           <h6 className='fw-semibold mb-3 text-muted'>Account Info</h6>
           <form onSubmit={saveAccount} className='d-flex flex-column gap-3'>
             <div className='row g-3'>
