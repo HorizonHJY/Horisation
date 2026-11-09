@@ -518,6 +518,71 @@ def get_user_public(username):
     }})
 
 
+@auth_bp.route('/users/<username>/reviews', methods=['GET'])
+@login_required
+def get_user_reviews(username):
+    """Reviews (visible or blind-held) left on a user, with avg + count."""
+    from Backend.Controller import market_db
+    if not market_db.db_get_user(username):
+        return jsonify({'ok': False, 'error': 'User not found'}), 404
+    data = market_db.get_reviews_for_user(username)
+    return jsonify({'ok': True, **data})
+
+
+@auth_bp.route('/users/<username>/wall', methods=['GET'])
+@login_required
+def get_user_wall(username):
+    """Profile wall feed, newest first, paginated."""
+    from Backend.Controller import market_db
+    if not market_db.db_get_user(username):
+        return jsonify({'ok': False, 'error': 'User not found'}), 404
+    try:
+        limit  = int(request.args.get('limit', 20))
+        offset = int(request.args.get('offset', 0))
+    except (TypeError, ValueError):
+        limit, offset = 20, 0
+    return jsonify({'ok': True,
+                    'posts': market_db.list_wall_posts(username, limit=limit, offset=offset)})
+
+
+@auth_bp.route('/users/<username>/wall', methods=['POST'])
+@login_required
+def post_user_wall(username):
+    """Write to someone's wall. Up to 5 posts per author per day; no self;
+    reject >2 URLs; max 200 chars.
+    """
+    from Backend.Controller import market_db
+    me = request.current_user['username']
+    if me == username:
+        return jsonify({'ok': False, 'error': "不能在自己的留言墙留言。"}), 400
+    if not market_db.db_get_user(username):
+        return jsonify({'ok': False, 'error': 'User not found'}), 404
+    body = request.get_json(silent=True) or {}
+    content = (body.get('content') or '').strip()
+    if not content:
+        return jsonify({'ok': False, 'error': '内容不能为空。'}), 400
+    if len(content) > market_db.WALL_MAX_LEN:
+        return jsonify({'ok': False, 'error': f'最多 {market_db.WALL_MAX_LEN} 个字。'}), 400
+    if len(market_db._URL_RE.findall(content)) > 2:
+        return jsonify({'ok': False, 'error': '不能一次贴超过两个链接。'}), 400
+    if market_db.count_wall_posts_today(me) >= market_db.WALL_DAILY_LIMIT:
+        return jsonify({'ok': False, 'error': '今天留言次数已用完。'}), 429
+    post = market_db.create_wall_post(username, me, content)
+    return jsonify({'ok': True, 'post': post}), 201
+
+
+@auth_bp.route('/users/<username>/wall/<post_id>', methods=['DELETE'])
+@login_required
+def delete_user_wall(username, post_id):
+    from Backend.Controller import market_db
+    me = request.current_user['username']
+    is_admin = user_manager.check_permission(me, 'admin')
+    ok = market_db.delete_wall_post(username, post_id, me, is_admin=is_admin)
+    if not ok:
+        return jsonify({'ok': False, 'error': 'Not found or not allowed'}), 404
+    return jsonify({'ok': True})
+
+
 @auth_bp.route('/users/<username>', methods=['DELETE'])
 @admin_required
 def delete_user(username):

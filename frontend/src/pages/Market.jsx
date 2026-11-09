@@ -465,6 +465,12 @@ function ListingCard({
         <span>
           <span style={{ display: 'block', fontWeight: 600, fontSize: '.75rem', color: 'var(--mc-font)' }}>
             {listing.seller_display || listing.seller_username}
+            {listing.seller_rating_count > 0 && (
+              <span className="ms-1" style={{ fontSize: '.68rem', color: '#8a7735', fontWeight: 500 }}>
+                <i className="fas fa-star" style={{ color: '#d6a73a', marginRight: 2 }} aria-hidden="true" />
+                {listing.seller_avg_rating?.toFixed?.(1) ?? listing.seller_avg_rating} · {listing.seller_rating_count}条
+              </span>
+            )}
           </span>
           <span style={{ display: 'block', fontSize: '.68rem' }}>
             {fmtDateMed(listing.created_at)}
@@ -896,6 +902,90 @@ function SellerModal({ seller, listings, loading, categoryLabel, onClose, onReac
   )
 }
 
+// ── Buyer Picker Modal ─────────────────────────────────────────────
+/* Marking a listing sold opens this picker first. Picking a buyer starts a
+   two-sided deal both parties can rate; skipping keeps the old one-tap feel. */
+function BuyerPickerModal({ candidates, busy, onPick, onSkip, onClose }) {
+  const [picked, setPicked] = useState(null)
+  return (
+    <Modal onClose={busy ? () => {} : onClose} title="Who bought it?">
+      {({ titleId }) => (
+        <>
+          <div className="modal-header">
+            <h5 className="modal-title fw-semibold" id={titleId}>
+              <i className="fas fa-handshake me-2" aria-hidden="true" />Who bought it?
+            </h5>
+            <button type="button" className="btn-close" aria-label="Close" onClick={onClose} disabled={busy} />
+          </div>
+          <div className="modal-body">
+            <p className="small mb-3" style={{ color: 'var(--text-muted)' }}>
+              Pick the buyer so you can both leave a review afterwards. You can skip this.
+            </p>
+            {candidates.length === 0 && (
+              <div className="text-center small py-3" style={{ color: 'var(--text-muted)' }}>
+                No recent chats to suggest. You can still mark it sold.
+              </div>
+            )}
+            {candidates.length > 0 && (
+              <div className="d-flex flex-column gap-2" style={{ maxHeight: 320, overflowY: 'auto' }}>
+                {candidates.map(c => {
+                  const active = picked === c.username
+                  return (
+                    <button
+                      key={c.username}
+                      type="button"
+                      className="btn text-start d-flex align-items-center gap-2"
+                      style={{
+                        border: active ? '1.5px solid var(--accent-primary)' : '1px solid var(--border-soft)',
+                        background: active ? 'var(--accent-soft, rgba(107,156,219,0.08))' : 'transparent',
+                        padding: '.55rem .7rem',
+                        borderRadius: 10,
+                      }}
+                      onClick={() => setPicked(c.username)}
+                      disabled={busy}
+                    >
+                      {c.avatar_url
+                        ? <img src={c.avatar_url} alt="" width={32} height={32} style={{ borderRadius: '50%', objectFit: 'cover' }} />
+                        : <span style={{
+                            width: 32, height: 32, borderRadius: '50%', background: 'var(--surface-soft)',
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)',
+                          }}><i className="fas fa-user" aria-hidden="true" /></span>
+                      }
+                      <span className="flex-grow-1">
+                        <span className="d-block fw-semibold" style={{ fontSize: '.95rem' }}>
+                          {c.display_name || c.username}
+                        </span>
+                        {c.reason && (
+                          <span className="d-block small" style={{ color: 'var(--text-muted)' }}>
+                            {c.reason === 'chat' ? 'Asked about this listing' : 'Friend'}
+                          </span>
+                        )}
+                      </span>
+                      {active && <i className="fas fa-check" style={{ color: 'var(--accent-primary)' }} aria-hidden="true" />}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+          <div className="modal-footer" style={{ gap: 8 }}>
+            <button className="btn btn-outline-secondary" onClick={onSkip} disabled={busy}>
+              Skip
+            </button>
+            <button
+              className="btn btn-primary"
+              onClick={() => onPick(picked)}
+              disabled={busy || !picked}
+            >
+              {busy ? 'Saving…' : 'Confirm buyer'}
+            </button>
+          </div>
+        </>
+      )}
+    </Modal>
+  )
+}
+
 // ── Export Modal ──────────────────────────────────────────────────────────────
 /* Exporting your own listings for sharing outside the circle is a confirmed
    product need (PRODUCT.md, 2026-09-07). It has to work on iOS Safari, where
@@ -1103,6 +1193,8 @@ export default function Market() {
   const [showExport, setShowExport]   = useState(false)
   const [pendingDelete, setPendingDelete] = useState(null)
   const [deleting, setDeleting]       = useState(false)
+  const [soldPicker, setSoldPicker]   = useState(null)
+  const [soldSaving, setSoldSaving]   = useState(false)
   const [highlightId, setHighlightId] = useState(null)
   // Bumped after any mutation so an open detail overlay re-fetches its listing.
   const [refreshTick, setRefreshTick] = useState(0)
@@ -1459,9 +1551,27 @@ export default function Market() {
 
   // ── Listing mutations ───────────────────────────────────────────────────────
   async function handleSold(id) {
-    const d = await api.post(`/api/market/listings/${id}/sold`)
-    if (d.ok) { showToast('Marked as sold.'); reloadAfterMutation() }
-    else showToast(d.error || 'Could not update the listing.', 'danger')
+    // Open the buyer picker first so the seller can start a rateable deal.
+    const res = await api.get(`/api/market/listings/${id}/buyers`)
+    const candidates = res.ok ? (res.buyers || []) : []
+    setSoldPicker({ listingId: id, candidates })
+  }
+
+  async function confirmSold(buyerUsername) {
+    if (!soldPicker) return
+    setSoldSaving(true)
+    const body = buyerUsername ? { buyer: buyerUsername } : {}
+    const d = await api.post(`/api/market/listings/${soldPicker.listingId}/sold`, body)
+    setSoldSaving(false)
+    if (d.ok) {
+      setSoldPicker(null)
+      showToast(d.deal
+        ? 'Deal started — both sides can leave a review.'
+        : 'Marked as sold.')
+      reloadAfterMutation()
+    } else {
+      showToast(d.error || 'Could not update the listing.', 'danger')
+    }
   }
 
   async function handleRestore(id) {
@@ -1636,6 +1746,16 @@ export default function Market() {
           categoryLabel={categoryLabel}
           onClose={() => setShowExport(false)}
           showToast={showToast}
+        />
+      )}
+
+      {soldPicker && (
+        <BuyerPickerModal
+          candidates={soldPicker.candidates}
+          busy={soldSaving}
+          onPick={confirmSold}
+          onSkip={() => confirmSold(null)}
+          onClose={() => setSoldPicker(null)}
         />
       )}
 

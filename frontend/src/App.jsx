@@ -87,6 +87,7 @@ function NotificationsProvider({ children }) {
   // New-listing counter for the sidebar Market item. Reset on login/logout
   // and whenever the viewer actually visits /market (see clearMarketNew).
   const [marketNew, setMarketNew]           = useState(0)
+  const [pendingReviews, setPendingReviews] = useState(0)
 
   // The viewer's current path, read inside the socket handler so it never
   // sees a stale value: a listing that lands while the user is on /market
@@ -120,15 +121,23 @@ function NotificationsProvider({ children }) {
     setContactRequests(d.contact_requests || [])
   }, [user])
 
+  const refreshPendingReviews = useCallback(async () => {
+    if (!user) { setPendingReviews(0); return }
+    const d = await api.get('/api/market/deals/pending')
+    if (d.ok) setPendingReviews((d.deals || []).length)
+  }, [user])
+
   useEffect(() => {
     if (!user) {
       setUnreadMap({}); setFriendRequests([]); setContactRequests([])
       setMarketNew(0)
+      setPendingReviews(0)
       return
     }
     refresh()
     refreshMarketNew()
-    const id = setInterval(() => { refresh(); refreshMarketNew() }, SNAPSHOT_INTERVAL_MS)
+    refreshPendingReviews()
+    const id = setInterval(() => { refresh(); refreshMarketNew(); refreshPendingReviews() }, SNAPSHOT_INTERVAL_MS)
 
     /* Browsers throttle and eventually suspend sockets in a background tab —
        phones especially — so events can be missed while you are away and the
@@ -136,7 +145,7 @@ function NotificationsProvider({ children }) {
        what stops that needing a manual refresh; the slow timer alone would
        leave it wrong for minutes. */
     const onVisible = () => {
-      if (document.visibilityState === 'visible') { refresh(); refreshMarketNew() }
+      if (document.visibilityState === 'visible') { refresh(); refreshMarketNew(); refreshPendingReviews() }
     }
     document.addEventListener('visibilitychange', onVisible)
     window.addEventListener('focus', onVisible)
@@ -146,7 +155,7 @@ function NotificationsProvider({ children }) {
       document.removeEventListener('visibilitychange', onVisible)
       window.removeEventListener('focus', onVisible)
     }
-  }, [user, refresh, refreshMarketNew])
+  }, [user, refresh, refreshMarketNew, refreshPendingReviews])
 
   // Live updates. Registered here rather than on a page so they arrive
   // wherever the user happens to be.
@@ -185,7 +194,9 @@ function NotificationsProvider({ children }) {
     socket.on('contact_request_resolved', onContactResolved)
     socket.on('chat_message', onChatMessage)
     socket.on('friend_accepted', onFriendAccepted)
+    const onDealReviewPending = () => { refreshPendingReviews() }
     socket.on('market_listing_new', onMarketNew)
+    socket.on('deal_review_pending', onDealReviewPending)
 
     return () => {
       socket.off('connect', onConnect)
@@ -195,8 +206,9 @@ function NotificationsProvider({ children }) {
       socket.off('chat_message', onChatMessage)
       socket.off('friend_accepted', onFriendAccepted)
       socket.off('market_listing_new', onMarketNew)
+      socket.off('deal_review_pending', onDealReviewPending)
     }
-  }, [socket, user, refresh])
+  }, [socket, user, refresh, refreshPendingReviews])
 
   const clearUnread = useCallback((username) => {
     setUnreadMap(prev => { const n = { ...prev }; delete n[username]; return n })
@@ -238,6 +250,7 @@ function NotificationsProvider({ children }) {
       unreadMap, total, badgeTotal,
       friendRequests, contactRequests,
       marketNew, clearMarketNew,
+      pendingReviews, refreshPendingReviews,
       refresh, clearUnread, bumpUnread,
       dismissContactRequest, dismissFriendRequest, contactRequestFrom,
     }}>

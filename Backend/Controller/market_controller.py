@@ -395,11 +395,80 @@ def delete_listing(listing_id):
 @market_bp.route('/listings/<listing_id>/sold', methods=['POST'])
 @login_required
 def mark_sold(listing_id):
+    """Mark a listing sold. Optional `buyer` in the JSON body opens a deal
+    so the two sides can rate each other; omit it to keep the old behaviour.
+    """
     seller = request.current_user['username']
     ok     = market_db.mark_sold(listing_id, seller)
     if not ok:
         return jsonify({'ok': False, 'error': 'Listing not found or permission denied.'}), 404
-    return jsonify({'ok': True})
+
+    body = request.get_json(silent=True) or {}
+    buyer = (body.get('buyer') or '').strip() or None
+    deal = None
+    if buyer and buyer != seller and market_db.db_get_user(buyer):
+        deal = market_db.create_deal(listing_id, seller, buyer)
+        if deal:
+            try:
+                from .socketio_instance import socketio
+                payload = {'deal_id': deal['id'], 'listing_id': listing_id,
+                           'seller': seller, 'buyer': buyer}
+                socketio.emit('deal_review_pending', payload, room=f'user_{seller}')
+                socketio.emit('deal_review_pending', payload, room=f'user_{buyer}')
+            except Exception:
+                pass
+    return jsonify({'ok': True, 'deal': deal})
+
+
+# ── Deals: candidate buyers / review / pending ─────────────────────────────
+
+@market_bp.route('/listings/<listing_id>/buyers', methods=['GET'])
+@login_required
+def list_candidate_buyers(listing_id):
+    """Who the seller might be selling this to. Everyone who DM'd the seller
+    about this listing; falls back to the seller's friends when empty.
+    """
+    me = request.current_user['username']
+    listing = market_db.get_listing(listing_id)
+    if not listing:
+        return jsonify({'ok': False, 'error': 'Listing not found.'}), 404
+    if listing['seller_username'] != me:
+        return jsonify({'ok': False, 'error': 'Only the seller can view this.'}), 403
+    buyers = market_db.get_candidate_buyers(me, listing_id)
+    return jsonify({'ok': True, 'buyers': buyers})
+
+
+@market_bp.route('/deals/<deal_id>/review', methods=['POST'])
+@login_required
+def post_deal_review(deal_id):
+    """Buyer or seller posts their rating. Duplicate returns 409."""
+    me   = request.current_user['username']
+    body = request.get_json(silent=True) or {}
+    try:
+        rating = int(body.get('rating'))
+    except (TypeError, ValueError):
+        return jsonify({'ok': False, 'error': 'rating must be an integer 1–5.'}), 400
+    tags = body.get('tags') or []
+    note = body.get('note') or ''
+    review, err = market_db.post_review(deal_id, me, rating, tags, note)
+    if err == 'not_found':
+        return jsonify({'ok': False, 'error': 'Deal not found.'}), 404
+    if err == 'not_party':
+        return jsonify({'ok': False, 'error': 'Only the buyer or seller can review.'}), 403
+    if err == 'duplicate':
+        return jsonify({'ok': False, 'error': 'You have already reviewed this deal.'}), 409
+    if err == 'bad_rating':
+        return jsonify({'ok': False, 'error': 'Rating must be between 1 and 5.'}), 400
+    if err == 'bad_tag':
+        return jsonify({'ok': False, 'error': 'One of the tags is not allowed.'}), 400
+    return jsonify({'ok': True, 'review': review}), 201
+
+
+@market_bp.route('/deals/pending', methods=['GET'])
+@login_required
+def list_pending_deals():
+    me = request.current_user['username']
+    return jsonify({'ok': True, 'deals': market_db.get_pending_deals_for(me)})
 
 
 # ── Restore sold listing (seller only) ───────────────────────────────────────

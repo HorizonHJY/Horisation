@@ -14,7 +14,7 @@ from typing import Optional, List
 
 from sqlalchemy import (
     create_engine, Column, String, Text, Float, Integer, DateTime, Date, ForeignKey, Boolean, text, func,
-    or_, and_,
+    UniqueConstraint, or_, and_,
 )
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 
@@ -701,10 +701,48 @@ def delete_message(message_id: str, username: str, is_admin: bool = False) -> bo
 
 
 def _enrich_listings(rows: list, s) -> list[dict]:
-    """Batch-fetch seller User rows and attach display info to each listing dict."""
+    """Batch-fetch seller User rows and attach display info + seller rating."""
     usernames = list({r.seller_username for r in rows})
     sellers   = {u.username: u for u in s.query(User).filter(User.username.in_(usernames)).all()}
-    return [_listing_to_dict(r, sellers.get(r.seller_username)) for r in rows]
+    out = [_listing_to_dict(r, sellers.get(r.seller_username)) for r in rows]
+    if usernames:
+        ratings = _batch_rating_summary(usernames, s)
+        for d in out:
+            r = ratings.get(d['seller_username'])
+            if r and r['count'] > 0:
+                d['seller_avg_rating']   = r['avg']
+                d['seller_rating_count'] = r['count']
+    return out
+
+
+def _batch_rating_summary(usernames: list, s) -> dict:
+    """Compute per-user {avg,count} over visible (non-blind) reviews.
+    Only looks at reviews where either the counterpart has reviewed too, or
+    the review is at least REVIEW_BLIND_DAYS old. One query.
+    """
+    if not usernames:
+        return {}
+    now = datetime.now(timezone.utc)
+    try:
+        rows = s.query(Review).filter(Review.to_user.in_(usernames)).all()
+    except Exception:
+        return {}
+    deal_ids = list({r.deal_id for r in rows})
+    counterparts = {}
+    if deal_ids:
+        for cp in s.query(Review).filter(Review.deal_id.in_(deal_ids)).all():
+            counterparts.setdefault(cp.deal_id, []).append(cp)
+    agg = {}
+    for r in rows:
+        cps = [c for c in counterparts.get(r.deal_id, []) if c.id != r.id]
+        visible = _review_visible(r, cps[0] if cps else None, now)
+        if not visible:
+            continue
+        row = agg.setdefault(r.to_user, {'total': 0, 'count': 0})
+        row['total'] += r.rating
+        row['count'] += 1
+    return {u: {'avg': round(v['total'] / v['count'], 2), 'count': v['count']}
+            for u, v in agg.items()}
 
 
 # ── Category helpers ─────────────────────────────────────────────────────────
@@ -2260,3 +2298,342 @@ def delete_fx_post(post_id: str, owner: str) -> bool:
         if not row:
             return False
         s.delete(row); s.commit(); return True
+
+
+# ── Deals + Reviews + Profile Wall ────────────────────────────────────────────
+# 买卖双方互评 + 个人留言墙.
+
+DEAL_STATUSES  = ('open', 'rated', 'closed')
+REVIEW_TAGS    = {'准时', '描述相符', '态度好', '包装仔细'}
+REVIEW_BLIND_DAYS = 14
+
+
+class Deal(Base):
+    __tablename__ = 'deals'
+
+    id          = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    listing_id  = Column(String(36), nullable=False, index=True)
+    seller      = Column(String(100), nullable=False, index=True)
+    buyer       = Column(String(100), nullable=False, index=True)
+    status      = Column(String(20),  nullable=False, default='open')  # open / rated / closed
+    created_at  = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    closed_at   = Column(DateTime, nullable=True)
+
+
+class Review(Base):
+    __tablename__ = 'reviews'
+    __table_args__ = (
+        UniqueConstraint('deal_id', 'from_user', name='uq_review_deal_from'),
+    )
+
+    id          = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    deal_id     = Column(String(36), nullable=False, index=True)
+    from_user   = Column(String(100), nullable=False, index=True)
+    to_user     = Column(String(100), nullable=False, index=True)
+    rating      = Column(Integer, nullable=False)   # 1-5
+    tags        = Column(Text, nullable=False, default='[]')  # JSON list
+    note        = Column(String(200), nullable=True)
+    created_at  = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+
+class ProfileWallPost(Base):
+    __tablename__ = 'profile_wall'
+
+    id            = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    profile_user  = Column(String(100), nullable=False, index=True)
+    author        = Column(String(100), nullable=False, index=True)
+    content       = Column(Text, nullable=False)
+    created_at    = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    deleted       = Column(Boolean, nullable=False, default=False)
+
+
+def _deal_to_dict(d: Deal) -> dict:
+    return {
+        'id':          d.id,
+        'listing_id':  d.listing_id,
+        'seller':      d.seller,
+        'buyer':       d.buyer,
+        'status':      d.status,
+        'created_at':  d.created_at.isoformat() if d.created_at else None,
+        'closed_at':   d.closed_at.isoformat() if d.closed_at else None,
+    }
+
+
+def _review_to_dict(r: Review) -> dict:
+    try:
+        tags = json.loads(r.tags or '[]')
+        if not isinstance(tags, list):
+            tags = []
+    except (ValueError, TypeError):
+        tags = []
+    return {
+        'id':         r.id,
+        'deal_id':    r.deal_id,
+        'from_user':  r.from_user,
+        'to_user':    r.to_user,
+        'rating':     r.rating,
+        'tags':       tags,
+        'note':       r.note or '',
+        'created_at': r.created_at.isoformat() if r.created_at else None,
+    }
+
+
+def create_deal(listing_id: str, seller: str, buyer: str) -> Optional[dict]:
+    """Create an open deal. Returns None if seller == buyer."""
+    if not buyer or buyer == seller:
+        return None
+    with Session() as s:
+        d = Deal(id=str(uuid.uuid4()), listing_id=listing_id,
+                 seller=seller, buyer=buyer, status='open')
+        s.add(d)
+        s.commit()
+        return _deal_to_dict(d)
+
+
+def get_deal(deal_id: str) -> Optional[dict]:
+    with Session() as s:
+        d = s.query(Deal).filter_by(id=deal_id).first()
+        return _deal_to_dict(d) if d else None
+
+
+def get_pending_deals_for(username: str) -> list[dict]:
+    """Deals where user is a party and has not yet posted their review."""
+    with Session() as s:
+        deals = s.query(Deal).filter(
+            Deal.status != 'closed',
+            or_(Deal.seller == username, Deal.buyer == username),
+        ).order_by(Deal.created_at.desc()).all()
+        out = []
+        for d in deals:
+            mine = s.query(Review).filter_by(deal_id=d.id, from_user=username).first()
+            if mine:
+                continue
+            other = d.buyer if d.seller == username else d.seller
+            listing = s.query(Listing).filter_by(id=d.listing_id).first()
+            other_user = s.query(User).filter_by(username=other).first()
+            out.append({
+                **_deal_to_dict(d),
+                'other':         other,
+                'other_display': (other_user.display_name if other_user else other) or other,
+                'other_avatar':  other_user.avatar_url if other_user else None,
+                'counterpart':   {
+                    'username':     other,
+                    'display_name': (other_user.display_name if other_user else other) or other,
+                    'avatar_url':   other_user.avatar_url if other_user else None,
+                },
+                'my_role':       'seller' if d.seller == username else 'buyer',
+                'listing_title': listing.title if listing else None,
+                'listing_price': listing.price if listing else None,
+            })
+        return out
+
+
+def post_review(deal_id: str, from_user: str, rating: int,
+                tags: list, note: str = '') -> tuple[Optional[dict], Optional[str]]:
+    """Return (review_dict, error_code). error codes: not_found / not_party /
+    duplicate / bad_rating / bad_tag."""
+    if not isinstance(rating, int) or rating < 1 or rating > 5:
+        return None, 'bad_rating'
+    tags = tags or []
+    if not isinstance(tags, list):
+        return None, 'bad_tag'
+    for t in tags:
+        if t not in REVIEW_TAGS:
+            return None, 'bad_tag'
+    note = (note or '').strip()[:200]
+    with Session() as s:
+        d = s.query(Deal).filter_by(id=deal_id).first()
+        if not d:
+            return None, 'not_found'
+        if from_user not in (d.seller, d.buyer):
+            return None, 'not_party'
+        existing = s.query(Review).filter_by(deal_id=deal_id, from_user=from_user).first()
+        if existing:
+            return None, 'duplicate'
+        to_user = d.buyer if from_user == d.seller else d.seller
+        r = Review(id=str(uuid.uuid4()), deal_id=deal_id,
+                   from_user=from_user, to_user=to_user,
+                   rating=rating, tags=json.dumps(tags, ensure_ascii=False),
+                   note=note)
+        s.add(r)
+        # If both sides now have reviews, flip deal to rated.
+        other_review = s.query(Review).filter_by(deal_id=deal_id, from_user=to_user).first()
+        if other_review:
+            d.status = 'rated'
+            d.closed_at = datetime.now(timezone.utc)
+        s.commit()
+        s.refresh(r)
+        return _review_to_dict(r), None
+
+
+def _review_visible(r: Review, other_review: Optional[Review], now: datetime) -> bool:
+    """Blind review rule: if both sides rated OR older than 14 days, visible."""
+    if other_review is not None:
+        return True
+    created = r.created_at
+    if created and created.tzinfo is None:
+        created = created.replace(tzinfo=timezone.utc)
+    if created is None:
+        return True
+    age = now - created
+    return age.days >= REVIEW_BLIND_DAYS
+
+
+def get_reviews_for_user(username: str) -> dict:
+    """Return {reviews, avg, count}. Hidden reviews appear as placeholders."""
+    now = datetime.now(timezone.utc)
+    with Session() as s:
+        rows = s.query(Review).filter_by(to_user=username) \
+                              .order_by(Review.created_at.desc()).all()
+        # Pre-fetch the counterpart reviews keyed by deal_id
+        deal_ids = list({r.deal_id for r in rows})
+        counterparts = {}
+        if deal_ids:
+            for cp in s.query(Review).filter(Review.deal_id.in_(deal_ids),
+                                              Review.to_user != username).all():
+                counterparts[cp.deal_id] = cp
+        # Resolve author display
+        authors = list({r.from_user for r in rows})
+        author_users = {u.username: u for u in s.query(User).filter(User.username.in_(authors)).all()} if authors else {}
+        out = []
+        total = 0
+        count = 0
+        for r in rows:
+            cp = counterparts.get(r.deal_id)
+            visible = _review_visible(r, cp, now)
+            au = author_users.get(r.from_user)
+            base = {
+                'id':           r.id,
+                'deal_id':      r.deal_id,
+                'from_user':    r.from_user,
+                'from_display': (au.display_name if au else r.from_user) or r.from_user,
+                'from_avatar':  au.avatar_url if au else None,
+                'created_at':   r.created_at.isoformat() if r.created_at else None,
+                'hidden':       not visible,
+            }
+            if visible:
+                try:
+                    tags = json.loads(r.tags or '[]')
+                except (ValueError, TypeError):
+                    tags = []
+                base.update({'rating': r.rating, 'tags': tags, 'note': r.note or ''})
+                total += r.rating
+                count += 1
+            out.append(base)
+        avg = round(total / count, 2) if count else None
+        return {'reviews': out, 'avg': avg, 'count': count}
+
+
+def get_user_rating_summary(username: str) -> dict:
+    """Compact {avg, count} using only visible reviews. Cheap enough to call
+    per card; callers that need the full list use get_reviews_for_user."""
+    r = get_reviews_for_user(username)
+    return {'avg': r['avg'], 'count': r['count']}
+
+
+def get_candidate_buyers(seller: str, listing_id: str) -> list[dict]:
+    """People who had private chat with seller mentioning this listing.
+    Falls back to the seller's friends when nothing matches.
+    Each result has {username, display_name, avatar_url, reason}.
+    """
+    chat_candidates = set()
+    with Session() as s:
+        rows = s.query(PrivateChatMessage).filter(
+            or_(PrivateChatMessage.room_key.like(f'{seller}:%'),
+                PrivateChatMessage.room_key.like(f'%:{seller}')),
+            PrivateChatMessage.content.like(f'%{listing_id}%'),
+        ).all()
+        for r in rows:
+            parts = r.room_key.split(':', 1)
+            if len(parts) != 2:
+                continue
+            a, b = parts
+            other = b if a == seller else a
+            if other and other != seller:
+                chat_candidates.add(other)
+    fallback = False
+    candidates = chat_candidates
+    if not candidates:
+        candidates = {u for u in get_friends(seller) if u != seller}
+        fallback = True
+    if not candidates:
+        return []
+    with Session() as s:
+        users = {u.username: u for u in s.query(User).filter(User.username.in_(list(candidates))).all()}
+    out = []
+    for un in sorted(candidates):
+        if un not in users:
+            continue
+        u = users[un]
+        out.append({
+            'username':     un,
+            'display_name': u.display_name or un,
+            'avatar_url':   u.avatar_url,
+            'reason':       'friend' if fallback else 'chat',
+        })
+    return out
+
+
+# ── Profile wall helpers ─────────────────────────────────────────────────────
+
+import re as _re
+_URL_RE = _re.compile(r'https?://', _re.IGNORECASE)
+WALL_MAX_LEN     = 200
+WALL_DAILY_LIMIT = 5
+
+
+def _wall_post_to_dict(p: ProfileWallPost, author_user: Optional[User] = None) -> dict:
+    return {
+        'id':            p.id,
+        'profile_user':  p.profile_user,
+        'author':        p.author,
+        'author_display':(author_user.display_name if author_user else p.author) or p.author,
+        'author_avatar': author_user.avatar_url if author_user else None,
+        'content':       p.content,
+        'created_at':    p.created_at.isoformat() if p.created_at else None,
+    }
+
+
+def count_wall_posts_today(author: str) -> int:
+    start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    with Session() as s:
+        return s.query(func.count(ProfileWallPost.id)).filter(
+            ProfileWallPost.author == author,
+            ProfileWallPost.deleted == False,
+            ProfileWallPost.created_at >= start,
+        ).scalar() or 0
+
+
+def create_wall_post(profile_user: str, author: str, content: str) -> dict:
+    p = ProfileWallPost(id=str(uuid.uuid4()),
+                        profile_user=profile_user, author=author, content=content)
+    with Session() as s:
+        s.add(p)
+        s.commit()
+        author_user = s.query(User).filter_by(username=author).first()
+        return _wall_post_to_dict(p, author_user)
+
+
+def list_wall_posts(profile_user: str, limit: int = 20, offset: int = 0) -> list[dict]:
+    with Session() as s:
+        rows = (s.query(ProfileWallPost)
+                 .filter_by(profile_user=profile_user, deleted=False)
+                 .order_by(ProfileWallPost.created_at.desc())
+                 .offset(max(0, offset)).limit(max(1, min(limit, 100))).all())
+        authors = {u.username: u for u in s.query(User)
+                   .filter(User.username.in_({r.author for r in rows})).all()}
+        return [_wall_post_to_dict(r, authors.get(r.author)) for r in rows]
+
+
+def delete_wall_post(profile_user: str, post_id: str, requester: str, is_admin: bool = False) -> bool:
+    with Session() as s:
+        row = s.query(ProfileWallPost).filter_by(id=post_id, profile_user=profile_user,
+                                                  deleted=False).first()
+        if not row:
+            return False
+        if row.author != requester and not is_admin:
+            return False
+        row.deleted = True
+        s.commit()
+        return True
+
