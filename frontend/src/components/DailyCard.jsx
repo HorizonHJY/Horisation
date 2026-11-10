@@ -138,7 +138,7 @@ export default function DailyCard() {
                   fontWeight: 500,
                 }}
               >
-                看完整牌阵 →
+                体验完整功能 →
               </Link>
             </div>
           </div>
