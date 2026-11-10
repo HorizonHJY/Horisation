@@ -96,6 +96,13 @@ export default function Topbar({ onMenuClick, menuButtonVisible = true }) {
                 <i className="fas fa-user me-2" />Profile
               </button>
             </li>
+            {user.username && (
+              <li>
+                <button className="dropdown-item" onClick={() => navigate(`/u/${user.username}`)}>
+                  <i className="fas fa-id-card me-2" />Public profile
+                </button>
+              </li>
+            )}
             <li><hr className="dropdown-divider" /></li>
             <li>
               <button className="dropdown-item text-danger" onClick={handleLogout}>

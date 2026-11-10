@@ -421,6 +421,16 @@ export default function Profile() {
                   </div>
                 )}
               </div>
+              {user.username && (
+                <Link
+                  to={`/u/${user.username}`}
+                  className='btn btn-sm btn-outline-secondary'
+                  title='Open your public profile'
+                >
+                  <i className='fas fa-arrow-up-right-from-square me-1' aria-hidden='true' />
+                  View public profile
+                </Link>
+              )}
             </div>
           </div>
 
