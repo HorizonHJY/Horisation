@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../App'
 import WeatherCard from '../components/WeatherCard'
 import DailyCard from '../components/DailyCard'
+import MarketRail from '../components/MarketRail'
 
 const FEATURES_MEMBER = [
   { icon: 'fa-store',    color: '#27ae60', title: 'Market',        desc: 'Browse and post second-hand listings.', to: '/market'   },
@@ -87,6 +88,8 @@ export default function Home() {
           </div>
         ))}
       </div>
+
+      <MarketRail />
     </div>
   )
 }

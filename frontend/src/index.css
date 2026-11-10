@@ -5388,3 +5388,117 @@ button.fr-chip:hover { filter: brightness(.96); }
   .fx-detail__amount { font-size: 1.5rem; }
   .fx-form__dir   { grid-template-columns: 1fr; }
 }
+
+/* ===== Market rail on Home ("Just listed") =================================
+   Three horizontal cards under Quick Access. Desktop: three equal columns.
+   Mobile: horizontal scroll with snap, no body overflow. */
+.market-rail {
+  margin-top: 28px;
+}
+.market-rail__head {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 12px; margin-bottom: 14px;
+}
+.market-rail__title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.3rem;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  margin: 0 0 4px;
+}
+.market-rail__sub {
+  font-family: var(--font-serif-cn);
+  font-style: italic;
+  color: var(--text-muted);
+  font-size: .92rem;
+  margin: 0;
+}
+.market-rail__all {
+  color: var(--accent-text);
+  text-decoration: none;
+  font-size: .9rem;
+  font-weight: 600;
+  white-space: nowrap;
+  padding-bottom: 2px;
+}
+.market-rail__all:hover { color: var(--accent-solid-hover); }
+.market-rail__all i { font-size: .72rem; margin-left: 2px; }
+
+.market-rail__track {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.market-rail__card {
+  display: flex; flex-direction: column;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+  transition: transform .15s, box-shadow .15s, border-color .15s;
+  min-width: 0;
+}
+.market-rail__card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(26, 26, 26, .08);
+  border-color: var(--accent-soft);
+}
+.market-rail__thumb {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background: var(--bg-subtle);
+  overflow: hidden;
+}
+.market-rail__thumb img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.market-rail__body {
+  padding: 10px 12px 12px;
+  display: flex; flex-direction: column; gap: 2px;
+  min-width: 0;
+}
+.market-rail__price {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+.market-rail__name {
+  font-size: .88rem;
+  color: var(--text-primary);
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.market-rail__seller {
+  font-size: .75rem;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .market-rail__track {
+    display: flex;
+    grid-template-columns: none;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    gap: 12px;
+    padding-bottom: 6px;
+    margin: 0 -4px;
+    padding-left: 4px; padding-right: 4px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .market-rail__card {
+    flex: 0 0 68%;
+    max-width: 68%;
+    scroll-snap-align: start;
+  }
+}
