@@ -424,9 +424,9 @@ export default function Sublets() {
   const me = user?.username
 
   const SUB_TABS = useMemo(() => [
-    { key: 'browse', label: 'Browse 浏览' },
-    user && { key: 'mine',   label: 'My Sublets 我的转租' },
-    user && { key: 'create', label: 'Post 发布' },
+    { key: 'browse', label: 'Browse' },
+    user && { key: 'mine',   label: 'My Sublets' },
+    user && { key: 'create', label: 'Post' },
   ].filter(Boolean), [user])
 
   const [subTab, setSubTab] = useState('browse')

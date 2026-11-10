@@ -535,9 +535,9 @@ export default function Fx() {
   ))
 
   const SUB_TABS = useMemo(() => [
-    { key: 'browse', label: 'Browse 浏览' },
-    user && canPost && { key: 'mine',   label: 'My Posts 我的' },
-    user && { key: 'create', label: 'Post 发布' },
+    { key: 'browse', label: 'Browse' },
+    user && canPost && { key: 'mine',   label: 'My Posts' },
+    user && { key: 'create', label: 'Post' },
   ].filter(Boolean), [user, canPost])
 
   const [subTab, setSubTab]       = useState('browse')
