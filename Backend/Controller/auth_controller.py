@@ -386,15 +386,22 @@ def update_own_profile():
     phone           = data.get('phone')          # None = don't update; '' = clear
     address         = data.get('address')        # None = don't update; '' = clear
     postal_code     = data.get('postal_code')    # None = don't update; '' = clear
+    bio_raw         = data.get('bio')            # None = don't update; '' = clear
+    bio = None
+    if bio_raw is not None:
+        bio = str(bio_raw).strip()
+        if len(bio) > 120:
+            return jsonify({'ok': False, 'error': 'Bio cannot exceed 120 characters.'}), 400
     if display_name is None and email is None and contact_info is None \
             and contact_hidden is None and wechat is None and phone is None \
-            and address is None and postal_code is None:
+            and address is None and postal_code is None and bio is None:
         return jsonify({'ok': False, 'error': 'Nothing to update'}), 400
     username = request.current_user['username']
     success, message = user_manager.update_user_profile(
         username, display_name=display_name, email=email,
         contact_info=contact_info, contact_hidden=contact_hidden,
         wechat=wechat, phone=phone, address=address, postal_code=postal_code,
+        bio=bio,
     )
     if not success:
         return jsonify({'ok': False, 'error': message}), 400
@@ -515,6 +522,7 @@ def get_user_public(username):
         'display_name': u['display_name'],
         'avatar_url':   u['avatar_url'],
         'created_at':   u['created_at'],
+        'bio':          u.get('bio', '') or '',
     }})
 
 

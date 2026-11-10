@@ -219,7 +219,8 @@ class UserManager:
                             wechat: str = None,
                             phone: str = None,
                             address: str = None,
-                            postal_code: str = None) -> Tuple[bool, str]:
+                            postal_code: str = None,
+                            bio: str = None) -> Tuple[bool, str]:
         fields = {}
         if display_name is not None:
             fields['display_name'] = display_name
@@ -239,6 +240,8 @@ class UserManager:
             fields['address'] = address
         if postal_code is not None:
             fields['postal_code'] = postal_code
+        if bio is not None:
+            fields['bio'] = bio
         if not market_db.db_update_user(username, **fields):
             return False, "User not found"
         return True, f"User {username} profile updated"
@@ -265,6 +268,7 @@ class UserManager:
             'email':        u.get('email', ''),
             'avatar_url':   u.get('avatar_url'),
             'fx_qualified': bool(u.get('fx_qualified', False)),
+            'bio':          u.get('bio', '') or '',
             'role_info':    self.USER_ROLES.get(u['role'], {}),
         }
 

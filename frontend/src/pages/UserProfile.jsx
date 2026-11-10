@@ -177,15 +177,20 @@ export default function UserProfile() {
                 </span>
               )}
             </div>
-            <div className="text-muted small">@{profile.username}</div>
-            {mbti?.type_card?.tag && (
-              <div className="text-muted" style={{ fontSize: '.76rem', marginTop: 2 }}>
-                {mbti.type_card.nick} {mbti.type_card.tag}
-              </div>
-            )}
-            {profile.created_at && (
-              <div className="text-muted mt-1" style={{ fontSize: '.75rem' }}>
-                Joined {fmtDateJoin(profile.created_at)}
+            {profile.bio && (
+              <div
+                className="text-muted mt-1"
+                style={{
+                  fontSize: '.85rem',
+                  display: '-webkit-box',
+                  WebkitBoxOrient: 'vertical',
+                  WebkitLineClamp: 2,
+                  overflow: 'hidden',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                }}
+              >
+                {profile.bio}
               </div>
             )}
           </div>

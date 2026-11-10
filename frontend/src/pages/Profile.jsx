@@ -27,7 +27,7 @@ const ROLE_COLORS = {
 export default function Profile() {
   const { user, login, logout } = useAuth()
 
-  const [nameForm, setNameForm]     = useState({ display_name: user?.display_name ?? '', email: user?.email ?? '' })
+  const [nameForm, setNameForm]     = useState({ display_name: user?.display_name ?? '', email: user?.email ?? '', bio: user?.bio ?? '' })
   const [passForm, setPassForm]     = useState({ current_password: '', new_password: '', confirm: '' })
   const [contactForm, setContactForm]     = useState({ phone: user?.phone ?? '', wechat: user?.wechat ?? '', address: user?.address ?? '', postal_code: user?.postal_code ?? '' })
   const [savingName, setSavingName] = useState(false)
@@ -177,6 +177,7 @@ export default function Profile() {
     e.preventDefault()
     if (!nameForm.display_name.trim()) return flash('Display name cannot be empty.', 'danger')
     setSavingName(true)
+    const bioTrimmed = (nameForm.bio ?? '').slice(0, 120)
     const d = await api.put('/api/auth/profile', {
       display_name: nameForm.display_name.trim(),
       email:        nameForm.email.trim(),
@@ -184,6 +185,7 @@ export default function Profile() {
       wechat:       contactForm.wechat,
       address:      contactForm.address,
       postal_code:  contactForm.postal_code,
+      bio:          bioTrimmed,
     })
     setSavingName(false)
     if (d.ok) {
@@ -196,6 +198,7 @@ export default function Profile() {
         wechat:       contactForm.wechat,
         address:      contactForm.address,
         postal_code:  contactForm.postal_code,
+        bio:          bioTrimmed,
       })
     } else {
       flash(d.error, 'danger')
@@ -478,6 +481,20 @@ export default function Profile() {
               <div className='col-sm-4'>
                 <label className='form-label fw-medium'>Postal Code</label>
                 <input type='text' className='form-control' placeholder='000000' value={contactForm.postal_code} onChange={e => setContactForm(f => ({ ...f, postal_code: e.target.value }))} maxLength={20} />
+              </div>
+              <div className='col-12'>
+                <label className='form-label fw-medium d-flex justify-content-between align-items-center'>
+                  <span>Bio</span>
+                  <span className='text-muted small'>{(nameForm.bio ?? '').length}/120</span>
+                </label>
+                <textarea
+                  className='form-control'
+                  rows={2}
+                  maxLength={120}
+                  placeholder='写一句话介绍自己'
+                  value={nameForm.bio}
+                  onChange={e => setNameForm(f => ({ ...f, bio: e.target.value }))}
+                />
               </div>
             </div>
             <button className='btn btn-primary align-self-start' disabled={savingName}>
