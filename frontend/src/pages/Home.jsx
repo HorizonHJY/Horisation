@@ -5,9 +5,9 @@ import WeatherCard from '../components/WeatherCard'
 import DailyCard from '../components/DailyCard'
 
 const FEATURES_MEMBER = [
-  { icon: 'fa-clipboard-list', color: '#6b9cdb', title: 'Memo',          desc: 'Personal memo and task tracker.',       to: '/hormemo'  },
-  { icon: 'fa-store',          color: '#27ae60', title: 'Market',        desc: 'Browse and post second-hand listings.', to: '/market'   },
-  { icon: 'fa-comments',       color: '#d97706', title: 'Message Board', desc: 'Chat and share with everyone.',         to: '/feedback' },
+  { icon: 'fa-store',    color: '#27ae60', title: 'Market',        desc: 'Browse and post second-hand listings.', to: '/market'   },
+  { icon: 'fa-comments', color: '#d97706', title: 'Message Board', desc: 'Chat and share with everyone.',         to: '/feedback' },
+  { icon: 'fa-moon',     color: '#8b5fbf', title: 'Tarot',         desc: 'Draw three cards and ask a question.',   to: '/tarot'    },
 ]
 
 /* Guests see the open pages — Memo is members-only, so it leaves the row;
