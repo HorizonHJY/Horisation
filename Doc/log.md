@@ -2102,3 +2102,13 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 - /u/<username> 去掉 `@username`、MBTI 类型描述文字、Joined 日期；保留类型徽章。
 - 新增 `user.bio`（≤120 字）：Profile 编辑页加 Bio 文本域 + 计数器，公开页在名字下淡色显示、最多两行。
 - 后端 PUT /auth/profile 接受 bio，超长返回 400。
+
+## 2026-11-11 旅行规划器手机端整修
+- 问题：390 宽下每日行程是 7 列表格，地址/备注被 `d-none` 藏掉，行内按钮 20px 左右；「我的行程」用了不存在的 `min-w-0`，长名字把删除键顶出屏幕；三处 `window.confirm`；添加项目弹窗不是共享 Modal，十个类型 chip 叠四行。
+- 768px 以下每日行程改成卡片列表（时间 + 类型徽章 / 名称 / 地址 / 备注 / 底部 44px 的编辑、删除、拖拽），地址点开 Google Maps；桌面仍是表格。两套布局共用同一个 dnd-kit SortableContext。
+- 新增 `.tp-*` 样式：`.tp-ibtn` 在 `pointer: coarse` 下撑到 `--tap-min`；Day 的 × 保持 16px 外观，触屏下用 `::before` 把命中区扩到 44px；`.min-w-0` 补成真实工具类。
+- 添加/编辑弹窗改用 `components/Modal.jsx`（Esc、焦点圈、滚动锁），名称移到类型之上，类型 chip 单行横向滚动，footer sticky，手机上是底部抽屉；键盘高度（508px）下提交按钮仍在视口内。
+- 删项目 / 删 Day / 删行程全部换成 `ConfirmDialog`，带 busy 态；删 Day 期间按钮禁用。
+- Toast 改用全站 `.app-toast`（手机底部居中，不压顶栏头像）；打开行程时列表项显示 spinner 并禁止重复点击；「加载共享行程」的加载态并入同一条路径。
+- Day 标签单行横向滚动 + scroll-snap + sticky 在顶栏下；分享徽章与「我的行程」返回键同行，标题独占一行可换行。
+- 实测 390：`scrollWidth == innerWidth`，卡片按钮 44px，Day × 命中区经 elementFromPoint 验证，拖拽后顺序持久化；834/1440 仍为表格，无横向溢出。

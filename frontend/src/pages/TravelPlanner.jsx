@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { api } from '../api'
+import Modal, { ConfirmDialog } from '../components/Modal'
 import {
   DndContext,
   closestCenter,
@@ -33,14 +34,31 @@ const ENTRY_TYPES = [
 const TYPE_MAP = Object.fromEntries(ENTRY_TYPES.map(t => [t.value, t]))
 const EMPTY_ENTRY = { type: 'attraction', name: '', time_start: '', time_end: '', address: '', notes: '' }
 
+// Below this the itinerary is a card list; the table only works with room for
+// six columns.
+const PHONE = '(max-width: 767.98px)'
+function useMediaQuery(query) {
+  const [matches, setMatches] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(query).matches)
+  useEffect(() => {
+    const mq = window.matchMedia(query)
+    const onChange = e => setMatches(e.matches)
+    setMatches(mq.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [query])
+  return matches
+}
+
+function mapsUrl(address) {
+  return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(address)
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function Toast({ toast }) {
   if (!toast) return null
   return (
-    <div
-      className={`alert alert-${toast.type} position-fixed top-0 end-0 m-3 shadow`}
-      style={{ zIndex: 9999, minWidth: 240 }}
-    >
+    <div className={`alert alert-${toast.type} app-toast`} role="alert" aria-live="assertive">
       {toast.msg}
     </div>
   )
@@ -71,9 +89,12 @@ function CopyBadge({ planId }) {
   return (
     <span
       onClick={copy}
-      className="badge bg-secondary ms-2 user-select-none"
+      className="badge bg-secondary user-select-none tp-ibtn"
       style={{ cursor: 'pointer', fontSize: '0.85rem', letterSpacing: 2, padding: '5px 10px' }}
       title="复制分享链接"
+      role="button"
+      tabIndex={0}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); copy() } }}
     >
       <i className={`fas ${copied ? 'fa-check' : 'fa-share-alt'} me-1`} style={{ fontSize: '0.7rem' }} />
       {copied ? '已复制链接' : planId}
@@ -81,25 +102,23 @@ function CopyBadge({ planId }) {
   )
 }
 
+// Shared by the table row and the phone card so the two layouts drag the same way.
+function useEntrySortable(entry) {
+  const s = useSortable({ id: entry.id })
+  const style = {
+    transform: CSS.Transform.toString(s.transform),
+    transition: s.transition,
+    opacity:    s.isDragging ? 0.45 : 1,
+    background: s.isDragging ? '#f0f9ff' : undefined,
+    position:   'relative',
+    zIndex:     s.isDragging ? 10 : undefined,
+  }
+  return { ...s, style }
+}
+
 // ── Sortable table row ────────────────────────────────────────────────────────
 function SortableRow({ entry, onEdit, onDelete }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: entry.id })
-
-  const rowStyle = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity:    isDragging ? 0.45 : 1,
-    background: isDragging ? '#f0f9ff' : undefined,
-    position:   'relative',
-    zIndex:     isDragging ? 10 : undefined,
-  }
+  const { attributes, listeners, setNodeRef, isDragging, style: rowStyle } = useEntrySortable(entry)
 
   return (
     <tr ref={setNodeRef} style={rowStyle}>
@@ -108,16 +127,16 @@ function SortableRow({ entry, onEdit, onDelete }) {
         <span
           {...attributes}
           {...listeners}
+          className="tp-ibtn"
           style={{
             cursor: isDragging ? 'grabbing' : 'grab',
             color: '#cbd5e1',
-            display: 'inline-flex',
-            alignItems: 'center',
             padding: '2px 4px',
             borderRadius: 4,
             touchAction: 'none',   // required for mobile
           }}
           title="拖拽排序"
+          aria-label="拖拽排序"
         >
           <i className="fas fa-grip-vertical" style={{ fontSize: '0.8rem' }} />
         </span>
@@ -162,14 +181,16 @@ function SortableRow({ entry, onEdit, onDelete }) {
       <td style={{ width: 72 }}>
         <div className="d-flex gap-1">
           <button
-            className="btn btn-xs btn-outline-secondary"
+            className="btn btn-xs btn-outline-secondary tp-ibtn"
             style={{ fontSize: '.72rem', padding: '2px 7px' }}
             onClick={() => onEdit(entry)}
+            aria-label="编辑"
           ><i className="fas fa-pen" /></button>
           <button
-            className="btn btn-xs btn-outline-danger"
+            className="btn btn-xs btn-outline-danger tp-ibtn"
             style={{ fontSize: '.72rem', padding: '2px 7px' }}
-            onClick={() => onDelete(entry.id)}
+            onClick={() => onDelete(entry)}
+            aria-label="删除"
           ><i className="fas fa-trash" /></button>
         </div>
       </td>
@@ -177,8 +198,61 @@ function SortableRow({ entry, onEdit, onDelete }) {
   )
 }
 
+// ── Sortable phone card ───────────────────────────────────────────────────────
+// On a phone the table hid address and notes behind d-none — the two fields
+// you need while standing on the street. The card shows both, and the address
+// opens Google Maps.
+function SortableCard({ entry, onEdit, onDelete }) {
+  const { attributes, listeners, setNodeRef, isDragging, style } = useEntrySortable(entry)
+  const t = TYPE_MAP[entry.type] || TYPE_MAP['other']
+
+  return (
+    <li ref={setNodeRef} style={style} className="tp-card">
+      <div className="tp-card__head">
+        <span className="tp-card__time">
+          {entry.time_start
+            ? <>{entry.time_start}{entry.time_end && <span className="tp-card__time-end">– {entry.time_end}</span>}</>
+            : <span style={{ opacity: 0.45 }}>未定时间</span>}
+        </span>
+        <TypeBadge type={entry.type} />
+      </div>
+      <div className="tp-card__name" style={{ borderLeftColor: t.color }}>{entry.name}</div>
+      {entry.address && (
+        <a
+          className="tp-card__addr"
+          href={mapsUrl(entry.address)}
+          target="_blank" rel="noopener noreferrer"
+          title="在 Google Maps 打开"
+        >
+          <i className="fas fa-map-marker-alt" />
+          <span>{entry.address}</span>
+        </a>
+      )}
+      {entry.notes && <div className="tp-card__notes">{entry.notes}</div>}
+      <div className="tp-card__acts">
+        <button type="button" className="btn btn-outline-secondary tp-ibtn tp-card__btn" onClick={() => onEdit(entry)} aria-label="编辑">
+          <i className="fas fa-pen" /><span>编辑</span>
+        </button>
+        <button type="button" className="btn btn-outline-danger tp-ibtn tp-card__btn" onClick={() => onDelete(entry)} aria-label="删除">
+          <i className="fas fa-trash" /><span>删除</span>
+        </button>
+        <span
+          {...attributes}
+          {...listeners}
+          className="btn btn-outline-secondary tp-ibtn tp-card__btn tp-card__drag"
+          style={{ cursor: isDragging ? 'grabbing' : 'grab', touchAction: 'none' }}
+          title="拖拽排序"
+          aria-label="拖拽排序"
+        >
+          <i className="fas fa-grip-vertical" /><span>拖拽</span>
+        </span>
+      </div>
+    </li>
+  )
+}
+
 // ── Day Table with DnD ────────────────────────────────────────────────────────
-function DayTable({ entries, onEdit, onDelete, onReorder }) {
+function DayTable({ entries, onEdit, onDelete, onReorder, phone }) {
   const sensors = useSensors(
     useSensor(PointerSensor, {
       // Require 5px movement before drag starts — prevents accidental drags on click
@@ -211,6 +285,17 @@ function DayTable({ entries, onEdit, onDelete, onReorder }) {
       collisionDetection={closestCenter}
       onDragEnd={handleDragEnd}
     >
+      <SortableContext
+        items={entries.map(e => e.id)}
+        strategy={verticalListSortingStrategy}
+      >
+      {phone ? (
+        <ul className="tp-cards">
+          {entries.map(e => (
+            <SortableCard key={e.id} entry={e} onEdit={onEdit} onDelete={onDelete} />
+          ))}
+        </ul>
+      ) : (
       <div className="table-responsive">
         <table className="table table-hover align-middle mb-0" style={{ fontSize: '.875rem' }}>
           <thead className="table-light">
@@ -224,23 +309,20 @@ function DayTable({ entries, onEdit, onDelete, onReorder }) {
               <th style={{ width: 72 }}></th>
             </tr>
           </thead>
-          <SortableContext
-            items={entries.map(e => e.id)}
-            strategy={verticalListSortingStrategy}
-          >
-            <tbody>
-              {entries.map(e => (
-                <SortableRow
-                  key={e.id}
-                  entry={e}
-                  onEdit={onEdit}
-                  onDelete={onDelete}
-                />
-              ))}
-            </tbody>
-          </SortableContext>
+          <tbody>
+            {entries.map(e => (
+              <SortableRow
+                key={e.id}
+                entry={e}
+                onEdit={onEdit}
+                onDelete={onDelete}
+              />
+            ))}
+          </tbody>
         </table>
       </div>
+      )}
+      </SortableContext>
     </DndContext>
   )
 }
@@ -271,25 +353,35 @@ function EntryModal({ planId, dayNumber, entry, onClose, onSaved, showToast }) {
   }
 
   return (
-    <div className="modal d-block" style={{ background: 'rgba(0,0,0,.45)' }} onClick={onClose}>
-      <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: 520 }} onClick={e => e.stopPropagation()}>
-        <div className="modal-content shadow-lg">
-          <div className="modal-header border-0 pb-0">
-            <h5 className="modal-title fw-bold">
+    <Modal onClose={onClose} title={isEdit ? '编辑项目' : '添加项目'} className="tp-modal">
+      {({ titleId }) => (
+        <form onSubmit={handleSubmit} className="tp-modal__form">
+          <div className="modal-header">
+            <h5 className="modal-title fw-bold" id={titleId}>
               <i className="fas fa-map-marker-alt me-2 text-primary" />
               {isEdit ? '编辑项目' : '添加项目'}
             </h5>
-            <button className="btn-close" onClick={onClose} />
+            <button type="button" className="btn-close" aria-label="关闭" onClick={onClose} />
           </div>
-          <form onSubmit={handleSubmit}>
-            <div className="modal-body pt-2">
-              {/* Type */}
+          <div className="modal-body">
+              {/* Name */}
+              <div className="mb-3">
+                <label className="form-label fw-medium small" htmlFor="tp-entry-name">名称 <span className="text-danger">*</span></label>
+                <input
+                  id="tp-entry-name" className="form-control" autoFocus
+                  placeholder="如：秋叶原 / 寿司小仓 / 新干线"
+                  value={form.name} onChange={e => set('name', e.target.value)}
+                />
+              </div>
+              {/* Type: one row that scrolls sideways, so ten chips never
+                  stack into four lines on a phone */}
               <div className="mb-3">
                 <label className="form-label fw-medium small">类型</label>
-                <div className="d-flex flex-wrap gap-1">
+                <div className="tp-chips" role="radiogroup" aria-label="类型">
                   {ENTRY_TYPES.map(t => (
                     <button
-                      key={t.value} type="button" className="btn btn-sm"
+                      key={t.value} type="button" className="btn btn-sm tp-chip"
+                      role="radio" aria-checked={form.type === t.value}
                       style={form.type === t.value
                         ? { background: t.color, color: '#fff', border: `1.5px solid ${t.color}` }
                         : { background: t.bg, color: t.color, border: `1.5px solid ${t.bg}` }
@@ -302,48 +394,38 @@ function EntryModal({ planId, dayNumber, entry, onClose, onSaved, showToast }) {
                   ))}
                 </div>
               </div>
-              {/* Name */}
-              <div className="mb-3">
-                <label className="form-label fw-medium small">名称 <span className="text-danger">*</span></label>
-                <input
-                  className="form-control" autoFocus
-                  placeholder="如：秋叶原 / 寿司小仓 / 新干线"
-                  value={form.name} onChange={e => set('name', e.target.value)}
-                />
-              </div>
               {/* Time */}
               <div className="mb-3">
                 <label className="form-label fw-medium small">时间</label>
                 <div className="d-flex align-items-center gap-2">
-                  <input type="time" className="form-control" value={form.time_start} onChange={e => set('time_start', e.target.value)} />
+                  <input type="time" className="form-control" aria-label="开始时间" value={form.time_start} onChange={e => set('time_start', e.target.value)} />
                   <span className="text-muted small">→</span>
-                  <input type="time" className="form-control" value={form.time_end} onChange={e => set('time_end', e.target.value)} />
+                  <input type="time" className="form-control" aria-label="结束时间" value={form.time_end} onChange={e => set('time_end', e.target.value)} />
                 </div>
               </div>
               {/* Address */}
               <div className="mb-3">
-                <label className="form-label fw-medium small">地址</label>
-                <input className="form-control" placeholder="详细地址或地标" value={form.address} onChange={e => set('address', e.target.value)} />
+                <label className="form-label fw-medium small" htmlFor="tp-entry-addr">地址</label>
+                <input id="tp-entry-addr" className="form-control" placeholder="详细地址或地标" value={form.address} onChange={e => set('address', e.target.value)} />
               </div>
               {/* Notes */}
               <div className="mb-1">
-                <label className="form-label fw-medium small">备注</label>
-                <textarea className="form-control" rows={2} placeholder="注意事项、预约信息、推荐菜品…" value={form.notes} onChange={e => set('notes', e.target.value)} />
+                <label className="form-label fw-medium small" htmlFor="tp-entry-notes">备注</label>
+                <textarea id="tp-entry-notes" className="form-control" rows={2} placeholder="注意事项、预约信息、推荐菜品…" value={form.notes} onChange={e => set('notes', e.target.value)} />
               </div>
-            </div>
-            <div className="modal-footer border-0 pt-0">
-              <button type="button" className="btn btn-outline-secondary" onClick={onClose}>取消</button>
-              <button type="submit" className="btn btn-primary" disabled={saving}>
-                {saving
-                  ? <><span className="spinner-border spinner-border-sm me-1" />保存中…</>
-                  : <><i className="fas fa-check me-1" />{isEdit ? '保存修改' : '添加'}</>
-                }
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
+          </div>
+          <div className="modal-footer tp-modal__footer">
+            <button type="button" className="btn btn-outline-secondary" onClick={onClose}>取消</button>
+            <button type="submit" className="btn btn-primary" disabled={saving}>
+              {saving
+                ? <><span className="spinner-border spinner-border-sm me-1" />保存中…</>
+                : <><i className="fas fa-check me-1" />{isEdit ? '保存修改' : '添加'}</>
+              }
+            </button>
+          </div>
+        </form>
+      )}
+    </Modal>
   )
 }
 
@@ -356,8 +438,19 @@ function PlanView({ plan: initPlan, onBack, showToast }) {
   const [nameInput, setNameInput]     = useState(initPlan.name)
   const [saving, setSaving]           = useState(false)
   const [reordering, setReordering]   = useState(false)
+  // Pending destructive action: { kind: 'entry', entry } | { kind: 'day', day, count }
+  const [confirm, setConfirm]         = useState(null)
+  const [confirmBusy, setConfirmBusy] = useState(false)
   // 'plan' = the day-by-day itinerary, 'expenses' = the trip's shared pot.
   const [view, setView]               = useState('plan')
+  const phone = useMediaQuery(PHONE)
+  const daysRef = useRef(null)
+
+  // Keep the active tab in view when the strip scrolls sideways.
+  useEffect(() => {
+    const el = daysRef.current?.querySelector('[data-active="true"]')
+    el?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
+  }, [activeDay, plan.num_days])
 
   // Sort: display_order first (set after a drag), then time_start for ties
   const dayEntries = plan.entries
@@ -392,6 +485,7 @@ function PlanView({ plan: initPlan, onBack, showToast }) {
       showToast('至少保留一天', 'warning')
       return
     }
+    setConfirmBusy(true)
     // 删除该天所有条目
     const toDelete = plan.entries.filter(e => e.day_number === day)
     for (const entry of toDelete) {
@@ -414,6 +508,8 @@ function PlanView({ plan: initPlan, onBack, showToast }) {
     } else {
       showToast('删除失败', 'danger')
     }
+    setConfirmBusy(false)
+    setConfirm(null)
   }
 
   function onEntrySaved(entry) {
@@ -430,8 +526,10 @@ function PlanView({ plan: initPlan, onBack, showToast }) {
   }
 
   async function deleteEntry(entryId) {
-    if (!window.confirm('确认删除此项目？')) return
+    setConfirmBusy(true)
     const d = await api.delete(`/api/travel/plans/${plan.id}/entries/${entryId}`)
+    setConfirmBusy(false)
+    setConfirm(null)
     if (d.ok) {
       setPlan(p => ({ ...p, entries: p.entries.filter(e => e.id !== entryId) }))
       showToast('已删除', 'success')
@@ -464,12 +562,23 @@ function PlanView({ plan: initPlan, onBack, showToast }) {
 
   return (
     <div>
-      {/* Plan header */}
-      <div className="d-flex align-items-center flex-wrap gap-2 mb-3">
-        <button className="btn btn-sm btn-outline-secondary" onClick={onBack}>
+      {/* Plan header: back + share on one row, the name below so a long
+          title never pushes the share code off a phone screen */}
+      <div className="d-flex align-items-center justify-content-between gap-2 mb-2">
+        <button className="btn btn-sm btn-outline-secondary tp-ibtn" onClick={onBack}>
           <i className="fas fa-arrow-left me-1" />我的行程
         </button>
-
+        <div className="d-flex align-items-center gap-2">
+          {reordering && (
+            <span className="text-muted small">
+              <span className="spinner-border spinner-border-sm me-1" style={{ width: 10, height: 10 }} />
+              保存顺序…
+            </span>
+          )}
+          <CopyBadge planId={plan.id} />
+        </div>
+      </div>
+      <div className="d-flex align-items-center flex-wrap gap-2 mb-3">
         {editingName ? (
           <div className="d-flex align-items-center gap-2 flex-grow-1">
             <input
@@ -477,20 +586,21 @@ function PlanView({ plan: initPlan, onBack, showToast }) {
               style={{ maxWidth: 260, fontSize: '1.1rem' }}
               value={nameInput}
               autoFocus
+              aria-label="行程名称"
               onChange={e => setNameInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') saveName(); if (e.key === 'Escape') setEditingName(false) }}
             />
-            <button className="btn btn-sm btn-primary" onClick={saveName} disabled={saving}>
+            <button className="btn btn-sm btn-primary tp-ibtn" onClick={saveName} disabled={saving} aria-label="保存名称">
               {saving ? <span className="spinner-border spinner-border-sm" /> : <i className="fas fa-check" />}
             </button>
-            <button className="btn btn-sm btn-outline-secondary" onClick={() => setEditingName(false)}>
+            <button className="btn btn-sm btn-outline-secondary tp-ibtn" onClick={() => setEditingName(false)} aria-label="取消">
               <i className="fas fa-times" />
             </button>
           </div>
         ) : (
           <h5
-            className="mb-0 fw-bold d-flex align-items-center gap-1"
-            style={{ cursor: 'pointer' }}
+            className="mb-0 fw-bold d-flex align-items-center gap-1 min-w-0"
+            style={{ cursor: 'pointer', overflowWrap: 'anywhere' }}
             onClick={() => setEditingName(true)}
             title="点击编辑行程名称"
           >
@@ -498,16 +608,6 @@ function PlanView({ plan: initPlan, onBack, showToast }) {
             <i className="fas fa-pen text-muted ms-1" style={{ fontSize: '0.7rem', opacity: 0.5 }} />
           </h5>
         )}
-
-        <CopyBadge planId={plan.id} />
-
-        {reordering && (
-          <span className="text-muted small ms-2">
-            <span className="spinner-border spinner-border-sm me-1" style={{ width: 10, height: 10 }} />
-            保存顺序…
-          </span>
-        )}
-
       </div>
 
       {/* Plan / Expenses switch. The day tabs below belong to Plan only. */}
@@ -529,15 +629,19 @@ function PlanView({ plan: initPlan, onBack, showToast }) {
         <ExpenseTab plan={plan} showToast={showToast} />
       ) : (
       <>
-      {/* Day tabs */}
-      <div className="d-flex align-items-center gap-1 flex-wrap mb-0">
+      {/* Day tabs: one row that scrolls sideways and stays pinned under the
+          topbar, so a 9-day trip is still one swipe away from any day */}
+      <div className="tp-days" ref={daysRef}>
         {Array.from({ length: plan.num_days }, (_, i) => i + 1).map(d => {
           const count = plan.entries.filter(e => e.day_number === d).length
           return (
             <div
               key={d}
-              className={`btn btn-sm position-relative ${activeDay === d ? 'btn-primary' : 'btn-outline-secondary'}`}
+              className={`btn btn-sm position-relative tp-day ${activeDay === d ? 'btn-primary' : 'btn-outline-secondary'}`}
+              data-active={activeDay === d ? 'true' : undefined}
+              role="tab" aria-selected={activeDay === d} tabIndex={0}
               onClick={() => setActiveDay(d)}
+              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveDay(d) } }}
               style={{ minWidth: 72, paddingRight: plan.num_days > 1 ? '22px' : undefined }}
             >
               Day {d}
@@ -554,33 +658,24 @@ function PlanView({ plan: initPlan, onBack, showToast }) {
                 </span>
               )}
               {plan.num_days > 1 && (
-                <span
-                  className="position-absolute"
-                  style={{
-                    top: -3, right: -3, width: 16, height: 16,
-                    background: '#ef4444', color: '#fff',
-                    borderRadius: '50%', display: 'flex',
-                    alignItems: 'center', justifyContent: 'center',
-                    cursor: 'pointer', fontSize: '0.55rem',
-                    lineHeight: 1, zIndex: 2,
-                    boxShadow: '0 1px 3px rgba(0,0,0,.3)',
-                  }}
+                <button
+                  type="button"
+                  className="tp-day-x"
                   onClick={e => {
                     e.stopPropagation()
-                    if (window.confirm(`确定要删除 Day ${d}${count > 0 ? '（含 ' + count + ' 个项目）' : ''}吗？`)) {
-                      removeDay(d)
-                    }
+                    setConfirm({ kind: 'day', day: d, count })
                   }}
                   title="删除这一天"
+                  aria-label={`删除 Day ${d}`}
                 >
                   <i className="fas fa-times" style={{ fontSize: '0.5rem' }} />
-                </span>
+                </button>
               )}
             </div>
           )
         })}
         {plan.num_days < 30 && (
-          <button className="btn btn-sm btn-outline-primary" onClick={addDay} title="添加一天">
+          <button className="btn btn-sm btn-outline-primary tp-ibtn" onClick={addDay} title="添加一天" aria-label="添加一天">
             <i className="fas fa-plus" />
           </button>
         )}
@@ -591,14 +686,15 @@ function PlanView({ plan: initPlan, onBack, showToast }) {
         <div className="card-body p-0">
           <DayTable
             entries={dayEntries}
+            phone={phone}
             onEdit={e => setEntryModal({ editing: e })}
-            onDelete={deleteEntry}
+            onDelete={e => setConfirm({ kind: 'entry', entry: e })}
             onReorder={handleReorder}
           />
         </div>
-        <div className="card-footer bg-transparent border-top-0 pt-0 pb-3 px-3">
+        <div className="card-footer bg-transparent border-top-0 pt-2 pb-3 px-3">
           <button
-            className="btn btn-sm btn-outline-primary"
+            className="btn btn-sm btn-outline-primary tp-ibtn"
             onClick={() => setEntryModal({ editing: null })}
           >
             <i className="fas fa-plus me-1" />添加项目
@@ -614,6 +710,33 @@ function PlanView({ plan: initPlan, onBack, showToast }) {
           onClose={() => setEntryModal(null)}
           onSaved={onEntrySaved}
           showToast={showToast}
+        />
+      )}
+
+      {confirm?.kind === 'entry' && (
+        <ConfirmDialog
+          title="删除这个项目？"
+          itemName={confirm.entry.name}
+          message="删除后无法恢复。"
+          confirmLabel="删除"
+          cancelLabel="取消"
+          busy={confirmBusy}
+          onConfirm={() => deleteEntry(confirm.entry.id)}
+          onClose={() => setConfirm(null)}
+        />
+      )}
+      {confirm?.kind === 'day' && (
+        <ConfirmDialog
+          title={`删除 Day ${confirm.day}？`}
+          itemName={`Day ${confirm.day}`}
+          message={confirm.count > 0
+            ? `这一天的 ${confirm.count} 个项目会一起删除，后面的天数往前挪一天。`
+            : '后面的天数会往前挪一天。'}
+          confirmLabel="删除这一天"
+          cancelLabel="取消"
+          busy={confirmBusy}
+          onConfirm={() => removeDay(confirm.day)}
+          onClose={() => setConfirm(null)}
         />
       )}
       </>
@@ -693,8 +816,8 @@ function ParticipantPicker({ planId, participants, friends, onRefresh, showToast
         <span key={p} className="badge d-inline-flex align-items-center gap-1"
           style={{ background: '#eef2f7', color: '#334155', fontWeight: 500, fontSize: '.8rem', padding: '.4em .6em' }}>
           {p}
-          <button className="btn btn-link btn-sm p-0 text-danger" style={{ lineHeight: 1 }}
-            onClick={() => remove(p)} title={`移除 ${p}`}>
+          <button className="btn btn-link btn-sm p-0 text-danger tp-ibtn" style={{ lineHeight: 1 }}
+            onClick={() => remove(p)} title={`移除 ${p}`} aria-label={`移除 ${p}`}>
             <i className="fas fa-times" style={{ fontSize: '.6rem' }} />
           </button>
         </span>
@@ -711,7 +834,7 @@ function ParticipantPicker({ planId, participants, friends, onRefresh, showToast
           {friends.filter(f => !participants.includes(f.display_name) && !participants.includes(f.username))
             .map(f => <option key={f.username} value={f.display_name || f.username} />)}
         </datalist>
-        <button className="btn btn-outline-primary" onClick={add} disabled={busy}>
+        <button className="btn btn-outline-primary tp-ibtn" onClick={add} disabled={busy} aria-label="添加参与人">
           <i className="fas fa-plus" />
         </button>
       </div>
@@ -883,8 +1006,8 @@ function ExpenseTab({ plan, showToast }) {
                   </div>
                   <div className="d-flex flex-column align-items-end">
                     <strong style={{ fontSize: '1rem', color: '#3b82f6' }}>${parseFloat(e.amount).toFixed(2)}</strong>
-                    <button className="btn btn-link btn-sm p-0 text-danger" style={{ fontSize: '.75rem' }}
-                      onClick={() => deleteExpense(e.id)}>
+                    <button className="btn btn-link btn-sm p-0 text-danger tp-ibtn" style={{ fontSize: '.75rem' }}
+                      onClick={() => deleteExpense(e.id)} aria-label="删除这笔">
                       <i className="fas fa-trash" />
                     </button>
                   </div>
@@ -916,14 +1039,16 @@ function ExpenseTab({ plan, showToast }) {
 }
 
 // ── Home (landing) ────────────────────────────────────────────────────────────
-function PlanHome({ onOpenPlan, showToast }) {
+function PlanHome({ onOpenPlan, openingId, showToast }) {
   const [myPlans, setMyPlans]         = useState([])
   const [loadingMy, setLoadingMy]     = useState(true)
   const [creating, setCreating]       = useState(false)
   const [newName, setNewName]         = useState('')
   const [loadId, setLoadId]           = useState('')
   const [showCreate, setShowCreate]   = useState(false)
-  const [loadingPlan, setLoadingPlan] = useState(false)
+  const [confirmPlan, setConfirmPlan] = useState(null)
+  const [deleting, setDeleting]       = useState(false)
+  const loadingPlan = !!openingId
 
   useEffect(() => {
     api.get('/api/travel/my').then(d => {
@@ -946,16 +1071,14 @@ function PlanHome({ onOpenPlan, showToast }) {
     e.preventDefault()
     const id = loadId.trim().toUpperCase()
     if (!id) return
-    setLoadingPlan(true)
-    const d = await api.get(`/api/travel/plans/${id}`)
-    setLoadingPlan(false)
-    if (d.ok) onOpenPlan(d.plan)
-    else showToast('找不到该行程 ID，请检查后重试', 'danger')
+    onOpenPlan({ id }, '找不到该行程 ID，请检查后重试')
   }
 
   async function deletePlan(plan) {
-    if (!window.confirm(`确认删除行程「${plan.name}」？此操作不可撤销。`)) return
+    setDeleting(true)
     const d = await api.delete(`/api/travel/plans/${plan.id}`)
+    setDeleting(false)
+    setConfirmPlan(null)
     if (d.ok) {
       setMyPlans(prev => prev.filter(p => p.id !== plan.id))
       showToast('已删除', 'success')
@@ -1032,21 +1155,24 @@ function PlanHome({ onOpenPlan, showToast }) {
                 {myPlans.map(p => (
                   <div
                     key={p.id}
-                    className="list-group-item list-group-item-action d-flex align-items-center gap-2 py-2 px-3"
-                    style={{ cursor: 'pointer' }}
-                    onClick={() => onOpenPlan(p)}
+                    className="list-group-item list-group-item-action d-flex align-items-center gap-2 py-2 px-3 tp-plan"
+                    style={{ cursor: loadingPlan ? 'progress' : 'pointer', opacity: openingId && openingId !== p.id ? 0.6 : 1 }}
+                    aria-busy={openingId === p.id || undefined}
+                    onClick={() => { if (!loadingPlan) onOpenPlan(p) }}
                   >
-                    <div className="flex-grow-1 min-w-0">
+                    <div className="flex-grow-1 min-w-0" style={{ minWidth: 0 }}>
                       <div className="fw-medium text-truncate">{p.name}</div>
                       <div className="text-muted small d-flex align-items-center gap-2">
                         <span><i className="fas fa-calendar-alt me-1" style={{ opacity: 0.4 }} />{p.num_days} 天</span>
                         <span><i className="fas fa-key me-1" style={{ opacity: 0.4 }} /><code style={{ fontSize: '0.7rem', letterSpacing: 1 }}>{p.id}</code></span>
                       </div>
                     </div>
+                    {openingId === p.id && <span className="spinner-border spinner-border-sm text-muted flex-shrink-0" aria-label="打开中" />}
                     <button
-                      className="btn btn-xs btn-outline-danger flex-shrink-0"
+                      className="btn btn-xs btn-outline-danger flex-shrink-0 tp-ibtn"
                       style={{ fontSize: '.7rem', padding: '2px 7px' }}
-                      onClick={e => { e.stopPropagation(); deletePlan(p) }}
+                      onClick={e => { e.stopPropagation(); setConfirmPlan(p) }}
+                      aria-label={`删除行程 ${p.name}`}
                     ><i className="fas fa-trash" /></button>
                   </div>
                 ))}
@@ -1055,6 +1181,19 @@ function PlanHome({ onOpenPlan, showToast }) {
           </div>
         </div>
       </div>
+
+      {confirmPlan && (
+        <ConfirmDialog
+          title="删除这个行程？"
+          itemName={confirmPlan.name}
+          message="行程里的每一天、每个项目和费用记录都会一起删除，无法恢复。"
+          confirmLabel="删除行程"
+          cancelLabel="取消"
+          busy={deleting}
+          onConfirm={() => deletePlan(confirmPlan)}
+          onClose={() => setConfirmPlan(null)}
+        />
+      )}
     </div>
   )
 }
@@ -1064,17 +1203,22 @@ export default function TravelPlanner() {
   const [view, setView]   = useState('home')
   const [plan, setPlan]   = useState(null)
   const [toast, setToast] = useState(null)
+  const [openingId, setOpeningId] = useState(null)
+  const toastTimer = useRef(null)
 
   function showToast(msg, type = 'success') {
+    clearTimeout(toastTimer.current)
     setToast({ msg, type })
-    setTimeout(() => setToast(null), 2600)
+    toastTimer.current = setTimeout(() => setToast(null), 2600)
   }
 
-  function openPlan(p) {
+  function openPlan(p, notFoundMsg = '加载失败') {
     // Always fetch from API — my-plans list returns entries:[] regardless of real data
+    setOpeningId(p.id)
     api.get(`/api/travel/plans/${p.id}`).then(d => {
+      setOpeningId(null)
       if (d.ok) { setPlan(d.plan); setView('plan') }
-      else showToast('加载失败', 'danger')
+      else showToast(d.error && d.status !== 404 ? d.error : notFoundMsg, 'danger')
     })
   }
 
@@ -1095,7 +1239,7 @@ export default function TravelPlanner() {
         <i className="fas fa-route fa-lg me-2 text-primary" />
         <h4 className="mb-0 fw-bold">旅行规划</h4>
       </div>
-      {view === 'home' && <PlanHome onOpenPlan={openPlan} showToast={showToast} />}
+      {view === 'home' && <PlanHome onOpenPlan={openPlan} openingId={openingId} showToast={showToast} />}
       {view === 'plan' && plan && (
         <PlanView plan={plan} onBack={() => { setView('home'); setPlan(null) }} showToast={showToast} />
       )}
