@@ -259,6 +259,19 @@ def get_profile():
     except Exception as e:
         return jsonify({'ok': False, 'error': f'Failed to get profile: {str(e)}'}), 500
 
+@auth_bp.route('/xp', methods=['GET'])
+@login_required
+def get_xp():
+    """经验值 + 等级 for the signed-in person: total, level, the next step,
+    the daily-card streak and the hidden 土著 tag."""
+    from Backend.Controller import xp_db
+    from Backend.Controller.market_db import db_get_user
+    me = request.current_user['username']
+    # The session dict has no created_at; the tag needs the row.
+    u = db_get_user(me) or {}
+    return jsonify({'ok': True, **xp_db.summary(me, u.get('created_at'))})
+
+
 @auth_bp.route('/check-session', methods=['GET'])
 def check_session():
     """检查会话状态"""
@@ -514,6 +527,7 @@ def reset_user_password(username):
 def get_user_public(username):
     """Return public-safe profile info for any user (no email / contact / password)."""
     from Backend.Controller.market_db import db_get_user
+    from Backend.Controller import xp_db
     u = db_get_user(username)
     if not u:
         return jsonify({'ok': False, 'error': 'User not found'}), 404
@@ -523,6 +537,7 @@ def get_user_public(username):
         'avatar_url':   u['avatar_url'],
         'created_at':   u['created_at'],
         'bio':          u.get('bio', '') or '',
+        **xp_db.public_summary(username, u.get('created_at')),
     }})
 
 
@@ -576,6 +591,8 @@ def post_user_wall(username):
     if market_db.count_wall_posts_today(me) >= market_db.WALL_DAILY_LIMIT:
         return jsonify({'ok': False, 'error': '今天留言次数已用完。'}), 429
     post = market_db.create_wall_post(username, me, content)
+    from Backend.Controller import xp_db
+    xp_db.award(me, 'wall', post['id'])
     return jsonify({'ok': True, 'post': post}), 201
 
 

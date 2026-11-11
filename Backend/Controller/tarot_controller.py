@@ -36,7 +36,7 @@ import secrets
 from flask import Blueprint, jsonify, request
 
 from Backend.Controller.auth_controller import login_required, login_optional
-from Backend.Controller import tarot_db
+from Backend.Controller import tarot_db, xp_db
 from Backend.Controller.socketio_instance import socketio
 from Backend.Service.ai import ai, today_key
 from Backend.Service.ai.prompts.tarot import MAX_FOLLOWUP_CHARS, MAX_QUESTION_CHARS
@@ -272,6 +272,8 @@ def daily():
 
     cached = tarot_db.get_daily(username, day)
     if cached is not None:
+        # Idempotent (ref = day): a reload after the row exists pays nothing twice.
+        xp_db.award_daily_sign(username, day)
         return jsonify({'ok': True, 'cached': True, 'daily': _daily_payload(cached, by_id)})
 
     # Deterministic pick: same person, same day → same card. The first 8 bytes
@@ -304,6 +306,7 @@ def daily():
         card_id=card['id'], card_name=card['name'],
         upright=upright, text_=text_, source=source,
     )
+    xp_db.award_daily_sign(username, day)
     return jsonify({'ok': True, 'cached': False, 'daily': _daily_payload(row, by_id)})
 
 

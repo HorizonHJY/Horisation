@@ -19,6 +19,36 @@ const AVATAR_PRESETS = [
   { id: 'star',  label: 'Star' },
 ]
 
+/** The level bar under the profile header: total, a bar, and the gap to the
+ *  next title. 满级 just says so — there is no bar to fill. */
+function XpProgress({ xp }) {
+  const full = xp.next_xp == null
+  const pct  = Math.round((full ? 1 : xp.progress) * 100)
+  const gap  = full ? 0 : Math.max(0, xp.next_xp - xp.xp)
+  return (
+    <div className='xp-card'>
+      <div className='xp-card__row'>
+        <span><span className='xp-card__total'>{xp.xp}</span> 经验</span>
+        <span>{full ? '已满级' : `下一级 · ${xp.next_level_name} · ${xp.next_xp}`}</span>
+      </div>
+      <div
+        className={'xp-bar' + (full ? ' xp-bar--full' : '')}
+        role='progressbar'
+        aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}
+        aria-label={full ? '已满级' : `距离 ${xp.next_level_name} 还差 ${gap} 经验`}
+      >
+        <div className='xp-bar__fill' style={{ width: `${pct}%` }} />
+      </div>
+      <div className='xp-card__hint'>
+        {full
+          ? <>已满级 · 村里最高的称号了</>
+          : <>距离下一级还差 <strong>{gap}</strong> 经验</>}
+        {xp.streak_days > 0 && <> · 🔥 连续签到 {xp.streak_days} 天</>}
+      </div>
+    </div>
+  )
+}
+
 const ROLE_COLORS = {
   horizon: 'role-horizon', horizonadmin: 'role-horizonadmin',
   vip1: 'role-vip1', vip2: 'role-vip2', vip3: 'role-vip3', user: 'role-user',
@@ -49,6 +79,13 @@ export default function Profile() {
   const [wearError, setWearError] = useState(null)
   const badgeBtnRef = useRef(null)
   const badgePanelRef = useRef(null)
+  const [xp, setXp] = useState(null)   // GET /api/auth/xp; null until it lands or if it fails
+
+  useEffect(() => {
+    let cancelled = false
+    api.get('/api/auth/xp').then(d => { if (!cancelled && d.ok) setXp(d) })
+    return () => { cancelled = true }
+  }, [])
 
   const loadMbti = () => {
     setMbtiState('loading')
@@ -356,7 +393,17 @@ export default function Profile() {
           </div>
 
           <div className='flex-grow-1'>
-            <h5 className='fw-bold mb-1'>{user.display_name}</h5>
+            <div className='d-flex align-items-center gap-2 flex-wrap mb-1'>
+              <h5 className='fw-bold mb-0'>{user.display_name}</h5>
+              {xp && (
+                <span className='xp-level' title={`${xp.xp} 经验`}>
+                  <span className='xp-level__lv'>Lv.{xp.level}</span>{xp.level_name}
+                </span>
+              )}
+              {xp?.hidden_tag && (
+                <span className='xp-native' title='注册满一年'>{xp.hidden_tag}</span>
+              )}
+            </div>
             <div className='d-flex align-items-center gap-2 flex-wrap'>
               {mbti && worn && (
                 <button
@@ -448,6 +495,8 @@ export default function Profile() {
             </div>
           )}
         </div>
+
+        {xp && <XpProgress xp={xp} />}
       </div>
 
       {/* Forms — single column */}

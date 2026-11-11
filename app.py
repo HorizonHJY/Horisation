@@ -51,6 +51,9 @@ init_mbti_db()
 from Backend.Controller.feedback_db import init_feedback_db
 init_feedback_db()
 
+from Backend.Controller.xp_db import init_xp_db
+init_xp_db()
+
 # The AI layer owns its own table (ai_usage). See Doc/ai_service.md.
 from Backend.Service.ai import init_ai_db
 init_ai_db()

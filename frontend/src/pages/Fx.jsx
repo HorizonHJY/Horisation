@@ -515,6 +515,7 @@ function FxApplyCard() {
       <h5 className="fw-semibold mb-2">发布换汇需要资质</h5>
       <p className="text-muted mb-3" style={{ maxWidth: 480, margin: '0 auto' }}>
         平台需要确认你是可信用户,避免诈骗。获得资质后,你就可以在这里发布换汇帖。
+        等级升到「村民代表」(Lv.3) 的村民也自动获得资格。
       </p>
       <div>
         <button type="button" className="btn btn-primary" onClick={apply}>
@@ -530,8 +531,17 @@ function FxApplyCard() {
 export default function Fx() {
   const { user, requireAuth } = useAuth()
   const me = user?.username
+  // Level 3 (村民代表) posts without the admin's stamp. Mirrors
+  // FX_POST_MIN_LEVEL in fx_controller.py; the server is the one that decides.
+  const [level, setLevel] = useState(0)
+  useEffect(() => {
+    if (!user) { setLevel(0); return }
+    let cancelled = false
+    api.get('/api/auth/xp').then(d => { if (!cancelled && d.ok) setLevel(d.level || 0) })
+    return () => { cancelled = true }
+  }, [user])
   const canPost = Boolean(user && (
-    user.role === 'horizon' || user.role === 'admin' || user.fx_qualified
+    user.role === 'horizon' || user.role === 'admin' || user.fx_qualified || level >= 3
   ))
 
   const SUB_TABS = useMemo(() => [

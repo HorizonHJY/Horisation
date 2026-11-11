@@ -12,6 +12,7 @@ import { api } from '../api'
  */
 export default function DailyCard() {
   const [state, setState] = useState({ loading: true, daily: null, error: false })
+  const [streak, setStreak] = useState(null)   // {streak_days, week} once /api/auth/xp answers
 
   useEffect(() => {
     let cancelled = false
@@ -19,6 +20,10 @@ export default function DailyCard() {
       if (cancelled) return
       if (res && res.ok && res.daily) {
         setState({ loading: false, daily: res.daily, error: false })
+        // After the draw, so today's dot is already lit and today's +5 is in.
+        api.get('/api/auth/xp').then((x) => {
+          if (!cancelled && x && x.ok) setStreak({ streak_days: x.streak_days, week: x.week || [] })
+        })
       } else {
         setState({ loading: false, daily: null, error: true })
       }
@@ -143,7 +148,34 @@ export default function DailyCard() {
             </div>
           </div>
         </div>
+
+        {streak && <StreakRow streak={streak} />}
       </div>
+    </div>
+  )
+}
+
+
+/** 🔥 连续 N 天 + the last seven days as dots (today rightmost). A person
+ *  with no streak gets an invitation instead of a zero. */
+function StreakRow({ streak }) {
+  const days = streak.streak_days || 0
+  const week = streak.week || []
+  const last = week.length - 1
+  return (
+    <div className="xp-streak" aria-label={days > 0 ? `连续签到 ${days} 天` : '还没有连续记录'}>
+      {days > 0
+        ? <span className="xp-streak__label">🔥 连续 {days} 天</span>
+        : <span>今天抽一张，开始记录</span>}
+      <span className="xp-streak__dots" aria-hidden="true">
+        {week.map((d, i) => (
+          <span
+            key={d.day}
+            className={'xp-dot' + (d.drawn ? ' xp-dot--on' : '') + (i === last ? ' xp-dot--today' : '')}
+            title={d.day}
+          />
+        ))}
+      </span>
     </div>
   )
 }

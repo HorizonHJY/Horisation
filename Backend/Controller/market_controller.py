@@ -8,7 +8,7 @@ Listing metadata is stored in SQLite via market_db.py.
 from flask import Blueprint, request, jsonify
 
 from Backend.Controller.auth_controller import login_required, login_optional, admin_required
-from Backend.Controller import market_db, r2_manager
+from Backend.Controller import market_db, r2_manager, xp_db
 from Backend.Controller.user_manager import user_manager
 
 market_bp = Blueprint('market', __name__, url_prefix='/api/market')
@@ -217,6 +217,7 @@ def create_listing():
         delivery_fee=delivery_fee,
         condition=condition,
     )
+    xp_db.award(seller, 'listing', listing_id)
 
     # Upload images to R2
     uploaded_keys = []
@@ -409,6 +410,11 @@ def mark_sold(listing_id):
     if buyer and buyer != seller and market_db.db_get_user(buyer):
         deal = market_db.create_deal(listing_id, seller, buyer)
         if deal:
+            # A completed trade pays both sides. Keyed on the listing, not the
+            # deal: mark_sold can be repeated and would mint a fresh deal id
+            # each time, and one item must not be a +30 button.
+            xp_db.award(seller, 'deal', listing_id)
+            xp_db.award(buyer,  'deal', listing_id)
             try:
                 from .socketio_instance import socketio
                 payload = {'deal_id': deal['id'], 'listing_id': listing_id,
@@ -461,6 +467,7 @@ def post_deal_review(deal_id):
         return jsonify({'ok': False, 'error': 'Rating must be between 1 and 5.'}), 400
     if err == 'bad_tag':
         return jsonify({'ok': False, 'error': 'One of the tags is not allowed.'}), 400
+    xp_db.award(me, 'review', deal_id)
     return jsonify({'ok': True, 'review': review}), 201
 
 

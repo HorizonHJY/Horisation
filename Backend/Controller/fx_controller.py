@@ -25,7 +25,7 @@ from typing import Optional
 from flask import Blueprint, request, jsonify
 
 from Backend.Controller.auth_controller import login_required, login_optional
-from Backend.Controller import market_db
+from Backend.Controller import market_db, xp_db
 
 
 fx_rate_bp  = Blueprint('fx_rate',  __name__, url_prefix='/api/fx')
@@ -150,6 +150,7 @@ def get_history():
 
 _DIRECTIONS = {'usd_to_cny', 'cny_to_usd'}
 _METHODS    = {'cash', 'transfer', 'either'}
+FX_POST_MIN_LEVEL = 3   # 村民代表; keep in step with Fx.jsx
 
 
 def _parse_post(body: dict) -> tuple[dict, str | None]:
@@ -204,7 +205,13 @@ def list_fx_posts():
 def create_fx_post():
     me_info = request.current_user
     me = me_info['username']
-    if me_info.get('role') not in ('horizon', 'admin') and not me_info.get('fx_qualified'):
+    # Who may post: staff, anyone the admin verified, or anyone who has earned
+    # 村民代表 (level 3) — the level is a track record, which is what the
+    # manual verification was standing in for.
+    allowed = (me_info.get('role') in ('horizon', 'admin')
+               or bool(me_info.get('fx_qualified'))
+               or xp_db.level_for(xp_db.get_xp(me))['level'] >= FX_POST_MIN_LEVEL)
+    if not allowed:
         return jsonify({
             'ok': False,
             'error': 'FX posting requires verification. Contact the admin to apply.',

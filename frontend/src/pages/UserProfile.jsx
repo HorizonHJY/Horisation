@@ -157,6 +157,14 @@ export default function UserProfile() {
           <div className="flex-grow-1" style={{ minWidth: 0 }}>
             <div className="d-flex align-items-center gap-2 flex-wrap">
               <h5 className="mb-0 fw-bold">{profile.display_name}</h5>
+              {profile.level_name && (
+                <span className="xp-level xp-level--sm" title={`等级 ${profile.level}`}>
+                  <span className="xp-level__lv">Lv.{profile.level}</span>{profile.level_name}
+                </span>
+              )}
+              {profile.hidden_tag && (
+                <span className="xp-native" title="注册满一年">{profile.hidden_tag}</span>
+              )}
               {mbti && (
                 <Link to="/mbti" className="mbti-badge mbti-badge--sm text-decoration-none"
                       title={mbti.type_card?.nick || mbti.type}>

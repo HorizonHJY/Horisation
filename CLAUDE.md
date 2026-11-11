@@ -52,6 +52,7 @@ Browser → Cloudflare → Nginx → Gunicorn (port 8000) → Flask (API only)
 | `Backend/Service/bazi/` | **八字排盘 — arithmetic only.** `chart.py` builds the whole chart (four pillars, ten gods, hidden stems, 星运/自坐, 空亡, 纳音, common 神煞, 大运/小运/起运) from `lunar_python` plus true solar time (longitude + equation of time + China's 1986–91 DST). Checked against 问真八字. `cities.py` is the name → longitude table. `compat.py` is 合盘 arithmetic (day pillar 合冲, 生肖, 五行互补, 十神, score). The model never computes a pillar or a relation. |
 | `Backend/Controller/bazi_controller.py` / `bazi_db.py` | `/api/bazi/*`, the `bazi_readings` table (birth data + chart + reading + the reader's 准/不准 marks) and `bazi_followups` (questions about a chart). Owner-only. **Delete is a hide** (`deleted_at`): the rows stay for analysis, by Horizon's decision 2026-10-12, and the page says so. The reading runs **in the background** (`socketio.start_background_task`) and the page polls — it takes up to 2 min, longer than nginx holds a request. |
 | `Backend/Controller/feedback_db.py` | `ai_reading_feedback` — one verdict per (feature, reading, person): `up` / `down` plus reason chips. A second POST updates. **Aggregated chips steer the next prompt; the free-text note never leaves the table** (it can name someone else family or illness). |
+| `Backend/Controller/xp_db.py` | **经验值 + 等级.** `user_xp` (one row per person, the running total) and `xp_events` (one row per grant, `UNIQUE(username, kind, ref)` — the whole idempotency story). `LEVELS` is the fixed six-step table (新村民 0 → 村长 30000); the level is computed from the total, never stored. `award(user, kind, ref)` is the only write path and is called from the listing / sold / review / wall / daily-card handlers; `award_daily_sign` also pays the 7-day streak bonus. The streak is read from `tarot_daily`. `hidden_tag_for(created_at)` gives 土著 to accounts older than a year. |
 | `Backend/Controller/reading_feedback_controller.py` | `/api/reading-feedback` — POST a verdict (validated against the caller own reading in `tarot_readings` / `bazi_readings`), GET your own. Shared by both readers. |
 | `Backend/Service/ai/feedback.py` | **The feedback hook.** `lessons(feature)` turns recent `down` chips into a short correction block appended to the system prompt by `prompts/tarot.py` and `prompts/bazi.py`. Floor: 5+ down votes, 3+ for a single reason. Silent otherwise. |
 | `Backend/Controller/bazi_compat_controller.py` / `bazi_compat_db.py` | `/api/bazi/compat/*`, the `bazi_compat_readings` + `bazi_compat_followups` tables. Owner-only; same claim/poll/hide pattern as `bazi_db`. Takes two existing `bazi_readings` ids (left = 本命, right = 对象), stores a snapshot of both charts + the pre-computed `compat` dict, then runs the AI reading in the background. |
@@ -90,7 +91,7 @@ Browser → Cloudflare → Nginx → Gunicorn (port 8000) → Flask (API only)
 ### Data
 | Path | Contents | Git tracked? |
 |------|----------|-------------|
-| `_data/market.db` | SQLite — **all** structured data: users, sessions, listings, images, categories, memos, messages, friends, groups, games, travel, bills, tasks, tarot readings, AI usage | No (gitignored) |
+| `_data/market.db` | SQLite — **all** structured data: users, sessions, listings, images, categories, memos, messages, friends, groups, games, travel, bills, tasks, tarot readings, AI usage, XP (`user_xp`, `xp_events`) | No (gitignored) |
 | `_data/notes/` | Per-user note JSON files | Yes |
 | `Backend/data/tarot_deck.json` | 78 Rider–Waite–Smith cards: id, name, arcana, image filename, Waite's 1911 upright text, plus `name_zh` / `keywords_zh`. The Chinese layer is **authored in `scripts/tarot_add_zh.mjs`** (no open Chinese dataset exists) — edit it there and re-run, never in the JSON by hand. | Yes |
 | `frontend/public/tarot/*.jpg` | RWS card scans, 78 files (~7.6 MB) from `metabismuth/tarot-json` (MIT); the deck itself is US public domain | Yes |
@@ -154,6 +155,8 @@ bash ~/deploy.sh       # calls scripts/deploy.sh in the project
 | POST | `/logout` | login | Logout |
 | GET | `/check-session` | Public | Check session |
 | GET | `/profile` | login | Get own profile |
+| GET | `/xp` | login | 经验值: `xp`, `level`, `level_name`, `next_level_name`, `next_xp`, `progress` (0–1), `streak_days`, `week` (7 × `{day, drawn}`), `hidden_tag` |
+| GET | `/users/<u>/public` | login | Public card: display name, avatar, bio, plus `level`, `level_name`, `hidden_tag` |
 | PUT | `/profile` | login | Update display name / email |
 | PUT | `/password` | login | Change own password |
 | POST | `/avatar` | login | Upload avatar to R2 |
@@ -200,6 +203,15 @@ All login required. Full CRUD + `/complete`, `/statistics`.
 | DELETE | `/wanted/<id>` | login | Delete |
 
 Reach Out on a wanted post opens a DM with the buyer (same `navigate('/friends',{state:{openChat}})` as listings' Reach Out). No system bubble is posted on wanted (unlike a listing's Message Seller) — the roles are swapped, there is nothing to "interest" in.
+
+### XP / levels (经验值)
+Grants, all idempotent on `(username, kind, ref)`; daily caps count Chicago business days:
+`daily_sign` +5 (ref = day) · `listing` +10 (3/day, ref = listing) · `deal` +30 to **both** parties
+(ref = listing, so re-marking an item sold cannot pay twice) · `review` +10 to the reviewer (ref = deal) ·
+`wall` +2 (3/day, ref = post) · `streak7` +20 when the daily-card streak hits a multiple of 7.
+Levels: 新村民 0 / 老村民 100 / 村民代表 450 / 村委委员 1500 / 村支书 4000 / 村长 30000.
+**FX posting** (`POST /api/market/fx`) is open to `horizon`/`admin`, `fx_qualified`, **or level ≥ 3**
+(`FX_POST_MIN_LEVEL` in `fx_controller.py`, mirrored in `Fx.jsx`). No leaderboard, by decision.
 
 ### Feedback `/api/feedback/`
 | Method | Route | Description |

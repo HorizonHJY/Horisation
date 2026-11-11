@@ -112,6 +112,17 @@ reads as noise on a phone. Cleaned in this round: the guest line under "Continue
 `/login`, the Market guest banner's Chinese sentence (now "Sign in to buy or sell"), the trip-scope
 footnote, the participant and share-ID hints, and the Bill Split subtitle.
 
+Confirmed 2026-11-11: **经验值和等级是村里的资历，不是游戏计分板。** Six titles — 新村民 0 / 老村民 100 /
+村民代表 450 / 村委委员 1500 / 村支书 4000 / 村长 30000 — earned by doing the things the circle is for:
+the daily card (+5, and +20 every seventh day in a row), posting an item (+10, three a day),
+completing a trade (+30 to both sides, once per item), reviewing it (+10), and leaving a note on
+someone's wall (+2, three a day). Routine days cap at 41; trades and reviews sit on top. Every grant
+is paid once per action, by construction. The title shows beside the name on My Profile (with a
+progress bar and the gap to the next title) and on the public page; an account a full year old also
+wears 土著, which is not a level. Reaching 村民代表 unlocks FX posting without the admin's stamp —
+the level is the track record that stamp stood in for. **No leaderboard**: the number is yours to
+see, the title is what others see, and nobody is ranked against a friend.
+
 ## Brand Commitments
 
 - **Name in the interface: Arch Bay.** Settled 2026-09-07. The name has flipped twice — the

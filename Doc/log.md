@@ -2112,3 +2112,15 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 - Toast 改用全站 `.app-toast`（手机底部居中，不压顶栏头像）；打开行程时列表项显示 spinner 并禁止重复点击；「加载共享行程」的加载态并入同一条路径。
 - Day 标签单行横向滚动 + scroll-snap + sticky 在顶栏下；分享徽章与「我的行程」返回键同行，标题独占一行可换行。
 - 实测 390：`scrollWidth == innerWidth`，卡片按钮 44px，Day × 命中区经 elementFromPoint 验证，拖拽后顺序持久化；834/1440 仍为表格，无横向溢出。
+
+## 2026-11-11 经验值 + 等级
+- 新表 `user_xp`（username 主键 / xp / updated_at）与 `xp_events`（username / kind / ref / delta / created_at，`UNIQUE(username, kind, ref)`）。只存总分，等级由 `xp_db.LEVELS` 现算，`recompute()` 可从事件日志重建总分。启动时 `init_xp_db()` 建表，旧库只增不改。
+- 等级表：新村民 0 / 老村民 100 / 村民代表 450 / 村委委员 1500 / 村支书 4000 / 村长 30000。
+- 规则（日常上限 41，交易评价另算）：每日一签 +5（ref=日期）、发布闲置 +10（每天 3 件，ref=listing）、成交 +30 买卖双方（ref=listing，不是 deal——「标记已售」可以重复点，每次生一个新 deal id，不能变成 +30 按钮）、评价 +10 评价人（ref=deal）、留言墙 +2（每天 3 条，ref=post）、连续签到满 7 天 +20（每 7 天一次，ref=日期）。
+- 幂等靠唯一约束：同一 (username, kind, ref) 第二次插入撞约束直接返回 False；日上限是按 Chicago 业务日计数。
+- 连续签到不另存：直接读 `tarot_daily`（抽过的日子），所以上线前抽过的日子也算；今天没抽时连续数维持到前一天（到午夜才断）。
+- 隐藏称号「土著」：`user.created_at` 满 365 天，不占等级，主页与公开主页名字旁显示。
+- 接口：`GET /api/auth/xp` → xp / level / level_name / next_level_name / next_xp / progress / streak_days / week（近 7 天圆点）/ hidden_tag；`/api/auth/users/<u>/public` 多返回 level / level_name / hidden_tag。
+- 换汇发布：`fx_qualified` **或** level ≥ 3（`FX_POST_MIN_LEVEL`），管理员不变；申请卡片加一句「升到村民代表也自动获得资格」。其他权限未动。
+- 前端：Profile 头部名字旁 Lv 徽章 + 土著 + 一条进度条 + 「距离下一级还差 X 经验」（满级显示已满级）；UserProfile 名字旁等级名 + 土著；DailyCard 底部「🔥 连续 N 天」+ 近 7 天圆点（今天最右，虚线圈），无连续显示「今天抽一张，开始记录」。样式全在 index.css `.xp-*`，只用现有 token，无新依赖，无排行榜。
+- 验证：`tests/test_xp.py` 8 项（等级边界、幂等、日上限、双方成交、7 天奖励、断签归零、土著、重算）；本地 Flask 5100 + API 真打：一签 3 次只 +5，发 4 件只记 3，成交双方各 +30 且同一件重复 sold 不重复，评价第二次 409 不加分，留言 4 条记 3，101 分升老村民，公开主页返 Lv2，ben 发换汇 403。截图 390 / 1440 × (profile / home / public) 存 `~/.openclaw/scratch/xp-levels/`，无横向溢出；土著标签用本地临时回拨 ann.created_at 截的，截完已还原，测试行已全部删除。
