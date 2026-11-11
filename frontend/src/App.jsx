@@ -34,6 +34,7 @@ import TarotHistory from './pages/TarotHistory'
 import Bazi from './pages/Bazi'
 import Mbti from './pages/Mbti'
 import About from './pages/About'
+import Pet from './pages/Pet'
 
 // ── Theme Context ────────────────────────────────────────────────
 export const ThemeContext = createContext(null)
@@ -476,6 +477,7 @@ export default function App() {
             <Route path="/bill-split"        element={<PrivateRoute><FeatureRoute feature="billSplit"><BillSplit /></FeatureRoute></PrivateRoute>} />
             <Route path="/tarot/history"     element={<PrivateRoute><TarotHistory /></PrivateRoute>} />
             <Route path="/about"             element={<PrivateRoute><About /></PrivateRoute>} />
+            <Route path="/pet"               element={<PrivateRoute><Pet /></PrivateRoute>} />
           </Route>
 
           <Route path="*" element={<Navigate to="/home" replace />} />

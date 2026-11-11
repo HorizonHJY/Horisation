@@ -527,18 +527,23 @@ def reset_user_password(username):
 def get_user_public(username):
     """Return public-safe profile info for any user (no email / contact / password)."""
     from Backend.Controller.market_db import db_get_user
-    from Backend.Controller import xp_db
+    from Backend.Controller import xp_db, pet_db
     u = db_get_user(username)
     if not u:
         return jsonify({'ok': False, 'error': 'User not found'}), 404
-    return jsonify({'ok': True, 'user': {
+    out = {
         'username':     u['username'],
         'display_name': u['display_name'],
         'avatar_url':   u['avatar_url'],
         'created_at':   u['created_at'],
         'bio':          u.get('bio', '') or '',
         **xp_db.public_summary(username, u.get('created_at')),
-    }})
+    }
+    # The cat, if there is one. Absent key when there is none.
+    pet = pet_db.public_card(username, request.current_user['username'])
+    if pet:
+        out['pet'] = pet
+    return jsonify({'ok': True, 'user': out})
 
 
 @auth_bp.route('/users/<username>/reviews', methods=['GET'])

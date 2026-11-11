@@ -2124,3 +2124,15 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 - 换汇发布：`fx_qualified` **或** level ≥ 3（`FX_POST_MIN_LEVEL`），管理员不变；申请卡片加一句「升到村民代表也自动获得资格」。其他权限未动。
 - 前端：Profile 头部名字旁 Lv 徽章 + 土著 + 一条进度条 + 「距离下一级还差 X 经验」（满级显示已满级）；UserProfile 名字旁等级名 + 土著；DailyCard 底部「🔥 连续 N 天」+ 近 7 天圆点（今天最右，虚线圈），无连续显示「今天抽一张，开始记录」。样式全在 index.css `.xp-*`，只用现有 token，无新依赖，无排行榜。
 - 验证：`tests/test_xp.py` 8 项（等级边界、幂等、日上限、双方成交、7 天奖励、断签归零、土著、重算）；本地 Flask 5100 + API 真打：一签 3 次只 +5，发 4 件只记 3，成交双方各 +30 且同一件重复 sold 不重复，评价第二次 409 不加分，留言 4 条记 3，101 分升老村民，公开主页返 Lv2，ben 发换汇 403。截图 390 / 1440 × (profile / home / public) 存 `~/.openclaw/scratch/xp-levels/`，无横向溢出；土著标签用本地临时回拨 ann.created_at 截的，截完已还原，测试行已全部删除。
+
+## 2026-11-11 电子猫 v1
+- 新表 `pets`（username 主键 / breed / name / hunger / mood / bond / stage_max / last_decay_day / created_at / updated_at）与 `pet_interactions`（owner / actor / kind / day，`UNIQUE(owner, actor, kind, day)`）。启动时 `init_pet_db()` 建表，旧库只增不改。
+- 规则：一人一只，10 个品种（蓝猫 / 三花 / 金渐层 / 银渐层 / 橘猫 / 奶牛猫 / 黑猫 / 狸花 / 布偶 / 暹罗），起名 ≤12 字；品种领养后固定，名字可改（`PATCH /api/pet/me`）。
+- 三个状态 0–100：饱食 / 心情 / 亲密，初始 70 / 70 / 20。每天三个动作各一次：喂食 +30 饱食、陪玩 +25 心情、梳毛 +12 亲密。衰减每天 −12 / −10 / −8，**读取时按 `last_decay_day` 到今天的天数一次算清再落库**，没有定时任务；连读两次不会重复扣。
+- 不会死、不清零、不掉级：数值最低到 0；阶段按亲密度算（幼崽 <40 / 成年 40–79 / 老友 ≥80），但 `stage_max` 记住到过的最高阶段，久不登录只会数值低，称号不退。
+- 访客：公开主页 `/api/auth/users/<u>/public` 多返回 `pet {breed, name, stage, bond, touched_today}`；`POST /api/pet/pet {username}` 每人每天摸一次（唯一约束），猫 +1 亲密，摸的人 +1 经验；摸自己 403。
+- 经验：`xp_db.RULES` 新增 `pet_care` +2（每天 3 次，ref=日期:动作）与 `pet_touch` +1（每天 3 次，ref=日期:主人），日常上限由 41 变 50。重复动作 `applied=false`、不加分。
+- 前端：`/pet`（`pages/Pet.jsx`，侧边栏 For Fun → Pet）：未领养是 10 张横向品种卡 + 起名；已领养是米色圆底大图 + 名字（铅笔改名）+ 阶段 + 三条细状态条 + 三个 ≥44px 动作按钮，做完置灰显示「今天已完成」，加分弹 `+2 经验`。`Profile.jsx` 头部加小猫卡片（图 + 名字 + 阶段 + 一句状态）点进 `/pet`；没猫显示「Adopt a cat」。`UserProfile.jsx` 显示对方的猫和「Pet it 摸一下」，主人本人不显示按钮，摸过变「Petted today」。
+- 美术：`components/CatArt.jsx` 导出 `<Cat breed stage size/>`，一套 path + 每品种调色板 + 花纹层（虎斑纹、三花块、奶牛围兜、暹罗重点色、布偶帽），扁平无渐变；阶段靠整体缩放（0.8 / 1 / 1.04）+ 幼崽大头 + 尾巴姿态（竖 / 侧 / 绕前爪）+ 老友眯眼，没有画三套。
+- 样式全在 `index.css` `.pet-*`，只用现有 token；`.pet-visit.card` 要显式 `flex-direction: row`，因为 Bootstrap 的 `.card` 是竖向 flex。无新依赖，无排行榜。
+- 验证：`tests/test_pet.py` 7 项；本地 Flask 5100 API 真打：坏品种 / 空名 / 13 字 400，二次领养 409，三动作各 +2 共 +6，重复不加，自摸 403，访客摸一次 +1 经验、第二次 applied=false，没猫的人做动作 404；`last_decay_day` 回拨 3 天读到 −36/−30/−24，再读不变，回拨 400 天归 0 仍是活的幼崽。Playwright 390 / 1440：按钮 111×82 / 140×82，`scrollWidth == innerWidth`，点 Play 后弹 +2、刷新仍置灰，领养流程走通，自己主页无摸按钮。截图存 `~/.openclaw/scratch/pet-v1/`（含 10 品种 × 3 阶段拼图）。本地 ann/ben 的猫与互动在截图后已删除，显示名已还原。

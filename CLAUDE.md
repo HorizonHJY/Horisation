@@ -53,6 +53,7 @@ Browser → Cloudflare → Nginx → Gunicorn (port 8000) → Flask (API only)
 | `Backend/Controller/bazi_controller.py` / `bazi_db.py` | `/api/bazi/*`, the `bazi_readings` table (birth data + chart + reading + the reader's 准/不准 marks) and `bazi_followups` (questions about a chart). Owner-only. **Delete is a hide** (`deleted_at`): the rows stay for analysis, by Horizon's decision 2026-10-12, and the page says so. The reading runs **in the background** (`socketio.start_background_task`) and the page polls — it takes up to 2 min, longer than nginx holds a request. |
 | `Backend/Controller/feedback_db.py` | `ai_reading_feedback` — one verdict per (feature, reading, person): `up` / `down` plus reason chips. A second POST updates. **Aggregated chips steer the next prompt; the free-text note never leaves the table** (it can name someone else family or illness). |
 | `Backend/Controller/xp_db.py` | **经验值 + 等级.** `user_xp` (one row per person, the running total) and `xp_events` (one row per grant, `UNIQUE(username, kind, ref)` — the whole idempotency story). `LEVELS` is the fixed six-step table (新村民 0 → 村长 30000); the level is computed from the total, never stored. `award(user, kind, ref)` is the only write path and is called from the listing / sold / review / wall / daily-card handlers; `award_daily_sign` also pays the 7-day streak bonus. The streak is read from `tarot_daily`. `hidden_tag_for(created_at)` gives 土著 to accounts older than a year. |
+| `Backend/Controller/pet_controller.py` / `pet_db.py` | **电子猫.** `/api/pet/*`. `pets` (one row per owner: breed fixed at adoption, name, three 0–100 meters, `stage_max`, `last_decay_day`) and `pet_interactions` (`UNIQUE(owner, actor, kind, day)` — feed / play / brush by the owner, `touch` by a visitor, each once a day). **Decay is computed on read** from `last_decay_day` (−12 / −10 / −8 per day), no scheduler. The cat never dies and the stage (幼崽 <40 / 成年 40–79 / 老友 ≥80 bond) never goes back down. Chores pay +2 XP (`pet_care`), a visitor's pat +1 (`pet_touch`), through `xp_db.award`. |
 | `Backend/Controller/reading_feedback_controller.py` | `/api/reading-feedback` — POST a verdict (validated against the caller own reading in `tarot_readings` / `bazi_readings`), GET your own. Shared by both readers. |
 | `Backend/Service/ai/feedback.py` | **The feedback hook.** `lessons(feature)` turns recent `down` chips into a short correction block appended to the system prompt by `prompts/tarot.py` and `prompts/bazi.py`. Floor: 5+ down votes, 3+ for a single reason. Silent otherwise. |
 | `Backend/Controller/bazi_compat_controller.py` / `bazi_compat_db.py` | `/api/bazi/compat/*`, the `bazi_compat_readings` + `bazi_compat_followups` tables. Owner-only; same claim/poll/hide pattern as `bazi_db`. Takes two existing `bazi_readings` ids (left = 本命, right = 对象), stores a snapshot of both charts + the pre-computed `compat` dict, then runs the AI reading in the background. |
@@ -86,12 +87,14 @@ Browser → Cloudflare → Nginx → Gunicorn (port 8000) → Flask (API only)
 | `frontend/src/components/TarotReading.jsx` | The "整体解读" section under the three cards: optional question → `POST /api/tarot/reading` → summary / three positions / one next step → 1–5 fit rating. Reads `retryable` off the error body to decide whether to offer *Try again*. |
 | `frontend/src/pages/Market.jsx` | The marketplace page: Browse / **Wanted** / My Listings / Post Item tabs, filters in the query string, and the `ListingCard` / `ListingDetailModal` / `SellerModal` surfaces. A sold listing renders with a grey mask + rotated `SOLD` stamp over its image (`.market-card__img--sold`, overlay is `pointer-events:none` so the card stays one click target). **Browse returns `status='active'` only** — the sold mask shows on My Listings and a seller's public page, never in Browse (deliberate, per PRODUCT.md 2026-09-28). |
 | `frontend/src/pages/MarketWanted.jsx` | Market → Wanted sub-panel. Buyers post what they're looking for; sellers DM them (via `navigate('/friends',{state:{openChat,initialMessage}})`, same mechanism as Market's Reach Out). Three sub-tabs (Browse / My / Post). Open to guests for browse; posting / fulfilling / deleting requires login. Fulfilled cards render dimmed with a line-through title. |
+| `frontend/src/pages/Pet.jsx` | `/pet` — adopt (ten breed cards in one horizontal strip + a name) or care (the big cat on a cream disc, name with a rename pencil, stage pill, three thin meters, three chore buttons that grey out with 「今天已完成」). Profile shows a small `.pet-card`; a public page shows `.pet-visit` with the 「Pet it」 button (hidden for the owner). |
+| `frontend/src/components/CatArt.jsx` | `<Cat breed stage size />` — the ten cats as **one** inline SVG: one body, a palette per breed, a pattern overlay (tabby stripes, calico patches, tuxedo bib, Siamese points, Ragdoll cap). Stage = scale + head size + tail pose + elder's closed eyes; never a second drawing. |
 | `frontend/src/pages/` | All page components |
 
 ### Data
 | Path | Contents | Git tracked? |
 |------|----------|-------------|
-| `_data/market.db` | SQLite — **all** structured data: users, sessions, listings, images, categories, memos, messages, friends, groups, games, travel, bills, tasks, tarot readings, AI usage, XP (`user_xp`, `xp_events`) | No (gitignored) |
+| `_data/market.db` | SQLite — **all** structured data: users, sessions, listings, images, categories, memos, messages, friends, groups, games, travel, bills, tasks, tarot readings, AI usage, XP (`user_xp`, `xp_events`), the cat (`pets`, `pet_interactions`) | No (gitignored) |
 | `_data/notes/` | Per-user note JSON files | Yes |
 | `Backend/data/tarot_deck.json` | 78 Rider–Waite–Smith cards: id, name, arcana, image filename, Waite's 1911 upright text, plus `name_zh` / `keywords_zh`. The Chinese layer is **authored in `scripts/tarot_add_zh.mjs`** (no open Chinese dataset exists) — edit it there and re-run, never in the JSON by hand. | Yes |
 | `frontend/public/tarot/*.jpg` | RWS card scans, 78 files (~7.6 MB) from `metabismuth/tarot-json` (MIT); the deck itself is US public domain | Yes |
@@ -208,10 +211,25 @@ Reach Out on a wanted post opens a DM with the buyer (same `navigate('/friends',
 Grants, all idempotent on `(username, kind, ref)`; daily caps count Chicago business days:
 `daily_sign` +5 (ref = day) · `listing` +10 (3/day, ref = listing) · `deal` +30 to **both** parties
 (ref = listing, so re-marking an item sold cannot pay twice) · `review` +10 to the reviewer (ref = deal) ·
-`wall` +2 (3/day, ref = post) · `streak7` +20 when the daily-card streak hits a multiple of 7.
+`wall` +2 (3/day, ref = post) · `streak7` +20 when the daily-card streak hits a multiple of 7 ·
+`pet_care` +2 (3/day, ref = day:action) · `pet_touch` +1 (3/day, ref = day:owner). Routine day cap is now 50.
 Levels: 新村民 0 / 老村民 100 / 村民代表 450 / 村委委员 1500 / 村支书 4000 / 村长 30000.
 **FX posting** (`POST /api/market/fx`) is open to `horizon`/`admin`, `fx_qualified`, **or level ≥ 3**
 (`FX_POST_MIN_LEVEL` in `fx_controller.py`, mirrored in `Fx.jsx`). No leaderboard, by decision.
+
+### Pet `/api/pet/` (电子猫)
+Login required, open to every member. One cat per person.
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | `/breeds` | The ten breeds (`slug`, `zh`, `en`) + `max_name` |
+| GET | `/me` | `pet` (null if none): `breed`, `name`, `hunger` / `mood` / `bond` (0–100, decayed as of today), `stage` / `stage_zh` / `stage_en`, `line` (one-sentence mood), `today` `{feed, play, brush}` |
+| POST | `/adopt` | `{breed, name}` → 201. 400 bad breed / name (1–12 chars), 409 already has one |
+| PATCH | `/me` | `{name}` — rename; the breed cannot change |
+| POST | `/care` | `{action: feed\|play\|brush}` → `pet`, `applied` (false if already done today), `xp_added`, `xp_delta` |
+| POST | `/pet` | `{username}` — pat someone's cat once a day: cat +1 bond, caller +1 XP. 403 own cat, 404 no cat |
+
+`GET /api/auth/users/<u>/public` carries `pet: {breed, name, stage, bond, touched_today}` when the person has one.
 
 ### Feedback `/api/feedback/`
 | Method | Route | Description |

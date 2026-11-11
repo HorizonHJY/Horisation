@@ -54,6 +54,9 @@ init_feedback_db()
 from Backend.Controller.xp_db import init_xp_db
 init_xp_db()
 
+from Backend.Controller.pet_db import init_pet_db
+init_pet_db()
+
 # The AI layer owns its own table (ai_usage). See Doc/ai_service.md.
 from Backend.Service.ai import init_ai_db
 init_ai_db()
@@ -67,6 +70,7 @@ from Backend.Controller.bazi_compat_controller import bazi_compat_bp
 from Backend.Controller.mbti_controller import mbti_bp
 from Backend.Controller.reading_feedback_controller import reading_feedback_bp
 from Backend.Controller.fx_controller import fx_rate_bp, fx_posts_bp
+from Backend.Controller.pet_controller import pet_bp
 
 # Paths
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
@@ -118,6 +122,7 @@ app.register_blueprint(mbti_bp)
 app.register_blueprint(reading_feedback_bp)
 app.register_blueprint(fx_rate_bp)
 app.register_blueprint(fx_posts_bp)
+app.register_blueprint(pet_bp)
 
 # Import user manager for session validation
 from Backend.Controller.user_manager import user_manager

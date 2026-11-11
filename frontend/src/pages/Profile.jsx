@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../App'
 import { api } from '../api'
 import { validatePassword } from '../utils'
+import Cat from '../components/CatArt'
 
 // Keep this list in sync with Backend/Controller/auth_controller.py :: AVATAR_PRESETS
 // and the SVG files in public/avatars/.
@@ -49,6 +50,33 @@ function XpProgress({ xp }) {
   )
 }
 
+/** The cat on My Profile: a small card that opens /pet. Without a cat it is
+ *  the invitation to adopt one. */
+function PetCard({ pet }) {
+  if (!pet) {
+    return (
+      <Link to='/pet' className='pet-card pet-card--empty'>
+        <span className='pet-card__art'><Cat breed='orange' stage='kitten' size={56} title='A kitten' /></span>
+        <span className='pet-card__body'>
+          <span className='pet-card__name'>Adopt a cat</span>
+          <span className='pet-card__line'>领养一只电子猫，每天喲一喲</span>
+        </span>
+        <i className='fas fa-chevron-right pet-card__chev' aria-hidden='true' />
+      </Link>
+    )
+  }
+  return (
+    <Link to='/pet' className='pet-card'>
+      <span className='pet-card__art'><Cat breed={pet.breed} stage={pet.stage} size={56} title={pet.name} /></span>
+      <span className='pet-card__body'>
+        <span className='pet-card__name'>{pet.name} <span className='pet-pill pet-pill--sm'>{pet.stage_en} · {pet.stage_zh}</span></span>
+        <span className='pet-card__line'>{pet.line}</span>
+      </span>
+      <i className='fas fa-chevron-right pet-card__chev' aria-hidden='true' />
+    </Link>
+  )
+}
+
 const ROLE_COLORS = {
   horizon: 'role-horizon', horizonadmin: 'role-horizonadmin',
   vip1: 'role-vip1', vip2: 'role-vip2', vip3: 'role-vip3', user: 'role-user',
@@ -80,10 +108,12 @@ export default function Profile() {
   const badgeBtnRef = useRef(null)
   const badgePanelRef = useRef(null)
   const [xp, setXp] = useState(null)   // GET /api/auth/xp; null until it lands or if it fails
+  const [pet, setPet] = useState(undefined)   // undefined = not loaded; null = no cat
 
   useEffect(() => {
     let cancelled = false
     api.get('/api/auth/xp').then(d => { if (!cancelled && d.ok) setXp(d) })
+    api.get('/api/pet/me').then(d => { if (!cancelled && d.ok) setPet(d.pet || null) })
     return () => { cancelled = true }
   }, [])
 
@@ -497,6 +527,7 @@ export default function Profile() {
         </div>
 
         {xp && <XpProgress xp={xp} />}
+        {pet !== undefined && <PetCard pet={pet} />}
       </div>
 
       {/* Forms — single column */}

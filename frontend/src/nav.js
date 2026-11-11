@@ -25,6 +25,7 @@ import {
   Receipt,
   Brain,
   BookUser,
+  Cat,
 } from 'lucide-react'
 
 /* `guest` says whether a signed-out visitor can open this page. The sidebar
@@ -61,6 +62,7 @@ export const NAV_SECTIONS = [
       { to: '/tarot',             icon: Moon,     label: 'Tarot',         guest: true },
       { to: '/bazi',              icon: Sparkles, label: 'BaZi',          guest: true },
       { to: '/mbti',              icon: Brain,    label: 'MBTI',          guest: true },
+      { to: '/pet',               icon: Cat,      label: 'Pet' },
     ],
   },
   {

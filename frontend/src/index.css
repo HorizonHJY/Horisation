@@ -5642,3 +5642,164 @@ button.fr-chip:hover { filter: brightness(.96); }
 .xp-dot--on { background: var(--accent); border-color: var(--accent); }
 .xp-dot--today { box-shadow: 0 0 0 2px var(--accent-soft); }
 .xp-dot--today:not(.xp-dot--on) { border-style: dashed; border-color: var(--accent); }
+
+/* ── 电子猫 (the cat: /pet, the profile card, the visitor's pat) ─────────────
+   Cream, ink, powder blue and the serif. The stage is a cream disc; the
+   chores are three big buttons that go quiet once done for the day. */
+.pet-page { max-width: 760px; margin: 0 auto; }
+.pet-h {
+  font-family: var(--font-display); font-weight: 700; font-size: 1.5rem;
+  margin: 0 0 4px; color: var(--text-primary);
+}
+.pet-h__zh { font-family: var(--font-serif-cn); font-size: .95rem; font-weight: 500; color: var(--text-muted); margin-left: 8px; }
+.pet-lead { color: var(--text-secondary); margin: 0 0 16px; }
+.pet-error { color: var(--danger-text); font-size: .84rem; }
+
+/* Adoption: ten cards in one horizontal strip */
+.pet-breeds {
+  display: flex; gap: 10px; overflow-x: auto; padding: 4px 2px 10px;
+  scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+.pet-breed {
+  flex: 0 0 auto; width: 128px; scroll-snap-align: start;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 12px 8px 10px; border-radius: var(--radius-lg);
+  background: var(--bg-surface); border: 1.5px solid var(--border-soft);
+  color: var(--text-primary); cursor: pointer;
+  transition: border-color .15s ease, transform .15s ease, background .15s ease;
+}
+.pet-breed:hover { border-color: var(--border-medium); transform: translateY(-2px); }
+.pet-breed.is-picked { border-color: var(--accent); background: var(--accent-soft); }
+.pet-breed__art {
+  display: grid; place-items: center; width: 100px; height: 100px; border-radius: 50%;
+  background: var(--bg-subtle);
+}
+.pet-breed.is-picked .pet-breed__art { background: var(--bg-surface); }
+.pet-breed__en { font-size: .84rem; font-weight: 600; margin-top: 6px; white-space: nowrap; }
+.pet-breed__zh { font-family: var(--font-serif-cn); font-size: .78rem; color: var(--text-muted); }
+
+.pet-adopt__form { margin-top: 14px; max-width: 440px; }
+.pet-adopt__label { font-weight: 500; font-size: .9rem; margin-bottom: 6px; display: block; }
+.pet-adopt__row { display: flex; gap: 10px; }
+.pet-adopt__input { flex: 1 1 auto; min-width: 0; min-height: var(--tap-min); }
+.pet-adopt__btn { flex: 0 0 auto; min-height: var(--tap-min); padding-inline: 22px; }
+.pet-adopt__meta { display: flex; align-items: center; gap: 12px; margin-top: 6px; min-height: 1.3em; }
+.pet-adopt__count { font-size: .78rem; color: var(--text-muted); }
+
+/* The cat at home */
+.pet-home { position: relative; display: flex; flex-direction: column; align-items: center; }
+.pet-stage {
+  width: min(320px, 100%); aspect-ratio: 1; border-radius: 50%;
+  background: var(--bg-subtle); display: grid; place-items: center;
+  margin: 6px auto 14px;
+}
+.pet-stage__art { width: 75%; height: 75%; }
+.pet-title { text-align: center; width: 100%; }
+.pet-title__name {
+  font-family: var(--font-display); font-weight: 700; font-size: 1.7rem; margin: 0;
+  display: inline-flex; align-items: center; gap: 8px; max-width: 100%; word-break: break-word;
+}
+.pet-title__pencil {
+  width: 32px; height: 32px; border-radius: 50%; border: 0; background: transparent;
+  color: var(--text-muted); font-size: .8rem; display: inline-grid; place-items: center; cursor: pointer;
+}
+.pet-title__pencil:hover { background: var(--bg-subtle); color: var(--text-primary); }
+.pet-title__edit { display: flex; gap: 8px; justify-content: center; align-items: center; flex-wrap: wrap; }
+.pet-title__input { width: 200px; min-height: 40px; text-align: center; font-family: var(--font-display); font-weight: 700; }
+.pet-title__meta { display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
+.pet-title__breed { font-size: .84rem; color: var(--text-muted); }
+.pet-pill {
+  display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px;
+  background: var(--bg-subtle); border: 1px solid var(--border-medium);
+  font-family: var(--font-serif-cn); font-size: .8rem; font-weight: 600; color: var(--text-primary);
+  white-space: nowrap; line-height: 1.3;
+}
+.pet-pill--sm { font-size: .72rem; padding: 1px 8px; font-weight: 600; }
+.pet-line { font-family: var(--font-serif-cn); color: var(--text-secondary); margin: 8px 0 0; font-size: .95rem; }
+
+/* Three thin meters */
+.pet-meters { width: 100%; max-width: 440px; display: flex; flex-direction: column; gap: 10px; margin: 18px auto 0; }
+.pet-meter__row { display: flex; justify-content: space-between; align-items: baseline; font-size: .84rem; color: var(--text-secondary); }
+.pet-meter__label { font-weight: 600; color: var(--text-primary); }
+.pet-meter__zh { font-family: var(--font-serif-cn); font-weight: 500; color: var(--text-muted); margin-left: 4px; }
+.pet-meter__num { font-family: var(--font-display); font-weight: 700; color: var(--text-primary); }
+.pet-meter__bar { height: 6px; border-radius: 999px; background: var(--bg-subtle); overflow: hidden; margin-top: 4px; }
+.pet-meter__fill {
+  height: 100%; border-radius: inherit; background: var(--accent);
+  transition: width .5s cubic-bezier(.2, .8, .2, 1);
+}
+.pet-meter__fill.is-low { background: var(--warning); }
+
+/* Three chores */
+.pet-actions {
+  width: 100%; max-width: 440px; margin: 20px auto 0;
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px;
+}
+.pet-action {
+  min-height: 64px; padding: 8px 6px; border-radius: var(--radius-md);
+  background: var(--bg-surface); border: 1.5px solid var(--border-medium); color: var(--text-primary);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  cursor: pointer; transition: border-color .15s ease, background .15s ease, transform .15s ease;
+}
+.pet-action i { font-size: 1rem; color: var(--accent-text); margin-bottom: 2px; }
+.pet-action__en { font-weight: 600; font-size: .92rem; }
+.pet-action__zh { font-family: var(--font-serif-cn); font-size: .74rem; color: var(--text-muted); white-space: nowrap; }
+.pet-action:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-soft); transform: translateY(-1px); }
+.pet-action:disabled { cursor: default; }
+.pet-action.is-done {
+  background: var(--bg-subtle); border-color: var(--border-soft); color: var(--text-muted);
+}
+.pet-action.is-done i { color: var(--success-text); }
+.pet-action.is-done .pet-action__zh { color: var(--success-text); }
+.pet-done { font-family: var(--font-serif-cn); color: var(--text-muted); font-size: .86rem; margin: 14px 0 0; text-align: center; }
+.pet-toast {
+  position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%);
+  background: var(--text-primary); color: var(--bg-surface); padding: 8px 16px; border-radius: 999px;
+  font-size: .9rem; font-weight: 600; z-index: 1080; box-shadow: var(--shadow-md);
+}
+
+/* My Profile: the small card that opens /pet */
+.pet-card {
+  display: flex; align-items: center; gap: 12px; margin-top: 14px; padding: 10px 12px;
+  border-radius: var(--radius-md); background: var(--bg-subtle); color: var(--text-primary);
+  text-decoration: none; border: 1px solid transparent; transition: border-color .15s ease;
+}
+.pet-card:hover { color: var(--text-primary); text-decoration: none; border-color: var(--border-medium); }
+.pet-card__art { flex: 0 0 auto; width: 64px; height: 64px; border-radius: 50%; background: var(--bg-surface); display: grid; place-items: center; }
+.pet-card__body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.pet-card__name { font-weight: 700; font-family: var(--font-display); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pet-card__line { font-family: var(--font-serif-cn); font-size: .84rem; color: var(--text-secondary); }
+.pet-card__chev { color: var(--text-muted); font-size: .8rem; }
+.pet-card--empty .pet-card__art { opacity: .85; }
+
+/* Someone else's page: their cat and the pat */
+/* `.card` is a flex column in Bootstrap; this one is a row. */
+.pet-visit.card { display: flex; flex-direction: row; align-items: center; gap: 14px; padding: 14px 16px; flex-wrap: wrap; }
+.pet-visit__art { flex: 0 0 auto; width: 96px; height: 96px; border-radius: 50%; background: var(--bg-subtle); display: grid; place-items: center; }
+.pet-visit__art svg { width: 80px; height: 80px; }
+.pet-visit__body { flex: 1 1 160px; min-width: 0; }
+.pet-visit__name { font-family: var(--font-display); font-weight: 700; font-size: 1.1rem; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pet-visit__breed { font-size: .84rem; color: var(--text-muted); }
+.pet-visit__note { font-size: .82rem; color: var(--success-text); font-weight: 600; margin-top: 4px; }
+.pet-touch {
+  flex: 0 0 auto; min-height: var(--tap-min); min-width: 120px; padding: 6px 16px;
+  border-radius: 999px; border: 1.5px solid var(--accent); background: var(--accent-soft); color: var(--accent-text);
+  display: inline-flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.2;
+  font-weight: 600; cursor: pointer; transition: background .15s ease;
+}
+.pet-touch i { font-size: .9rem; margin-bottom: 2px; }
+.pet-touch__zh { font-family: var(--font-serif-cn); font-size: .72rem; font-weight: 500; }
+.pet-touch:hover:not(:disabled) { background: var(--accent); color: #fff; }
+.pet-touch.is-done, .pet-touch:disabled { background: var(--bg-subtle); border-color: var(--border-soft); color: var(--text-muted); cursor: default; }
+@media (max-width: 575.98px) {
+  .pet-visit__art { width: 72px; height: 72px; }
+  .pet-visit__art svg { width: 60px; height: 60px; }
+  .pet-touch { width: 100%; flex-direction: row; gap: 8px; }
+  .pet-touch i { margin: 0; }
+}
+
+[data-theme="dark"] .pet-stage,
+[data-theme="dark"] .pet-breed__art,
+[data-theme="dark"] .pet-card__art,
+[data-theme="dark"] .pet-visit__art { background: #efeae0; }   /* the cats are drawn for cream */

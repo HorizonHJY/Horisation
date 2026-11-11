@@ -123,6 +123,16 @@ wears 土著, which is not a level. Reaching 村民代表 unlocks FX posting wit
 the level is the track record that stamp stood in for. **No leaderboard**: the number is yours to
 see, the title is what others see, and nobody is ranked against a friend.
 
+Confirmed 2026-11-11: **电子猫 is a companion, not a chore.** Every member may adopt one cat (ten breeds,
+breed fixed at adoption, name ≤ 12 characters and changeable). Three meters — full, mood, bond — fall a
+little each day and three once-a-day chores (feed, play, brush) lift them; each chore pays +2 经验. Bond
+alone decides the stage (幼崽 / 成年 / 老友), and the stage never goes back down. **The cat never dies,
+never resets, and nobody is punished for staying away**: a long absence only lowers the meters, and
+ordinary care brings them back. Visitors see the cat on the public page and may pat it once a day
+(+1 bond to the cat, +1 经验 to the visitor); a member cannot pat their own. No leaderboard, no
+notifications nagging anyone to come back. Rationale: the circle should have a small, warm reason to
+open the site, not a guilt mechanic.
+
 ## Brand Commitments
 
 - **Name in the interface: Arch Bay.** Settled 2026-09-07. The name has flipped twice — the

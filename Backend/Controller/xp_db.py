@@ -9,7 +9,8 @@ xp_db.py
                idempotency story: the same action (same ref) can hit award()
                as many times as it likes and only the first insert counts.
 
-What earns what (daily routine caps at 41; trades and reviews are on top):
+What earns what (daily routine caps at 50 — 41 before the cat; trades and
+reviews are on top):
 
   daily_sign   +5   ref = YYYY-MM-DD           once a day   (今日一签)
   listing      +10  ref = listing id           3 a day
@@ -17,6 +18,8 @@ What earns what (daily routine caps at 41; trades and reviews are on top):
   review       +10  ref = deal id              once per deal, reviewer only
   wall         +2   ref = wall post id         3 a day
   streak7      +20  ref = YYYY-MM-DD           when the draw streak hits 7, 14, 21 …
+  pet_care     +2   ref = YYYY-MM-DD:action    3 a day   (feed / play / brush the cat)
+  pet_touch    +1   ref = YYYY-MM-DD:owner     3 a day   (pat someone else's cat)
 
 The streak itself is read off `tarot_daily` (one row per person per day they
 drew) — nothing is duplicated here, so a day that was drawn before this
@@ -61,6 +64,8 @@ RULES = {
     'review':     (10, None),
     'wall':       (2,  3),
     'streak7':    (20, None),
+    'pet_care':   (2,  3),
+    'pet_touch':  (1,  3),
 }
 STREAK_BONUS_EVERY = 7
 

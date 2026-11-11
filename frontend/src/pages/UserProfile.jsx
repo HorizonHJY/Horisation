@@ -5,6 +5,7 @@ import { useAuth } from '../App'
 import HandLoader from '../components/HandLoader'
 import { fmtDateJoin } from '../utils'
 import ReviewComposer from '../components/ReviewComposer'
+import Cat from '../components/CatArt'
 
 const REVIEW_TAGS = ['准时', '描述相符', '态度好', '包装仔细']
 
@@ -18,6 +19,9 @@ export default function UserProfile() {
   const [notFound, setNotFound] = useState(false)
   const [copied, setCopied]     = useState(false)
   const [mbti, setMbti]         = useState(null)
+  const [pet, setPet]           = useState(null)      // {breed,name,stage,bond,touched_today} or null
+  const [petting, setPetting]   = useState(false)
+  const [petNote, setPetNote]   = useState('')
 
   const [tab, setTab] = useState('reviews')
 
@@ -62,6 +66,7 @@ export default function UserProfile() {
     ]).then(([u, l, m]) => {
       if (!u || !u.ok || !u.user) { setNotFound(true); setLoading(false); return }
       setProfile(u.user)
+      setPet(u.user.pet || null)
       if (l && l.ok) setListings(l.listings)
       if (m && m.ok && m.result) setMbti({ ...m.result, type_card: m.type_card })
       setLoading(false)
@@ -108,6 +113,17 @@ export default function UserProfile() {
   async function removeWall(id) {
     const r = await api.delete(`/api/auth/users/${username}/wall/${id}`)
     if (r.ok) loadWall()
+  }
+
+  async function touchPet() {
+    if (petting || !pet || pet.touched_today) return
+    setPetting(true)
+    setPetNote('')
+    const r = await api.post('/api/pet/pet', { username })
+    setPetting(false)
+    if (!r.ok) { setPetNote(r.error || 'Could not pet it.'); return }
+    setPet(r.pet)
+    if (r.applied) setPetNote(r.xp_added ? `+${r.xp_delta} 经验` : '')
   }
 
   if (loading) return <HandLoader fullPage />
@@ -216,6 +232,33 @@ export default function UserProfile() {
           </div>
         </div>
       </div>
+
+      {/* ── The cat ───────────────────────────────────────────────── */}
+      {pet && (
+        <div className="pet-visit card mb-4">
+          <span className="pet-visit__art"><Cat breed={pet.breed} stage={pet.stage} size={96} title={pet.name} /></span>
+          <div className="pet-visit__body">
+            <div className="pet-visit__name">
+              {pet.name}
+              <span className="pet-pill pet-pill--sm">{pet.stage_en} · {pet.stage_zh}</span>
+            </div>
+            <div className="pet-visit__breed">{pet.breed_en} · {pet.breed_zh}</div>
+            {petNote && <div className="pet-visit__note" role="status">{petNote}</div>}
+          </div>
+          {!isMe && (
+            <button
+              type="button"
+              className={'pet-touch' + (pet.touched_today ? ' is-done' : '')}
+              disabled={petting || pet.touched_today}
+              onClick={touchPet}
+            >
+              <i className="fas fa-hand" aria-hidden="true" />
+              <span>{pet.touched_today ? 'Petted today' : 'Pet it'}</span>
+              <span className="pet-touch__zh">{pet.touched_today ? '今天摸过了' : '摸一下'}</span>
+            </button>
+          )}
+        </div>
+      )}
 
       {/* ── Listings ───────────────────────────────────────────────── */}
       <div className="d-flex align-items-center gap-2 mb-3">
