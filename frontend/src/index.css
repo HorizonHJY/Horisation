@@ -5690,11 +5690,72 @@ button.fr-chip:hover { filter: brightness(.96); }
 /* The cat at home */
 .pet-home { position: relative; display: flex; flex-direction: column; align-items: center; }
 .pet-stage {
-  width: min(320px, 100%); aspect-ratio: 1; border-radius: 50%;
-  background: var(--bg-subtle); display: grid; place-items: center;
+  position: relative;
+  width: 100%; max-width: 640px; height: 380px;
+  border-radius: var(--radius-md);
+  background: #efeae0;
+  overflow: hidden;
   margin: 6px auto 14px;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.04), inset 0 -40px 60px -40px rgba(120, 100, 60, .18);
+  contain: layout paint;
 }
 .pet-stage__art { width: 75%; height: 75%; }
+@media (max-width: 575.98px) {
+  .pet-stage { height: 300px; }
+}
+
+/* The live cat inside the stage */
+.catlive { user-select: none; -webkit-user-select: none; }
+.catlive__flip svg { pointer-events: none; }
+.catlive__body-g { transform-origin: 80px 90px; animation: catlive-breathe 2.6s ease-in-out infinite; }
+.catlive__tail-g { transform-origin: 30px 72px; animation: catlive-tail 2.6s ease-in-out infinite; }
+.catlive__head { transition: transform .25s ease; }
+@keyframes catlive-breathe {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.015, 1.025); }
+}
+@keyframes catlive-tail {
+  0%, 100% { transform: rotate(-3deg); }
+  50%      { transform: rotate(6deg); }
+}
+@keyframes catlive-leg-a {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-3px); }
+}
+@keyframes catlive-leg-b {
+  0%, 100% { transform: translateY(-3px); }
+  50%      { transform: translateY(0); }
+}
+.catlive--walk .catlive__leg--fl,
+.catlive--walk .catlive__leg--br { animation: catlive-leg-a .32s linear infinite; }
+.catlive--walk .catlive__leg--fr,
+.catlive--walk .catlive__leg--bl { animation: catlive-leg-b .32s linear infinite; }
+.catlive--walk .catlive__tail-g { animation-duration: 1.2s; }
+
+/* Sit: body settles, front legs tuck. */
+.catlive--sit .catlive__body-g { transform: translateY(4px) scaleY(1.06); }
+.catlive--sit .catlive__leg--fl,
+.catlive--sit .catlive__leg--fr { transform: translateY(6px); opacity: .25; }
+.catlive--sit .catlive__tail-g { animation-duration: 4s; }
+
+/* Sleep: head rests, breathing slows, eyes closed (drawn as an arc by CatSvg). */
+.catlive--sleep .catlive__body-g { animation-duration: 4.5s; }
+.catlive--sleep .catlive__head   { transform: translate(-2px, 10px) rotate(-10deg); }
+.catlive--sleep .catlive__leg--fl,
+.catlive--sleep .catlive__leg--fr { opacity: 0; }
+.catlive--sleep .catlive__tail-g  { animation-duration: 6s; }
+
+/* A tiny pounce when the cat is clicked. */
+.catlive--pounce .catlive__body-g { transform: scale(1.1, .9); }
+.catlive--pounce .catlive__head   { transform: translateY(2px); }
+
+@media (prefers-reduced-motion: reduce) {
+  .catlive__body-g,
+  .catlive__tail-g,
+  .catlive--walk .catlive__leg { animation: none !important; }
+  .catlive__head,
+  .catlive__flip { transition: none !important; }
+}
 .pet-title { text-align: center; width: 100%; }
 .pet-title__name {
   font-family: var(--font-display); font-weight: 700; font-size: 1.7rem; margin: 0;

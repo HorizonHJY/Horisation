@@ -18,7 +18,7 @@ import React from 'react'
 // ── Palettes ─────────────────────────────────────────────────────────────
 // coat: main fill · belly: chest when lighter · ear: inner ear · eye: iris ·
 // line: whisker/mouth ink · pattern: which overlay to paint · ink: its colours.
-const PALETTES = {
+export const PALETTES = {
   blue:    { coat: '#8f98a8', belly: '#a6aebc', ear: '#d9b3b3', eye: '#d79a3a', line: '#4a505c' },
   calico:  { coat: '#f4eee3', belly: '#f4eee3', ear: '#e9b9b4', eye: '#5c9a64', line: '#6b625a', pattern: 'calico', ink: { a: '#e2934a', b: '#2b2b2b' } },
   golden:  { coat: '#dfb16a', belly: '#f2dcb0', ear: '#e8b4a4', eye: '#5c9a64', line: '#7a5a2a', pattern: 'shaded', ink: { a: '#b9843a' } },

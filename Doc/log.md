@@ -2136,3 +2136,14 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 - 美术：`components/CatArt.jsx` 导出 `<Cat breed stage size/>`，一套 path + 每品种调色板 + 花纹层（虎斑纹、三花块、奶牛围兜、暹罗重点色、布偶帽），扁平无渐变；阶段靠整体缩放（0.8 / 1 / 1.04）+ 幼崽大头 + 尾巴姿态（竖 / 侧 / 绕前爪）+ 老友眯眼，没有画三套。
 - 样式全在 `index.css` `.pet-*`，只用现有 token；`.pet-visit.card` 要显式 `flex-direction: row`，因为 Bootstrap 的 `.card` 是竖向 flex。无新依赖，无排行榜。
 - 验证：`tests/test_pet.py` 7 项；本地 Flask 5100 API 真打：坏品种 / 空名 / 13 字 400，二次领养 409，三动作各 +2 共 +6，重复不加，自摸 403，访客摸一次 +1 经验、第二次 applied=false，没猫的人做动作 404；`last_decay_day` 回拨 3 天读到 −36/−30/−24，再读不变，回拨 400 天归 0 仍是活的幼崽。Playwright 390 / 1440：按钮 111×82 / 140×82，`scrollWidth == innerWidth`，点 Play 后弹 +2、刷新仍置灰，领养流程走通，自己主页无摸按钮。截图存 `~/.openclaw/scratch/pet-v1/`（含 10 品种 × 3 阶段拼图）。本地 ann/ben 的猫与互动在截图后已删除，显示名已还原。
+
+## 2026-11-12 Pet 页面里跑动的猫
+- `/pet` 的猫从死图变成在页面内的一只活猫；只在页面舞台里活动，不做全站悬浮。零新依赖。
+- 新组件 `frontend/src/components/CatLive.jsx`，复用 `CatArt` 的调色板（把 `const PALETTES` 改成 `export const`），同一张表驱动两个画法，加品种只改一个地方。
+- 侧视 SVG 拆分成可动画的分组：尾 / 身体 / 四条腿 / 头，CSS `transform` 跑步，位移只用 `translate3d` 写在包装元素上，不触发 layout。
+- 轻量状态机四状态：`idle` 呼吸眨眼、`walk` 走到舞台内随机点（~55 px/s，到点后翻方向用 `scaleX(-1)`）、`sit` 前腿收起尾巴慢摆、`sleep` 闭眼 + 呼吸放慢 + 头侧倒；无交互满 60 秒才进 `sleep`。决策间隔 3–8 秒，避免看久了像机器。
+- 交互：点猫 → `pounce`（眯眼 + 身子轻微弹一下，400ms 回 idle）；点舞台空白 → 猫走过去；拖动未做。`prefers-reduced-motion: reduce` 时只保留 idle 的呼吸尾巴，不做位移和走路腿动。
+- 性能 / 可访问：`requestAnimationFrame` 单循环；`document.hidden` 时跳过更新并在回来时重置 dt 不跳帧；`ResizeObserver` 盯舞台，缩小时把猫夹回边界内。舞台 `aria-hidden="true"`，猫不进入读屏顺序；状态条和按钮没动。
+- 舞台改版：`.pet-stage` 从圆底换成米色圆角横向面板，桌面 380px 高、手机 300px 高，`overflow: hidden`；猫 120–150px 不超出舞台；命中区 ≥44px。没领养时仍走领养引导，不放猫。
+- 现有 `<Cat>` 导出未动，Profile 卡片 / 公开主页 / 领养页的静态猫原样显示；只有 `/pet` 领养后的主图换成 `CatLive`。
+- 验证：`npm run build` 通过；本地 Flask 5100（eventlet monkey_patch 先）+ Vite 5199（临时代理 5100，验完改回 5000）；Playwright 以 ann 登录，390 隔 2 秒连拍三张能看到位置和朝向变化，再截点猫后的 pounce 反应，1440 截一张；存 `~/.openclaw/scratch/pet-live/`。无横向溢出，`_shots/` 不入库。

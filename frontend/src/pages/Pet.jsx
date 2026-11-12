@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import HandLoader from '../components/HandLoader'
 import Cat from '../components/CatArt'
+import CatLive from '../components/CatLive'
 
 /**
  * /pet — the virtual cat.
@@ -137,7 +138,16 @@ function Home({ pet, setPet }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(pet.name)
   const [nameErr, setNameErr] = useState('')
+  const [stageSize, setStageSize] = useState(140)
   const editRef = useRef(null)
+  const stageRef = useRef(null)
+
+  useEffect(() => {
+    const pick = () => setStageSize(window.innerWidth < 576 ? 118 : 150)
+    pick()
+    window.addEventListener('resize', pick)
+    return () => window.removeEventListener('resize', pick)
+  }, [])
 
   const flash = (text) => { setToast(text); setTimeout(() => setToast(null), 2200) }
 
@@ -167,8 +177,8 @@ function Home({ pet, setPet }) {
 
   return (
     <section className="pet-home" aria-labelledby="pet-name-title">
-      <div className="pet-stage" data-stage={pet.stage}>
-        <Cat breed={pet.breed} stage={pet.stage} size={240} className="pet-stage__art" title={`${pet.name}, ${pet.breed_en}`} />
+      <div className="pet-stage" data-stage={pet.stage} ref={stageRef} aria-hidden="true">
+        <CatLive breed={pet.breed} stageRef={stageRef} size={stageSize} />
       </div>
 
       <div className="pet-title">
