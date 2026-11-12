@@ -378,6 +378,15 @@ function FeatureRoute({ feature, children }) {
   return children
 }
 
+/* Role gate used by the Pet closed beta. Keeps non-horizon members on /home
+   instead of showing an empty page or a 403 wall; the backend enforces the
+   same gate behind /api/pet/* (see pet_controller.PET_CLOSED_BETA). */
+function RoleRoute({ role, children }) {
+  const { user } = useAuth()
+  if (user?.role !== role) return <Navigate to="/home" replace />
+  return children
+}
+
 /* Both of these need the signed-in user, so they sit inside AuthProvider.
    The socket is created only while someone is signed in, and notifications
    sit inside it because they are fed by its events. */
@@ -477,7 +486,7 @@ export default function App() {
             <Route path="/bill-split"        element={<PrivateRoute><FeatureRoute feature="billSplit"><BillSplit /></FeatureRoute></PrivateRoute>} />
             <Route path="/tarot/history"     element={<PrivateRoute><TarotHistory /></PrivateRoute>} />
             <Route path="/about"             element={<PrivateRoute><About /></PrivateRoute>} />
-            <Route path="/pet"               element={<PrivateRoute><Pet /></PrivateRoute>} />
+            <Route path="/pet"               element={<PrivateRoute><RoleRoute role="horizon"><Pet /></RoleRoute></PrivateRoute>} />
           </Route>
 
           <Route path="*" element={<Navigate to="/home" replace />} />

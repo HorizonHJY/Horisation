@@ -52,6 +52,9 @@ const Sidebar = forwardRef(function Sidebar(
     // ownerOnly pins an item to one username — used for private pages that
     // are not yet public to the rest of the membership.
     if (item.ownerOnly && user?.username !== item.ownerOnly) return false
+    // roleOnly pins an item to one role — used for closed-beta features that
+    // the backend has gated the same way (e.g. Pet while PET_CLOSED_BETA).
+    if (item.roleOnly && user?.role !== item.roleOnly) return false
     return true
   }
 

@@ -181,3 +181,8 @@ open the site, not a guilt mechanic.
 No formal standard has been adopted. One accessibility commitment is already recorded in project
 history: the accent color was chosen to hold WCAG AA (4.5:1) contrast. Treat AA as the working floor
 until the owner says otherwise.
+
+## 宠物系统（封闭测试）
+- 状态：仅对 `role = horizon` 开放，其余角色看不到入口、进不去页面、调用接口返回 403。
+- 开关：`Backend/Controller/pet_controller.py` 的 `PET_CLOSED_BETA`；置 False 即全员开放。
+- 测试内容统一放在 `/pet` 页面内，不在其他页面露出入口。

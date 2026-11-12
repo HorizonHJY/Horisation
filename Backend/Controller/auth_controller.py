@@ -539,10 +539,15 @@ def get_user_public(username):
         'bio':          u.get('bio', '') or '',
         **xp_db.public_summary(username, u.get('created_at')),
     }
-    # The cat, if there is one. Absent key when there is none.
-    pet = pet_db.public_card(username, request.current_user['username'])
-    if pet:
-        out['pet'] = pet
+    # The cat, if there is one. Absent key when there is none. While the pet
+    # section is in closed beta (see pet_controller.PET_CLOSED_BETA) the field
+    # is only surfaced to the owner; other members must not even learn that a
+    # cat exists.
+    from Backend.Controller.pet_controller import PET_CLOSED_BETA
+    if not PET_CLOSED_BETA or request.current_user.get('role') == 'horizon':
+        pet = pet_db.public_card(username, request.current_user['username'])
+        if pet:
+            out['pet'] = pet
     return jsonify({'ok': True, 'user': out})
 
 

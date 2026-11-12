@@ -2147,3 +2147,10 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 - 舞台改版：`.pet-stage` 从圆底换成米色圆角横向面板，桌面 380px 高、手机 300px 高，`overflow: hidden`；猫 120–150px 不超出舞台；命中区 ≥44px。没领养时仍走领养引导，不放猫。
 - 现有 `<Cat>` 导出未动，Profile 卡片 / 公开主页 / 领养页的静态猫原样显示；只有 `/pet` 领养后的主图换成 `CatLive`。
 - 验证：`npm run build` 通过；本地 Flask 5100（eventlet monkey_patch 先）+ Vite 5199（临时代理 5100，验完改回 5000）；Playwright 以 ann 登录，390 隔 2 秒连拍三张能看到位置和朝向变化，再截点猫后的 pounce 反应，1440 截一张；存 `~/.openclaw/scratch/pet-live/`。无横向溢出，`_shots/` 不入库。
+
+## 2026-11-12 宠物系统封闭测试（horizon only）
+- `pet_controller.PET_CLOSED_BETA = True` 一个开关控制：所有 `/api/pet/*`（breeds / me / adopt / care / pet）在关闭测试期间只对 `role == 'horizon'` 返回，其余角色 403 `Pet is in closed testing.`。以后开放只改这一个常量。
+- 公开主页 `/api/auth/users/<u>/public` 的 `pet` 字段同样受开关约束：非 horizon 请求者拿不到，连「有猫」这件事都不暴露。
+- 前端：`/pet` 路由包 `RoleRoute role="horizon"`，非 horizon 重定向 `/home`；侧边栏/移动端菜单用 `roleOnly: 'horizon'` 过滤 Pet 入口；Profile 猫卡片与 UserProfile 对方猫区块只在 horizon 时渲染。
+- 玩法、表结构、已有猫数据均未改。
+- 验证：horizon 账号 /pet 200、Profile 有猫卡片、公开主页返回 pet；ann 账号 /pet 403、访问 `/pet` 落回 `/home`、侧边栏无 Pet、Profile 无猫卡片、看 horizon 公开主页无 pet 字段。390 截图存 `~/.openclaw/scratch/pet-gate/`。

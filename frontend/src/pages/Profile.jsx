@@ -527,7 +527,7 @@ export default function Profile() {
         </div>
 
         {xp && <XpProgress xp={xp} />}
-        {pet !== undefined && <PetCard pet={pet} />}
+        {user?.role === 'horizon' && pet !== undefined && <PetCard pet={pet} />}
       </div>
 
       {/* Forms — single column */}

@@ -66,7 +66,10 @@ export default function UserProfile() {
     ]).then(([u, l, m]) => {
       if (!u || !u.ok || !u.user) { setNotFound(true); setLoading(false); return }
       setProfile(u.user)
-      setPet(u.user.pet || null)
+      // Pet is in closed beta; the server already withholds the field from
+      // other roles, but belt-and-braces: never render it unless the viewer
+      // is horizon. See pet_controller.PET_CLOSED_BETA.
+      setPet(me?.role === 'horizon' ? (u.user.pet || null) : null)
       if (l && l.ok) setListings(l.listings)
       if (m && m.ok && m.result) setMbti({ ...m.result, type_card: m.type_card })
       setLoading(false)

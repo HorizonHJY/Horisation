@@ -11,12 +11,32 @@ the meters, the once-a-day constraint and the decay live in pet_db.
   GET   /api/pet/breeds      the ten breeds, for the adoption picker
 """
 
+from functools import wraps
+
 from flask import Blueprint, jsonify, request
 
 from Backend.Controller.auth_controller import login_required
 from Backend.Controller import pet_db, xp_db
 
 pet_bp = Blueprint('pet', __name__, url_prefix='/api/pet')
+
+# Closed beta: the pet section is open to horizon only while the mechanic
+# is still being validated with the owner. Flip this to False to open it
+# to every member; nothing else in this module needs to change.
+PET_CLOSED_BETA = True
+
+
+def _horizon_only(f):
+    """403 everyone but horizon while PET_CLOSED_BETA is on.
+
+    Sits inside @login_required, so request.current_user is already set.
+    """
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if PET_CLOSED_BETA and request.current_user.get('role') != 'horizon':
+            return jsonify({'ok': False, 'error': 'Pet is in closed testing.'}), 403
+        return f(*args, **kwargs)
+    return wrapper
 
 
 def _me() -> str:
@@ -25,6 +45,7 @@ def _me() -> str:
 
 @pet_bp.route('/breeds', methods=['GET'])
 @login_required
+@_horizon_only
 def breeds():
     return jsonify({'ok': True, 'breeds': [
         {'slug': slug, 'zh': zh, 'en': en} for slug, (zh, en) in pet_db.BREEDS.items()
@@ -33,6 +54,7 @@ def breeds():
 
 @pet_bp.route('/me', methods=['GET'])
 @login_required
+@_horizon_only
 def me():
     pet = pet_db.get_pet(_me())
     return jsonify({'ok': True, 'pet': pet})
@@ -40,6 +62,7 @@ def me():
 
 @pet_bp.route('/adopt', methods=['POST'])
 @login_required
+@_horizon_only
 def adopt():
     data = request.get_json(silent=True) or {}
     pet, err = pet_db.adopt(_me(), str(data.get('breed') or ''), data.get('name'))
@@ -51,6 +74,7 @@ def adopt():
 
 @pet_bp.route('/me', methods=['PATCH'])
 @login_required
+@_horizon_only
 def rename():
     data = request.get_json(silent=True) or {}
     pet, err = pet_db.rename(_me(), data.get('name'))
@@ -61,6 +85,7 @@ def rename():
 
 @pet_bp.route('/care', methods=['POST'])
 @login_required
+@_horizon_only
 def care():
     data = request.get_json(silent=True) or {}
     action = str(data.get('action') or '')
@@ -79,6 +104,7 @@ def care():
 
 @pet_bp.route('/pet', methods=['POST'])
 @login_required
+@_horizon_only
 def touch():
     data = request.get_json(silent=True) or {}
     owner = str(data.get('username') or '').strip()

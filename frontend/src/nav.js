@@ -62,7 +62,9 @@ export const NAV_SECTIONS = [
       { to: '/tarot',             icon: Moon,     label: 'Tarot',         guest: true },
       { to: '/bazi',              icon: Sparkles, label: 'BaZi',          guest: true },
       { to: '/mbti',              icon: Brain,    label: 'MBTI',          guest: true },
-      { to: '/pet',               icon: Cat,      label: 'Pet' },
+      /* Pet is in closed beta — horizon only. Backend keeps the same gate in
+         pet_controller.PET_CLOSED_BETA; drop this line to open the entry. */
+      { to: '/pet',               icon: Cat,      label: 'Pet',           roleOnly: 'horizon' },
     ],
   },
   {
