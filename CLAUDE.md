@@ -120,6 +120,16 @@ python app.py          # Flask on :5000
 cd frontend && npm run dev   # Vite on :5173 (proxies /api to :5000)
 ```
 
+## 开发宪法（2026-11-15）
+
+Horizon 对代码的硬要求，每次动手前先过一遍：
+
+1. **不重复造轮子**：先搜现有实现（`frontend/src/components`、`lib`、`index.css` 的 `.xxx-*`、后端 Service/Controller），有就复用。
+2. **优先做可复用的一层**：组件/工具/服务，而不是为单个页面写死。
+3. **被替代的代码要删**，不留在工程里并行存在。
+4. **删之前归档**：移到根目录 `_archive/`，不进构建、不打包；`_archive/README.md` 记「替代者 + 日期」。
+5. 交付说明里写清：复用了什么、删了什么、归档了什么。
+
 ### Local production test
 ```bash
 scripts\build-run.bat  # npm build → Flask serves dist/ on :5000
