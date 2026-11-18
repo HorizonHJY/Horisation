@@ -2164,3 +2164,8 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 - `GET /api/feedback/messages` 多返回 `colors`（白名单）与 `can_color`（当前用户 level ≥ 2）；`POST` 接受 `color_key`，仅 Lv2+ 且 key 在白名单内才采纳，否则静默存 default，不报错。
 - 前端：发框上方 8 个色块（圆形 22px、命中区 ≥44px，390 可横滚）；未解锁时降透明 + 小锁，点击提示「升到老村民（Lv2）解锁留言板配色」；回复不继承父帖颜色，自己选。
 - 验证：Lv1（ann，xp 86）`can_color=false`，8/8 色块锁定，POST plum 实存 default；xp 提到 120（Lv2）后 0/8 锁定，POST blue 实存 blue，页面渲染 `.fb-msg--blue`；390 无横向溢出。截图存 `~/.openclaw/scratch/fb-colors/`。
+
+## 2026-11-18 退出登录弹「注册」提示的 bug
+- 根因：全局 401 处理（App.jsx）不区分场景，任何 LOGIN_REQUIRED 都弹「这个功能要先注册账号才能用」。退出后页面还挂着的请求（xp / 通知 / 资料）收到 401，就把刚退出的人当成要注册的游客。
+- 修法：logout 先清弹窗和 user；401 处理分三路——游客→注册引导；已登录→「登录已过期」；都不是→交给路由守卫，不弹窗；并跳过 /api/auth/logout、/api/auth/check-session 两个路径。
+- 实测：退出后 prompt=0 且落在 /login；游客点发帖仍弹「Join Arch Bay」；会话失效弹「登录已过期」（重新登录按钮）。

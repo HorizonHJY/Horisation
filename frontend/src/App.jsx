@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 
 // Where in localStorage the last time the sidebar's Market dot was cleared
@@ -307,7 +307,12 @@ function AuthProvider({ children }) {
     setGuest(false)
   }
   const logout = () => {
-    api.post('/api/auth/logout').finally(() => setUser(null))
+    // Drop the prompt and the user first: pages still mounted fire their own
+    // requests as the session ends, and those 401s must not surface as a
+    // "join us" ask to someone who just signed out on purpose.
+    setSignUpPrompt(null)
+    setUser(null)
+    api.post('/api/auth/logout').catch(() => {})
   }
   const continueAsGuest = useCallback(() => {
     try { localStorage.setItem(GUEST_KEY, '1') } catch { /* private mode */ }
@@ -322,13 +327,24 @@ function AuthProvider({ children }) {
   }, [user])
   const dismissSignUpPrompt = useCallback(() => setSignUpPrompt(null), [])
 
-  // Any 401 LOGIN_REQUIRED from the API pops the sign-up prompt. The handler
-  // is a bare pop, not a bounce — the visitor stays on the page and can see
-  // what they were reading before they decided to interact. A signed-in user
-  // whose session simply expired lands here too; the modal still names the
-  // right next step for them.
+  // Any 401 LOGIN_REQUIRED needs a different answer per state, otherwise a
+  // deliberate logout reads as a stranger asking to join:
+  //   guest         → the sign-up prompt (they tried a member action)
+  //   signed in     → the session expired; ask them to sign in again
+  //   signed out    → say nothing; the route guards already bounce them
+  // The handler is registered once, so it reads live state through a ref.
+  const authStateRef = useRef({ user: null, guest: false })
+  authStateRef.current = { user, guest }
+
   useEffect(() => {
-    setLoginRequiredHandler(() => setSignUpPrompt({ action: null }))
+    setLoginRequiredHandler((path) => {
+      // Ending a session is not a request for a new one, and the initial
+      // check is what tells us whether anyone is here at all.
+      if (path === '/api/auth/logout' || path === '/api/auth/check-session') return
+      const { user: currentUser, guest: isGuest } = authStateRef.current
+      if (currentUser) { setSignUpPrompt({ action: null, expired: true }); return }
+      if (isGuest) setSignUpPrompt({ action: null })
+    })
     return () => setLoginRequiredHandler(null)
   }, [])
 
@@ -407,6 +423,7 @@ function SignUpPrompt() {
   const navigate = useNavigate()
   if (!signUpPrompt) return null
   const action = signUpPrompt.action
+  const expired = Boolean(signUpPrompt.expired)
   const go = (path) => { dismissSignUpPrompt(); navigate(path) }
   return (
     <div
@@ -421,18 +438,24 @@ function SignUpPrompt() {
         aria-labelledby="guest-prompt-title"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 id="guest-prompt-title" className="guest-prompt__title">Join Arch Bay</h3>
+        <h3 id="guest-prompt-title" className="guest-prompt__title">
+          {expired ? '登录已过期' : 'Join Arch Bay'}
+        </h3>
         <p className="guest-prompt__body">
-          {action
-            ? <>加入账号后就能 <strong>{action}</strong>。注册只需要一个邀请码。</>
-            : <>这个功能要先注册账号才能用。邀请制,一分钟搞定。</>}
+          {expired
+            ? <>你的登录状态已失效，重新登录就能继续。</>
+            : action
+              ? <>加入账号后就能 <strong>{action}</strong>。注册只需要一个邀请码。</>
+              : <>这个功能要先注册账号才能用。邀请制,一分钟搞定。</>}
         </p>
         <div className="guest-prompt__actions">
-          <button type="button" className="btn btn-primary" onClick={() => go('/register')}>
-            注册
-          </button>
+          {!expired && (
+            <button type="button" className="btn btn-primary" onClick={() => go('/register')}>
+              注册
+            </button>
+          )}
           <button type="button" className="btn btn-outline-secondary" onClick={() => go('/login')}>
-            已有账号,登录
+            {expired ? '重新登录' : '已有账号,登录'}
           </button>
           <button type="button" className="btn btn-link" onClick={dismissSignUpPrompt}>
             再看看
