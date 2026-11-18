@@ -5,8 +5,11 @@ Message board — all logged-in users can post, reply, and like messages.
 
 from flask import Blueprint, request, jsonify
 from Backend.Controller.auth_controller import login_required, login_optional
-from Backend.Controller import market_db
+from Backend.Controller import market_db, xp_db
 from Backend.Controller.user_manager import user_manager
+
+# 老村民 起解锁配色 — 跳开硬编码 2，跟随 LEVELS 表在 xp_db 里的定义。
+COLOR_MIN_LEVEL = 2
 
 feedback_bp = Blueprint('feedback', __name__, url_prefix='/api/feedback')
 
@@ -45,7 +48,16 @@ def get_messages():
         m['liked_by_me']  = m['id'] in liked_set
         _enrich(m.get('top_replies', []), liked_set, avatar_map)
 
-    return jsonify({'ok': True, **result})
+    can_color = False
+    if me:
+        can_color = xp_db.level_for(xp_db.get_xp(me))['level'] >= COLOR_MIN_LEVEL
+
+    return jsonify({
+        'ok': True,
+        'colors': market_db.POST_COLORS,
+        'can_color': can_color,
+        **result,
+    })
 
 
 @feedback_bp.route('/messages', methods=['POST'])
@@ -60,11 +72,22 @@ def post_message():
 
     reply_to_id = data.get('reply_to_id') or None
     user        = request.current_user
+
+    # Only Lv2+ keeps a non-default color_key. Lower levels or an unknown key
+    # fall back to 'default' silently — never a 400.
+    raw_color = (data.get('color_key') or 'default').strip() or 'default'
+    level     = xp_db.level_for(xp_db.get_xp(user['username']))['level']
+    if level >= COLOR_MIN_LEVEL and raw_color in market_db.COLOR_KEYS:
+        color_key = raw_color
+    else:
+        color_key = market_db.DEFAULT_COLOR_KEY
+
     message     = market_db.post_message(
         username=user['username'],
         display_name=user['display_name'],
         content=content,
         reply_to_id=reply_to_id,
+        color_key=color_key,
     )
     message['avatar_url']  = user.get('avatar_url')
     message['liked_by_me'] = False

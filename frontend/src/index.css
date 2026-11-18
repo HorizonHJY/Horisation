@@ -5864,3 +5864,123 @@ button.fr-chip:hover { filter: brightness(.96); }
 [data-theme="dark"] .pet-breed__art,
 [data-theme="dark"] .pet-card__art,
 [data-theme="dark"] .pet-visit__art { background: #efeae0; }   /* the cats are drawn for cream */
+
+/* ── Message Board colour palette ─────────────────────────────────
+   Author chooses one of eight keys; only the 3px left bar and the
+   name wear the colour. Body text, backgrounds, likes, meta stay
+   neutral. Dark theme carries the second column of POST_COLORS. */
+:root {
+  --fb-color-default: #1a1a1a;
+  --fb-color-blue:    #6b9cdb;
+  --fb-color-green:   #5b8c5a;
+  --fb-color-clay:    #a86b4c;
+  --fb-color-plum:    #8b5fbf;
+  --fb-color-rose:    #c06b7a;
+  --fb-color-teal:    #3f8f8a;
+  --fb-color-amber:   #c8892f;
+}
+[data-theme="dark"] {
+  --fb-color-default: #d7d7d7;
+  --fb-color-blue:    #8bb3e4;
+  --fb-color-green:   #7fa87e;
+  --fb-color-clay:    #c08a6e;
+  --fb-color-plum:    #a583d0;
+  --fb-color-rose:    #d28e9a;
+  --fb-color-teal:    #66aba6;
+  --fb-color-amber:   #d6a357;
+}
+
+/* Swatch row above the textarea. Horizontally scrolls on tiny
+   phones so eight circles never wrap or crush the input. */
+.fb-colors {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 10px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 2px 0;
+}
+.fb-colors::-webkit-scrollbar { display: none; }
+
+.fb-color-swatch {
+  position: relative;
+  flex: 0 0 auto;
+  width: var(--tap-min);
+  height: var(--tap-min);
+  padding: 0;
+  border: none;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 50%;
+  color: #fff;
+}
+.fb-color-swatch:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.fb-color-swatch__dot {
+  display: block;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--fb-c);
+  border: 2px solid transparent;
+  box-shadow: 0 0 0 1px var(--border-medium);
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.fb-color-swatch:hover:not(.is-locked) .fb-color-swatch__dot { transform: scale(1.08); }
+.fb-color-swatch.is-active .fb-color-swatch__dot {
+  border-color: var(--bg-surface);
+  box-shadow: 0 0 0 2px var(--fb-c);
+}
+.fb-color-swatch__check {
+  position: absolute;
+  font-size: .72rem;
+  color: #fff;
+  pointer-events: none;
+  text-shadow: 0 0 2px rgba(0,0,0,.35);
+}
+.fb-color-swatch.is-locked { cursor: not-allowed; }
+.fb-color-swatch.is-locked .fb-color-swatch__dot { opacity: .45; }
+.fb-color-swatch__lock {
+  position: absolute;
+  bottom: 4px; right: 4px;
+  font-size: .62rem;
+  color: var(--text-muted);
+  background: var(--bg-surface);
+  border-radius: 50%;
+  width: 14px; height: 14px;
+  display: inline-flex; align-items: center; justify-content: center;
+  pointer-events: none;
+}
+
+/* Top-level card: 3px left bar in the author's colour. */
+.fb-card { position: relative; }
+.fb-card::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 10px; bottom: 10px;
+  width: 3px;
+  background: var(--fb-c);
+  border-radius: 2px;
+}
+.fb-card--default::before { background: var(--border-medium); }
+
+/* Each reply gets its own 3px bar inside the thread lane. */
+.fb-reply { position: relative; padding-left: 10px; }
+.fb-reply::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 6px; bottom: 6px;
+  width: 3px;
+  background: var(--fb-c);
+  border-radius: 2px;
+}
+.fb-reply--default::before { background: var(--border-soft); }
+
+/* The author name wears the colour; default stays on the primary
+   text token so no-one notices Lv1 posts look different. */
+.fb-msg__name { color: var(--fb-c); }
+.fb-msg--default .fb-msg__name { color: var(--text-primary); }

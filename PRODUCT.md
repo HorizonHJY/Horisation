@@ -186,3 +186,9 @@ until the owner says otherwise.
 - 状态：仅对 `role = horizon` 开放，其余角色看不到入口、进不去页面、调用接口返回 403。
 - 开关：`Backend/Controller/pet_controller.py` 的 `PET_CLOSED_BETA`；置 False 即全员开放。
 - 测试内容统一放在 `/pet` 页面内，不在其他页面露出入口。
+
+## 留言板配色（2026-11-18）
+- 解锁条件：等级 ≥ 2（老村民）。
+- 可选 8 种颜色，只改「左侧细线 + 作者名字」，正文颜色不变。
+- 服务端只接受白名单 key；低等级或未知 key 静默存默认色，不报错。
+- 回复可以自选颜色，不继承被回复那条。

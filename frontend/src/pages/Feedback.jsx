@@ -34,6 +34,10 @@ function UserAvatar({ displayName, avatarUrl, size = 36 }) {
   )
 }
 
+// Each message's color is only ever a key — the real color values come from
+// the whitelist the server sends, so clients cannot invent shades.
+const colorStyle = (key) => ({ ['--fb-c']: `var(--fb-color-${key || 'default'})` })
+
 function QuoteBlock({ replyTo }) {
   return (
     <div className="rounded px-2 py-1 mb-2"
@@ -63,8 +67,9 @@ function LikeBtn({ liked, count, onClick }) {
 
 function MsgCard({ m, topLevelId, currentUser, isAdmin, isReply, onLike, onReply, onDelete, navigate }) {
   const isMine = m.username === currentUser
+  const ck = m.color_key || 'default'
   return (
-    <div style={{ padding: isReply ? '8px 12px' : undefined }}>
+    <div className={'fb-msg fb-msg--' + ck} style={{ padding: isReply ? '8px 12px' : undefined, ...colorStyle(ck) }}>
       {m.reply_to && <QuoteBlock replyTo={m.reply_to} />}
 
       <div className="d-flex align-items-center gap-2 mb-1">
@@ -74,7 +79,7 @@ function MsgCard({ m, topLevelId, currentUser, isAdmin, isReply, onLike, onReply
           <UserAvatar displayName={m.display_name} avatarUrl={m.avatar_url} size={isReply ? 28 : 36} />
         </button>
         <div className="flex-grow-1 overflow-hidden">
-          <span className="fw-semibold" style={{ fontSize: isReply ? '.88rem' : '1rem' }}>
+          <span className="fb-msg__name fw-semibold" style={{ fontSize: isReply ? '.88rem' : '1rem' }}>
             {m.display_name || m.username}
           </span>
         </div>
@@ -119,6 +124,9 @@ export default function Feedback() {
   const [posting, setPosting]  = useState(false)
   const [pendingDel, setPending] = useState(null)
   const [toast, setToast]      = useState(null)
+  const [colors, setColors]    = useState([{ key: 'default', label: '墨色' }])
+  const [canColor, setCanColor] = useState(false)
+  const [colorKey, setColorKey] = useState('default')
 
   const totalPages = Math.ceil(total / PER_PAGE)
   const isAdmin = user?.role_info?.permissions?.includes('admin')
@@ -143,11 +151,14 @@ export default function Feedback() {
           ...m,
           top_replies: Array.isArray(m.top_replies) ? m.top_replies : [],
           reply_count: typeof m.reply_count === 'number' ? m.reply_count : 0,
+          color_key: m.color_key || 'default',
         })) : []
         setMsgs(safe)
         setTotal(typeof d.total === 'number' ? d.total : safe.length)
         setPage(p)
         setExpanded({})
+        if (Array.isArray(d.colors) && d.colors.length > 0) setColors(d.colors)
+        setCanColor(!!d.can_color)
       }
     } catch (_) { /* keep whatever is on screen */ }
   }
@@ -163,7 +174,7 @@ export default function Feedback() {
     textareaRef.current?.focus()
   }
 
-  // ── Submit ────────────────────────────────────────────────────────────────────
+  // ── Submit ─────────────────────────────────────────────────────────────────
   const submit = async (e) => {
     e.preventDefault()
     if (!content.trim()) return
@@ -171,10 +182,12 @@ export default function Feedback() {
     const d = await api.post('/api/feedback/messages', {
       content:     content.trim(),
       reply_to_id: replyTo ? replyTo.id : null,
+      color_key:   canColor ? colorKey : 'default',
     })
     setPosting(false)
     if (d.ok) {
       setContent('')
+      setColorKey('default')
       const capturedReply = replyTo
       setReplyTo(null)
       if (!capturedReply) {
@@ -364,6 +377,38 @@ export default function Feedback() {
           </div>
         )}
         <form onSubmit={submit}>
+          <div className="fb-colors" role="radiogroup" aria-label="Message color">
+            {colors.map(c => {
+              const active = canColor && colorKey === c.key
+              const title = canColor
+                ? c.label
+                : c.label + ' · 升到老村民（Lv2）解锁留言板配色'
+              return (
+                <button
+                  key={c.key}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  aria-disabled={!canColor}
+                  aria-label={title}
+                  title={title}
+                  className={'fb-color-swatch' + (active ? ' is-active' : '') + (canColor ? '' : ' is-locked')}
+                  style={colorStyle(c.key)}
+                  onClick={() => {
+                    if (!canColor) {
+                      flash('升到老村民（Lv2）解锁留言板配色', 'secondary')
+                      return
+                    }
+                    setColorKey(c.key)
+                  }}
+                >
+                  <span className="fb-color-swatch__dot" aria-hidden="true" />
+                  {active && <i className="fas fa-check fb-color-swatch__check" aria-hidden="true" />}
+                  {!canColor && <i className="fas fa-lock fb-color-swatch__lock" aria-hidden="true" />}
+                </button>
+              )
+            })}
+          </div>
           <textarea ref={textareaRef}
             className="form-control border-0 mb-2" rows={3}
             placeholder={replyTo ? 'Reply to ' + replyTo.display_name + '…' : 'Leave a message…'}
@@ -399,7 +444,8 @@ export default function Feedback() {
             const showCollapse = Array.isArray(reps)
 
             return (
-              <div key={m.id} className="card shadow-sm px-4 py-3">
+              <div key={m.id} className={'card fb-card shadow-sm px-4 py-3 fb-card--' + (m.color_key || 'default')}
+                   style={colorStyle(m.color_key || 'default')}>
                 <MsgCard m={m} topLevelId={null}
                   onLike={toggleLike} onReply={startReply} onDelete={remove}
                   {...sharedProps} />
@@ -409,8 +455,8 @@ export default function Feedback() {
                   <div className="mt-2 ms-1" style={{ borderLeft: '2px solid #e9ecef', paddingLeft: 12 }}>
                     {/* show either expanded or top 2 */}
                     {(allReps || m.top_replies).map(r => (
-                      <div key={r.id} className="py-2"
-                        style={{ borderBottom: '1px solid #f0f0f0' }}>
+                      <div key={r.id} className={'py-2 fb-reply fb-reply--' + (r.color_key || 'default')}
+                        style={{ borderBottom: '1px solid #f0f0f0', ...colorStyle(r.color_key || 'default') }}>
                         <MsgCard m={r} topLevelId={m.id} isReply
                           onLike={toggleLike} onReply={startReply} onDelete={remove}
                           {...sharedProps} />

@@ -90,6 +90,25 @@ class Listing(Base):
                           cascade='all, delete-orphan', order_by='ListingImage.display_order')
 
 
+# ── Message board colour palette (单一事实源) ────────────────────────────────
+# The author picks one of these for the left-side 3px bar and their own name.
+# Dark-theme values are each hue lifted ≈12% (eyeballed per key, not CSS filter)
+# so they stay readable on #1e1e1e. Lv2 (老村民, xp ≥ 100) 起解锁，低等级仅能存
+# 'default'。扩充色板必在这里改，前后端不再各存一份色值。
+POST_COLORS = [
+    {'key': 'default', 'label': '墨色', 'light': '#1a1a1a', 'dark': '#d7d7d7'},
+    {'key': 'blue',    'label': '海蓝', 'light': '#6b9cdb', 'dark': '#8bb3e4'},
+    {'key': 'green',   'label': '松绿', 'light': '#5b8c5a', 'dark': '#7fa87e'},
+    {'key': 'clay',    'label': '陶土', 'light': '#a86b4c', 'dark': '#c08a6e'},
+    {'key': 'plum',    'label': '梅紫', 'light': '#8b5fbf', 'dark': '#a583d0'},
+    {'key': 'rose',    'label': '玫瑰', 'light': '#c06b7a', 'dark': '#d28e9a'},
+    {'key': 'teal',    'label': '青灰', 'light': '#3f8f8a', 'dark': '#66aba6'},
+    {'key': 'amber',   'label': '芥黄', 'light': '#c8892f', 'dark': '#d6a357'},
+]
+COLOR_KEYS = {c['key'] for c in POST_COLORS}
+DEFAULT_COLOR_KEY = 'default'
+
+
 class Message(Base):
     __tablename__ = 'messages'
 
@@ -100,6 +119,7 @@ class Message(Base):
     reply_to_id  = Column(String(36), nullable=True)   # direct parent message id
     thread_id    = Column(String(36), nullable=True, index=True)  # top-level message id (NULL for top-level)
     like_count   = Column(Integer, nullable=False, default=0)
+    color_key    = Column(String(20), nullable=False, default=DEFAULT_COLOR_KEY)
     created_at   = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
 
@@ -204,6 +224,8 @@ def _migrate_columns():
         "ALTER TABLE messages ADD COLUMN reply_to_id TEXT",
         "ALTER TABLE messages ADD COLUMN thread_id TEXT",
         "ALTER TABLE messages ADD COLUMN like_count INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE messages ADD COLUMN color_key TEXT NOT NULL DEFAULT 'default'",
+
         "ALTER TABLE user ADD COLUMN fx_qualified INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE user ADD COLUMN bio TEXT DEFAULT ''",
     ]
@@ -576,6 +598,9 @@ def _listing_to_dict(listing: Listing, seller_user: 'User | None' = None) -> dic
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _msg_dict(r: Message) -> dict:
+    key = getattr(r, 'color_key', None) or DEFAULT_COLOR_KEY
+    if key not in COLOR_KEYS:
+        key = DEFAULT_COLOR_KEY
     return {
         'id':           r.id,
         'username':     r.username,
@@ -585,6 +610,7 @@ def _msg_dict(r: Message) -> dict:
         'like_count':   r.like_count or 0,
         'reply_to_id':  r.reply_to_id,
         'thread_id':    r.thread_id,
+        'color_key':    key,
         'reply_to':     None,
     }
 
@@ -638,7 +664,11 @@ def get_replies(thread_id: str) -> list:
 
 
 def post_message(username: str, display_name: str, content: str,
-                 reply_to_id: str = None) -> dict:
+                 reply_to_id: str = None, color_key: str = DEFAULT_COLOR_KEY) -> dict:
+    # Silently clamp an unknown key to default — a stale client never errors out
+    # on a palette the server has moved on from.
+    if color_key not in COLOR_KEYS:
+        color_key = DEFAULT_COLOR_KEY
     with Session() as s:
         thread_id = None
         if reply_to_id:
@@ -652,6 +682,7 @@ def post_message(username: str, display_name: str, content: str,
             content=content,
             reply_to_id=reply_to_id or None,
             thread_id=thread_id,
+            color_key=color_key,
         )
         s.add(msg)
         s.commit()

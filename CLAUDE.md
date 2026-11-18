@@ -244,6 +244,8 @@ Login required, open to every member. One cat per person.
 `GET /api/auth/users/<u>/public` carries `pet: {breed, name, stage, bond, touched_today}` when the person has one.
 
 ### Feedback `/api/feedback/`
+- `messages.color_key` — 留言配色 key（白名单见 `market_db.POST_COLORS`，Lv2 起可选）
+- `GET /messages` 额外返回 `colors` 与 `can_color`
 | Method | Route | Description |
 |--------|-------|-------------|
 | GET | `/messages` | Get all messages (latest 200) |

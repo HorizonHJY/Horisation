@@ -2156,3 +2156,11 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 - 前端：`/pet` 路由包 `RoleRoute role="horizon"`，非 horizon 重定向 `/home`；侧边栏/移动端菜单用 `roleOnly: 'horizon'` 过滤 Pet 入口；Profile 猫卡片与 UserProfile 对方猫区块只在 horizon 时渲染。
 - 玩法、表结构、已有猫数据均未改。
 - 验证：horizon 账号 /pet 200、Profile 有猫卡片、公开主页返回 pet；ann 账号 /pet 403、访问 `/pet` 落回 `/home`、侧边栏无 Pet、Profile 无猫卡片、看 horizon 公开主页无 pet 字段。390 截图存 `~/.openclaw/scratch/pet-gate/`。
+
+## 2026-11-18 留言板配色（Lv2 解锁）
+- 单一事实源：`market_db.POST_COLORS`（8 个 key：default / blue / green / clay / plum / rose / teal / amber），每个给 light 与 dark 两套值；前端不再存色值，只用 key。
+- 颜色只作用于「左侧 3px 细线 + 作者名字」，正文保持墨色，避免低对比度和深色模式翻车。
+- `messages` 表加 `color_key TEXT NOT NULL DEFAULT 'default'`（启动时 ALTER TABLE 追加，旧库兼容）；读取时未知 key 一律回落 default。
+- `GET /api/feedback/messages` 多返回 `colors`（白名单）与 `can_color`（当前用户 level ≥ 2）；`POST` 接受 `color_key`，仅 Lv2+ 且 key 在白名单内才采纳，否则静默存 default，不报错。
+- 前端：发框上方 8 个色块（圆形 22px、命中区 ≥44px，390 可横滚）；未解锁时降透明 + 小锁，点击提示「升到老村民（Lv2）解锁留言板配色」；回复不继承父帖颜色，自己选。
+- 验证：Lv1（ann，xp 86）`can_color=false`，8/8 色块锁定，POST plum 实存 default；xp 提到 120（Lv2）后 0/8 锁定，POST blue 实存 blue，页面渲染 `.fb-msg--blue`；390 无横向溢出。截图存 `~/.openclaw/scratch/fb-colors/`。
