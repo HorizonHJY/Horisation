@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, useId } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate, useParams, useSearchParams, useLocation, Link } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth, useNotifications } from '../App'
 import HandLoader from '../components/HandLoader'
 import Modal, { ConfirmDialog } from '../components/Modal'
-import { fmtDateMed, fmtDateLong } from '../utils'
+import { fmtDateMed, fmtDateLong, fmtTimeHM } from '../utils'
 import MarketWanted from './MarketWanted'
 
 /* Interface language is English; Chinese rides along as an accent (PRODUCT.md).
@@ -1005,12 +1006,133 @@ function BuyerPickerModal({ candidates, busy, onPick, onSkip, onClose }) {
    fetched with CORS from the start. R2 ignores the parameter. */
 const exportSrc = (url) => `${url}${url.includes('?') ? '&' : '?'}export=1`
 
+/* A4 picture-book PDF, built from the same filtered listing set as the PNG
+   export. We do not pull in jsPDF — a vectored `.pdf-sheet` DOM plus
+   `window.print() → Save as PDF` is zero-dependency and keeps text crisp. */
+const PDF_PER_PAGE = 6
+
+function pdfConditionLabel(l) {
+  const c = l.condition && CONDITION_BY_VALUE[l.condition]
+  if (!c) return null
+  return c.label_en || c.label
+}
+
+function PdfSheet({ items, pageIndex, totalPages, filterLabel, generatedStamp, generatedTime, categoryLabel }) {
+  const first = pageIndex === 0
+  return (
+    <div className="pdf-sheet" data-page={pageIndex + 1}>
+      <header className={`pdf-sheet__head ${first ? 'pdf-sheet__head--first' : ''}`}>
+        {first ? (
+          <div className="pdf-sheet__head-row">
+            <div>
+              <div className="pdf-sheet__wordmark">Arch Bay</div>
+              <div className="pdf-sheet__eyebrow">MARKET · {filterLabel}</div>
+            </div>
+            <div className="pdf-sheet__stamp">{generatedStamp}</div>
+          </div>
+        ) : (
+          <div className="pdf-sheet__rule-only" />
+        )}
+      </header>
+
+      <div className="pdf-grid">
+        {items.map((l) => {
+          const cond = pdfConditionLabel(l)
+          const catLabel = categoryLabel(l.category).label
+          const seller = l.seller_display || l.seller_username || ''
+          return (
+            <article key={l.id} className="pdf-cell">
+              <div className="pdf-cell__photo">
+                {l.images?.[0]?.url
+                  /* No crossOrigin on the PDF path: Chrome prints the <img>
+                     directly, it doesn't need CORS, and setting crossOrigin
+                     would turn perfectly serveable R2 photos into onError. */
+                  ? <img src={exportSrc(l.images[0].url)} alt="" />
+                  : <span className="pdf-cell__photo-empty" aria-hidden="true" />}
+              </div>
+              <div className="pdf-cell__title" title={l.title}>{l.title}</div>
+              <div className="pdf-cell__price">{money(l.price)}</div>
+              <div className="pdf-cell__tags">
+                {cond && <span className="pdf-cell__tag">{cond}</span>}
+                <span className="pdf-cell__tag">{catLabel}</span>
+              </div>
+              {seller && <div className="pdf-cell__seller">{seller}</div>}
+            </article>
+          )
+        })}
+      </div>
+
+      <footer className="pdf-sheet__foot">
+        <span>horizonyhj.com</span>
+        <span>Page {pageIndex + 1} of {totalPages}</span>
+        <span>{generatedStamp} · {generatedTime}</span>
+      </footer>
+    </div>
+  )
+}
+
 function ExportModal({ listings, categoryLabel, onClose, showToast }) {
   const exportRef = useRef(null)
+  const sheetsRef = useRef(null)
+  const [format, setFormat]       = useState('png')
   const [rendering, setRendering] = useState(false)
   const [rendered, setRendered]   = useState(null)
+  const [printing, setPrinting]   = useState(false)
   const active = listings.filter(l => l.status === 'active')
-  const stamp  = fmtDateLong(new Date())
+  const now     = new Date()
+  const stamp   = fmtDateLong(now)
+  const timeStr = fmtTimeHM(now)
+  const filterLabel = 'My listings'
+
+  const pages = useMemo(() => {
+    const out = []
+    for (let i = 0; i < active.length; i += PDF_PER_PAGE) out.push(active.slice(i, i + PDF_PER_PAGE))
+    return out.length ? out : [[]]
+  }, [active])
+
+  /* Print rules only live while this modal is open and PDF mode is live. The
+     real printable DOM goes into a portal that is a direct <body> child, so
+     @media print can `display: none` the rest of the page (the modal, the
+     app shell, the Modal's scroll-lock body offset) without hiding its own
+     sheets. The sheets then flow and paginate like any ordinary document. */
+  useEffect(() => {
+    if (format !== 'pdf') return
+    const style = document.createElement('style')
+    style.setAttribute('data-pdf-print', '1')
+    style.textContent = `
+@page { size: A4; margin: 0; }
+@media print {
+  html, body {
+    background: #fbf9f4 !important;
+    position: static !important;
+    top: auto !important; left: auto !important; width: auto !important;
+    margin: 0 !important; padding: 0 !important;
+    overflow: visible !important;
+  }
+  body > *:not(.pdf-print-portal) { display: none !important; }
+  .pdf-print-portal {
+    display: block !important;
+    position: static !important;
+    width: 210mm !important;
+    margin: 0 !important; padding: 0 !important;
+    left: auto !important; top: auto !important;
+    background: transparent !important;
+  }
+  .pdf-print-portal .pdf-sheet {
+    box-shadow: none !important;
+    margin: 0 !important;
+    page-break-after: always;
+    break-after: page;
+  }
+  .pdf-print-portal .pdf-sheet:last-child {
+    page-break-after: auto;
+    break-after: auto;
+  }
+}
+`
+    document.head.appendChild(style)
+    return () => { style.remove() }
+  }, [format])
 
   async function handleRender() {
     if (!exportRef.current) return
@@ -1031,19 +1153,140 @@ function ExportModal({ listings, categoryLabel, onClose, showToast }) {
     }
   }
 
+  async function handlePrint() {
+    const root = sheetsRef.current
+    if (!root || active.length === 0) return
+    setPrinting(true)
+    try {
+      /* decode() resolves once the image is actually paint-ready. Without this,
+         the first print after opening often fires while R2 photos are still
+         decoding and the pages go to the printer with gaps. */
+      const imgs = Array.from(root.querySelectorAll('img'))
+      await Promise.all(imgs.map(i => i.decode().catch(() => null)))
+      await new Promise(r => setTimeout(r, 60))
+      window.print()
+    } catch (err) {
+      showToast('Could not open the print dialog.', 'danger')
+    } finally {
+      setPrinting(false)
+    }
+  }
+
+  const previewScale = 0.42
+
   return (
-    <Modal onClose={onClose} title="Export as image">
+    <Modal onClose={onClose} title="Export listings">
       {({ titleId }) => (
         <>
           <div className="modal-header">
             <h6 className="modal-title fw-semibold" id={titleId}>
-              <i className="fas fa-image me-2" aria-hidden="true" />Export as image
+              <i className="fas fa-image me-2" aria-hidden="true" />Export listings
             </h6>
             <button type="button" className="btn-close" aria-label="Close" onClick={onClose} />
           </div>
 
           <div className="modal-body">
-            {rendered ? (
+            <div className="btn-group btn-group-sm mb-3" role="group" aria-label="Export format">
+              <button type="button"
+                      className={`btn ${format === 'png' ? 'btn-primary' : 'btn-outline-secondary'}`}
+                      onClick={() => setFormat('png')}>
+                <i className="fas fa-image me-1" aria-hidden="true" />PNG
+              </button>
+              <button type="button"
+                      className={`btn ${format === 'pdf' ? 'btn-primary' : 'btn-outline-secondary'}`}
+                      onClick={() => setFormat('pdf')}>
+                <i className="fas fa-file-pdf me-1" aria-hidden="true" />PDF
+              </button>
+            </div>
+
+            {format === 'pdf' ? (
+              <>
+                <p className="small mb-2" style={{ color: 'var(--text-muted)' }}>
+                  A4 picture book. On the next screen choose <strong>Save as PDF</strong>
+                  {' '}(on a phone: <strong>Share → Print</strong> → <strong>Save as PDF</strong>).
+                </p>
+                {active.length === 0 ? (
+                  <div className="text-center py-4" style={{ color: 'var(--text-muted)' }}>
+                    No active listings to export.
+                  </div>
+                ) : (
+                  <>
+                    <div style={{
+                      overflow: 'auto',
+                      background: '#ece8e0',
+                      padding: '10mm',
+                      borderRadius: 6,
+                      maxHeight: '60vh',
+                    }}>
+                      <div style={{
+                        width: `calc(210mm * ${previewScale})`,
+                        height: `calc((297mm + 8mm) * ${previewScale} * ${pages.length})`,
+                        position: 'relative',
+                        margin: '0 auto',
+                      }}>
+                        <div
+                          className="pdf-preview-root"
+                          aria-hidden="true"
+                          style={{
+                            width: '210mm',
+                            transform: `scale(${previewScale})`,
+                            transformOrigin: 'top left',
+                            position: 'absolute',
+                            left: 0, top: 0,
+                          }}
+                        >
+                          {pages.map((items, i) => (
+                            <PdfSheet
+                              key={i}
+                              items={items}
+                              pageIndex={i}
+                              totalPages={pages.length}
+                              filterLabel={filterLabel}
+                              generatedStamp={stamp}
+                              generatedTime={timeStr}
+                              categoryLabel={categoryLabel}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    {createPortal(
+                      /* Full-size sheets live as a direct <body> child so
+                         @media print can hide everything except this and let
+                         the sheets paginate in normal document flow. They are
+                         parked off-screen on-screen; print styles reset the
+                         offset. */
+                      <div
+                        ref={sheetsRef}
+                        className="pdf-print-portal"
+                        style={{
+                          position: 'fixed',
+                          left: '-10000px',
+                          top: 0,
+                          width: '210mm',
+                          zIndex: -1,
+                          pointerEvents: 'none',
+                        }}
+                      >
+                        {pages.map((items, i) => (
+                          <PdfSheet
+                            key={i}
+                            items={items}
+                            pageIndex={i}
+                            totalPages={pages.length}
+                            filterLabel={filterLabel}
+                            generatedStamp={stamp}
+                            generatedTime={timeStr}
+                            categoryLabel={categoryLabel}
+                          />
+                        ))}
+                      </div>,
+                      document.body,
+                    )}
+                  </>
+                )}
+              </>
+            ) : rendered ? (
               <div className="text-center">
                 <img
                   src={rendered}
@@ -1130,7 +1373,15 @@ function ExportModal({ listings, categoryLabel, onClose, showToast }) {
 
           <div className="modal-footer">
             <button className="btn btn-outline-secondary btn-sm" onClick={onClose}>Close</button>
-            {rendered ? (
+            {format === 'pdf' ? (
+              <button className="btn btn-primary btn-sm" onClick={handlePrint}
+                      disabled={printing || active.length === 0}>
+                {printing
+                  ? <><span className="spinner-border spinner-border-sm me-1" />Preparing…</>
+                  : <><i className="fas fa-print me-1" aria-hidden="true" />Print / Save as PDF</>
+                }
+              </button>
+            ) : rendered ? (
               <a className="btn btn-primary btn-sm" href={rendered}
                  download={`arch-bay-listings-${new Date().toISOString().slice(0, 10)}.png`}>
                 <i className="fas fa-download me-1" aria-hidden="true" />Download

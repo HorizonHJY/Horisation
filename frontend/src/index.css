@@ -5984,3 +5984,156 @@ button.fr-chip:hover { filter: brightness(.96); }
    text token so no-one notices Lv1 posts look different. */
 .fb-msg__name { color: var(--fb-c); }
 .fb-msg--default .fb-msg__name { color: var(--text-primary); }
+
+/* ── Market PDF export ────────────────────────────────────────────────────
+   A4 picture-book pages, rendered live in the Export dialog and then handed
+   to window.print() for a Save-as-PDF. All sizes are in mm/pt so the page
+   on screen and on paper are the same page. The dialog scales the sheet
+   down with transform(); the @media print block in ExportModal strips that
+   transform and promotes the sheet to the printed page. */
+.pdf-sheet {
+  width: 210mm;
+  height: 297mm;
+  box-sizing: border-box;
+  padding: 18mm;
+  margin: 0 0 8mm 0;
+  background: #fbf9f4;
+  color: #1a1a1a;
+  font-family: 'Noto Serif SC', 'Playfair Display', Georgia, serif;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+  color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.pdf-sheet__head { margin-bottom: 6mm; }
+.pdf-sheet__head-row {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding-bottom: 5mm;
+  border-bottom: 1px solid rgba(26, 26, 26, 0.08);
+}
+.pdf-sheet__wordmark {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 22pt;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+}
+.pdf-sheet__eyebrow {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 8pt;
+  letter-spacing: 0.18em;
+  color: #5a5a5a;
+  text-transform: uppercase;
+  margin-top: 1.5mm;
+}
+.pdf-sheet__stamp {
+  font-size: 9pt;
+  color: #5a5a5a;
+}
+.pdf-sheet__rule-only {
+  height: 1px;
+  background: rgba(26, 26, 26, 0.08);
+  margin-bottom: 4mm;
+}
+
+.pdf-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-rows: repeat(3, minmax(0, 1fr));
+  column-gap: 8mm;
+  row-gap: 6mm;
+  min-height: 0;
+}
+
+.pdf-cell {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.pdf-cell__photo {
+  width: 100%;
+  height: 42mm;
+  background: #ffffff;
+  border: 1px solid rgba(26, 26, 26, 0.08);
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+  margin-bottom: 3mm;
+  flex-shrink: 0;
+}
+.pdf-cell__photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+.pdf-cell__photo-empty {
+  display: block;
+  width: 60%;
+  height: 60%;
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(26, 26, 26, 0.04),
+    rgba(26, 26, 26, 0.04) 4mm,
+    transparent 4mm,
+    transparent 8mm
+  );
+}
+.pdf-cell__title {
+  font-family: 'Playfair Display', 'Noto Serif SC', Georgia, serif;
+  font-size: 9.5pt;
+  font-weight: 600;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-bottom: 1.5mm;
+}
+.pdf-cell__price {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 18pt;
+  color: #6b9cdb;
+  font-weight: 500;
+  line-height: 1.1;
+  margin-bottom: 1.5mm;
+  letter-spacing: -0.01em;
+}
+.pdf-cell__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5mm;
+  margin-bottom: 1.5mm;
+}
+.pdf-cell__tag {
+  font-size: 8pt;
+  color: #5a5a5a;
+  border: 1px solid rgba(26, 26, 26, 0.12);
+  padding: 0.4mm 1.8mm;
+  border-radius: 1mm;
+  letter-spacing: 0.01em;
+}
+.pdf-cell__seller {
+  font-size: 8pt;
+  color: #5a5a5a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pdf-sheet__foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 4mm;
+  margin-top: 5mm;
+  padding-top: 2mm;
+  border-top: 1px solid rgba(26, 26, 26, 0.08);
+  font-size: 8pt;
+  color: #5a5a5a;
+}
