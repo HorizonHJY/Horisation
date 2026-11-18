@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { api } from '../api'
+import { isImeEnter } from '../lib/enterSubmit'
 
 // ── Settlement algorithm ──────────────────────────────────────────────────────
 function calcSettlement(participants, expenses) {
@@ -559,7 +560,7 @@ export default function BillSplit() {
             <input className="form-control form-control-sm fw-bold" style={{ fontSize: '1.4rem', maxWidth: 300 }}
               value={editNameVal}
               onChange={e => setEditNameVal(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') saveName(); if (e.key === 'Escape') setEditingName(false) }}
+              onKeyDown={e => { if (e.key === 'Enter' && !isImeEnter(e)) saveName(); if (e.key === 'Escape') setEditingName(false) }}
               onBlur={saveName}
               autoFocus />
           ) : (

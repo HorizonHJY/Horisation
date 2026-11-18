@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { isImeEnter } from '../lib/enterSubmit'
 
 /**
  * The questions, kept off the reading.
@@ -127,7 +128,7 @@ export default function ReadingChat({
           placeholder={placeholder}
           aria-label="你的问题"
           disabled={busy}
-          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) send(e) }}
+          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !isImeEnter(e)) send(e) }}
         />
         <div className="rc__row">
           <span className="rc__hint">{q.length}/{MAX_Q}</span>

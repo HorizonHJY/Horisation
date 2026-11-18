@@ -5,6 +5,7 @@ import { useSocket, useSocketEvent } from '../components/SocketProvider'
 import HandLoader from '../components/HandLoader'
 import Modal, { ConfirmDialog } from '../components/Modal'
 import { useAuth, useNotifications } from '../App'
+import { isImeEnter } from '../lib/enterSubmit'
 
 /**
  * Friends — really the messages page.
@@ -858,7 +859,7 @@ export default function Friends() {
     .filter(f => !convoUsernames.has(f.username))
     .filter(f => !chatFilter ||
       `${f.display_name} ${f.username}`.toLowerCase().includes(chatFilter.toLowerCase()))
-  const sortedConvos   = [...visibleConvos].sort(
+  const sortedConvos   = visibleConvos.toSorted(
     (a, b) => new Date(b.last_at || 0) - new Date(a.last_at || 0))
   const sortedFriendsNoChat = friendsNoChat.sort(
     (a, b) => (a.display_name || a.username).localeCompare(b.display_name || b.username))
@@ -1322,7 +1323,7 @@ export default function Friends() {
                   aria-label={`Message ${activeChat.display_name}`}
                   value={chatInput}
                   onChange={e => setChatInput(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() } }}
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !isImeEnter(e)) { e.preventDefault(); sendMessage() } }}
                   maxLength={1000}
                 />
                 <button type="button" className="btn btn-primary" onClick={sendMessage} disabled={!chatInput.trim()}>

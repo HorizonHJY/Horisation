@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { api } from '../api'
 import Modal, { ConfirmDialog } from '../components/Modal'
+import { isImeEnter } from '../lib/enterSubmit'
 import {
   DndContext,
   closestCenter,
@@ -455,8 +456,7 @@ function PlanView({ plan: initPlan, onBack, showToast }) {
   // Sort: display_order first (set after a drag), then time_start for ties
   const dayEntries = plan.entries
     .filter(e => e.day_number === activeDay)
-    .slice()
-    .sort((a, b) => {
+    .toSorted((a, b) => {
       if (a.display_order !== b.display_order) return a.display_order - b.display_order
       if (a.time_start && b.time_start) return a.time_start.localeCompare(b.time_start)
       if (a.time_start) return -1
@@ -588,7 +588,7 @@ function PlanView({ plan: initPlan, onBack, showToast }) {
               autoFocus
               aria-label="行程名称"
               onChange={e => setNameInput(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') saveName(); if (e.key === 'Escape') setEditingName(false) }}
+              onKeyDown={e => { if (e.key === 'Enter' && !isImeEnter(e)) saveName(); if (e.key === 'Escape') setEditingName(false) }}
             />
             <button className="btn btn-sm btn-primary tp-ibtn" onClick={saveName} disabled={saving} aria-label="保存名称">
               {saving ? <span className="spinner-border spinner-border-sm" /> : <i className="fas fa-check" />}
@@ -828,7 +828,7 @@ function ParticipantPicker({ planId, participants, friends, onRefresh, showToast
           placeholder="输入名字，或从好友里选"
           value={name}
           onChange={e => setName(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); add() } }}
+          onKeyDown={e => { if (e.key === 'Enter' && !isImeEnter(e)) { e.preventDefault(); add() } }}
         />
         <datalist id={`plan-friends-${planId}`}>
           {friends.filter(f => !participants.includes(f.display_name) && !participants.includes(f.username))

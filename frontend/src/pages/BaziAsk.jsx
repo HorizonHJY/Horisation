@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import HandLoader from '../components/HandLoader'
+import { isImeEnter } from '../lib/enterSubmit'
 
 const POLL_GIVE_UP_MS = 4 * 60 * 1000
 const MAX_Q = 300
@@ -125,7 +126,7 @@ export default function BaziAsk() {
                 onChange={e => setQ(e.target.value)}
                 placeholder='就这张命盘接着问…'
                 aria-label='你的问题'
-                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) send(e) }}
+                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !isImeEnter(e)) send(e) }}
               />
               <div className='bza-chat__row'>
                 <span className='bza-chat__hint'>{q.length}/{MAX_Q}</span>

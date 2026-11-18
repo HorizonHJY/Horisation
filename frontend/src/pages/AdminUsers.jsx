@@ -599,6 +599,7 @@ export default function AdminUsers() {
                     type="password"
                     className="form-control"
                     placeholder="Min 6 characters"
+                    autoComplete="new-password"
                     value={editForm.password}
                     onChange={e => setEditForm(f => ({ ...f, password: e.target.value }))}
                   />
