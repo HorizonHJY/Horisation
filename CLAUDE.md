@@ -36,7 +36,7 @@ Browser → Cloudflare → Nginx → Gunicorn (port 8000) → Flask (API only)
 | `Backend/Controller/notes_controller.py` | `/api/notes/*` — per-user notes |
 | `Backend/Controller/market_controller.py` | `/api/market/*` — marketplace listings |
 | `Backend/Controller/feedback_controller.py` | `/api/feedback/*` — message board |
-| `Backend/Controller/market_db.py` | SQLAlchemy models + helpers: User, UserSession, Listing, ListingImage, Category, Message, MessageLike, Memo, GameRoom, friends/groups tables, WantedListing (求购 posts: buyer posts, sellers DM, buyer marks fulfilled). Also owns the additive column migrations (`_migrate_columns`, `_migrate_category_labels`). TradeIntent retired 2026-10-29 — I-want-this merged into Message Seller, Reserved is a seller-controlled flag. |
+| `Backend/Controller/market_db.py` | SQLAlchemy models + helpers: User, UserSession, Listing, ListingImage, Category, Message, MessageLike, Memo, GameRoom, friends/groups tables, WantedListing (求购 posts: buyer posts, sellers DM, buyer marks fulfilled), **RailImpression** (one row per listing/day/slot shown on the home rail, `UNIQUE(listing_id, day, slot)` — only reason: rotate slot needs “最近 14 天上过首页多少天”, no analytics). Also owns the additive column migrations (`_migrate_columns`, `_migrate_category_labels`). TradeIntent retired 2026-10-29 — I-want-this merged into Message Seller, Reserved is a seller-controlled flag. |
 | `Backend/Controller/groups_controller.py` | `/api/groups/*` — 群组：建组/拉人/群聊（独立于好友） |
 | `Backend/Controller/friends_controller.py` | `/api/friends/*` — search, requests, private chat, contact-sharing approval, and `/conversations` (every DM room with last line + unread, **non-friends included** — the Chats list) |
 | `Backend/Controller/friends_socket.py` | **The app's only `connect`/`disconnect` handler** plus private chat and the push helpers. python-socketio keys handlers by event name, so a second `@socketio.on('connect')` anywhere would silently replace this one — put per-connection work here instead. |
@@ -201,6 +201,7 @@ All login required. Full CRUD + `/complete`, `/statistics`.
 | PUT | `/categories/<slug>` | admin | Update label / label_zh / order / active / icon |
 | DELETE | `/categories/<slug>` | admin | Delete category |
 | GET | `/listings` | login | All active listings |
+| GET | `/rail` | optional | **Today's shelf** — three slots `hot` / `fresh` / `rotate` for the home rail. Chosen once per `(day, seed)`: hot = highest `view_count` (newer wins), fresh = newest `created_at` (not hot), rotate = fewest rail-days in last 14 → fewest views → `hash(day\|seed\|id)` tie-break (not hot/fresh). Only `rotate` depends on seed. 5-minute in-process cache; impression row written per slot per call (idempotent). Guest-readable. |
 | POST | `/listings` | login | Create listing (multipart, up to 3 images) |
 | GET | `/listings/<id>` | login | Single listing. Increments `view_count` unless `?track=0` |
 | PUT | `/listings/<id>` | login | Edit (seller only) |

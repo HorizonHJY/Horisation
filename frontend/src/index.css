@@ -5389,9 +5389,9 @@ button.fr-chip:hover { filter: brightness(.96); }
   .fx-form__dir   { grid-template-columns: 1fr; }
 }
 
-/* ===== Market rail on Home ("Just listed") =================================
-   Three horizontal cards under Quick Access. Desktop: three equal columns.
-   Mobile: horizontal scroll with snap, no body overflow. */
+/* ===== Market rail on Home ("Today's shelf") ================================
+   Three slots — hot / fresh / rotate — chosen once per day. Desktop: three
+   equal columns. Phone: horizontal scroll with snap, no body overflow. */
 .market-rail {
   margin-top: 28px;
 }
@@ -5425,6 +5425,37 @@ button.fr-chip:hover { filter: brightness(.96); }
 .market-rail__all:hover { color: var(--accent-solid-hover); }
 .market-rail__all i { font-size: .72rem; margin-left: 2px; }
 
+.market-rail__actions {
+  display: flex; align-items: center; gap: 14px;
+  white-space: nowrap;
+}
+.market-rail__shuffle {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: var(--text-muted);
+  font-size: .85rem;
+  cursor: pointer;
+  font-family: inherit;
+}
+.market-rail__shuffle:hover { color: var(--text-primary); }
+
+/* Slot tag sits on the top-right of the thumbnail: thin-line ink, no
+   colour block, so the photo keeps the stage. */
+.market-rail__slot {
+  position: absolute;
+  top: 8px; right: 8px;
+  padding: 1px 6px;
+  font-size: .7rem;
+  line-height: 1.4;
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, .88);
+  border: 1px solid var(--border-soft);
+  border-radius: 4px;
+  letter-spacing: .02em;
+  pointer-events: none;
+}
+
 .market-rail__track {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -5448,6 +5479,7 @@ button.fr-chip:hover { filter: brightness(.96); }
   border-color: var(--accent-soft);
 }
 .market-rail__thumb {
+  position: relative;
   width: 100%;
   aspect-ratio: 4 / 3;
   background: var(--bg-subtle);

@@ -159,6 +159,26 @@ class ListingImage(Base):
     listing = relationship('Listing', back_populates='images')
 
 
+class RailImpression(Base):
+    """One row per listing / per day / per slot it was shown in on the home
+    rail. Used by the rotate slot to pick items that have been on the shelf
+    the fewest days in the last 14 — so the shop rotates instead of showing
+    the same three for weeks. UNIQUE(listing_id, day, slot) keeps repeated
+    /rail calls on the same day idempotent.
+    """
+    __tablename__ = 'rail_impressions'
+
+    id         = Column(Integer, primary_key=True, autoincrement=True)
+    listing_id = Column(String(36), nullable=False, index=True)
+    day        = Column(String(10), nullable=False, index=True)  # YYYY-MM-DD, local Chicago
+    slot       = Column(String(10), nullable=False)              # hot / fresh / rotate
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+    __table_args__ = (
+        UniqueConstraint('listing_id', 'day', 'slot', name='uq_rail_impressions_listing_day_slot'),
+    )
+
+
 class Category(Base):
     __tablename__ = 'categories'
 
@@ -858,6 +878,119 @@ def get_all_listings(status: str = 'active',
 def count_listings(status: str = 'active') -> int:
     with Session() as s:
         return s.query(func.count(Listing.id)).filter_by(status=status).scalar() or 0
+
+
+# ── Home rail (Today's shelf) ───────────────────────────────────────────
+# Three deterministic slots chosen once per (day, seed):
+#   hot    — active + has image, highest view_count (ties: newer wins)
+#   fresh  — active + has image, newest created_at (not already hot)
+#   rotate — active + has image, fewest rail days in last 14, then fewest
+#            views, then hash(day + seed + listing_id) as a tie-break
+#            (not already hot/fresh)
+# Only the rotate slot depends on seed; hot/fresh are stable across seeds.
+
+def _rail_candidates(s) -> list[Listing]:
+    """Active listings that have at least one image, in a single query.
+    `images` is eager-loaded via the relationship so the slot picks do not
+    N+1 the DB."""
+    rows = (s.query(Listing)
+              .filter(Listing.status == 'active')
+              .all())
+    # Keep only rows with an image. Falling back on the relationship (already
+    # loaded for `_listing_to_dict`) avoids a separate join and matches what
+    # the old `/listings` filter did client-side.
+    return [r for r in rows if r.images]
+
+
+def pick_rail_items(day: str, seed: int = 0) -> list[dict]:
+    """Return up to three listing dicts tagged with their slot. `day` is the
+    local YYYY-MM-DD string the caller computed; keeping that outside the
+    model keeps the helper timezone-agnostic and easy to test.
+    """
+    import hashlib
+    from datetime import timedelta
+
+    with Session() as s:
+        candidates = _rail_candidates(s)
+        if not candidates:
+            return []
+
+        # Impression counts over the last 14 days (including today), per listing.
+        try:
+            cutoff_day = (datetime.strptime(day, '%Y-%m-%d') - timedelta(days=13)).strftime('%Y-%m-%d')
+        except ValueError:
+            cutoff_day = day
+        impressions_rows = (s.query(RailImpression.listing_id,
+                                     func.count(func.distinct(RailImpression.day)))
+                              .filter(RailImpression.day >= cutoff_day)
+                              .group_by(RailImpression.listing_id)
+                              .all())
+        days_on_rail = {lid: int(c or 0) for lid, c in impressions_rows}
+
+        def _hash_tiebreak(listing_id: str) -> int:
+            h = hashlib.sha256(f'{day}|{seed}|{listing_id}'.encode('utf-8')).hexdigest()
+            return int(h[:16], 16)
+
+        picked: list[tuple[str, Listing]] = []
+        used_ids: set[str] = set()
+
+        # hot: highest view_count, newer wins on tie.
+        hot_sorted = sorted(
+            candidates,
+            key=lambda r: (-(r.view_count or 0), -(r.created_at.timestamp() if r.created_at else 0.0)),
+        )
+        if hot_sorted:
+            picked.append(('hot', hot_sorted[0]))
+            used_ids.add(hot_sorted[0].id)
+
+        # fresh: newest created_at, not already picked.
+        fresh_sorted = sorted(
+            [r for r in candidates if r.id not in used_ids],
+            key=lambda r: -(r.created_at.timestamp() if r.created_at else 0.0),
+        )
+        if fresh_sorted:
+            picked.append(('fresh', fresh_sorted[0]))
+            used_ids.add(fresh_sorted[0].id)
+
+        # rotate: fewest rail-days (last 14) → fewest views → hash tie-break.
+        remaining = [r for r in candidates if r.id not in used_ids]
+        rotate_sorted = sorted(
+            remaining,
+            key=lambda r: (
+                days_on_rail.get(r.id, 0),
+                r.view_count or 0,
+                _hash_tiebreak(r.id),
+            ),
+        )
+        if rotate_sorted:
+            picked.append(('rotate', rotate_sorted[0]))
+            used_ids.add(rotate_sorted[0].id)
+
+        sellers = {u.username: u for u in s.query(User).filter(
+            User.username.in_({r.seller_username for _slot, r in picked})
+        ).all()}
+        out = []
+        for slot, row in picked:
+            d = _listing_to_dict(row, sellers.get(row.seller_username))
+            d['slot'] = slot
+            out.append(d)
+        return out
+
+
+def record_rail_impressions(day: str, slot_listing_ids: list[tuple[str, str]]) -> None:
+    """Write one row per (listing_id, day, slot). UNIQUE constraint makes the
+    second call of the day a no-op per slot. Best-effort — a failure here is
+    never allowed to break the rail response.
+    """
+    if not slot_listing_ids:
+        return
+    with Session() as s:
+        for slot, lid in slot_listing_ids:
+            try:
+                s.add(RailImpression(listing_id=lid, day=day, slot=slot))
+                s.commit()
+            except Exception:
+                s.rollback()
 
 
 def count_new_listings_since(since: datetime, exclude_seller: Optional[str] = None) -> int:

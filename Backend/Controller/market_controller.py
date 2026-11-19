@@ -291,6 +291,58 @@ def new_listing_count():
     return jsonify({'ok': True, 'count': count})
 
 
+# ── Home rail (Today's shelf / 今日摄位) ────────────────────────────────────────
+# Three slots — hot / fresh / rotate — chosen once per (day, seed). Open to
+# guests. Same day + same seed returns the same three; a different seed only
+# moves the rotate slot. The response is cached in-process for ~5 min so a
+# popular home page doesn't repeatedly scan the catalogue.
+
+_RAIL_CACHE: dict = {}      # (day, seed) → (expires_at, payload)
+_RAIL_CACHE_TTL = 300       # seconds
+
+
+def _chicago_today() -> str:
+    """Local YYYY-MM-DD in America/Chicago, the site's wall-clock day.
+    The rail flips with the group's day, not UTC midnight.
+    """
+    import zoneinfo
+    from datetime import datetime
+    return datetime.now(zoneinfo.ZoneInfo('America/Chicago')).strftime('%Y-%m-%d')
+
+
+@market_bp.route('/rail', methods=['GET'])
+@login_optional
+def home_rail():
+    import time
+    try:
+        seed = int(request.args.get('seed', 0))
+    except (TypeError, ValueError):
+        seed = 0
+    # Clamp seed to a small non-negative range so nobody uses the parameter
+    # as a way to iterate the whole catalogue through the rail endpoint.
+    seed = max(0, min(seed, 9999))
+    day = _chicago_today()
+
+    now = time.time()
+    cached = _RAIL_CACHE.get((day, seed))
+    if cached and cached[0] > now:
+        return jsonify(cached[1])
+
+    items = market_db.pick_rail_items(day, seed=seed)
+    # Record an impression per slot shown today. Idempotent via UNIQUE
+    # constraint, so repeated /rail calls on the same day don't inflate it.
+    try:
+        market_db.record_rail_impressions(
+            day, [(it['slot'], it['id']) for it in items]
+        )
+    except Exception:
+        pass
+
+    payload = {'ok': True, 'day': day, 'seed': seed, 'items': items}
+    _RAIL_CACHE[(day, seed)] = (now + _RAIL_CACHE_TTL, payload)
+    return jsonify(payload)
+
+
 # ── Get single listing ────────────────────────────────────────────────────────
 
 @market_bp.route('/listings/<listing_id>', methods=['GET'])

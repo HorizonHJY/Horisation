@@ -133,6 +133,13 @@ ordinary care brings them back. Visitors see the cat on the public page and may 
 notifications nagging anyone to come back. Rationale: the circle should have a small, warm reason to
 open the site, not a guilt mechanic.
 
+Confirmed 2026-11-19: **The home shelf shows three faces a day, not a live feed.** The home page's
+market strip (`Today's shelf · 今日摊位`) picks exactly three listings per local day — one by views
+(热门), one newest (上新), one least-shown-recently (轮换) — stays the same on refresh, and offers a
+`换一批` that only re-rolls the rotate slot. Rationale: with inventory thin, a live "just listed" rail
+froze on the same three items for weeks; a daily deterministic pick guarantees a fresh face without
+pretending the market is busier than it is.
+
 ## Brand Commitments
 
 - **Name in the interface: Arch Bay.** Settled 2026-09-07. The name has flipped twice — the

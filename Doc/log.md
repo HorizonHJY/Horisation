@@ -2,7 +2,7 @@
 
 
 ## 0. Current Status
-Last Updated: 2026-11-18
+Last Updated: 2026-11-19
 
 ### Current Working Version
 - **Completed**: 全站设计系统统一；邀请码系统；功能角色门控；好友/私信系统；SQLite 迁移；二手市集（配送选项 + Restore + 动态分类 + System Management + 价格拆分 + 响应式按钮 + 浏览量计数 + 分类图标 + 多选 filter + 两行 meta + 中文配送标签 + EditModal 修复 + 已售灰蒙版 Sold Out）；**留言板（Weibo 式线程回复 + 点赞 + 翻页）**；用户公开主页；**非好友直接私信**；**Market Reach Out 直接开 DM**；**Login 页 Safari 全面兼容修复**；**群组系统（独立建组 + 按用户名拉人 + 群聊，`/api/groups`）**；**品牌改名 Arch Bay（可见文案 'Horisation'→'Arch Bay'，提交 f0fc7f6）**；**市集意向成单流（trade_intents）**
@@ -12,6 +12,16 @@ Last Updated: 2026-11-18
 - **Blocked / Not Solved**: 密码明文存储（待迁 bcrypt）；`SECRET_KEY` 硬编码
 
 ### Latest Summary
+2026-11-19：**首页「Just listed」→ 「Today's shelf · 今日摄位」三槽轮换**。旧的 `/api/market/listings?limit=3` 只拉最新 3 件，24 天没新货首页就固在同三件 — 32 条 active 里 13 条 0 浏览。现在是三槽每天走完全的确定性规则：**hot** = active + 有图的 `view_count` 最高（平手取新）；**fresh** = 剩下的 `created_at` 最新；**rotate** = 剩下的 「最近 14 天上过首页天数最少 → view_count 最少 → `hash(day|seed|id)` tie-break」— 没上过首页的冷货最先被推出去。同一天同一 seed 返回同一组、5 分钟 进程内缓存；seed+1 只动 rotate、不动 hot/fresh。
+
+数据层：新表 `rail_impressions (id, listing_id, day YYYY-MM-DD, slot, created_at)` + `UNIQUE(listing_id, day, slot)`，走现有 `Base.metadata.create_all(engine)` + `_migrate_columns` 的建表路子。每次 `GET /api/market/rail` 为三个入选商品各写一行，当天重复调用靠唯一约束幂等（实测：同 `?seed=42` 调两次，表里每槽只一行）。rotate 去重注意只看 day、不区分 slot——同一天不同 seed 下 rotate 不会把自己当成「新」。
+
+接口 `GET /api/market/rail?seed=0` 返 `{ok, day, seed, items:[{slot, ...listing}]}`，slot 是 `hot|fresh|rotate`，商品字段复用 `_listing_to_dict`。游客可访（`@login_optional`）。`day` 按 America/Chicago 本地日历，团伙的墙钟变、不跟着 UTC 半夜翻。seed 来访裁裁【 0、9999】。
+
+前端 `MarketRail.jsx`：标题 `Today's shelf · 今日摄位`；右侧新增 `换一批` 文字按钮（床捖 seed+1，useEffect 重射，只影响 rotate）+ 保留 `全部 →`；每张图右上角一个细线小标签 `热门/上新/轮换`（`.market-rail__slot` 白底 88% + 1px 墨色边，没彩色块）。`.market-rail__thumb` 上 `position: relative` 让标签有颗错位。响应式没动：桥面 three columns，手机 scroll-snap，没横向溢出。空池或接口失败整块不渲染。
+
+验证：本地 Flask 5100(LOCAL_DEV=1 + allow_unsafe_werkzeug) + Vite 5199（临时 proxy 跁 5100），`ann / Demopass123`。连续两次 `/api/market/rail` 同一天同三件 + impressions 尸只记一次✔；全部把特定件 view_count 改到 9999 → 下一个 seed 里该件入 hot✔；新注入一件（sql 插 listings + listing_images）→ fresh 就是它✔；seed=1 与 seed=2 下 rotate 变、hot/fresh 不动✔。截图：`~/.openclaw/scratch/market-rail/home-390.png` + `home-1440.png`（桥面三列、手机单列横滑）自己看过证实三个标签、价格、商品名、商品图全正常。本地 `cd frontend && npm run build` ✔ 2.63s。做完 `vite.config.js` proxy 已恢复 5000；人为改过的 view_count 和测试 listing 已复原；当天 `rail_impressions` 已清。改动 4 文件：`Backend/Controller/market_db.py`（新 `RailImpression` 模型 + `pick_rail_items/record_rail_impressions`）、`Backend/Controller/market_controller.py`（`GET /api/market/rail` + 5 分钟 缓存）、`frontend/src/components/MarketRail.jsx`（重写）、`frontend/src/index.css`（头部 actions、slot pill、thumb 小调）。文档：`Doc/log.md` / `CLAUDE.md` / `PRODUCT.md`。
+
 2026-11-18（晚）：**Market 「当前列表 PDF 画册」导出**（Horizon 说点 Export 时想直接存成 PDF 而不是长图）。复用 `Market.jsx:ExportModal`、加一个「PNG / PDF」按组切换，PNG 走原来 `html2canvas` 路径，PDF 走「CSS A4 打印 + `window.print()`」全树零依赖。模版：A4 竖向（210×297mm）、18mm 边距〒、12 × 3 格、16 条/页 auto paginate；首页左 serif 粗「Arch Bay」+ 小字「MARKET · My listings」「右 生成日期；开本页只一条细 1px 线。单卡：4:3 照片白底 contain + 标题 2 行 clamp + 价格 18pt `#6b9cdb` + 成色/分类标签 + 卖家名。脚页 horizonyhj.com | Page n of N | date · time。所有颜色按 Horizon 约的苹果产品書调子 — 纸 #fbf9f4、墨 #1a1a1a、次款 #5a5a5a、彩色只 #6b9cdb、只用 1px 8% 墨色线，没阴影/没彩色块/没圆角粗边。
 
 走法：(A) **打印 DOM 用 `createPortal` 挂到 `document.body` 根下**——弹窗本身被 Bootstrap `modal-dialog-centered` 裹着 + 预览区又上了 `transform: scale(0.42)`，其内的 `position: absolute` 和 `page-break-after` 在 Chrome 打印里全废。派生两树：弹窗里的缩小视觉预览 (`.pdf-preview-root`) + 一个 off-screen 的全尺寸 portal (`.pdf-print-portal`，`left: -10000px`)。(B) **印台 CSS 注入 `<style data-pdf-print>`**，`format === 'pdf'` 时存在：
