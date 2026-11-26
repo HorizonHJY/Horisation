@@ -56,9 +56,16 @@ export const NAV_SECTIONS = [
     ],
   },
   {
+    key: 'game', title: 'Game',
+    items: [
+      { to: '/fun/gomoku-online',  icon: Globe,  label: 'Online Gomoku', feature: 'onlineGomoku' },
+      { to: '/fun/truth-or-dare',  icon: Sparkles, label: 'Truth or Dare' },
+    ],
+  },
+  {
     key: 'fun', title: 'For Fun',
     items: [
-      { to: '/fun/gomoku-online', icon: Globe,    label: 'Online Gomoku', feature: 'onlineGomoku' },
+      { to: '/tarot',             icon: Moon,     label: 'Tarot',         guest: true },
       { to: '/tarot',             icon: Moon,     label: 'Tarot',         guest: true },
       { to: '/bazi',              icon: Sparkles, label: 'BaZi',          guest: true },
       { to: '/mbti',              icon: Brain,    label: 'MBTI',          guest: true },

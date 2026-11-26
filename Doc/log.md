@@ -2202,3 +2202,12 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 - 问题：`rail_impressions` 4 个货架日里，hot 一直是同一件显示器、fresh 一直是同一个耳机壳；32 件在售只露出 8 件。
 - `pick_rail_items` 改法：hot 先排除最近 3 个货架日（含今天）上过首页的货，再按浏览数；池子排空才回落（按「最久没上过 → 浏览数」）。fresh 只认 14 天内上架；没有新品就选「从未上过首页」里最新的，再没有选最久没上过的。rotate 不动，三个位置互不重复。
 - 验证：把当前 hot 写进今天的 impressions，下一跳 hot 从「实木书桌」变成「料理机」，三个位置无重复；同一天同 seed 仍幂等。
+
+## 2026-11-26 真心话大冒险
+- 题库：`Backend/data/tod_prompts.json`，3 档（ice 破冰 / normal 正常 / adult 18+）× 真心话 20 + 大冒险 20 = 120 条；大冒险带 timer。18+ 只到暧昧/成人话题，不写露骨内容。
+- 表：`tod_draws`（username + prompt_id + day 唯一，抽到才可评）、`tod_ratings`（username + prompt_id 唯一，同一人同题只算一次）。启动时 create_all，旧库不动。
+- 接口：`GET /api/tod/prompts?level=`（返回 3 档题池 + 我的评分）、`POST /api/tod/draw`、`POST /api/tod/rate`（1–5 星 + 最多 3 个标签；未抽到 403）、`GET /api/tod/stats`（仅 horizon/admin）。
+- 评分影响题池：平均分 < 2.5 且 ≥ 5 人评 → 自动隐藏，不再发出。
+- 经验：首次评价 +2，每天最多 5 条（`xp_db.RULES['tod_rate'] = (2,5)`），重复评同题不加分。
+- 页面：`/fun/truth-or-dare`，侧边栏新增 Game 分组（Gomoku + Truth or Dare）。选档 → 两张背面牌 → 点左翻真心话 / 点右翻大冒险 → 换一张 / 重新发牌；大冒险倒计时；完成后 1–5 星 + 标签。
+- 验证：draw→rate 首评 +2；重复评不加；未抽到 403；连评 5 条后第 6 条不再加分；390 无横向溢出；截图存 `~/.openclaw/scratch/tod/`。

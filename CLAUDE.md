@@ -230,6 +230,11 @@ Levels: 新村民 0 / 老村民 100 / 村民代表 450 / 村委委员 1500 / 村
 **FX posting** (`POST /api/market/fx`) is open to `horizon`/`admin`, `fx_qualified`, **or level ≥ 3**
 (`FX_POST_MIN_LEVEL` in `fx_controller.py`, mirrored in `Fx.jsx`). No leaderboard, by decision.
 
+### Truth or Dare `/api/tod/`
+- `GET /prompts?level=` · `POST /draw` · `POST /rate` · `GET /stats`
+- 表：`tod_draws`、`tod_ratings`；题库 `Backend/data/tod_prompts.json`
+- 页面 `/fun/truth-or-dare`
+
 ### Pet `/api/pet/` (电子猫)
 Login required, open to every member. One cat per person.
 

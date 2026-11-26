@@ -66,6 +66,7 @@ RULES = {
     'streak7':    (20, None),
     'pet_care':   (2,  3),
     'pet_touch':  (1,  3),
+    'tod_rate':   (2,  5),
 }
 STREAK_BONUS_EVERY = 7
 
