@@ -927,6 +927,22 @@ def pick_rail_items(day: str, seed: int = 0) -> list[dict]:
                               .all())
         days_on_rail = {lid: int(c or 0) for lid, c in impressions_rows}
 
+        # Shelf days in the last three days (today included). A listing that
+        # already had a turn stays out of `hot` so the same item cannot hold
+        # the top slot for a week.
+        try:
+            recent_cutoff = (datetime.strptime(day, '%Y-%m-%d') - timedelta(days=2)).strftime('%Y-%m-%d')
+        except ValueError:
+            recent_cutoff = day
+        recent_ids = {lid for (lid,) in s.query(RailImpression.listing_id)
+                      .filter(RailImpression.day >= recent_cutoff)
+                      .distinct().all()}
+
+        # When a listing was last on the shelf, for the no-repeat fallbacks.
+        last_shown = {lid: d for lid, d in
+                      s.query(RailImpression.listing_id, func.max(RailImpression.day))
+                      .group_by(RailImpression.listing_id).all()}
+
         def _hash_tiebreak(listing_id: str) -> int:
             h = hashlib.sha256(f'{day}|{seed}|{listing_id}'.encode('utf-8')).hexdigest()
             return int(h[:16], 16)
@@ -934,20 +950,42 @@ def pick_rail_items(day: str, seed: int = 0) -> list[dict]:
         picked: list[tuple[str, Listing]] = []
         used_ids: set[str] = set()
 
-        # hot: highest view_count, newer wins on tie.
+        # hot: highest view_count among listings that have not held the shelf
+        # in the last three days; newer wins on tie. When every candidate was
+        # just shown, fall back to the least recently shown, then views.
         hot_sorted = sorted(
             candidates,
-            key=lambda r: (-(r.view_count or 0), -(r.created_at.timestamp() if r.created_at else 0.0)),
+            key=lambda r: (
+                1 if r.id in recent_ids else 0,
+                -(r.view_count or 0),
+                -(r.created_at.timestamp() if r.created_at else 0.0),
+            ),
         )
         if hot_sorted:
             picked.append(('hot', hot_sorted[0]))
             used_ids.add(hot_sorted[0].id)
 
-        # fresh: newest created_at, not already picked.
-        fresh_sorted = sorted(
-            [r for r in candidates if r.id not in used_ids],
-            key=lambda r: -(r.created_at.timestamp() if r.created_at else 0.0),
-        )
+        # fresh: a genuinely new listing (14 days), else the newest one that
+        # has never been on the shelf, else the least recently shown.
+        try:
+            fresh_cutoff = (datetime.strptime(day, '%Y-%m-%d') - timedelta(days=13)).date()
+        except ValueError:
+            fresh_cutoff = None
+
+        remaining = [r for r in candidates if r.id not in used_ids]
+        new_enough = [r for r in remaining
+                      if fresh_cutoff and r.created_at and r.created_at.date() >= fresh_cutoff]
+        if new_enough:
+            fresh_pool = new_enough
+            fresh_key = lambda r: -(r.created_at.timestamp() if r.created_at else 0.0)
+        else:
+            never_shown = [r for r in remaining if r.id not in last_shown]
+            fresh_pool = never_shown or remaining
+            fresh_key = lambda r: (
+                last_shown.get(r.id) or '',
+                -(r.created_at.timestamp() if r.created_at else 0.0),
+            )
+        fresh_sorted = sorted(fresh_pool, key=fresh_key)
         if fresh_sorted:
             picked.append(('fresh', fresh_sorted[0]))
             used_ids.add(fresh_sorted[0].id)
