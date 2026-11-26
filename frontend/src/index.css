@@ -6205,20 +6205,20 @@ button.fr-chip:hover { filter: brightness(.96); }
 
 .tod-levels {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  max-width: 560px;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  max-width: 420px;
   margin: 32px auto 0;
 }
 .tod-level {
   display: flex; align-items: center; justify-content: center;
-  padding: 20px 18px;
+  padding: 16px 18px;
   background: var(--bg-surface);
   border: 1px solid var(--border-medium);
   border-radius: 10px;
   text-align: left;
   cursor: pointer;
-  min-height: 84px;
+  min-height: 64px;
   transition: border-color .18s ease, transform .18s ease;
 }
 .tod-level:hover { border-color: var(--accent); transform: translateY(-2px); }
@@ -6227,18 +6227,19 @@ button.fr-chip:hover { filter: brightness(.96); }
 
 .tod-table {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 18px;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 14px;
   margin: 30px auto 0;
   max-width: 560px;
 }
-.tod-card { width: 100%; max-width: 330px; perspective: 1200px; }
+.tod-card { flex: 1 1 0; max-width: 250px; perspective: 1200px; }
 .tod-card__inner {
   position: relative;
   display: block;
   width: 100%;
-  aspect-ratio: 5 / 5.6;
+  aspect-ratio: 5 / 7;
   border: 0; padding: 0; background: transparent;
   cursor: pointer;
   transform-style: preserve-3d;
