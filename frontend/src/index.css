@@ -6211,8 +6211,8 @@ button.fr-chip:hover { filter: brightness(.96); }
   margin: 32px auto 0;
 }
 .tod-level {
-  display: flex; flex-direction: column; gap: 6px;
-  padding: 18px 18px 16px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px 18px;
   background: var(--bg-surface);
   border: 1px solid var(--border-medium);
   border-radius: 10px;
@@ -6227,17 +6227,18 @@ button.fr-chip:hover { filter: brightness(.96); }
 
 .tod-table {
   display: flex;
-  justify-content: center;
-  gap: 14px;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
   margin: 30px auto 0;
   max-width: 560px;
 }
-.tod-card { flex: 1 1 0; max-width: 250px; perspective: 1200px; }
+.tod-card { width: 100%; max-width: 330px; perspective: 1200px; }
 .tod-card__inner {
   position: relative;
   display: block;
   width: 100%;
-  aspect-ratio: 5 / 7;
+  aspect-ratio: 5 / 5.6;
   border: 0; padding: 0; background: transparent;
   cursor: pointer;
   transform-style: preserve-3d;

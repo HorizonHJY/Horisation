@@ -8,10 +8,10 @@ import HandLoader from '../components/HandLoader'
    by xp_db). */
 
 const LEVELS = [
-  { key: 'ice',    label: '破冰', hint: '第一次见面也能答' },
-  { key: 'normal', label: '正常', hint: '朋友之间的尺度' },
-  { key: 'adult',  label: '18+',  hint: '暧昧、成人话题' },
-  { key: 'random', label: '随机',  hint: '每张牌单独抽层' },
+  { key: 'ice',    label: '简单' },
+  { key: 'normal', label: '普通' },
+  { key: 'adult',  label: '困难' },
+  { key: 'random', label: '随机' },
 ]
 
 const TAGS = ['太普通', '有点尴尬', '很好玩']
@@ -121,13 +121,11 @@ export default function TruthOrDare() {
         <header className="tod-head">
           <div className="tod-kicker">TRUTH OR DARE</div>
           <h1 className="tod-title">真心话 · 大冒险</h1>
-          <p className="tod-sub">先选一档尺度。左边真心话，右边大冒险，翻牌才知道是什么。</p>
         </header>
         <div className="tod-levels">
           {LEVELS.map(l => (
             <button key={l.key} className="tod-level" onClick={() => chooseLevel(l.key)}>
               <span className="tod-level__name">{l.label}</span>
-              <span className="tod-level__hint">{l.hint}</span>
             </button>
           ))}
         </div>
