@@ -610,20 +610,29 @@ function PlanView({ plan: initPlan, onBack, showToast }) {
         )}
       </div>
 
-      {/* Plan / Expenses switch. The day tabs below belong to Plan only. */}
-      <ul className="nav nav-pills nav-fill mb-3" style={{ maxWidth: 320 }}>
+      {/* Plan / Expenses switch. A segmented control rather than a pill pair:
+          the two panels below look nothing alike, and the switch should say
+          which one you are in before you scroll. */}
+      <div className="tp-switch" role="tablist" aria-label="行程或费用">
         {[{ k: 'plan', label: '行程', icon: 'fa-route' }, { k: 'expenses', label: '费用', icon: 'fa-receipt' }].map(t => (
-          <li className="nav-item" key={t.k}>
-            <button
-              className={`nav-link py-1 ${view === t.k ? 'active' : ''}`}
-              style={{ fontSize: '.85rem' }}
-              onClick={() => setView(t.k)}
-            >
-              <i className={`fas ${t.icon} me-1`} />{t.label}
-            </button>
-          </li>
+          <button
+            key={t.k}
+            role="tab"
+            aria-selected={view === t.k}
+            className={`tp-switch__btn${view === t.k ? ' is-on' : ''}`}
+            onClick={() => setView(t.k)}
+          >
+            <i className={`fas ${t.icon}`} aria-hidden="true" />
+            {t.label}
+          </button>
         ))}
-      </ul>
+      </div>
+      <div className="tp-context">
+        {view === 'plan'
+          ? <>共 {plan.num_days} 天 · {plan.entries.length} 个安排</>
+          : <>记一笔，自动算清谁该给谁</>}
+      </div>
+      <div className="tp-rule" />
 
       {view === 'expenses' ? (
         <ExpenseTab plan={plan} showToast={showToast} />
