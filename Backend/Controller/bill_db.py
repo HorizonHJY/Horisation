@@ -237,6 +237,20 @@ def add_expense(bill_id, desc, amount, paid_by, split_among):
         return _expense_dict(e)
 
 
+def update_expense(bill_id, expense_id, desc, amount, paid_by, split_among):
+    with Session() as s:
+        e = s.query(BillExpense).filter_by(id=expense_id, bill_id=bill_id.upper()).first()
+        if not e:
+            return None
+        e.desc = desc
+        e.amount = float(amount)
+        e.paid_by = paid_by
+        e.split_among = json.dumps(split_among)
+        s.commit()
+        s.refresh(e)
+        return _expense_dict(e)
+
+
 def delete_expense(bill_id, expense_id):
     with Session() as s:
         e = s.query(BillExpense).filter_by(id=expense_id, bill_id=bill_id.upper()).first()

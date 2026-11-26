@@ -110,6 +110,29 @@ def add_expense(bill_id):
     return jsonify({'ok': True, 'expense': expense}), 201
 
 
+@bill_bp.route('/bills/<bill_id>/expenses/<expense_id>', methods=['PUT'])
+@login_required
+def update_expense(bill_id, expense_id):
+    data        = request.get_json() or {}
+    desc        = data.get('desc', '').strip()
+    amount      = data.get('amount')
+    paid_by     = data.get('paidBy', '').strip()
+    split_among = data.get('splitAmong', [])
+    if not desc:
+        return jsonify({'ok': False, 'error': 'Description is required.'}), 400
+    try:
+        amount = float(amount)
+        assert amount > 0
+    except Exception:
+        return jsonify({'ok': False, 'error': 'Invalid amount.'}), 400
+    if not paid_by or not split_among:
+        return jsonify({'ok': False, 'error': 'paidBy and splitAmong are required.'}), 400
+    expense = bill_db.update_expense(bill_id, expense_id, desc, amount, paid_by, split_among)
+    if expense is None:
+        return jsonify({'ok': False, 'error': 'Expense not found.'}), 404
+    return jsonify({'ok': True, 'expense': expense})
+
+
 @bill_bp.route('/bills/<bill_id>/expenses/<expense_id>', methods=['DELETE'])
 @login_required
 def delete_expense(bill_id, expense_id):

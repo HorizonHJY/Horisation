@@ -115,8 +115,13 @@ function ParticipantsPanel({ bill, onRefresh }) {
 }
 
 // ── Expense form ──────────────────────────────────────────────────────────────
-function ExpenseForm({ billId, participants, onAdd, onCancel }) {
-  const [form, setForm] = useState({
+function ExpenseForm({ billId, participants, expense, onSaved, onCancel }) {
+  const [form, setForm] = useState(() => expense ? {
+    desc: expense.desc || '',
+    amount: String(expense.amount ?? ''),
+    paidBy: expense.paidBy || participants[0] || '',
+    splitAmong: [...(expense.splitAmong || participants)],
+  } : {
     desc: '', amount: '', paidBy: participants[0] || '', splitAmong: [...participants]
   })
   const [loading, setLoading] = useState(false)
@@ -134,12 +139,13 @@ function ExpenseForm({ billId, participants, onAdd, onCancel }) {
     if (!form.paidBy) return alert('请选择付款人')
     if (!form.splitAmong.length) return alert('请至少选择一位分摊人')
     setLoading(true)
-    const d = await api.post(`/api/bill/bills/${billId}/expenses`, {
-      desc: form.desc.trim(), amount: amt, paidBy: form.paidBy, splitAmong: form.splitAmong
-    })
+    const payload = { desc: form.desc.trim(), amount: amt, paidBy: form.paidBy, splitAmong: form.splitAmong }
+    const d = expense
+      ? await api.put(`/api/bill/bills/${billId}/expenses/${expense.id}`, payload)
+      : await api.post(`/api/bill/bills/${billId}/expenses`, payload)
     setLoading(false)
-    if (d.ok) onAdd()
-    else alert(d.error || '添加失败')
+    if (d.ok) onSaved()
+    else alert(d.error || (expense ? '保存失败' : '添加失败'))
   }
 
   return (
@@ -183,7 +189,7 @@ function ExpenseForm({ billId, participants, onAdd, onCancel }) {
         </div>
         <div className="d-flex gap-2">
           <button className="btn btn-primary btn-sm" onClick={submit} disabled={loading}>
-            <i className="fas fa-check me-1" />确认添加
+            <i className="fas fa-check me-1" />{expense ? '保存修改' : '确认添加'}
           </button>
           <button className="btn btn-outline-secondary btn-sm" onClick={onCancel}>取消</button>
         </div>
@@ -195,6 +201,7 @@ function ExpenseForm({ billId, participants, onAdd, onCancel }) {
 // ── Expenses panel ────────────────────────────────────────────────────────────
 function ExpensesPanel({ bill, onRefresh }) {
   const [adding, setAdding] = useState(false)
+  const [editing, setEditing] = useState(null)
 
   async function deleteExpense(id) {
     await api.delete(`/api/bill/bills/${bill.id}/expenses/${id}`)
@@ -213,14 +220,18 @@ function ExpensesPanel({ bill, onRefresh }) {
           共 {bill.expenses.length} 笔 总计 <strong style={{ color: '#1a1a1a' }}>${total.toFixed(2)}</strong>
         </span>
         {bill.participants.length >= 2 && !adding && (
-          <button className="btn btn-sm btn-primary" onClick={() => setAdding(true)}>
+          <button className="btn btn-sm btn-primary" onClick={() => { setEditing(null); setAdding(true) }}>
             <i className="fas fa-plus me-1" />记一笔
           </button>
         )}
       </div>
       {adding && (
         <ExpenseForm billId={bill.id} participants={bill.participants}
-          onAdd={() => { setAdding(false); onRefresh() }} onCancel={() => setAdding(false)} />
+          onSaved={() => { setAdding(false); onRefresh() }} onCancel={() => setAdding(false)} />
+      )}
+      {editing && (
+        <ExpenseForm key={editing.id} billId={bill.id} participants={bill.participants} expense={editing}
+          onSaved={() => { setEditing(null); onRefresh() }} onCancel={() => setEditing(null)} />
       )}
       {bill.expenses.length === 0 ? (
         <p className="text-muted small">还没有账单记录。</p>
@@ -240,10 +251,16 @@ function ExpensesPanel({ bill, onRefresh }) {
                   </div>
                   <div className="d-flex flex-column align-items-end">
                     <strong style={{ fontSize: '1rem', color: '#3b82f6' }}>${parseFloat(e.amount).toFixed(2)}</strong>
-                    <button className="btn btn-link btn-sm p-0 text-danger" style={{ fontSize: '.75rem' }}
-                      onClick={() => deleteExpense(e.id)}>
-                      <i className="fas fa-trash" />
-                    </button>
+                    <div className="d-flex align-items-center gap-2">
+                      <button className="btn btn-link btn-sm p-0 text-secondary" style={{ fontSize: '.75rem' }}
+                        onClick={() => { setAdding(false); setEditing(e) }} aria-label="编辑这笔">
+                        <i className="fas fa-pen" />
+                      </button>
+                      <button className="btn btn-link btn-sm p-0 text-danger" style={{ fontSize: '.75rem' }}
+                        onClick={() => deleteExpense(e.id)} aria-label="删除这笔">
+                        <i className="fas fa-trash" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
