@@ -71,7 +71,7 @@ def add_member(plan_id):
     username = (data.get('username') or '').strip()
     if not username or not db_get_user(username):
         return jsonify({'ok': False, 'error': '账号不存在'}), 400
-    travel_db.add_plan_member(plan.id, username)
+    travel_db.add_plan_member(plan["id"], username)
     if plan.get('bill_id'):
         bill_db.add_bill_member(plan['bill_id'], username)
     return jsonify({'ok': True, 'plan': travel_db.get_plan(plan_id)})
