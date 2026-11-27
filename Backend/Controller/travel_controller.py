@@ -54,6 +54,29 @@ def get_plan(plan_id):
     return jsonify({'ok': True, 'plan': plan})
 
 
+@travel_bp.route('/plans/<plan_id>/members', methods=['POST'])
+@login_required
+def add_member(plan_id):
+    """Owner adds a real account to a legacy plan whose participants were
+    only free-text names."""
+    from Backend.Controller import bill_db
+    from Backend.Controller.market_db import db_get_user
+    plan = travel_db.get_plan(plan_id)
+    if not plan:
+        return jsonify({'ok': False, 'error': 'Plan not found.'}), 404
+    me = request.current_user['username']
+    if plan.get('created_by') != me:
+        return jsonify({'ok': False, 'error': 'Only the owner can add members.'}), 403
+    data = request.get_json() or {}
+    username = (data.get('username') or '').strip()
+    if not username or not db_get_user(username):
+        return jsonify({'ok': False, 'error': '账号不存在'}), 400
+    travel_db.add_plan_member(plan.id, username)
+    if plan.get('bill_id'):
+        bill_db.add_bill_member(plan['bill_id'], username)
+    return jsonify({'ok': True, 'plan': travel_db.get_plan(plan_id)})
+
+
 @travel_bp.route('/plans/<plan_id>/save', methods=['POST'])
 @login_required
 def save_plan(plan_id):

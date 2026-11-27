@@ -434,6 +434,7 @@ function EntryModal({ planId, dayNumber, entry, onClose, onSaved, showToast }) {
 // ── Plan View ─────────────────────────────────────────────────────────────────
 function PlanView({ plan: initPlan, onBack, showToast }) {
   const [plan, setPlan]               = useState(initPlan)
+  const [newMember, setNewMember]     = useState('')
   const [activeDay, setActiveDay]     = useState(1)
   const [entryModal, setEntryModal]   = useState(null)
   const [editingName, setEditingName] = useState(false)
@@ -472,6 +473,14 @@ function PlanView({ plan: initPlan, onBack, showToast }) {
     setSaving(false)
     if (d.ok) { setPlan(p => ({ ...p, name: nameInput.trim() })); setEditingName(false) }
     else showToast(d.error || '保存失败', 'danger')
+  }
+
+  async function addMember() {
+    const u = newMember.trim()
+    if (!u) return
+    const d = await api.post(`/api/travel/plans/${plan.id}/members`, { username: u })
+    if (d.ok) { setPlan(d.plan); setNewMember(''); showToast('已添加成员', 'success') }
+    else showToast(d.error || '添加失败', 'danger')
   }
 
   async function saveToMine() {
@@ -623,7 +632,7 @@ function PlanView({ plan: initPlan, onBack, showToast }) {
           </button>
         </div>
       )}
-      <div className="d-flex flex-wrap align-items-center gap-1 mb-3">
+      <div className="d-flex flex-wrap align-items-center gap-1 mb-2">
         <span className="text-muted" style={{ fontSize: '.72rem' }}>可访问</span>
         {(plan.members || []).map(m => (
           <span key={m.username} className="badge"
@@ -632,6 +641,14 @@ function PlanView({ plan: initPlan, onBack, showToast }) {
           </span>
         ))}
       </div>
+      {plan.is_owner && (
+        <div className="d-flex gap-2 mb-3" style={{ maxWidth: 320 }}>
+          <input className="form-control form-control-sm" placeholder="添加成员账号用户名"
+            value={newMember} onChange={e => setNewMember(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && !isImeEnter(e)) { e.preventDefault(); addMember() } }} />
+          <button className="btn btn-sm btn-outline-primary tp-ibtn" onClick={addMember}>添加</button>
+        </div>
+      )}
 
       {/* Plan / Expenses switch. A segmented control rather than a pill pair:
           the two panels below look nothing alike, and the switch should say

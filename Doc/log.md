@@ -2302,3 +2302,9 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 - 修法：回填改为 `lower(username) = lower(name) OR lower(display_name) = lower(name)`；并在账单成员写入后同步镜像到 `travel_plan_members`（`INSERT OR IGNORE`）。
 - 行程页：`GET /api/travel/plans/<id>` 返回 `members`（创建者 + 已保存账号）；页面标题下常驻「可访问」标签，与账单页一致。
 - 验证：本地 DHD8MH 计划显示 horizon（创建者）+ ann；生产部署后 Arkansas 应补齐 Joe/Vivian/haotian。
+
+## 2026-11-27 行程成员：支持手工添加账号
+- 背景：Arkansas 账单里的 `Joe / Vivian / haotian / Sammy` 是手填文本；系统里只有 `Sammy` 与 `hkuo` 是真实账号，其余用户名为 404，无法自动匹配。
+- 新增 `POST /api/travel/plans/<id>/members`（仅创建者），把真实账号加入 `travel_plan_members` 和对应账单的 `bill_members`。
+- 行程页标题下：创建者可见「添加成员账号用户名」输入框，回车或点添加。
+- 用途：老行程名字对不上账号时，由创建者手工补齐。
