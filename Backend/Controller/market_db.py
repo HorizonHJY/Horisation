@@ -290,6 +290,7 @@ DEFAULT_CATEGORY_LABELS = {
     'sports':      ('Sports',      '运动用品'),
     'living':      ('Living',      '日用'),
     'beauty':      ('Beauty',      '美妆'),
+    'leisure':     ('Leisure',     '休闲'),
     'books':       ('Books',       '书籍'),
     'other':       ('Other',       '其他'),
 }
@@ -306,7 +307,8 @@ def _seed_categories():
         ('accessories', 6,  True),
         ('sports',      7,  True),
         ('living',      8,  True),
-        ('beauty',      9,  True),
+        ('beauty',      10, True),
+        ('leisure',     9,  True),
         ('books',       98, False),
         ('other',       99, False),
     ]
@@ -314,7 +316,7 @@ def _seed_categories():
         'clothing': 'fa-tshirt', 'furniture': 'fa-couch', 'kitchen': 'fa-utensils',
         'electronics': 'fa-laptop', 'beauty': 'fa-spa', 'books': 'fa-book', 'other': 'fa-box',
         'decor': 'fa-mug-hot', 'accessories': 'fa-gem',
-        'sports': 'fa-table-tennis-paddle-ball', 'living': 'fa-house-chimney',
+        'sports': 'fa-table-tennis-paddle-ball', 'living': 'fa-house-chimney', 'leisure': 'fa-gamepad',
     }
     with Session() as s:
         if s.query(Category).count() > 0:

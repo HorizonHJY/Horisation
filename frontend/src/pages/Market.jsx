@@ -2402,19 +2402,23 @@ export default function Market() {
                   </div>
 
                   <div className="mb-3">
-                    <label className="form-label fw-medium" htmlFor="new-cat">Category</label>
-                    <select
-                      id="new-cat"
-                      className="form-select"
-                      value={form.category}
-                      onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
-                    >
+                    <label className="form-label fw-medium">Category</label>
+                    <div className="cat-chips" role="radiogroup" aria-label="Category">
                       {categories.map(c => (
-                        <option key={c.slug} value={c.slug}>
-                          {c.label}{c.label_zh ? ` ${c.label_zh}` : ''}
-                        </option>
+                        <button
+                          key={c.slug}
+                          type="button"
+                          role="radio"
+                          aria-checked={form.category === c.slug}
+                          className={'cat-chip' + (form.category === c.slug ? ' is-on' : '')}
+                          onClick={() => setForm(f => ({ ...f, category: c.slug }))}
+                        >
+                          <i className={`fas ${c.icon || 'fa-tag'}`} aria-hidden="true" />
+                          {c.label}
+                          {c.label_zh && <span className="cat-chip__zh">{c.label_zh}</span>}
+                        </button>
                       ))}
-                    </select>
+                    </div>
                   </div>
 
                   <div className="mb-3">

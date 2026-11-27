@@ -6585,3 +6585,36 @@ button.fr-chip:hover { filter: brightness(.96); }
 }
 .member-chip__add:hover { background: var(--accent-soft); }
 .member-chip__add:disabled { opacity: .45; cursor: default; }
+
+/* Market post form: categories as a scrollable row of chips, not a select. */
+.cat-chips {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: thin;
+}
+.cat-chip {
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--border-medium);
+  border-radius: 999px;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-size: .8rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.cat-chip.is-on {
+  border-color: var(--accent);
+  color: var(--accent-text);
+  background: var(--accent-soft);
+  font-weight: 600;
+}
+.cat-chip__zh { font-size: .68rem; color: var(--text-muted); }
+.cat-chip.is-on .cat-chip__zh { color: inherit; opacity: .85; }
