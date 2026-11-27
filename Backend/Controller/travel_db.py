@@ -88,6 +88,21 @@ def init_travel_db():
     """Create tables if they don't exist. Called once on app startup."""
     Base.metadata.create_all(engine)
     _migrate_columns()
+    # A plan's expenses live on a bill. Legacy plans were created before
+    # travel_plan_members existed, so mirror the bill's members onto the plan.
+    from sqlalchemy import text
+    with engine.connect() as c:
+        try:
+            c.execute(text('''
+                INSERT OR IGNORE INTO travel_plan_members (plan_id, username, added_at)
+                SELECT tp.id, bm.username, datetime('now')
+                FROM travel_plans tp
+                JOIN bill_members bm ON bm.bill_id = tp.bill_id
+                WHERE bm.username <> tp.created_by
+            '''))
+            c.commit()
+        except Exception:
+            pass
 
 
 def _migrate_columns():

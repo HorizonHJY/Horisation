@@ -2288,3 +2288,11 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 - 改成独立操作条 `.tp-day-actions`：上边框 + 浅色底 + 圆角收口；左侧「添加项目」，右侧「删除这一天」，中间一条竖向细线。
 - 天数仍为 1 时不显示删除（原有规则不变）。
 - 验证：3 天行程下截图可见分隔；改回 1 天后删除按钮隐藏；390 无横向溢出。
+
+## 2026-11-27 历史账单/行程的成员回填
+- 现象：Arkansas 等早期行程没有成员列表。原因：`bill_members` / `travel_plan_members` 是后加的，旧数据只有 `bill_participants` 里的自由文本名字。
+- 修法：启动时自动回填（幂等）：
+  - 账单：`bill_participants.name` 与 `user.username` 或 `user.display_name` 精确匹配的，写入 `bill_members`（排除创建者）。
+  - 行程：把账单成员镜像到 `travel_plan_members`（排除创建者）。
+- 注意：只做精确匹配，名字对不上账号的不会被加；需要时手工补。
+- 验证：本地清空 bill_members 后保留参与者 'ann'，重启后自动写入 ('DHD8MH','ann')。

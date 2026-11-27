@@ -88,6 +88,18 @@ def init_bill_db():
             # Old rows get the day they were recorded; nobody has to re-enter them.
             c.execute(text("UPDATE bill_expenses SET spent_at = date(created_at) WHERE spent_at IS NULL"))
             c.commit()
+            # Legacy bills predate bill_members: their people were free-text
+            # names in bill_participants. Link the ones that match a real
+            # account (username or display name) so old ledgers show members.
+            c.execute(text('''
+                INSERT OR IGNORE INTO bill_members (bill_id, username, added_at)
+                SELECT bp.bill_id, u.username, datetime('now')
+                FROM bill_participants bp
+                JOIN user u ON (u.username = bp.name OR u.display_name = bp.name)
+                JOIN bill_splits b ON b.id = bp.bill_id
+                WHERE u.username <> b.created_by
+            '''))
+            c.commit()
         except Exception:
             pass
 
