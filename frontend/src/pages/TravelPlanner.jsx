@@ -702,7 +702,10 @@ function PlanView({ plan: initPlan, onBack, showToast }) {
             onReorder={handleReorder}
           />
         </div>
-        <div className="card-footer bg-transparent border-top-0 pt-2 pb-3 px-3 d-flex align-items-center gap-2">
+        {/* The actions sit apart from the itinerary itself: a hairline, a
+            tinted strip and a vertical rule keep "add" and "delete this day"
+            from reading as another row of the schedule. */}
+        <div className="tp-day-actions">
           <button
             className="btn btn-sm btn-outline-primary tp-ibtn"
             onClick={() => setEntryModal({ editing: null })}
@@ -710,13 +713,16 @@ function PlanView({ plan: initPlan, onBack, showToast }) {
             <i className="fas fa-plus me-1" />添加项目
           </button>
           {plan.num_days > 1 && (
-            <button
-              className="btn btn-sm btn-link text-danger text-decoration-none ms-auto tp-ibtn"
-              style={{ fontSize: '.78rem' }}
-              onClick={() => setConfirm({ kind: 'day', day: activeDay, count: dayEntries.length })}
-            >
-              删除这一天
-            </button>
+            <div className="tp-day-actions__danger">
+              <span className="tp-day-actions__rule" aria-hidden="true" />
+              <button
+                className="btn btn-sm btn-link text-danger text-decoration-none tp-ibtn"
+                style={{ fontSize: '.78rem' }}
+                onClick={() => setConfirm({ kind: 'day', day: activeDay, count: dayEntries.length })}
+              >
+                删除这一天
+              </button>
+            </div>
           )}
         </div>
       </div>

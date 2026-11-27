@@ -6534,3 +6534,25 @@ button.fr-chip:hover { filter: brightness(.96); }
 }
 .tp-picker__opt:hover { background: var(--bg-subtle); }
 .tp-picker__empty { padding: 10px; font-size: 12.5px; color: var(--text-muted); }
+
+/* Travel: the day's actions are a separate strip, not another schedule row. */
+.tp-day-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px 14px;
+  border-top: 1px solid var(--border-medium);
+  background: var(--bg-subtle);
+  border-radius: 0 0 8px 8px;
+}
+.tp-day-actions__danger {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.tp-day-actions__rule {
+  width: 1px;
+  height: 18px;
+  background: var(--border-medium);
+}
