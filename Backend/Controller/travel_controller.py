@@ -38,6 +38,22 @@ def get_plan(plan_id):
     plan = travel_db.get_plan(plan_id)
     if not plan:
         return jsonify({'ok': False, 'error': 'Plan not found.'}), 404
+    me = request.current_user['username']
+    plan['is_owner'] = plan.get('created_by') == me
+    plan['saved']    = travel_db.is_member(plan_id, me)
+    return jsonify({'ok': True, 'plan': plan})
+
+
+@travel_bp.route('/plans/<plan_id>/save', methods=['POST'])
+@login_required
+def save_plan(plan_id):
+    """Keep a shared plan in my list without copying it."""
+    plan = travel_db.add_plan_member(plan_id, request.current_user['username'])
+    if not plan:
+        return jsonify({'ok': False, 'error': 'Plan not found.'}), 404
+    me = request.current_user['username']
+    plan['is_owner'] = plan.get('created_by') == me
+    plan['saved']    = True
     return jsonify({'ok': True, 'plan': plan})
 
 

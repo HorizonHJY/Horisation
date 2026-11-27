@@ -2250,3 +2250,10 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 - 行程费用编辑：新增 `PUT /api/travel/plans/<id>/bill/expenses/<eid>`（复用 `bill_db.update_expense`，返回整张账单）；每笔费用加铅笔按钮。
 - 去重：把账目表单抽成 `frontend/src/components/ExpenseForm.jsx`，账单页与行程费用共用，删掉两处各自的内联表单。
 - 验证：行程费用改 90 → 95 保存成功、结算重算，再改回 90；天数标签上 `.tp-day-x` 数量为 0；390 无横向溢出。
+
+## 2026-11-27 行程分享：正确分享卡 + 保存到我的行程
+- 分享卡：新增 `/t/<plan_id>`，爬虫拿到 og:title=行程名、og:description=「N 天行程」、og:image=`/travel-og.png`（新做的旅行专用图）；人访问时仍进 SPA，由 `/t/:planId` 路由跳到 `/travel?join=<id>`。分享按钮的链接也改成 `/t/<id>`。
+- 默认分享图：`index.html` 原来是 `/mbti-types.jpg`，所有没有专属卡的页面都显示 MBTI 图；换成中性的 `/og-default.png`。
+- 保存到账户：新表 `travel_plan_members`（plan_id + username 唯一）；`get_my_plans` 合并「自己创建」与「保存过的」；`POST /api/travel/plans/<id>/save` 幂等加入；`GET plan` 返回 `is_owner` / `saved`。
+- 前端：非创建者打开分享行程，标题下出现「保存到我的行程」，保存后该行程进入「我的行程」。
+- 验证：ann 打开 `/t/DHD8MH` 自动进入，`is_owner=false`，点保存后 `saved=true` 且 `/api/travel/my` 包含 DHD8MH；390 截图存 `~/.openclaw/scratch/travel-share/`。

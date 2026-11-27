@@ -9,7 +9,7 @@ import uuid
 import random
 from datetime import datetime
 
-from sqlalchemy import Column, Integer, String, Text, DateTime, create_engine, event
+from sqlalchemy import Column, Integer, String, Text, DateTime, UniqueConstraint, create_engine, event
 from sqlalchemy.orm import sessionmaker, declarative_base
 
 DB_PATH = '_data/market.db'   # reuse the shared SQLite file
@@ -53,6 +53,20 @@ class TravelPlan(Base):
     # looked up by convention so an old plan without one reads as None, not as
     # a missing bill to chase.
     bill_id    = Column(String(10), nullable=True)
+
+
+class TravelPlanMember(Base):
+    """A plan someone saved from a share link. Owner rows are in
+    travel_plans.created_by; this table only holds the people who joined."""
+    __tablename__ = 'travel_plan_members'
+    id       = Column(Integer, primary_key=True, autoincrement=True)
+    plan_id  = Column(String(10), nullable=False, index=True)
+    username = Column(String(64), nullable=False, index=True)
+    added_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint('plan_id', 'username', name='uq_travel_member'),
+    )
 
 
 class TravelEntry(Base):
@@ -171,14 +185,47 @@ def get_plan(plan_id):
 
 
 def get_my_plans(username):
+    """Owned plans plus the ones saved from a share link."""
     with Session() as s:
-        plans = (
-            s.query(TravelPlan)
-             .filter_by(created_by=username)
-             .order_by(TravelPlan.created_at.desc())
-             .all()
-        )
-        return [_plan_dict(p) for p in plans]
+        owned = s.query(TravelPlan).filter_by(created_by=username).all()
+        joined = {pid for (pid,) in
+                  s.query(TravelPlanMember.plan_id).filter_by(username=username).all()}
+        if joined:
+            owned += s.query(TravelPlan).filter(TravelPlan.id.in_(joined)).all()
+        seen, out = set(), []
+        for p in sorted(owned, key=lambda x: x.created_at or datetime.min, reverse=True):
+            if p.id in seen:
+                continue
+            seen.add(p.id)
+            out.append(_plan_dict(p))
+        return out
+
+
+def add_plan_member(plan_id, username):
+    """Save a shared plan to this person's list. Idempotent; the owner is
+    already on the list and is not written here."""
+    with Session() as s:
+        plan = s.get(TravelPlan, plan_id.upper())
+        if not plan:
+            return None
+        if plan.created_by != username:
+            exists = (s.query(TravelPlanMember)
+                      .filter_by(plan_id=plan.id, username=username).first())
+            if not exists:
+                s.add(TravelPlanMember(plan_id=plan.id, username=username))
+                s.commit()
+        return _plan_dict(plan)
+
+
+def is_member(plan_id, username):
+    with Session() as s:
+        plan = s.get(TravelPlan, plan_id.upper())
+        if not plan:
+            return False
+        if plan.created_by == username:
+            return True
+        return s.query(TravelPlanMember.id).filter_by(
+            plan_id=plan.id, username=username).first() is not None
 
 
 def update_plan(plan_id, name=None, num_days=None):

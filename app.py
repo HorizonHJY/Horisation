@@ -170,6 +170,34 @@ def _is_share_crawler() -> bool:
     return any(sig in ua for sig in _OG_BOT_SIGNATURES)
 
 
+@app.route('/t/<plan_id>')
+def travel_share_card(plan_id: str):
+    """Open Graph card for a shared trip. Crawlers get plan-specific tags;
+    people get the SPA, which loads the plan by id."""
+    import html as _html
+    from Backend.Controller.travel_db import get_plan
+    plan = get_plan(plan_id)
+    if not plan or not _is_share_crawler():
+        return send_from_directory(STATIC_DIR, 'index.html')
+
+    e = _html.escape
+    title = f"{plan.get('name') or '旅行规划'} · Travel Planner"
+    desc  = f"{plan.get('num_days') or 1} 天行程 · Arch Bay"
+    image = request.url_root.rstrip('/') + '/travel-og.png'
+    body = (
+        '<!doctype html><html lang="zh"><head><meta charset="utf-8">'
+        f'<title>{e(title)}</title>'
+        f'<meta property="og:title" content="{e(title)}">'
+        f'<meta property="og:description" content="{e(desc)}">'
+        f'<meta property="og:image" content="{e(image)}">'
+        '<meta property="og:type" content="article">'
+        f'<meta name="twitter:card" content="summary_large_image">'
+        f'<meta name="twitter:image" content="{e(image)}">'
+        '</head><body></body></html>'
+    )
+    return Response(body, mimetype='text/html; charset=utf-8')
+
+
 @app.route('/market/l/<listing_id>')
 def market_share_card(listing_id: str):
     from Backend.Controller.market_db import get_listing

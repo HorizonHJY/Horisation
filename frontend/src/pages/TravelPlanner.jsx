@@ -82,7 +82,7 @@ function TypeBadge({ type }) {
 function CopyBadge({ planId }) {
   const [copied, setCopied] = useState(false)
   function copy() {
-    const url = window.location.origin + '/travel?join=' + planId
+    const url = window.location.origin + '/t/' + planId
     navigator.clipboard.writeText(url).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 1800)
@@ -474,6 +474,12 @@ function PlanView({ plan: initPlan, onBack, showToast }) {
     else showToast(d.error || '保存失败', 'danger')
   }
 
+  async function saveToMine() {
+    const d = await api.post(`/api/travel/plans/${plan.id}/save`, {})
+    if (d.ok) { setPlan(p => ({ ...p, saved: true })); showToast('已保存到我的行程', 'success') }
+    else showToast(d.error || '保存失败', 'danger')
+  }
+
   async function addDay() {
     const newNum = plan.num_days + 1
     const d = await api.put(`/api/travel/plans/${plan.id}`, { num_days: newNum })
@@ -610,6 +616,13 @@ function PlanView({ plan: initPlan, onBack, showToast }) {
           </h5>
         )}
       </div>
+      {plan.is_owner === false && !plan.saved && (
+        <div className="mb-3">
+          <button className="btn btn-sm btn-primary tp-ibtn" onClick={saveToMine}>
+            <i className="fas fa-download me-1" />保存到我的行程
+          </button>
+        </div>
+      )}
 
       {/* Plan / Expenses switch. A segmented control rather than a pill pair:
           the two panels below look nothing alike, and the switch should say

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
-import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
 
 // Where in localStorage the last time the sidebar's Market dot was cleared
 // lives. Per-browser rather than per-user, so the key is stable.
@@ -399,6 +399,13 @@ function FeatureRoute({ feature, children }) {
 /* Role gate used by the Pet closed beta. Keeps non-horizon members on /home
    instead of showing an empty page or a 403 wall; the backend enforces the
    same gate behind /api/pet/* (see pet_controller.PET_CLOSED_BETA). */
+function TravelShareRedirect() {
+  const { planId } = useParams()
+  // The server renders the crawler card for /t/<id>; a person's browser lands
+  // here, and the planner already knows how to open ?join=<id>.
+  return <Navigate to={`/travel?join=${planId}`} replace />
+}
+
 function RoleRoute({ role, children }) {
   const { user } = useAuth()
   if (user?.role !== role) return <Navigate to="/home" replace />
@@ -510,6 +517,7 @@ export default function App() {
             <Route path="/groups"            element={<PrivateRoute><Groups /></PrivateRoute>} />
             <Route path="/u/:username"       element={<PrivateRoute><UserProfile /></PrivateRoute>} />
             <Route path="/travel"            element={<PrivateRoute><TravelPlanner /></PrivateRoute>} />
+            <Route path="/t/:planId"          element={<PrivateRoute><TravelShareRedirect /></PrivateRoute>} />
             <Route path="/bill-split"        element={<PrivateRoute><FeatureRoute feature="billSplit"><BillSplit /></FeatureRoute></PrivateRoute>} />
             <Route path="/tarot/history"     element={<PrivateRoute><TarotHistory /></PrivateRoute>} />
             <Route path="/about"             element={<PrivateRoute><About /></PrivateRoute>} />
