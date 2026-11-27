@@ -41,6 +41,16 @@ def get_bill(bill_id):
     return jsonify({'ok': True, 'bill': bill})
 
 
+@bill_bp.route('/bills/<bill_id>/join', methods=['POST'])
+@login_required
+def join_bill(bill_id):
+    """Join a shared bill so it stays in my list. Idempotent."""
+    bill = bill_db.add_bill_member(bill_id, request.current_user['username'])
+    if not bill:
+        return jsonify({'ok': False, 'error': 'Bill not found.'}), 404
+    return jsonify({'ok': True, 'bill': bill})
+
+
 @bill_bp.route('/bills/<bill_id>', methods=['PUT'])
 @login_required
 def update_bill(bill_id):

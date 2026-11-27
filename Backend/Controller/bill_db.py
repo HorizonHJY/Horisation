@@ -10,7 +10,7 @@ import json
 import random
 from datetime import datetime
 
-from sqlalchemy import Column, Float, String, Text, DateTime, event
+from sqlalchemy import Column, Float, Integer, String, Text, DateTime, UniqueConstraint, event
 from sqlalchemy.orm import sessionmaker, declarative_base
 from sqlalchemy import create_engine
 
@@ -40,6 +40,20 @@ class Bill(Base):
     name       = Column(Text,       nullable=False)
     created_by = Column(String(64), nullable=False)
     created_at = Column(DateTime,   default=datetime.utcnow)
+
+
+class BillMember(Base):
+    """A bill someone joined from a share link. The creator lives on
+    bills.created_by; this table only holds the people who joined."""
+    __tablename__ = 'bill_members'
+    id       = Column(Integer, primary_key=True, autoincrement=True)
+    bill_id  = Column(String(10), nullable=False, index=True)
+    username = Column(String(64), nullable=False, index=True)
+    added_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint('bill_id', 'username', name='uq_bill_member'),
+    )
 
 
 class BillParticipant(Base):
@@ -123,6 +137,30 @@ def create_bill_for_plan(plan_id, name, username):
     return get_bill(plan_id)
 
 
+def bill_members(bill_id):
+    """Accounts that can open this bill: the creator plus everyone who joined
+    from a share link. Display names come from the user table."""
+    from sqlalchemy import text
+    with Session() as s:
+        bill = s.get(Bill, bill_id.upper())
+        if not bill:
+            return []
+        owner = s.execute(
+            text('select coalesce(display_name, username) from user where username = :u'),
+            {'u': bill.created_by}).fetchone()
+        out = [{'username': bill.created_by,
+                'display_name': (owner[0] if owner else bill.created_by),
+                'is_owner': True}]
+        rows = s.execute(
+            text('select bm.username, coalesce(u.display_name, bm.username) '
+                 'from bill_members bm left join user u on u.username = bm.username '
+                 'where bm.bill_id = :b order by bm.added_at'),
+            {'b': bill.id}).fetchall()
+        for username, display in rows:
+            out.append({'username': username, 'display_name': display or username, 'is_owner': False})
+        return out
+
+
 def get_bill(bill_id):
     with Session() as s:
         bill = s.get(Bill, bill_id.upper())
@@ -135,23 +173,45 @@ def get_bill(bill_id):
              .order_by(BillExpense.created_at)
              .all()
         )
-        return _bill_dict(bill, participants, expenses)
+        out = _bill_dict(bill, participants, expenses)
+        out['members'] = bill_members(bill.id)
+        return out
 
 
 def get_my_bills(username):
+    """Owned bills plus the ones joined from a share link."""
     with Session() as s:
-        bills = (
-            s.query(Bill)
-             .filter_by(created_by=username)
-             .order_by(Bill.created_at.desc())
-             .all()
-        )
-        result = []
-        for b in bills:
+        bills = s.query(Bill).filter_by(created_by=username).all()
+        joined = {bid for (bid,) in
+                  s.query(BillMember.bill_id).filter_by(username=username).all()}
+        if joined:
+            bills += s.query(Bill).filter(Bill.id.in_(joined)).all()
+        seen, result = set(), []
+        for b in sorted(bills, key=lambda x: x.created_at or datetime.min, reverse=True):
+            if b.id in seen:
+                continue
+            seen.add(b.id)
             participants = s.query(BillParticipant).filter_by(bill_id=b.id).all()
             expenses     = s.query(BillExpense).filter_by(bill_id=b.id).all()
-            result.append(_bill_dict(b, participants, expenses))
+            out = _bill_dict(b, participants, expenses)
+            out['members'] = bill_members(b.id)
+            result.append(out)
         return result
+
+
+def add_bill_member(bill_id, username):
+    """Join a shared bill. Idempotent; the creator is not written here."""
+    with Session() as s:
+        bill = s.get(Bill, bill_id.upper())
+        if not bill:
+            return None
+        if bill.created_by != username:
+            exists = (s.query(BillMember)
+                      .filter_by(bill_id=bill.id, username=username).first())
+            if not exists:
+                s.add(BillMember(bill_id=bill.id, username=username))
+                s.commit()
+        return get_bill(bill.id)
 
 
 def update_bill_name(bill_id, name):

@@ -87,6 +87,23 @@ function ParticipantsPanel({ bill, onRefresh }) {
 
   return (
     <div>
+      <div className="mb-3">
+        <div className="text-muted small mb-1">可以访问这个账本的账号</div>
+        <div className="d-flex flex-wrap gap-2">
+          {(bill.members || []).map(m => (
+            <span key={m.username}
+              className="badge d-flex align-items-center gap-1"
+              style={{
+                background: m.is_owner ? '#dbeafe' : '#eef2f7',
+                color: m.is_owner ? '#1d4ed8' : '#334155',
+                fontSize: '.78rem', padding: '5px 10px', borderRadius: 20,
+              }}>
+              <i className="fas fa-user-circle" style={{ fontSize: '.7rem' }} />
+              {m.display_name}{m.is_owner ? ' · 创建者' : ''}
+            </span>
+          ))}
+        </div>
+      </div>
       <div className="d-flex gap-2 mb-3">
         <input className="form-control form-control-sm" placeholder="添加成员姓名…"
           value={name} onChange={e => setName(e.target.value)}
@@ -371,9 +388,15 @@ export default function BillSplit() {
     if (code) {
       const upper = code.toUpperCase()
       window.history.replaceState({}, '', window.location.pathname)
-      api.get(`/api/bill/bills/${upper}`).then(d => {
-        if (d.ok) { setSelected(d.bill.id); setBill(d.bill); setTab('expenses') }
-        else showToast('找不到该账单，请检查分享链接', 'danger')
+      // Opening a share link joins the bill, so it also lands in my own list.
+      api.post(`/api/bill/bills/${upper}/join`, {}).then(d => {
+        if (d.ok) {
+          setSelected(d.bill.id); setBill(d.bill); setTab('expenses')
+          loadMyBills()
+          showToast('已加入这个账单', 'success')
+        } else {
+          showToast('找不到该账单，请检查分享链接', 'danger')
+        }
       })
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps

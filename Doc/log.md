@@ -2264,3 +2264,9 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 - 样式：`.tp-picker__panel / __opt / __empty`，白底、细边、最多 220px 高可滚动。
 - 验证：390 下点开显示 2 位好友，选中后输入框变为所选名字，无横向溢出；截图存 `~/.openclaw/scratch/friend-picker/`。
 - 另：线上 `/t/<id>` 分享卡已用真实行程 KX3KSA 验证，标题/天数/旅行图正确（之前用本地演示 ID 才会回落默认图）。
+
+## 2026-11-27 账单：点链接加入 + 可访问账号可见
+- 加入：新增 `bill_members` 表（bill_id + username 唯一）与 `POST /api/bill/bills/<id>/join`；打开 `/bill-split?join=<code>` 时自动加入，提示「已加入这个账单」，并在「我的账单」里可见。`get_my_bills` 合并「自己创建」与「已加入」。
+- 可访问账号：账单 payload 多返回 `members`（创建者 + 已加入账号，带 display_name 与 is_owner）；「成员」标签顶部显示「可以访问这个账本的账号」，所有成员可见。
+- 注意：Bill Split 本身仍是 VIP 及以上功能（features.js），普通用户打开链接会被 FeatureRoute 拦回首页；若要「任何登录用户凭链接加入」，需放开该功能门。
+- 验证：ann 通过 join 接口加入后 `/api/bill/my` 包含 DHD8MH；horizon 账单页可见 members=[horizon(创建者), ann]；390 无横向溢出。
