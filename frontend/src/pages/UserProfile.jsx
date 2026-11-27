@@ -24,6 +24,7 @@ export default function UserProfile() {
   const [petNote, setPetNote]   = useState('')
 
   const [tab, setTab] = useState('reviews')
+  const [showListings, setShowListings] = useState(false)
 
   // Reviews
   const [reviewsData, setReviewsData] = useState(null)     // {avg,count,reviews}
@@ -274,9 +275,19 @@ export default function UserProfile() {
         <span className="badge text-bg-secondary" style={{ fontSize: '.7rem' }}>
           {listings.length}
         </span>
+        <button
+          type="button"
+          className="btn btn-link btn-sm p-0 ms-auto text-decoration-none"
+          style={{ fontSize: '.78rem' }}
+          onClick={() => setShowListings(v => !v)}
+        >
+          {showListings ? '收起' : '展开'}
+          <i className={`fas fa-chevron-${showListings ? 'up' : 'down'} ms-1`} style={{ fontSize: '.65rem' }} />
+        </button>
       </div>
 
-      {listings.length === 0 ? (
+      {showListings && (
+      listings.length === 0 ? (
         <div className="text-center text-muted py-4">
           <i className="fas fa-store-slash fa-2x mb-2 d-block" style={{ opacity: 0.2 }} />
           <p className="mb-0 small">
@@ -322,6 +333,7 @@ export default function UserProfile() {
             )
           })}
         </div>
+      )
       )}
 
       {/* ── Reviews + Wall ─────────────────────────────────────────── */}
