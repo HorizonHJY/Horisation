@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../App'
 import { api } from '../api'
 import FlowerCanvas from '../components/FlowerCanvas'
@@ -13,6 +13,10 @@ export default function Register() {
   const [loading, setLoading] = useState(false)
   const { login }  = useAuth()
   const navigate   = useNavigate()
+  const location   = useLocation()
+  // A shared link (bill, room, profile) is waiting in state.from; a plain
+  // signup has none and still lands on /home.
+  const from = location.state?.from
 
   const set = (key) => (e) => setForm(f => ({ ...f, [key]: e.target.value }))
 
@@ -32,7 +36,8 @@ export default function Register() {
       })
       if (data.ok) {
         login(data.user)
-        navigate('/home')
+        const target = from ? `${from.pathname || ''}${from.search || ''}${from.hash || ''}` : ''
+        navigate(target || '/home', { replace: true })
       } else {
         setError(data.error || 'Registration failed.')
       }

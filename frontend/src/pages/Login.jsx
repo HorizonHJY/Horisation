@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../App'
 import { api } from '../api'
 import FlowerCanvas from '../components/FlowerCanvas'
@@ -10,10 +10,18 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const { login, continueAsGuest } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+  // A shared link (a bill, a room, a profile) puts the destination here before
+  // bouncing to login. Going back to /home throws that link away.
+  const from = location.state?.from
+  const goAfterAuth = () => {
+    const target = from ? `${from.pathname || ''}${from.search || ''}${from.hash || ''}` : ''
+    navigate(target || '/home', { replace: true })
+  }
 
   const handleGuest = () => {
     continueAsGuest()
-    navigate('/home')
+    goAfterAuth()
   }
 
   const handleSubmit = async (e) => {
@@ -24,7 +32,7 @@ export default function Login() {
       const data = await api.post('/api/auth/login', form)
       if (data.ok) {
         login(data.user)
-        navigate('/home')
+        goAfterAuth()
       } else {
         setError(data.error || 'Invalid username or password')
       }

@@ -2239,3 +2239,8 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 ## 2026-11-27 真心话大冒险：补大冒险
 - 新增 8 条大冒险：正常 2 条（normal-d-21/22），18+ 6 条（adult-d-21..26），都是动作型，内容保持暧昧不露骨。
 - 现在各档数量：破冰 21 真/19 冒，正常 22/20，18+ 25/21，共 128 条。
+
+## 2026-11-27 分享链接登录后回到原页面
+- 问题：PrivateRoute 已把 `from` 放进 location.state，但 Login.jsx 和 Register.jsx 都硬编码 `navigate('/home')`，导致账单/房间/主页等分享链接在未登录时点击，登录后落到首页，目标丢失。
+- 修法：两处登录成功后读 `location.state.from`，拼 pathname+search+hash 回跳；没有 from 才回 `/home`。游客登录同样处理。
+- 验证：未登录打开 `/bill-split?join=DHD8MH` → 落到 /login → 用 horizon 登录 → 自动回到 /bill-split 并加载京都账单与费用。
