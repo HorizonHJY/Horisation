@@ -2257,3 +2257,10 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 - 保存到账户：新表 `travel_plan_members`（plan_id + username 唯一）；`get_my_plans` 合并「自己创建」与「保存过的」；`POST /api/travel/plans/<id>/save` 幂等加入；`GET plan` 返回 `is_owner` / `saved`。
 - 前端：非创建者打开分享行程，标题下出现「保存到我的行程」，保存后该行程进入「我的行程」。
 - 验证：ann 打开 `/t/DHD8MH` 自动进入，`is_owner=false`，点保存后 `saved=true` 且 `/api/travel/my` 包含 DHD8MH；390 截图存 `~/.openclaw/scratch/travel-share/`。
+
+## 2026-11-27 行程费用：好友选择器修复
+- 原因：参与人输入框用的是 `<datalist>`，iOS Safari 基本不弹、桌面也要双击，且没有可见的下拉提示。
+- 改法：换成自绘面板（输入框 + 展开按钮 + 好友列表），输入时按名字过滤，点选后填入输入框；面板 `onMouseDown` 阻止默认以保证手机点击不被 blur 吃掉。
+- 样式：`.tp-picker__panel / __opt / __empty`，白底、细边、最多 220px 高可滚动。
+- 验证：390 下点开显示 2 位好友，选中后输入框变为所选名字，无横向溢出；截图存 `~/.openclaw/scratch/friend-picker/`。
+- 另：线上 `/t/<id>` 分享卡已用真实行程 KX3KSA 验证，标题/天数/旅行图正确（之前用本地演示 ID 才会回落默认图）。

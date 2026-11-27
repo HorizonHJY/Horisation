@@ -6501,3 +6501,36 @@ button.fr-chip:hover { filter: brightness(.96); }
   .uc-page { padding: 20px 14px 64px; }
   .uc-lobby { grid-template-columns: 1fr; }
 }
+
+/* Travel expense: the friend picker. A native <datalist> barely opens on
+   iOS and gives no visible affordance, so the options are a real panel. */
+.tp-picker { position: relative; }
+.tp-picker__panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  max-height: 220px;
+  overflow-y: auto;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-medium);
+  border-radius: 8px;
+  box-shadow: 0 12px 30px rgba(26, 26, 26, .12);
+  padding: 4px;
+}
+.tp-picker__opt {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  padding: 9px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+  min-height: 38px;
+}
+.tp-picker__opt:hover { background: var(--bg-subtle); }
+.tp-picker__empty { padding: 10px; font-size: 12.5px; color: var(--text-muted); }

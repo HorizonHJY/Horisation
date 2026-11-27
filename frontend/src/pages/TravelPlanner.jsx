@@ -811,6 +811,7 @@ function calcSettlement(participants, expenses) {
 function ParticipantPicker({ planId, participants, friends, onRefresh, showToast }) {
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
+  const [open, setOpen] = useState(false)
 
   async function add() {
     const n = name.trim()
@@ -841,21 +842,47 @@ function ParticipantPicker({ planId, participants, friends, onRefresh, showToast
           </button>
         </span>
       ))}
-      <div className="input-group input-group-sm" style={{ maxWidth: 220 }}>
+      <div className="tp-picker input-group input-group-sm" style={{ maxWidth: 240 }}>
         <input
-          className="form-control" list={`plan-friends-${planId}`}
-          placeholder="输入名字，或从好友里选"
+          className="form-control"
+          placeholder="输入名字，或选好友"
           value={name}
-          onChange={e => setName(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter' && !isImeEnter(e)) { e.preventDefault(); add() } }}
+          autoComplete="off"
+          onFocus={() => setOpen(true)}
+          onChange={e => { setName(e.target.value); setOpen(true) }}
+          onKeyDown={e => { if (e.key === 'Enter' && !isImeEnter(e)) { e.preventDefault(); add(); setOpen(false) } }}
         />
-        <datalist id={`plan-friends-${planId}`}>
-          {friends.filter(f => !participants.includes(f.display_name) && !participants.includes(f.username))
-            .map(f => <option key={f.username} value={f.display_name || f.username} />)}
-        </datalist>
+        <button className="btn btn-outline-secondary tp-ibtn" type="button"
+          onClick={() => setOpen(o => !o)} aria-label="选择好友">
+          <i className={`fas fa-chevron-${open ? 'up' : 'down'}`} style={{ fontSize: '.7rem' }} />
+        </button>
         <button className="btn btn-outline-primary tp-ibtn" onClick={add} disabled={busy} aria-label="添加参与人">
           <i className="fas fa-plus" />
         </button>
+        {open && (() => {
+          const q = name.trim()
+          const options = friends.filter(f => {
+            const dn = f.display_name || f.username
+            if (participants.includes(dn) || participants.includes(f.username)) return false
+            return !q || dn.includes(q) || (f.username || '').includes(q)
+          })
+          return (
+            <div className="tp-picker__panel" role="listbox" aria-label="好友">
+              {options.length === 0
+                ? <div className="tp-picker__empty">{q ? '没有匹配的好友' : '还没有好友'}</div>
+                : options.map(f => {
+                    const dn = f.display_name || f.username
+                    return (
+                      <button key={f.username} type="button" role="option" className="tp-picker__opt"
+                        onMouseDown={e => e.preventDefault()}
+                        onClick={() => { setName(dn); setOpen(false) }}>
+                        {dn}
+                      </button>
+                    )
+                  })}
+            </div>
+          )
+        })()}
       </div>
     </div>
   )
