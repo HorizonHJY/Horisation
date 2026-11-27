@@ -6551,10 +6551,14 @@ button.fr-chip:hover { filter: brightness(.96); }
   align-items: center;
   gap: 10px;
 }
-.tp-day-actions__rule {
-  width: 1px;
-  height: 18px;
-  background: var(--border-medium);
+.tp-day-actions__rule { display: none; }
+.tp-day-actions .btn.tp-day-btn {
+  min-height: 36px;
+  padding: 0 14px;
+  font-size: .78rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 /* Access lists on bills and trips: avatar chip, profile link, quick add. */

@@ -729,20 +729,19 @@ function PlanView({ plan: initPlan, onBack, showToast }) {
             from reading as another row of the schedule. */}
         <div className="tp-day-actions">
           <button
-            className="btn btn-sm btn-outline-primary tp-ibtn"
+            className="btn btn-sm btn-outline-primary tp-day-btn"
             onClick={() => setEntryModal({ editing: null })}
           >
-            <i className="fas fa-plus me-1" />添加项目
+            <i className="fas fa-plus me-1" aria-hidden="true" />添加项目
           </button>
           {plan.num_days > 1 && (
             <div className="tp-day-actions__danger">
               <span className="tp-day-actions__rule" aria-hidden="true" />
               <button
-                className="btn btn-sm btn-link text-danger text-decoration-none tp-ibtn"
-                style={{ fontSize: '.78rem' }}
+                className="btn btn-sm btn-outline-danger tp-day-btn"
                 onClick={() => setConfirm({ kind: 'day', day: activeDay, count: dayEntries.length })}
               >
-                删除这一天
+                <i className="fas fa-trash me-1" aria-hidden="true" />删除这一天
               </button>
             </div>
           )}
