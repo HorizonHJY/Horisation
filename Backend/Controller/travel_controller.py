@@ -12,6 +12,16 @@ from Backend.Controller import travel_db
 travel_bp = Blueprint('travel', __name__, url_prefix='/api/travel')
 
 
+def _parse_spent_at(value):
+    from datetime import date
+    if not value:
+        return date.today()
+    try:
+        return date.fromisoformat(str(value)[:10])
+    except ValueError:
+        return date.today()
+
+
 # ── Plans ─────────────────────────────────────────────────────────────────────
 
 @travel_bp.route('/plans', methods=['POST'])
@@ -212,6 +222,7 @@ def add_plan_expense(plan_id):
     desc        = (data.get('desc') or '').strip()
     paid_by     = (data.get('paidBy') or '').strip()
     split_among = data.get('splitAmong', [])
+    spent_at    = _parse_spent_at(data.get('spentAt'))
     if not desc:
         return jsonify({'ok': False, 'error': 'Description is required.'}), 400
     try:
@@ -221,7 +232,7 @@ def add_plan_expense(plan_id):
         return jsonify({'ok': False, 'error': 'Invalid amount.'}), 400
     if not paid_by or not split_among:
         return jsonify({'ok': False, 'error': 'paidBy and splitAmong are required.'}), 400
-    expense = bill_db.add_expense(bill['id'], desc, amount, paid_by, split_among)
+    expense = bill_db.add_expense(bill['id'], desc, amount, paid_by, split_among, spent_at)
     return jsonify({'ok': True, 'expense': expense, 'bill': bill_db.get_bill(bill['id'])}), 201
 
 
@@ -236,6 +247,7 @@ def update_plan_expense(plan_id, expense_id):
     desc        = (data.get('desc') or '').strip()
     paid_by     = (data.get('paidBy') or '').strip()
     split_among = data.get('splitAmong', [])
+    spent_at    = _parse_spent_at(data.get('spentAt'))
     if not desc:
         return jsonify({'ok': False, 'error': 'Description is required.'}), 400
     try:
@@ -245,7 +257,7 @@ def update_plan_expense(plan_id, expense_id):
         return jsonify({'ok': False, 'error': 'Invalid amount.'}), 400
     if not paid_by or not split_among:
         return jsonify({'ok': False, 'error': 'paidBy and splitAmong are required.'}), 400
-    expense = bill_db.update_expense(bill['id'], expense_id, desc, amount, paid_by, split_among)
+    expense = bill_db.update_expense(bill['id'], expense_id, desc, amount, paid_by, split_among, spent_at)
     if not expense:
         return jsonify({'ok': False, 'error': 'Expense not found.'}), 404
     return jsonify({'ok': True, 'expense': expense, 'bill': bill_db.get_bill(bill['id'])})

@@ -1017,6 +1017,7 @@ function ExpenseTab({ plan, showToast }) {
                   <div style={{ flex: 1 }}>
                     <strong style={{ fontSize: '.9rem' }}>{e.desc}</strong>
                     <div className="text-muted small mt-1">
+                      {e.spentAt && <span className="me-2"><i className="fas fa-calendar me-1" />{e.spentAt}</span>}
                       <span className="me-2"><i className="fas fa-user me-1" />{e.paidBy} 付款</span>
                       <span><i className="fas fa-users me-1" />{e.splitAmong.join('、')} 分摊（每人 ${share}）</span>
                     </div>

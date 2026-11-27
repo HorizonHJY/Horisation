@@ -10,7 +10,7 @@ import json
 import random
 from datetime import datetime
 
-from sqlalchemy import Column, Float, Integer, String, Text, DateTime, UniqueConstraint, event
+from sqlalchemy import Column, Date, Float, Integer, String, Text, DateTime, UniqueConstraint, event
 from sqlalchemy.orm import sessionmaker, declarative_base
 from sqlalchemy import create_engine
 
@@ -71,11 +71,25 @@ class BillExpense(Base):
     amount       = Column(Float,      nullable=False)
     paid_by      = Column(String(64), nullable=False)
     split_among  = Column(Text,       nullable=False)  # JSON array
+    spent_at     = Column(Date,        nullable=True)  # the day the money was spent
     created_at   = Column(DateTime,   default=datetime.utcnow)
 
 
 def init_bill_db():
     Base.metadata.create_all(engine)
+    # Additive migration for databases created before spent_at existed.
+    from sqlalchemy import text
+    with engine.connect() as c:
+        try:
+            cols = [r[1] for r in c.execute(text('PRAGMA table_info(bill_expenses)')).fetchall()]
+            if 'spent_at' not in cols:
+                c.execute(text('ALTER TABLE bill_expenses ADD COLUMN spent_at DATE'))
+                c.commit()
+            # Old rows get the day they were recorded; nobody has to re-enter them.
+            c.execute(text("UPDATE bill_expenses SET spent_at = date(created_at) WHERE spent_at IS NULL"))
+            c.commit()
+        except Exception:
+            pass
 
 
 # ── Serialisers ───────────────────────────────────────────────────────────────
@@ -88,6 +102,7 @@ def _expense_dict(e):
         'amount':      e.amount,
         'paidBy':      e.paid_by,
         'splitAmong':  json.loads(e.split_among),
+        'spentAt':     e.spent_at.isoformat() if e.spent_at else None,
         'created_at':  e.created_at.isoformat() if e.created_at else None,
     }
 
@@ -279,7 +294,7 @@ def remove_participant(bill_id, name):
 
 # ── Expense helpers ───────────────────────────────────────────────────────────
 
-def add_expense(bill_id, desc, amount, paid_by, split_among):
+def add_expense(bill_id, desc, amount, paid_by, split_among, spent_at=None):
     with Session() as s:
         bill = s.get(Bill, bill_id.upper())
         if not bill:
@@ -290,6 +305,7 @@ def add_expense(bill_id, desc, amount, paid_by, split_among):
             amount=float(amount),
             paid_by=paid_by,
             split_among=json.dumps(split_among),
+            spent_at=spent_at,
         )
         s.add(e)
         s.commit()
@@ -297,7 +313,7 @@ def add_expense(bill_id, desc, amount, paid_by, split_among):
         return _expense_dict(e)
 
 
-def update_expense(bill_id, expense_id, desc, amount, paid_by, split_among):
+def update_expense(bill_id, expense_id, desc, amount, paid_by, split_among, spent_at=None):
     with Session() as s:
         e = s.query(BillExpense).filter_by(id=expense_id, bill_id=bill_id.upper()).first()
         if not e:
@@ -306,6 +322,8 @@ def update_expense(bill_id, expense_id, desc, amount, paid_by, split_among):
         e.amount = float(amount)
         e.paid_by = paid_by
         e.split_among = json.dumps(split_among)
+        if spent_at is not None:
+            e.spent_at = spent_at
         s.commit()
         s.refresh(e)
         return _expense_dict(e)

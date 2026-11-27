@@ -2276,3 +2276,9 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 - 原因：目标只存在 router state（内存），换浏览器即丢失；登录页 URL 里没有目标。
 - 修法：所有跳登录的地方（PrivateRoute、PageRoute）都带上 `?next=<编码后的 pathname+search>`；Login / Register 优先读 `next`，没有才用 state.from；已登录访问登录页也按 `next` 跳。
 - 验证：`/bill-split?join=DHD8MH` → `/login?next=%2Fbill-split%3Fjoin%3DDHD8MH`；同浏览器登录后到账单；把这个登录 URL 放进全新会话（模拟外部浏览器）登录，同样落在账单。
+
+## 2026-11-27 账单：每笔账带日期 + 成员常驻显示
+- 日期：`bill_expenses` 加 `spent_at`（DATE，启动时 ALTER 追加）；旧数据用 `date(created_at)` 回填；新增/编辑接口接受 `spentAt`（YYYY-MM-DD），无效值回落到今天。
+- 前端：共用 `ExpenseForm` 加日期选择（默认今天）；账单行与行程费用行显示日期。
+- 成员可见性：原来只藏在「成员」标签里；现在账单标题下方常驻一行「可访问」+ 账号标签，创建者标注，所有成员可见。
+- 验证：旧账目「晚饭 拉面」回填为 2026-10-16；带 spentAt=2026-11-20 新建成功；390 下页面同时显示 可访问 与日期，无横向溢出。

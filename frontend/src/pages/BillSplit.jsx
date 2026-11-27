@@ -188,6 +188,7 @@ function ExpensesPanel({ bill, onRefresh }) {
                   <div style={{ flex: 1 }}>
                     <strong style={{ fontSize: '.9rem' }}>{e.desc}</strong>
                     <div className="text-muted small mt-1">
+                      {e.spentAt && <span className="me-2"><i className="fas fa-calendar me-1" />{e.spentAt}</span>}
                       <span className="me-2"><i className="fas fa-user me-1" />{e.paidBy} 付款</span>
                       <span><i className="fas fa-users me-1" />{e.splitAmong.join('、')} 分摊（每人 ${share}）</span>
                     </div>
@@ -536,6 +537,15 @@ export default function BillSplit() {
             </h2>
           )}
           <span className="text-muted small">{bill.participants.length} 人 {bill.expenses.length} 笔账单</span>
+          <div className="d-flex flex-wrap align-items-center gap-1 mt-1">
+            <span className="text-muted" style={{ fontSize: '.72rem' }}>可访问</span>
+            {(bill.members || []).map(m => (
+              <span key={m.username} className="badge"
+                style={{ background: m.is_owner ? '#dbeafe' : '#eef2f7', color: m.is_owner ? '#1d4ed8' : '#334155', fontSize: '.7rem', fontWeight: 500 }}>
+                {m.display_name}{m.is_owner ? ' · 创建者' : ''}
+              </span>
+            ))}
+          </div>
         </div>
       </div>
 

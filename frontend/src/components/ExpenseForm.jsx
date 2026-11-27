@@ -4,14 +4,21 @@ import React, { useState } from 'react'
    a travel plan's expense tab. The parent owns the endpoint (they differ), so
    `onSubmit` receives the payload and returns { ok, error }. */
 
+const todayISO = () => {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 export default function ExpenseForm({ participants, expense, onSubmit, onCancel }) {
   const [form, setForm] = useState(() => expense ? {
     desc: expense.desc || '',
     amount: String(expense.amount ?? ''),
     paidBy: expense.paidBy || participants[0] || '',
     splitAmong: [...(expense.splitAmong || participants)],
+    spentAt: expense.spentAt || todayISO(),
   } : {
     desc: '', amount: '', paidBy: participants[0] || '', splitAmong: [...participants],
+    spentAt: todayISO(),
   })
   const [saving, setSaving] = useState(false)
   const [error, setError]   = useState('')
@@ -35,6 +42,7 @@ export default function ExpenseForm({ participants, expense, onSubmit, onCancel 
     setSaving(true)
     const res = await onSubmit({
       desc: form.desc.trim(), amount: amt, paidBy: form.paidBy, splitAmong: form.splitAmong,
+      spentAt: form.spentAt,
     })
     setSaving(false)
     if (!res?.ok) setError(res?.error || '保存失败')
@@ -54,6 +62,11 @@ export default function ExpenseForm({ participants, expense, onSubmit, onCancel 
             <input className="form-control form-control-sm" type="number" min="0" step="0.01" placeholder="0.00"
               value={form.amount} onChange={set('amount')} />
           </div>
+        </div>
+        <div className="mb-2" style={{ maxWidth: 190 }}>
+          <label className="form-label small fw-semibold mb-1">日期</label>
+          <input className="form-control form-control-sm" type="date"
+            value={form.spentAt} onChange={set('spentAt')} />
         </div>
         <div className="mb-2">
           <label className="form-label small fw-semibold mb-1">付款人</label>
