@@ -2244,3 +2244,9 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 - 问题：PrivateRoute 已把 `from` 放进 location.state，但 Login.jsx 和 Register.jsx 都硬编码 `navigate('/home')`，导致账单/房间/主页等分享链接在未登录时点击，登录后落到首页，目标丢失。
 - 修法：两处登录成功后读 `location.state.from`，拼 pathname+search+hash 回跳；没有 from 才回 `/home`。游客登录同样处理。
 - 验证：未登录打开 `/bill-split?join=DHD8MH` → 落到 /login → 用 horizon 登录 → 自动回到 /bill-split 并加载京都账单与费用。
+
+## 2026-11-27 行程：删除键位置 + 费用可编辑
+- 删除键：移除天数标签上的小 ×（切换天数时容易误触），改成内容卡片底部的「删除这一天」文字按钮，仅在天数 > 1 时出现；点击仍走原来的二次确认。
+- 行程费用编辑：新增 `PUT /api/travel/plans/<id>/bill/expenses/<eid>`（复用 `bill_db.update_expense`，返回整张账单）；每笔费用加铅笔按钮。
+- 去重：把账目表单抽成 `frontend/src/components/ExpenseForm.jsx`，账单页与行程费用共用，删掉两处各自的内联表单。
+- 验证：行程费用改 90 → 95 保存成功、结算重算，再改回 90；天数标签上 `.tp-day-x` 数量为 0；390 无横向溢出。

@@ -114,90 +114,6 @@ function ParticipantsPanel({ bill, onRefresh }) {
   )
 }
 
-// ── Expense form ──────────────────────────────────────────────────────────────
-function ExpenseForm({ billId, participants, expense, onSaved, onCancel }) {
-  const [form, setForm] = useState(() => expense ? {
-    desc: expense.desc || '',
-    amount: String(expense.amount ?? ''),
-    paidBy: expense.paidBy || participants[0] || '',
-    splitAmong: [...(expense.splitAmong || participants)],
-  } : {
-    desc: '', amount: '', paidBy: participants[0] || '', splitAmong: [...participants]
-  })
-  const [loading, setLoading] = useState(false)
-
-  function toggleSplit(p) {
-    setForm(f => ({
-      ...f, splitAmong: f.splitAmong.includes(p) ? f.splitAmong.filter(x => x !== p) : [...f.splitAmong, p]
-    }))
-  }
-
-  async function submit() {
-    if (!form.desc.trim()) return alert('请填写描述')
-    const amt = parseFloat(form.amount)
-    if (!amt || amt <= 0) return alert('请填写有效金额')
-    if (!form.paidBy) return alert('请选择付款人')
-    if (!form.splitAmong.length) return alert('请至少选择一位分摊人')
-    setLoading(true)
-    const payload = { desc: form.desc.trim(), amount: amt, paidBy: form.paidBy, splitAmong: form.splitAmong }
-    const d = expense
-      ? await api.put(`/api/bill/bills/${billId}/expenses/${expense.id}`, payload)
-      : await api.post(`/api/bill/bills/${billId}/expenses`, payload)
-    setLoading(false)
-    if (d.ok) onSaved()
-    else alert(d.error || (expense ? '保存失败' : '添加失败'))
-  }
-
-  return (
-    <div className="card border-0 shadow-sm mb-3" style={{ borderRadius: 12 }}>
-      <div className="card-body">
-        <div className="row g-2 mb-2">
-          <div className="col-7">
-            <label className="form-label small fw-semibold mb-1">描述</label>
-            <input className="form-control form-control-sm" placeholder="如：晚饭、门票…"
-              value={form.desc} onChange={e => setForm(f => ({ ...f, desc: e.target.value }))} />
-          </div>
-          <div className="col-5">
-            <label className="form-label small fw-semibold mb-1">金额 ($)</label>
-            <input className="form-control form-control-sm" type="number" min="0" step="0.01" placeholder="0.00"
-              value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} />
-          </div>
-        </div>
-        <div className="mb-2">
-          <label className="form-label small fw-semibold mb-1">付款人</label>
-          <select className="form-select form-select-sm"
-            value={form.paidBy} onChange={e => setForm(f => ({ ...f, paidBy: e.target.value }))}>
-            {participants.map(p => <option key={p} value={p}>{p}</option>)}
-          </select>
-        </div>
-        <div className="mb-3">
-          <div className="d-flex align-items-center gap-2 mb-1">
-            <label className="form-label small fw-semibold mb-0">分摊人</label>
-            <button className="btn btn-link btn-sm p-0 text-decoration-none" style={{ fontSize: '.75rem' }}
-              onClick={() => setForm(f => ({ ...f, splitAmong: [...participants] }))}>全选</button>
-            <button className="btn btn-link btn-sm p-0 text-decoration-none" style={{ fontSize: '.75rem' }}
-              onClick={() => setForm(f => ({ ...f, splitAmong: [] }))}>清空</button>
-          </div>
-          <div className="d-flex flex-wrap gap-2">
-            {participants.map(p => (
-              <label key={p} className="d-flex align-items-center gap-1 small" style={{ cursor: 'pointer' }}>
-                <input type="checkbox" checked={form.splitAmong.includes(p)} onChange={() => toggleSplit(p)} />
-                {p}
-              </label>
-            ))}
-          </div>
-        </div>
-        <div className="d-flex gap-2">
-          <button className="btn btn-primary btn-sm" onClick={submit} disabled={loading}>
-            <i className="fas fa-check me-1" />{expense ? '保存修改' : '确认添加'}
-          </button>
-          <button className="btn btn-outline-secondary btn-sm" onClick={onCancel}>取消</button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // ── Expenses panel ────────────────────────────────────────────────────────────
 function ExpensesPanel({ bill, onRefresh }) {
   const [adding, setAdding] = useState(false)
@@ -226,12 +142,22 @@ function ExpensesPanel({ bill, onRefresh }) {
         )}
       </div>
       {adding && (
-        <ExpenseForm billId={bill.id} participants={bill.participants}
-          onSaved={() => { setAdding(false); onRefresh() }} onCancel={() => setAdding(false)} />
+        <ExpenseForm participants={bill.participants}
+          onSubmit={async (payload) => {
+            const d = await api.post(`/api/bill/bills/${bill.id}/expenses`, payload)
+            if (d.ok) { setAdding(false); onRefresh() }
+            return d
+          }}
+          onCancel={() => setAdding(false)} />
       )}
       {editing && (
-        <ExpenseForm key={editing.id} billId={bill.id} participants={bill.participants} expense={editing}
-          onSaved={() => { setEditing(null); onRefresh() }} onCancel={() => setEditing(null)} />
+        <ExpenseForm key={editing.id} participants={bill.participants} expense={editing}
+          onSubmit={async (payload) => {
+            const d = await api.put(`/api/bill/bills/${bill.id}/expenses/${editing.id}`, payload)
+            if (d.ok) { setEditing(null); onRefresh() }
+            return d
+          }}
+          onCancel={() => setEditing(null)} />
       )}
       {bill.expenses.length === 0 ? (
         <p className="text-muted small">还没有账单记录。</p>

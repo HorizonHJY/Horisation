@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { api } from '../api'
 import Modal, { ConfirmDialog } from '../components/Modal'
+import ExpenseForm from '../components/ExpenseForm'
 import { isImeEnter } from '../lib/enterSubmit'
 import {
   DndContext,
@@ -666,20 +667,7 @@ function PlanView({ plan: initPlan, onBack, showToast }) {
                   {count}
                 </span>
               )}
-              {plan.num_days > 1 && (
-                <button
-                  type="button"
-                  className="tp-day-x"
-                  onClick={e => {
-                    e.stopPropagation()
-                    setConfirm({ kind: 'day', day: d, count })
-                  }}
-                  title="删除这一天"
-                  aria-label={`删除 Day ${d}`}
-                >
-                  <i className="fas fa-times" style={{ fontSize: '0.5rem' }} />
-                </button>
-              )}
+
             </div>
           )
         })}
@@ -701,13 +689,22 @@ function PlanView({ plan: initPlan, onBack, showToast }) {
             onReorder={handleReorder}
           />
         </div>
-        <div className="card-footer bg-transparent border-top-0 pt-2 pb-3 px-3">
+        <div className="card-footer bg-transparent border-top-0 pt-2 pb-3 px-3 d-flex align-items-center gap-2">
           <button
             className="btn btn-sm btn-outline-primary tp-ibtn"
             onClick={() => setEntryModal({ editing: null })}
           >
             <i className="fas fa-plus me-1" />添加项目
           </button>
+          {plan.num_days > 1 && (
+            <button
+              className="btn btn-sm btn-link text-danger text-decoration-none ms-auto tp-ibtn"
+              style={{ fontSize: '.78rem' }}
+              onClick={() => setConfirm({ kind: 'day', day: activeDay, count: dayEntries.length })}
+            >
+              删除这一天
+            </button>
+          )}
         </div>
       </div>
 
@@ -856,6 +853,7 @@ function ExpenseTab({ plan, showToast }) {
   const [friends, setFriends] = useState([])
   const [loading, setLoading] = useState(true)
   const [adding, setAdding]   = useState(false)
+  const [editing, setEditing] = useState(null)
   const [form, setForm]       = useState({ desc: '', amount: '', paidBy: '', splitAmong: [] })
   const [saving, setSaving]   = useState(false)
 
@@ -949,52 +947,22 @@ function ExpenseTab({ plan, showToast }) {
       )}
 
       {adding && (
-        <div className="card border-0 shadow-sm mb-3" style={{ borderRadius: 12 }}>
-          <div className="card-body">
-            <div className="row g-2 mb-2">
-              <div className="col-7">
-                <label className="form-label small fw-semibold mb-1">描述</label>
-                <input className="form-control form-control-sm" placeholder="如：晚饭、门票…"
-                  value={form.desc} onChange={e => setForm(f => ({ ...f, desc: e.target.value }))} />
-              </div>
-              <div className="col-5">
-                <label className="form-label small fw-semibold mb-1">金额 ($)</label>
-                <input className="form-control form-control-sm" type="number" min="0" step="0.01" placeholder="0.00"
-                  value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} />
-              </div>
-            </div>
-            <div className="mb-2">
-              <label className="form-label small fw-semibold mb-1">付款人</label>
-              <select className="form-select form-select-sm"
-                value={form.paidBy} onChange={e => setForm(f => ({ ...f, paidBy: e.target.value }))}>
-                {bill.participants.map(p => <option key={p} value={p}>{p}</option>)}
-              </select>
-            </div>
-            <div className="mb-3">
-              <div className="d-flex align-items-center gap-2 mb-1">
-                <label className="form-label small fw-semibold mb-0">分摊人</label>
-                <button className="btn btn-link btn-sm p-0 text-decoration-none" style={{ fontSize: '.75rem' }}
-                  onClick={() => setForm(f => ({ ...f, splitAmong: [...bill.participants] }))}>全选</button>
-                <button className="btn btn-link btn-sm p-0 text-decoration-none" style={{ fontSize: '.75rem' }}
-                  onClick={() => setForm(f => ({ ...f, splitAmong: [] }))}>清空</button>
-              </div>
-              <div className="d-flex flex-wrap gap-2">
-                {bill.participants.map(p => (
-                  <label key={p} className="d-flex align-items-center gap-1 small" style={{ cursor: 'pointer' }}>
-                    <input type="checkbox" checked={form.splitAmong.includes(p)} onChange={() => toggleSplit(p)} />
-                    {p}
-                  </label>
-                ))}
-              </div>
-            </div>
-            <div className="d-flex gap-2">
-              <button className="btn btn-primary btn-sm" onClick={submit} disabled={saving}>
-                {saving ? <span className="spinner-border spinner-border-sm me-1" /> : <i className="fas fa-check me-1" />}确认添加
-              </button>
-              <button className="btn btn-outline-secondary btn-sm" onClick={() => setAdding(false)}>取消</button>
-            </div>
-          </div>
-        </div>
+        <ExpenseForm participants={bill.participants}
+          onSubmit={async (payload) => {
+            const d = await api.post(`/api/travel/plans/${plan.id}/bill/expenses`, payload)
+            if (d.ok) { applyBill(d.bill); setAdding(false); showToast('已记录', 'success') }
+            return d
+          }}
+          onCancel={() => setAdding(false)} />
+      )}
+      {editing && (
+        <ExpenseForm key={editing.id} participants={bill.participants} expense={editing}
+          onSubmit={async (payload) => {
+            const d = await api.put(`/api/travel/plans/${plan.id}/bill/expenses/${editing.id}`, payload)
+            if (d.ok) { applyBill(d.bill); setEditing(null); showToast('已更新', 'success') }
+            return d
+          }}
+          onCancel={() => setEditing(null)} />
       )}
 
       {bill.expenses.length === 0 ? (
@@ -1015,10 +983,16 @@ function ExpenseTab({ plan, showToast }) {
                   </div>
                   <div className="d-flex flex-column align-items-end">
                     <strong style={{ fontSize: '1rem', color: '#3b82f6' }}>${parseFloat(e.amount).toFixed(2)}</strong>
-                    <button className="btn btn-link btn-sm p-0 text-danger tp-ibtn" style={{ fontSize: '.75rem' }}
-                      onClick={() => deleteExpense(e.id)} aria-label="删除这笔">
-                      <i className="fas fa-trash" />
-                    </button>
+                    <div className="d-flex align-items-center gap-2">
+                      <button className="btn btn-link btn-sm p-0 text-secondary tp-ibtn" style={{ fontSize: '.75rem' }}
+                        onClick={() => { setAdding(false); setEditing(e) }} aria-label="编辑这笔">
+                        <i className="fas fa-pen" />
+                      </button>
+                      <button className="btn btn-link btn-sm p-0 text-danger tp-ibtn" style={{ fontSize: '.75rem' }}
+                        onClick={() => deleteExpense(e.id)} aria-label="删除这笔">
+                        <i className="fas fa-trash" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>

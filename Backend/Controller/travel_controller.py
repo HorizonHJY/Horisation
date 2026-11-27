@@ -209,6 +209,32 @@ def add_plan_expense(plan_id):
     return jsonify({'ok': True, 'expense': expense, 'bill': bill_db.get_bill(bill['id'])}), 201
 
 
+@travel_bp.route('/plans/<plan_id>/bill/expenses/<expense_id>', methods=['PUT'])
+@login_required
+def update_plan_expense(plan_id, expense_id):
+    from Backend.Controller import bill_db
+    bill = _plan_bill(plan_id)
+    if not bill:
+        return jsonify({'ok': False, 'error': 'Plan not found.'}), 404
+    data        = request.get_json() or {}
+    desc        = (data.get('desc') or '').strip()
+    paid_by     = (data.get('paidBy') or '').strip()
+    split_among = data.get('splitAmong', [])
+    if not desc:
+        return jsonify({'ok': False, 'error': 'Description is required.'}), 400
+    try:
+        amount = float(data.get('amount'))
+        assert amount > 0
+    except Exception:
+        return jsonify({'ok': False, 'error': 'Invalid amount.'}), 400
+    if not paid_by or not split_among:
+        return jsonify({'ok': False, 'error': 'paidBy and splitAmong are required.'}), 400
+    expense = bill_db.update_expense(bill['id'], expense_id, desc, amount, paid_by, split_among)
+    if not expense:
+        return jsonify({'ok': False, 'error': 'Expense not found.'}), 404
+    return jsonify({'ok': True, 'expense': expense, 'bill': bill_db.get_bill(bill['id'])})
+
+
 @travel_bp.route('/plans/<plan_id>/bill/expenses/<expense_id>', methods=['DELETE'])
 @login_required
 def delete_plan_expense(plan_id, expense_id):
