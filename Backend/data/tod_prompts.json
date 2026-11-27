@@ -780,6 +780,62 @@
       "level": "adult",
       "text": "给一个人发「我请你吃饭」。",
       "timer": 45
+    },
+    {
+      "id": "normal-d-21",
+      "kind": "dare",
+      "level": "normal",
+      "text": "用最正式的语气念一句今天的聊天记录。",
+      "timer": 30
+    },
+    {
+      "id": "normal-d-22",
+      "kind": "dare",
+      "level": "normal",
+      "text": "给在场一个人起一个只属于他/她的称呼，并叫一次。",
+      "timer": 20
+    },
+    {
+      "id": "adult-d-21",
+      "kind": "dare",
+      "level": "adult",
+      "text": "给一个人发「今天想见你」。",
+      "timer": 45
+    },
+    {
+      "id": "adult-d-22",
+      "kind": "dare",
+      "level": "adult",
+      "text": "对在场一个人说一句「如果早一点遇到你就好了」。",
+      "timer": 30
+    },
+    {
+      "id": "adult-d-23",
+      "kind": "dare",
+      "level": "adult",
+      "text": "选一个人，用三个词形容他/她。",
+      "timer": 20
+    },
+    {
+      "id": "adult-d-24",
+      "kind": "dare",
+      "level": "adult",
+      "text": "给一个人发一条 10 秒语音，只说「晚安」。",
+      "timer": 30
+    },
+    {
+      "id": "adult-d-25",
+      "kind": "dare",
+      "level": "adult",
+      "text": "和左边的人交换一件随身物品，拿 10 分钟。",
+      "timer": 30
+    },
+    {
+      "id": "adult-d-26",
+      "kind": "dare",
+      "level": "adult",
+      "text": "给一个人发「你今天有点不一样」。",
+      "timer": 45
     }
   ],
   "_note": "IDs are stable keys (ratings reference them); a '-d-' suffix may now carry kind='truth' after reclassification."
