@@ -2308,3 +2308,9 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 - 新增 `POST /api/travel/plans/<id>/members`（仅创建者），把真实账号加入 `travel_plan_members` 和对应账单的 `bill_members`。
 - 行程页标题下：创建者可见「添加成员账号用户名」输入框，回车或点添加。
 - 用途：老行程名字对不上账号时，由创建者手工补齐。
+
+## 2026-11-27 成员标签：头像 + 主页 + 加好友
+- 新组件 `components/MemberChips.jsx`：每个成员显示头像与名字，点击进 `/u/<username>`；非好友且非本人时显示「加好友」，调用 `POST /api/friends/requests`；结果用 toast 反馈。
+- 账单与行程的成员payload多返回 `avatar_url`（缺省 `/avatars/fox.svg`），并按 username 去重（避免创建者重复导致 React key 冲突）。
+- BillSplit 补回了 `ExpenseForm` / `MemberChips` 的 import（之前缺失导致点开账单白屏）。
+- 验证：账单页 2 个成员标签、2 个头像、1 个加好友按钮；点击进入 `/u/horizon`；390 无横向溢出。

@@ -182,18 +182,24 @@ def bill_members(bill_id):
         if not bill:
             return []
         owner = s.execute(
-            text('select coalesce(display_name, username) from user where username = :u'),
+            text('select coalesce(display_name, username), avatar_url from user where username = :u'),
             {'u': bill.created_by}).fetchone()
         out = [{'username': bill.created_by,
                 'display_name': (owner[0] if owner else bill.created_by),
+                'avatar_url': (owner[1] if owner and len(owner) > 1 else '/avatars/fox.svg'),
                 'is_owner': True}]
         rows = s.execute(
-            text('select bm.username, coalesce(u.display_name, bm.username) '
+            text('select bm.username, coalesce(u.display_name, bm.username), u.avatar_url '
                  'from bill_members bm left join user u on u.username = bm.username '
                  'where bm.bill_id = :b order by bm.added_at'),
             {'b': bill.id}).fetchall()
-        for username, display in rows:
-            out.append({'username': username, 'display_name': display or username, 'is_owner': False})
+        seen = {out[0]['username']}
+        for username, display, avatar in rows:
+            if username in seen:
+                continue
+            seen.add(username)
+            out.append({'username': username, 'display_name': display or username,
+                        'avatar_url': avatar or '/avatars/fox.svg', 'is_owner': False})
         return out
 
 

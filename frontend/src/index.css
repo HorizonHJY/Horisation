@@ -6556,3 +6556,28 @@ button.fr-chip:hover { filter: brightness(.96); }
   height: 18px;
   background: var(--border-medium);
 }
+
+/* Access lists on bills and trips: avatar chip, profile link, quick add. */
+.member-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.member-chip {
+  display: inline-flex; align-items: center;
+  border: 1px solid var(--border-soft);
+  background: #eef2f7; border-radius: 999px; overflow: hidden;
+}
+.member-chip__main {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 0; background: transparent; padding: 3px 10px 3px 3px;
+  font-size: .72rem; color: #334155; cursor: pointer; min-height: 30px;
+}
+.member-chip__main:hover { color: var(--accent-text); }
+.member-chip__avatar {
+  width: 22px; height: 22px; border-radius: 50%;
+  object-fit: cover; background: #fff; flex-shrink: 0;
+}
+.member-chip__add {
+  border: 0; border-left: 1px solid var(--border-soft);
+  background: transparent; padding: 4px 9px;
+  color: var(--accent-text); cursor: pointer; min-height: 30px;
+}
+.member-chip__add:hover { background: var(--accent-soft); }
+.member-chip__add:disabled { opacity: .45; cursor: default; }

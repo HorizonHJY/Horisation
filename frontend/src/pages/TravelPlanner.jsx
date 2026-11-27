@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { api } from '../api'
 import Modal, { ConfirmDialog } from '../components/Modal'
 import ExpenseForm from '../components/ExpenseForm'
+import MemberChips from '../components/MemberChips'
 import { isImeEnter } from '../lib/enterSubmit'
 import {
   DndContext,
@@ -634,12 +635,7 @@ function PlanView({ plan: initPlan, onBack, showToast }) {
       )}
       <div className="d-flex flex-wrap align-items-center gap-1 mb-2">
         <span className="text-muted" style={{ fontSize: '.72rem' }}>可访问</span>
-        {(plan.members || []).map(m => (
-          <span key={m.username} className="badge"
-            style={{ background: m.is_owner ? '#dbeafe' : '#eef2f7', color: m.is_owner ? '#1d4ed8' : '#334155', fontSize: '.7rem', fontWeight: 500 }}>
-            {m.display_name}{m.is_owner ? ' · 创建者' : ''}
-          </span>
-        ))}
+        <MemberChips members={plan.members} showToast={showToast} />
       </div>
       {plan.is_owner && (
         <div className="d-flex gap-2 mb-3" style={{ maxWidth: 320 }}>

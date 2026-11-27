@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { api } from '../api'
 import { isImeEnter } from '../lib/enterSubmit'
+import ExpenseForm from '../components/ExpenseForm'
+import MemberChips from '../components/MemberChips'
 
 // ── Settlement algorithm ──────────────────────────────────────────────────────
 function calcSettlement(participants, expenses) {
@@ -90,18 +92,7 @@ function ParticipantsPanel({ bill, onRefresh }) {
       <div className="mb-3">
         <div className="text-muted small mb-1">可以访问这个账本的账号</div>
         <div className="d-flex flex-wrap gap-2">
-          {(bill.members || []).map(m => (
-            <span key={m.username}
-              className="badge d-flex align-items-center gap-1"
-              style={{
-                background: m.is_owner ? '#dbeafe' : '#eef2f7',
-                color: m.is_owner ? '#1d4ed8' : '#334155',
-                fontSize: '.78rem', padding: '5px 10px', borderRadius: 20,
-              }}>
-              <i className="fas fa-user-circle" style={{ fontSize: '.7rem' }} />
-              {m.display_name}{m.is_owner ? ' · 创建者' : ''}
-            </span>
-          ))}
+          <MemberChips members={bill.members} showToast={showToast} />
         </div>
       </div>
       <div className="d-flex gap-2 mb-3">
@@ -539,12 +530,7 @@ export default function BillSplit() {
           <span className="text-muted small">{bill.participants.length} 人 {bill.expenses.length} 笔账单</span>
           <div className="d-flex flex-wrap align-items-center gap-1 mt-1">
             <span className="text-muted" style={{ fontSize: '.72rem' }}>可访问</span>
-            {(bill.members || []).map(m => (
-              <span key={m.username} className="badge"
-                style={{ background: m.is_owner ? '#dbeafe' : '#eef2f7', color: m.is_owner ? '#1d4ed8' : '#334155', fontSize: '.7rem', fontWeight: 500 }}>
-                {m.display_name}{m.is_owner ? ' · 创建者' : ''}
-              </span>
-            ))}
+            <MemberChips members={bill.members} showToast={showToast} />
           </div>
         </div>
       </div>
