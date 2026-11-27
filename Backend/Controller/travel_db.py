@@ -185,6 +185,29 @@ def bill_id_for(plan_id):
         return plan.bill_id if plan else None
 
 
+def plan_members(plan_id):
+    """Creator plus everyone who saved this plan from a share link."""
+    from sqlalchemy import text
+    with Session() as s:
+        plan = s.get(TravelPlan, plan_id.upper())
+        if not plan:
+            return []
+        owner = s.execute(
+            text('select coalesce(display_name, username) from user where username = :u'),
+            {'u': plan.created_by}).fetchone()
+        out = [{'username': plan.created_by,
+                'display_name': (owner[0] if owner else plan.created_by),
+                'is_owner': True}]
+        rows = s.execute(
+            text('select tm.username, coalesce(u.display_name, tm.username) '
+                 'from travel_plan_members tm left join user u on u.username = tm.username '
+                 'where tm.plan_id = :p order by tm.added_at'),
+            {'p': plan.id}).fetchall()
+        for username, display in rows:
+            out.append({'username': username, 'display_name': display or username, 'is_owner': False})
+        return out
+
+
 def get_plan(plan_id):
     with Session() as s:
         plan = s.get(TravelPlan, plan_id.upper())
@@ -196,7 +219,9 @@ def get_plan(plan_id):
              .order_by(TravelEntry.day_number, TravelEntry.display_order, TravelEntry.time_start)
              .all()
         )
-        return _plan_dict(plan, entries, bill_id=plan.bill_id)
+        out = _plan_dict(plan, entries, bill_id=plan.bill_id)
+        out['members'] = plan_members(plan.id)
+        return out
 
 
 def get_my_plans(username):

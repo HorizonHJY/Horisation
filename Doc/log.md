@@ -2296,3 +2296,9 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
   - 行程：把账单成员镜像到 `travel_plan_members`（排除创建者）。
 - 注意：只做精确匹配，名字对不上账号的不会被加；需要时手工补。
 - 验证：本地清空 bill_members 后保留参与者 'ann'，重启后自动写入 ('DHD8MH','ann')。
+
+## 2026-11-27 历史行程成员：大小写匹配 + 行程页显示
+- 发现：Arkansas 账单参与者是 `Joe / Vivian / haotian / Sammy`，回填用 `=` 匹配大小写敏感，只有 Sammy 命中。
+- 修法：回填改为 `lower(username) = lower(name) OR lower(display_name) = lower(name)`；并在账单成员写入后同步镜像到 `travel_plan_members`（`INSERT OR IGNORE`）。
+- 行程页：`GET /api/travel/plans/<id>` 返回 `members`（创建者 + 已保存账号）；页面标题下常驻「可访问」标签，与账单页一致。
+- 验证：本地 DHD8MH 计划显示 horizon（创建者）+ ann；生产部署后 Arkansas 应补齐 Joe/Vivian/haotian。

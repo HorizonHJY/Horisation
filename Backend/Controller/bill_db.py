@@ -95,9 +95,18 @@ def init_bill_db():
                 INSERT OR IGNORE INTO bill_members (bill_id, username, added_at)
                 SELECT bp.bill_id, u.username, datetime('now')
                 FROM bill_participants bp
-                JOIN user u ON (u.username = bp.name OR u.display_name = bp.name)
+                JOIN user u ON (lower(u.username) = lower(bp.name) OR lower(u.display_name) = lower(bp.name))
                 JOIN bill_splits b ON b.id = bp.bill_id
                 WHERE u.username <> b.created_by
+            '''))
+            c.commit()
+            # Plans created before travel_plan_members: mirror the bill's people.
+            c.execute(text('''
+                INSERT OR IGNORE INTO travel_plan_members (plan_id, username, added_at)
+                SELECT tp.id, bm.username, datetime('now')
+                FROM travel_plans tp
+                JOIN bill_members bm ON bm.bill_id = tp.bill_id
+                WHERE bm.username <> tp.created_by
             '''))
             c.commit()
         except Exception:
