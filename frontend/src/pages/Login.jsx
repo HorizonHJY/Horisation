@@ -14,8 +14,9 @@ export default function Login() {
   // A shared link (a bill, a room, a profile) puts the destination here before
   // bouncing to login. Going back to /home throws that link away.
   const from = location.state?.from
+  const nextParam = new URLSearchParams(location.search).get('next')
   const goAfterAuth = () => {
-    const target = from ? `${from.pathname || ''}${from.search || ''}${from.hash || ''}` : ''
+    const target = nextParam || (from ? `${from.pathname || ''}${from.search || ''}${from.hash || ''}` : '')
     navigate(target || '/home', { replace: true })
   }
 

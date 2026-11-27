@@ -17,6 +17,7 @@ export default function Register() {
   // A shared link (bill, room, profile) is waiting in state.from; a plain
   // signup has none and still lands on /home.
   const from = location.state?.from
+  const nextParam = new URLSearchParams(location.search).get('next')
 
   const set = (key) => (e) => setForm(f => ({ ...f, [key]: e.target.value }))
 
@@ -36,7 +37,7 @@ export default function Register() {
       })
       if (data.ok) {
         login(data.user)
-        const target = from ? `${from.pathname || ''}${from.search || ''}${from.hash || ''}` : ''
+        const target = nextParam || (from ? `${from.pathname || ''}${from.search || ''}${from.hash || ''}` : '')
         navigate(target || '/home', { replace: true })
       } else {
         setError(data.error || 'Registration failed.')

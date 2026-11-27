@@ -2270,3 +2270,9 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 - 可访问账号：账单 payload 多返回 `members`（创建者 + 已加入账号，带 display_name 与 is_owner）；「成员」标签顶部显示「可以访问这个账本的账号」，所有成员可见。
 - 注意：Bill Split 本身仍是 VIP 及以上功能（features.js），普通用户打开链接会被 FeatureRoute 拦回首页；若要「任何登录用户凭链接加入」，需放开该功能门。
 - 验证：ann 通过 join 接口加入后 `/api/bill/my` 包含 DHD8MH；horizon 账单页可见 members=[horizon(创建者), ann]；390 无横向溢出。
+
+## 2026-11-27 分享链接在 App 内浏览器换到外部浏览器后丢失目标
+- 现象：从 Instagram 等 App 内打开分享链接，跳到登录页；选「在外部浏览器打开」后只剩 `/login`，登录后回首页。
+- 原因：目标只存在 router state（内存），换浏览器即丢失；登录页 URL 里没有目标。
+- 修法：所有跳登录的地方（PrivateRoute、PageRoute）都带上 `?next=<编码后的 pathname+search>`；Login / Register 优先读 `next`，没有才用 state.from；已登录访问登录页也按 `next` 跳。
+- 验证：`/bill-split?join=DHD8MH` → `/login?next=%2Fbill-split%3Fjoin%3DDHD8MH`；同浏览器登录后到账单；把这个登录 URL 放进全新会话（模拟外部浏览器）登录，同样落在账单。

@@ -370,7 +370,13 @@ function AuthProvider({ children }) {
 function PrivateRoute({ children }) {
   const { user } = useAuth()
   const location = useLocation()
-  if (!user) return <Navigate to="/login" state={{ from: location }} replace />
+  if (!user) {
+    // The destination rides in the URL, not only in router state: an in-app
+    // browser (Instagram, WeChat) hands the visible /login link to an
+    // external browser, and state.from does not survive that hand-off.
+    const next = encodeURIComponent(location.pathname + location.search)
+    return <Navigate to={`/login?next=${next}`} state={{ from: location }} replace />
+  }
   return children
 }
 
@@ -380,13 +386,20 @@ function PrivateRoute({ children }) {
 function PageRoute({ children }) {
   const { user, guest } = useAuth()
   const location = useLocation()
-  if (!user && !guest) return <Navigate to="/login" state={{ from: location }} replace />
+  if (!user && !guest) {
+    const next = encodeURIComponent(location.pathname + location.search)
+    return <Navigate to={`/login?next=${next}`} state={{ from: location }} replace />
+  }
   return children
 }
 
 function PublicOnlyRoute({ children }) {
   const { user } = useAuth()
-  if (user) return <Navigate to="/home" replace />
+  const location = useLocation()
+  if (user) {
+    const next = new URLSearchParams(location.search).get('next')
+    return <Navigate to={next || '/home'} replace />
+  }
   return children
 }
 
