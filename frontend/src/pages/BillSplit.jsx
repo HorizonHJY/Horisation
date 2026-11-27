@@ -527,29 +527,29 @@ export default function BillSplit() {
               {bill.name} <i className="fas fa-pen text-muted" style={{ fontSize: '.7rem', opacity: 0.4 }} />
             </h2>
           )}
-          <span className="text-muted small">{bill.participants.length} 人 {bill.expenses.length} 笔账单</span>
-          <div className="d-flex flex-wrap align-items-center gap-1 mt-1">
-            <span className="text-muted" style={{ fontSize: '.72rem' }}>可访问</span>
-            <MemberChips members={bill.members} showToast={showToast} />
-          </div>
+          <span className="text-muted small">
+            {bill.participants.length} 人 · {bill.expenses.length} 笔 · 分享码{' '}
+            <strong style={{ fontFamily: 'monospace', letterSpacing: '.1em', color: '#3b82f6' }}>{bill.id}</strong>
+            <button type="button" className="btn btn-link btn-sm p-0 ms-1 align-baseline text-decoration-none"
+              style={{ fontSize: '.72rem' }} onClick={() => copyCode(bill.id)}>
+              {copied ? '已复制' : '复制链接'}
+            </button>
+          </span>
         </div>
       </div>
 
-      {/* Share code */}
-      <div className="d-flex align-items-center gap-2 mb-4 p-2 rounded-3"
-        style={{ background: '#f1f5f9', width: 'fit-content' }}>
-        <span className="text-muted small">分享码</span>
-        <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '1rem', letterSpacing: '.12em', color: '#3b82f6' }}>
-          {bill.id}
-        </span>
-        <button className="btn btn-sm btn-outline-secondary py-0 px-2" style={{ fontSize: '.75rem' }}
-          onClick={() => copyCode(bill.id)}>
-          {copied ? <><i className="fas fa-check me-1" />已复制链接</> : <><i className="fas fa-share-alt me-1" />复制分享链接</>}
+      {/* One slim access row: avatars only, with a link to the members tab. */}
+      <div className="d-flex align-items-center gap-2 mb-3">
+        <span className="text-muted" style={{ fontSize: '.72rem' }}>可访问</span>
+        <MemberChips members={bill.members} showToast={showToast} compact />
+        <button type="button" className="btn btn-link btn-sm p-0 ms-auto text-decoration-none"
+          style={{ fontSize: '.75rem' }} onClick={() => setTab('participants')}>
+          管理
         </button>
       </div>
 
       {/* Tabs */}
-      <div className="d-flex gap-1 mb-4 p-1 rounded-3" style={{ background: '#f1f5f9' }}>
+      <div className="d-flex gap-1 mb-3 p-1 rounded-3" style={{ background: '#f1f5f9' }}>
         {tabs.map(t => (
           <button key={t.key}
             className={`btn btn-sm flex-fill ${tab === t.key ? 'btn-white shadow-sm' : ''}`}
