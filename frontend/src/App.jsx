@@ -36,6 +36,7 @@ import Mbti from './pages/Mbti'
 import About from './pages/About'
 import Pet from './pages/Pet'
 import TruthOrDare from './pages/TruthOrDare'
+import Undercover from './pages/Undercover'
 
 // ── Theme Context ────────────────────────────────────────────────
 export const ThemeContext = createContext(null)
@@ -504,6 +505,7 @@ export default function App() {
             <Route path="/admin/system"      element={<PrivateRoute><SystemManagement /></PrivateRoute>} />
             <Route path="/fun/gomoku-online" element={<PrivateRoute><FeatureRoute feature="onlineGomoku"><OnlineGomoku /></FeatureRoute></PrivateRoute>} />
             <Route path="/fun/truth-or-dare" element={<PrivateRoute><TruthOrDare /></PrivateRoute>} />
+            <Route path="/fun/undercover" element={<PrivateRoute><Undercover /></PrivateRoute>} />
             <Route path="/friends"           element={<PrivateRoute><Friends /></PrivateRoute>} />
             <Route path="/groups"            element={<PrivateRoute><Groups /></PrivateRoute>} />
             <Route path="/u/:username"       element={<PrivateRoute><UserProfile /></PrivateRoute>} />

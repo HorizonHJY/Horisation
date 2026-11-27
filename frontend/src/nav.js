@@ -26,6 +26,7 @@ import {
   Brain,
   BookUser,
   Cat,
+  VenetianMask,
 } from 'lucide-react'
 
 /* `guest` says whether a signed-out visitor can open this page. The sidebar
@@ -60,6 +61,7 @@ export const NAV_SECTIONS = [
     items: [
       { to: '/fun/gomoku-online',  icon: Globe,  label: 'Online Gomoku', feature: 'onlineGomoku' },
       { to: '/fun/truth-or-dare',  icon: Sparkles, label: 'Truth or Dare' },
+      { to: '/fun/undercover',     icon: VenetianMask, label: 'Who Is Undercover' },
     ],
   },
   {

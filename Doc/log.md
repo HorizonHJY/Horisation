@@ -2221,3 +2221,11 @@ push 完前一次的设计系统改造后，服务器跑 `bash ~/deploy.sh` 时�
 - 费用编辑：新增 `PUT /api/bill/bills/<id>/expenses/<eid>`（与新增同一套校验）与 `bill_db.update_expense`；前端每笔费用加铅笔按钮，点开复用同一张表单（预填、按钮变「保存修改」），保存后刷新结算。
 - 行程页切换改成分段控件 `.tp-switch`：行程/费用两个按钮 + 当前区块的一行说明（行程显示天数与安排数，费用显示「记一笔，自动算清谁该给谁」）+ 一条分隔线，解决两个 section 难以区分的问题。
 - 验证：API PUT 实际改过一笔费用并还原；390 下截图确认编辑表单、行程页、费用页；无横向溢出。
+
+## 2026-11-27 谁是卧底（v1：房间 + 发牌 + 揭晓）
+- 题库：`Backend/data/undercover_words.json`，80 组近义词对；GitHub 上同类仓库多无 LICENSE，未直接拷贝。
+- 表：`uc_rooms`（code / host / status / word_a / word_b / undercover）、`uc_players`（room_code + username 唯一 / role / word）。启动时 create_all。
+- 接口：`POST /api/undercover/rooms` 创建、`POST .../join` 加入、`GET .../<code>` 取状态、`POST .../start`（房主，3 人起）、`POST .../reveal`（房主）、`POST .../leave`。
+- 发牌：服务器选一对词，随机一名玩家拿卧底词；每位玩家只能看到自己的词，**不返回角色**，卧底不知道自己身份。
+- 前端：`/fun/undercover`；大厅创建/加入，房间显示 6 位码和成员，房主开始；开牌后翻自己的卡，房主可揭晓平民词/卧底词/卧底；等待与游戏阶段每 3 秒轮询。
+- 验证：horizon 建房、ann/ben 加入、start 后各自拿到词、role 不泄露、reveal 正确；390 无横向溢出，截图存 `~/.openclaw/scratch/undercover/`。
