@@ -32,6 +32,7 @@ const ENTRY_TYPES = [
   { value: 'attraction', label: '景点',   icon: 'fa-landmark',     color: '#3b82f6', bg: '#dbeafe' },
   { value: 'transport',  label: '交通',   icon: 'fa-car',          color: '#64748b', bg: '#f1f5f9' },
   { value: 'hotel',      label: '酒店',   icon: 'fa-hotel',        color: '#8b5cf6', bg: '#ede9fe' },
+  { value: 'leisure',    label: '休闲',   icon: 'fa-gamepad',      color: '#0891b2', bg: '#cffafe' },
   { value: 'other',      label: '其他',   icon: 'fa-circle',       color: '#94a3b8', bg: '#f8fafc' },
 ]
 const TYPE_MAP = Object.fromEntries(ENTRY_TYPES.map(t => [t.value, t]))
@@ -735,15 +736,12 @@ function PlanView({ plan: initPlan, onBack, showToast }) {
             <i className="fas fa-plus me-1" aria-hidden="true" />添加项目
           </button>
           {plan.num_days > 1 && (
-            <div className="tp-day-actions__danger">
-              <span className="tp-day-actions__rule" aria-hidden="true" />
-              <button
-                className="btn btn-sm btn-outline-danger tp-day-btn"
-                onClick={() => setConfirm({ kind: 'day', day: activeDay, count: dayEntries.length })}
-              >
-                <i className="fas fa-trash me-1" aria-hidden="true" />删除这一天
-              </button>
-            </div>
+            <button
+              className="btn btn-sm btn-outline-danger tp-day-btn"
+              onClick={() => setConfirm({ kind: 'day', day: activeDay, count: dayEntries.length })}
+            >
+              <i className="fas fa-trash me-1" aria-hidden="true" />删除这一天
+            </button>
           )}
         </div>
       </div>
